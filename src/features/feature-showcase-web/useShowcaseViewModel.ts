@@ -4649,13 +4649,11 @@ function backFromAppointments(): void {
   }
 
   async function ensureAnnouncementRegistrationOnHome(): Promise<void> {
-    await ensurePushRegistration()
     await refreshAnnouncementsEntryDotOnce()
     await refreshBookingsEntryDotOnce()
 
     if (isBrowser()) {
       window.setTimeout(() => {
-        void ensurePushRegistration()
         void refreshAnnouncementsEntryDotOnce()
         void refreshBookingsEntryDotOnce()
       }, 2500)
@@ -6550,7 +6548,7 @@ function backFromAppointments(): void {
 
     setIsHydrated(true)
     clearExpiredLocalTempFiles(storeId)
-    void ensurePushRegistration()
+    console.log('[NDJC_PUSH] Auto push registration is disabled. Use a user-click action to enable notifications.')
     startChatEntryPolling()
     startAnnouncementsEntryPolling()
     startBookingsEntryPolling()
