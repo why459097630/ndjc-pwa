@@ -1,0 +1,22 @@
+{
+  "template": "pwa-core-skeleton",
+  "uiPack": "ui-pack-showcase-greenpink-web",
+  "modules": [
+    "feature-showcase-web"
+  ],
+  "slots": {
+    "home": {
+      "hero": "feature-showcase-web",
+      "primary": "feature-showcase-web"
+    },
+    "detail": {
+      "detail": "feature-showcase-web"
+    }
+  },
+  "routingEntry": "home",
+  "startRoute": "home",
+  "locale": "en-US",
+  "theme": "system",
+  "density": "comfortable",
+  "storeId": "store_showcase_paid_000023"
+}

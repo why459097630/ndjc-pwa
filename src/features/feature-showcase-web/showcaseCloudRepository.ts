@@ -1,0 +1,3463 @@
+import type { DemoDish } from './showcaseModels'
+import {
+  SHOWCASE_BUCKETS,
+  SHOWCASE_EDGE_FUNCTIONS,
+  SHOWCASE_TABLES,
+  authUrl as buildShowcaseAuthUrl,
+  functionUrl as buildShowcaseFunctionUrl,
+  requestScopeHeaders,
+  resolveShowcaseSupabaseAnonKey,
+  resolveShowcaseSupabaseUrl,
+  restUrl as buildShowcaseRestUrl,
+  storageObjectUrl as buildShowcaseStorageObjectUrl,
+  storagePublicObjectUrl as buildShowcaseStoragePublicObjectUrl
+} from './showcaseCloudConfig'
+
+export type ShowcaseRepositoryHttpResult = {
+  code: number
+  body: string | null
+  headers: Headers
+}
+
+export type ShowcaseRepositoryJson =
+  | null
+  | boolean
+  | number
+  | string
+  | ShowcaseRepositoryJson[]
+  | { [key: string]: ShowcaseRepositoryJson }
+
+export type ShowcaseRepositoryRequestOptions = {
+  method?: 'GET' | 'POST' | 'PATCH' | 'DELETE' | 'PUT'
+  body?: ShowcaseRepositoryJson | string | Blob | ArrayBuffer | Uint8Array | null
+  prefer?: string | null
+  contentType?: string | null
+  authorization?: string | null
+  signal?: AbortSignal | null
+  extraHeaders?: Record<string, string | null | undefined>
+  scopeStoreId?: string | null
+  scopeClientId?: string | null
+}
+
+export type CloudCategory = {
+  id: string
+  name: string
+  sortOrder: number | null
+}
+
+export type CloudDish = {
+  id: string | null
+  nameEn: string
+  nameZh: string
+  descriptionEn: string | null
+  descriptionZh: string | null
+  categoryId: string | null
+  categoryName: string | null
+  price: number
+  discountPrice: number | null
+  recommended: boolean
+  soldOut: boolean
+  hidden: boolean
+  imageUrl: string | null
+  imageUrls: string[]
+  tags: string[]
+  externalLink: string | null
+  updatedAt: number | null
+  clickCount: number
+}
+
+export type CloudStoreProfile = {
+  storeId: string
+  title: string
+  subtitle: string
+  description: string
+  address: string
+  hours: string
+  mapUrl: string
+  extraContactsJson: string
+  servicesJson: string
+  coverUrl: string
+  logoUrl: string
+  businessStatus: string
+  updatedAt: number | null
+}
+
+export type CloudAnnouncement = {
+  id: string
+  storeId: string
+  coverUrl: string | null
+  body: string
+  status: string
+  updatedAt: number | null
+  createdAt: number | null
+  viewCount: number
+}
+
+export type CloudAppointmentSettings = {
+  storeId: string
+  enabled: boolean
+  bookingWindowDays: number
+  availableStartTime: string
+  availableEndTime: string
+  slotIntervalMinutes: number
+  closedDays: string[]
+  minimumNotice: string
+  updatedAt: number | null
+}
+
+export type CloudAppointmentRequest = {
+  id: string
+  storeId: string
+  clientId: string
+  customerName: string
+  customerContact: string
+  serviceTitle: string
+  preferredDate: string
+  preferredTime: string
+  note: string
+  sourceDishId: string | null
+  status: string
+  createdAt: number | null
+}
+
+export type MerchantAuthSession = {
+  accessToken: string
+  refreshToken: string | null
+  authUserId: string
+  loginName: string
+  expiresAt: number
+}
+
+export type MerchantSessionCallbacks = {
+  onRefreshed?: (session: MerchantAuthSession) => void
+}
+
+export type MerchantStoreMembership = {
+  storeId: string
+  authUserId: string
+  loginName: string | null
+}
+
+export type MerchantBinding = MerchantStoreMembership
+
+export type CloudStoreServiceStatus = {
+  storeId: string
+  planType: string
+  serviceStatus: string
+  serviceEndAt: string | null
+  deleteAt: string | null
+  isWriteAllowed: boolean
+}
+
+export type CategoryWriteResult = {
+  ok: boolean
+  errorMessage: string | null
+  errorCode: number
+  errorBody: string | null
+}
+
+export type PushDeviceUpsert = {
+  storeId: string
+  audience: string
+  token: string
+  conversationId?: string | null
+  clientId?: string | null
+  platform?: string
+  appVersion?: string | null
+}
+
+type PushRequestActor = 'public' | 'merchant'
+
+function normalizePushAudience(value: string | null | undefined): string {
+  const audience = String(value || '').trim().toLowerCase()
+
+  if (audience === 'merchant') return 'chat_merchant'
+  if (audience === 'customer') return 'announcement_subscriber'
+  if (audience === 'client') return 'chat_client'
+
+  if (audience === 'chat_merchant') return 'chat_merchant'
+  if (audience === 'chat_client') return 'chat_client'
+  if (audience === 'announcement_subscriber') return 'announcement_subscriber'
+
+  return audience
+}
+
+function normalizePushActor(value: string | null | undefined): PushRequestActor {
+  const actor = String(value || '').trim().toLowerCase()
+  return actor === 'merchant' ? 'merchant' : 'public'
+}
+
+export type ChatConversation = {
+  id: string
+  storeId: string
+  clientId: string | null
+  merchantAuthUserId: string | null
+  customerName: string | null
+  customerContact: string | null
+  createdAt: number | null
+  updatedAt: number | null
+}
+
+export type ChatMessage = {
+  id: string
+  storeId: string
+  conversationId: string
+  senderRole: string
+  senderId: string | null
+  body: string
+  imageUrls: string[]
+  productDishId: string | null
+  quotedMessageId: string | null
+  createdAt: number | null
+  readAt: number | null
+}
+
+export type ChatThreadSummary = {
+  conversationId: string
+  storeId: string
+  clientId: string | null
+  title: string
+  lastMessage: string
+  lastMessageAt: number | null
+  unreadCount: number
+  pinned: boolean
+}
+
+export type UploadBytesInput = {
+  storeId: string
+  clientId?: string | null
+  pathPrefix: string
+  fileName: string
+  contentType: string
+  bytes: Blob | ArrayBuffer | Uint8Array
+}
+
+export type RepositoryConfigInput = {
+  supabaseUrl?: string | null
+  supabaseAnonKey?: string | null
+  edgeFunctionBaseUrl?: string | null
+  defaultStoreId?: string | null
+  tables?: Partial<RepositoryTableNames>
+  buckets?: Partial<RepositoryBucketNames>
+  edgeFunctions?: Partial<RepositoryEdgeFunctionNames>
+}
+
+export type RepositoryTableNames = {
+  dishes: string
+  dishImages: string
+  categories: string
+  storeProfiles: string
+  pushDevices: string
+  announcements: string
+  appointmentSettings: string
+  appointmentRequests: string
+  stores: string
+  chatConversations: string
+  chatMessages: string
+  chatThreadSummariesView: string
+  merchantStoreMemberships: string
+}
+
+export type RepositoryBucketNames = {
+  dishImages: string
+  storeImages: string
+  announcementImages: string
+  chatImages: string
+}
+
+export type RepositoryEdgeFunctionNames = {
+  sendPush: string
+}
+
+export type AuthRequestKind =
+  | 'anonymous'
+  | 'merchant'
+
+const DEFAULT_TABLES: RepositoryTableNames = {
+  dishes: SHOWCASE_TABLES.dishes,
+  dishImages: SHOWCASE_TABLES.dishImages,
+  categories: SHOWCASE_TABLES.categories,
+  storeProfiles: SHOWCASE_TABLES.storeProfiles,
+  pushDevices: SHOWCASE_TABLES.pushDevices,
+  announcements: SHOWCASE_TABLES.announcements,
+  appointmentSettings: SHOWCASE_TABLES.appointmentSettings,
+  appointmentRequests: SHOWCASE_TABLES.appointmentRequests,
+  stores: SHOWCASE_TABLES.stores,
+  chatConversations: SHOWCASE_TABLES.chatConversations,
+  chatMessages: SHOWCASE_TABLES.chatMessages,
+  chatThreadSummariesView: SHOWCASE_TABLES.chatThreadSummariesView,
+  merchantStoreMemberships: SHOWCASE_TABLES.merchantStoreMemberships
+}
+
+const DEFAULT_BUCKETS: RepositoryBucketNames = {
+  dishImages: SHOWCASE_BUCKETS.dishImages,
+  storeImages: SHOWCASE_BUCKETS.storeImages,
+  announcementImages: SHOWCASE_BUCKETS.announcementImages,
+  chatImages: SHOWCASE_BUCKETS.chatImages
+}
+
+const DEFAULT_EDGE_FUNCTIONS: RepositoryEdgeFunctionNames = {
+  sendPush: SHOWCASE_EDGE_FUNCTIONS.sendPush
+}
+
+function readEnv(name: string): string {
+  const source = typeof process !== 'undefined' ? process.env : undefined
+  return source?.[name] || ''
+}
+
+function resolveSupabaseUrl(explicit?: string | null): string {
+  return resolveShowcaseSupabaseUrl(explicit)
+}
+
+function resolveSupabaseAnonKey(explicit?: string | null): string {
+  return resolveShowcaseSupabaseAnonKey(explicit)
+}
+
+function normalizeStoreId(storeId: string | null | undefined, fallback: string | null): string {
+  const value = String(storeId || '').trim()
+  if (value) return value
+
+  const defaultValue = String(fallback || '').trim()
+  if (defaultValue) return defaultValue
+
+  return 'store_showcase_trial_000001'
+}
+
+function ensureLeadingSlash(value: string): string {
+  return value.startsWith('/') ? value : `/${value}`
+}
+
+function trimSlashes(value: string): string {
+  return String(value || '').replace(/^\/+/, '').replace(/\/+$/, '')
+}
+
+function normalizePathPart(value: string): string {
+  return trimSlashes(value).split('/').map(part => encodeURIComponent(part)).join('/')
+}
+
+function appendQuery(url: string, query: string): string {
+  if (!query) return url
+  if (url.includes('?')) return `${url}&${query}`
+  return `${url}?${query}`
+}
+
+function nowMillis(): number {
+  return Date.now()
+}
+
+function nowSeconds(): number {
+  return Math.floor(Date.now() / 1000)
+}
+
+function safeParseJsonObject(text: string | null): Record<string, unknown> | null {
+  if (!text) return null
+  try {
+    const value = JSON.parse(text)
+    if (value && typeof value === 'object' && !Array.isArray(value)) {
+      return value as Record<string, unknown>
+    }
+    return null
+  } catch {
+    return null
+  }
+}
+
+function safeParseJsonArray(text: string | null): unknown[] {
+  if (!text) return []
+  try {
+    const value = JSON.parse(text)
+    return Array.isArray(value) ? value : []
+  } catch {
+    return []
+  }
+}
+
+function jsonString(value: Record<string, unknown>, key: string, fallback = ''): string {
+  const raw = value[key]
+  if (typeof raw === 'string') return raw
+  if (typeof raw === 'number') return String(raw)
+  if (typeof raw === 'boolean') return raw ? 'true' : 'false'
+  return fallback
+}
+
+function jsonNullableString(value: Record<string, unknown>, key: string): string | null {
+  const raw = value[key]
+  if (raw == null) return null
+  if (typeof raw === 'string') return raw || null
+  if (typeof raw === 'number') return String(raw)
+  if (typeof raw === 'boolean') return raw ? 'true' : 'false'
+  return null
+}
+function createUuidLikeId(): string {
+  const fallback = 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, value => {
+    const random = Math.floor(Math.random() * 16)
+    const next = value === 'x' ? random : (random & 0x3) | 0x8
+    return next.toString(16)
+  })
+
+  try {
+    const randomUUID = globalThis.crypto?.randomUUID
+    if (typeof randomUUID === 'function') {
+      return randomUUID.call(globalThis.crypto)
+    }
+  } catch {
+    return fallback
+  }
+
+  return fallback
+}
+function firstNonBlankJsonString(value: Record<string, unknown>, keys: string[]): string | null {
+  for (const key of keys) {
+    const next = jsonNullableString(value, key)
+    if (next && next.trim()) return next.trim()
+  }
+
+  return null
+}
+function jsonNumber(value: Record<string, unknown>, key: string, fallback = 0): number {
+  const raw = value[key]
+  if (typeof raw === 'number' && Number.isFinite(raw)) return raw
+  if (typeof raw === 'string') {
+    const parsed = Number(raw)
+    if (Number.isFinite(parsed)) return parsed
+  }
+  return fallback
+}
+
+function jsonNullableNumber(value: Record<string, unknown>, key: string): number | null {
+  const raw = value[key]
+  if (raw == null) return null
+  if (typeof raw === 'number' && Number.isFinite(raw)) return raw
+  if (typeof raw === 'string') {
+    const parsed = Number(raw)
+    if (Number.isFinite(parsed)) return parsed
+  }
+  return null
+}
+
+function jsonBoolean(value: Record<string, unknown>, key: string, fallback = false): boolean {
+  const raw = value[key]
+  if (typeof raw === 'boolean') return raw
+  if (typeof raw === 'number') return raw !== 0
+  if (typeof raw === 'string') {
+    const next = raw.trim().toLowerCase()
+    if (next === 'true') return true
+    if (next === 'false') return false
+    if (next === '1') return true
+    if (next === '0') return false
+  }
+  return fallback
+}
+
+function parseStringArray(value: unknown): string[] {
+  if (Array.isArray(value)) {
+    return value.map(item => String(item || '').trim()).filter(Boolean)
+  }
+
+  if (typeof value === 'string') {
+    const trimmed = value.trim()
+    if (!trimmed) return []
+
+    try {
+      const parsed = JSON.parse(trimmed)
+      if (Array.isArray(parsed)) {
+        return parsed.map(item => String(item || '').trim()).filter(Boolean)
+      }
+    } catch {
+      return trimmed
+        .split(',')
+        .map(item => item.trim())
+        .filter(Boolean)
+    }
+  }
+
+  return []
+}
+
+function parseIsoMillis(value: unknown): number | null {
+  if (typeof value === 'number' && Number.isFinite(value)) return value
+
+  if (typeof value === 'string') {
+    const trimmed = value.trim()
+    if (!trimmed) return null
+
+    const numeric = Number(trimmed)
+    if (Number.isFinite(numeric) && trimmed.length <= 13) {
+      return numeric
+    }
+
+    const parsed = Date.parse(trimmed)
+    if (Number.isFinite(parsed)) return parsed
+  }
+
+  return null
+}
+
+function formatIsoUtcMillis(value: number | null | undefined): string | null {
+  if (value == null || !Number.isFinite(value)) return null
+  return new Date(value).toISOString()
+}
+
+function buildRawArrayBody(items: Record<string, unknown>[]): string {
+  return JSON.stringify(items)
+}
+
+function isRawArrayPayload(value: ShowcaseRepositoryJson | string | Blob | ArrayBuffer | Uint8Array | null | undefined): value is Record<string, ShowcaseRepositoryJson> {
+  if (!value || typeof value !== 'object' || value instanceof Blob || value instanceof ArrayBuffer || value instanceof Uint8Array) {
+    return false
+  }
+
+  return !Array.isArray(value) && Object.prototype.hasOwnProperty.call(value, '__raw_array__')
+}
+
+function stringifyRequestBody(value: ShowcaseRepositoryJson | string | Blob | ArrayBuffer | Uint8Array | null | undefined): BodyInit | undefined {
+  if (value == null) return undefined
+
+  if (typeof value === 'string') return value
+  if (value instanceof Blob) return value
+  if (value instanceof ArrayBuffer) return value
+
+  if (value instanceof Uint8Array) {
+    const copy = new Uint8Array(value.byteLength)
+    copy.set(value)
+    return new Blob([copy.buffer as ArrayBuffer])
+  }
+
+  if (isRawArrayPayload(value)) {
+    const raw = value.__raw_array__
+
+    if (typeof raw === 'string') {
+      return raw
+    }
+
+    return JSON.stringify(raw)
+  }
+
+  return JSON.stringify(value)
+}
+
+function buildCategoryWriteErrorMessage(actionLabel: string, code: number, body: string | null): string {
+  const text = String(body || '').trim()
+
+  if (code === 0) {
+    return `${actionLabel} failed. Merchant session missing or network error.`
+  }
+
+  if (code === 401) {
+    return `${actionLabel} failed. Merchant session expired. Please sign in again.`
+  }
+
+  if (code === 403) {
+    return `${actionLabel} failed. Permission denied for current store.`
+  }
+
+  if (
+    text.toLowerCase().includes('row-level security') ||
+    text.toLowerCase().includes('permission denied') ||
+    text.toLowerCase().includes('violates row-level security policy')
+  ) {
+    return `${actionLabel} failed. Store permission check was rejected by cloud policy.`
+  }
+
+  if (text.toLowerCase().includes('jwt') && text.toLowerCase().includes('expired')) {
+    return `${actionLabel} failed. Merchant session expired. Please sign in again.`
+  }
+
+  return `${actionLabel} failed. Cloud code=${code}.`
+}
+
+function decodeJwtPayload(token: string): Record<string, unknown> | null {
+  const parts = String(token || '').split('.')
+  if (parts.length < 2) return null
+
+  const payload = parts[1]
+    .replace(/-/g, '+')
+    .replace(/_/g, '/')
+    .padEnd(Math.ceil(parts[1].length / 4) * 4, '=')
+
+  try {
+    if (typeof window === 'undefined') {
+      return null
+    }
+
+    const decoded = window.atob(payload)
+    const parsed = JSON.parse(decoded)
+    return parsed && typeof parsed === 'object' ? parsed as Record<string, unknown> : null
+  } catch {
+    return null
+  }
+}
+
+function isJwtExpiredByPayload(token: string, skewMillis = 30_000): boolean {
+  const payload = decodeJwtPayload(token)
+  if (!payload) return false
+
+  const exp = jsonNullableNumber(payload, 'exp')
+  if (exp == null) return false
+
+  const expiresAt = exp * 1000
+  return expiresAt <= nowMillis() + skewMillis
+}
+
+function tokenExpiresAt(token: string): number {
+  const payload = decodeJwtPayload(token)
+  if (!payload) return nowSeconds() + 60 * 60
+
+  const exp = jsonNullableNumber(payload, 'exp')
+  if (exp == null) return nowSeconds() + 60 * 60
+
+  return Math.trunc(exp)
+}
+
+export class ShowcaseCloudRepository {
+  private readonly supabaseUrl: string
+  private readonly supabaseAnonKey: string
+  private readonly edgeFunctionBaseUrl: string
+  private readonly defaultStoreId: string | null
+  private readonly tables: RepositoryTableNames
+  private readonly buckets: RepositoryBucketNames
+  private readonly edgeFunctions: RepositoryEdgeFunctionNames
+
+  private merchantSession: MerchantAuthSession | null = null
+  private merchantSessionCallbacks: MerchantSessionCallbacks = {}
+  private merchantRefreshPromise: Promise<boolean> | null = null
+
+  lastUpsertCode: number | null = null
+  lastUpsertBody: string | null = null
+
+  lastAnnouncementUpsertCode: number | null = null
+  lastAnnouncementUpsertBody: string | null = null
+
+  lastAnnouncementPushCode: number | null = null
+  lastAnnouncementPushBody: string | null = null
+
+  lastMerchantAuthCode: number | null = null
+  lastMerchantAuthBody: string | null = null
+
+  lastDeleteCode: number | null = null
+  lastDeleteBody: string | null = null
+
+  lastDishImageUploadCode: number | null = null
+  lastDishImageUploadBody: string | null = null
+
+  lastStoreImageUploadCode: number | null = null
+  lastStoreImageUploadBody: string | null = null
+
+  constructor(config: RepositoryConfigInput = {}) {
+    this.supabaseUrl = resolveSupabaseUrl(config.supabaseUrl)
+    this.supabaseAnonKey = resolveSupabaseAnonKey(config.supabaseAnonKey)
+    this.edgeFunctionBaseUrl = (config.edgeFunctionBaseUrl || this.supabaseUrl).replace(/\/+$/, '')
+    this.defaultStoreId = config.defaultStoreId || null
+
+    this.tables = {
+      ...DEFAULT_TABLES,
+      ...(config.tables || {})
+    }
+
+    this.buckets = {
+      ...DEFAULT_BUCKETS,
+      ...(config.buckets || {})
+    }
+
+    this.edgeFunctions = {
+      ...DEFAULT_EDGE_FUNCTIONS,
+      ...(config.edgeFunctions || {})
+    }
+  }
+
+  get currentMerchantSession(): MerchantAuthSession | null {
+    return this.merchantSession
+  }
+
+  setMerchantSession(session: MerchantAuthSession | null): void {
+    this.merchantSession = session
+  }
+
+  setMerchantSessionCallbacks(callbacks: MerchantSessionCallbacks): void {
+    this.merchantSessionCallbacks = callbacks
+  }
+
+  clearMerchantSession(): void {
+    this.merchantSession = null
+  }
+
+  async refreshCurrentMerchantSessionForManager(session: MerchantAuthSession): Promise<MerchantAuthSession | null> {
+    this.setMerchantSession(session)
+
+    const ok = await this.refreshMerchantSessionIfNeeded(true)
+    if (!ok) return null
+
+    return this.currentMerchantSession
+  }
+
+  private requireApiKey(): string {
+    return this.supabaseAnonKey || ''
+  }
+
+  private requireStoreId(storeId: string | null | undefined): string {
+    return normalizeStoreId(storeId, this.defaultStoreId)
+  }
+
+  private shouldAttachScopeHeaders(url: string): boolean {
+    const text = String(url || '')
+    return (
+      text.includes('/rest/v1/') ||
+      text.includes('/storage/v1/') ||
+      text.includes('/functions/v1/')
+    )
+  }
+
+  private buildScopeHeaders(
+    storeIdInput?: string | null,
+    clientIdInput?: string | null
+  ): Record<string, string> {
+    return requestScopeHeaders(
+      this.requireStoreId(storeIdInput || this.defaultStoreId),
+      clientIdInput || null
+    )
+  }
+
+  private dishesTable(): string {
+    return this.tables.dishes || 'dishes'
+  }
+
+  private dishImagesTable(): string {
+    return this.tables.dishImages || 'dish_images'
+  }
+
+  private categoriesTable(): string {
+    return this.tables.categories || 'categories'
+  }
+
+  private storeProfileTable(): string {
+    return 'store_profiles'
+  }
+
+  private pushDevicesTable(): string {
+    return this.tables.pushDevices || 'push_devices'
+  }
+
+  private announcementsTable(): string {
+    return this.tables.announcements || 'announcements'
+  }
+
+  private appointmentSettingsTable(): string {
+    return this.tables.appointmentSettings || 'appointment_settings'
+  }
+
+  private appointmentRequestsTable(): string {
+    return this.tables.appointmentRequests || 'appointment_requests'
+  }
+
+  private storesTable(): string {
+    return this.tables.stores || 'stores'
+  }
+
+  private chatConversationsTable(): string {
+    return this.tables.chatConversations || 'chat_conversations'
+  }
+
+  private chatMessagesTable(): string {
+    return this.tables.chatMessages || 'chat_messages'
+  }
+
+  private chatThreadSummariesView(): string {
+    return this.tables.chatThreadSummariesView || 'chat_thread_summaries'
+  }
+
+  private merchantStoreMembershipsTable(): string {
+    return this.tables.merchantStoreMemberships || 'merchant_store_memberships'
+  }
+
+  private dishImagesBucket(): string {
+    return this.buckets.dishImages || 'dish-images'
+  }
+
+  private storeImagesBucket(): string {
+    return this.buckets.storeImages || 'store-images'
+  }
+
+  private announcementImagesBucket(): string {
+    return this.buckets.announcementImages || 'announcement-images'
+  }
+
+  private chatImagesBucket(): string {
+    return this.buckets.chatImages || 'chat-images'
+  }
+
+  private restUrl(path: string): string {
+    return buildShowcaseRestUrl(this.supabaseUrl, path)
+  }
+
+  private authUrl(path: string): string {
+    return buildShowcaseAuthUrl(this.supabaseUrl, path)
+  }
+
+  private storageObjectUrl(bucket: string, path: string): string {
+    return buildShowcaseStorageObjectUrl(this.supabaseUrl, bucket, path)
+  }
+
+  private storagePublicUrl(bucket: string, path: string): string {
+    return buildShowcaseStoragePublicObjectUrl(this.supabaseUrl, bucket, path)
+  }
+
+  private functionUrl(name: string): string {
+    return buildShowcaseFunctionUrl(this.edgeFunctionBaseUrl, name)
+  }
+
+  private urlEncode(value: string): string {
+    return encodeURIComponent(value)
+  }
+
+  private encodeEq(value: string): string {
+    return encodeURIComponent(`eq.${value}`)
+  }
+
+  private encodeIlike(value: string): string {
+    return encodeURIComponent(`*${value}*`)
+  }
+
+  private buildHeaders(options: {
+    authorization?: string | null
+    prefer?: string | null
+    contentType?: string | null
+    scopeHeaders?: Record<string, string | null | undefined>
+    extraHeaders?: Record<string, string | null | undefined>
+  } = {}): Headers {
+    const headers = new Headers()
+
+    const apiKey = this.requireApiKey()
+    if (apiKey) {
+      headers.set('apikey', apiKey)
+      headers.set('Authorization', options.authorization || `Bearer ${apiKey}`)
+    } else if (options.authorization) {
+      headers.set('Authorization', options.authorization)
+    }
+
+    if (options.prefer) {
+      headers.set('Prefer', options.prefer)
+    }
+
+    if (options.contentType !== null) {
+      headers.set('Content-Type', options.contentType || 'application/json')
+    }
+
+    Object.entries(options.scopeHeaders || {}).forEach(([key, value]) => {
+      if (value == null) return
+      headers.set(key, value)
+    })
+
+    Object.entries(options.extraHeaders || {}).forEach(([key, value]) => {
+      if (value == null) return
+      headers.set(key, value)
+    })
+
+    return headers
+  }
+
+  private async openConnection(url: string, options: ShowcaseRepositoryRequestOptions = {}): Promise<Response> {
+    const method = options.method || 'GET'
+    const contentType = options.contentType === undefined ? 'application/json' : options.contentType
+    const body = stringifyRequestBody(options.body)
+
+    const scopeHeaders = this.shouldAttachScopeHeaders(url)
+      ? this.buildScopeHeaders(options.scopeStoreId || this.defaultStoreId, options.scopeClientId || null)
+      : {}
+
+    return fetch(url, {
+      method,
+      headers: this.buildHeaders({
+        authorization: options.authorization,
+        prefer: options.prefer,
+        contentType: body == null ? null : contentType,
+        scopeHeaders,
+        extraHeaders: options.extraHeaders
+      }),
+      body,
+      signal: options.signal || undefined
+    })
+  }
+
+  private async readResponseBody(response: Response): Promise<string | null> {
+    try {
+      return await response.text()
+    } catch {
+      return null
+    }
+  }
+
+  private async request(url: string, options: ShowcaseRepositoryRequestOptions = {}): Promise<ShowcaseRepositoryHttpResult> {
+    try {
+      const response = await this.openConnection(url, options)
+      const text = await this.readResponseBody(response)
+
+      return {
+        code: response.status,
+        body: text,
+        headers: response.headers
+      }
+    } catch (error) {
+      return {
+        code: 0,
+        body: error instanceof Error ? error.message : String(error || 'Network error'),
+        headers: new Headers()
+      }
+    }
+  }
+
+  private async httpGet(
+    url: string,
+    scopeStoreId?: string | null,
+    scopeClientId?: string | null
+  ): Promise<[number, string | null]> {
+    const result = await this.request(url, {
+      method: 'GET',
+      scopeStoreId,
+      scopeClientId
+    })
+    return [result.code, result.body]
+  }
+
+  private async httpPost(
+    url: string,
+    body: ShowcaseRepositoryJson | string,
+    prefer: string | null = 'return=representation',
+    scopeStoreId?: string | null,
+    scopeClientId?: string | null
+  ): Promise<[number, string | null]> {
+    const result = await this.request(url, {
+      method: 'POST',
+      body,
+      prefer,
+      scopeStoreId,
+      scopeClientId
+    })
+    return [result.code, result.body]
+  }
+
+  private async httpPatch(
+    url: string,
+    body: ShowcaseRepositoryJson | string,
+    prefer: string | null = 'return=representation',
+    scopeStoreId?: string | null,
+    scopeClientId?: string | null
+  ): Promise<[number, string | null]> {
+    const result = await this.request(url, {
+      method: 'PATCH',
+      body,
+      prefer,
+      scopeStoreId,
+      scopeClientId
+    })
+    return [result.code, result.body]
+  }
+
+  private async httpDelete(
+    url: string,
+    scopeStoreId?: string | null,
+    scopeClientId?: string | null
+  ): Promise<[number, string | null]> {
+    const result = await this.request(url, {
+      method: 'DELETE',
+      prefer: 'return=minimal',
+      scopeStoreId,
+      scopeClientId
+    })
+    return [result.code, result.body]
+  }
+
+  private async httpPutBytes(
+    url: string,
+    bytes: Blob | ArrayBuffer | Uint8Array,
+    contentType: string,
+    authorization: string | null = null,
+    scopeStoreId?: string | null,
+    scopeClientId?: string | null
+  ): Promise<[number, string | null]> {
+    const result = await this.request(url, {
+      method: 'PUT',
+      body: bytes,
+      contentType,
+      authorization,
+      scopeStoreId,
+      scopeClientId,
+      extraHeaders: {
+        'x-upsert': 'true'
+      }
+    })
+    return [result.code, result.body]
+  }
+
+  private async httpAuthPutBytes(
+    url: string,
+    bytes: Blob | ArrayBuffer | Uint8Array,
+    contentType: string,
+    scopeStoreId?: string | null,
+    scopeClientId?: string | null
+  ): Promise<[number, string | null]> {
+    const session = this.merchantSession
+
+    if (!session?.accessToken) {
+      return [0, 'Merchant session missing']
+    }
+
+    await this.refreshMerchantSessionIfNeeded(false)
+
+    const activeSession = this.merchantSession
+
+    if (!activeSession?.accessToken) {
+      return [0, 'Merchant session missing']
+    }
+
+    const first = await this.request(url, {
+      method: 'PUT',
+      body: bytes,
+      contentType,
+      authorization: `Bearer ${activeSession.accessToken}`,
+      scopeStoreId,
+      scopeClientId,
+      extraHeaders: {
+        'x-upsert': 'true'
+      }
+    })
+
+    if (!this.shouldRetryWithMerchantRefresh(first.code, first.body)) {
+      return [first.code, first.body]
+    }
+
+    const refreshed = await this.refreshMerchantSessionIfNeeded(true)
+
+    if (!refreshed || !this.merchantSession?.accessToken) {
+      return [first.code, first.body]
+    }
+
+    const second = await this.request(url, {
+      method: 'PUT',
+      body: bytes,
+      contentType,
+      authorization: `Bearer ${this.merchantSession.accessToken}`,
+      scopeStoreId,
+      scopeClientId,
+      extraHeaders: {
+        'x-upsert': 'true'
+      }
+    })
+
+    return [second.code, second.body]
+  }
+
+  private async openAuthConnection(
+    path: string,
+    body: ShowcaseRepositoryJson,
+    authorization: string | null = null
+  ): Promise<[number, string | null]> {
+    const result = await this.request(this.authUrl(path), {
+      method: 'POST',
+      body,
+      authorization,
+      extraHeaders: {
+        'X-Client-Info': 'ndjc-pwa-showcase'
+      }
+    })
+
+    return [result.code, result.body]
+  }
+
+  private isJwtExpiredBody(code: number | null | undefined, body: string | null | undefined): boolean {
+    const c = code || 0
+    const text = String(body || '').trim().toLowerCase()
+
+    if (c === 401 || c === 403) return true
+
+    return (
+      text.includes('jwt expired') ||
+      text.includes('"exp" claim timestamp check failed') ||
+      text.includes('unauthorized') ||
+      text.includes('invalid jwt') ||
+      text.includes('jwt') && text.includes('expired')
+    )
+  }
+
+  isMerchantAuthExpired(code: number | null | undefined, body: string | null | undefined): boolean {
+    return this.isJwtExpiredBody(code, body)
+  }
+
+  private shouldRetryWithMerchantRefresh(code: number, body: string | null): boolean {
+    if (!this.merchantSession?.refreshToken) return false
+    if (this.isJwtExpiredBody(code, body)) return true
+
+    const accessToken = this.merchantSession.accessToken
+    return Boolean(accessToken && isJwtExpiredByPayload(accessToken))
+  }
+
+  private async refreshMerchantSessionIfNeeded(force = false): Promise<boolean> {
+    const session = this.merchantSession
+    if (!session?.refreshToken) return false
+
+    if (!force && session.accessToken && !isJwtExpiredByPayload(session.accessToken) && session.expiresAt > nowSeconds() + 120) {
+      return true
+    }
+
+    if (this.merchantRefreshPromise) {
+      return this.merchantRefreshPromise
+    }
+
+    this.merchantRefreshPromise = this.refreshMerchantSessionLocked(session)
+
+    try {
+      return await this.merchantRefreshPromise
+    } finally {
+      this.merchantRefreshPromise = null
+    }
+  }
+
+  private async refreshMerchantSessionLocked(session: MerchantAuthSession): Promise<boolean> {
+    const [code, body] = await this.openAuthConnection(
+      '/token?grant_type=refresh_token',
+      {
+        refresh_token: session.refreshToken
+      },
+      `Bearer ${this.supabaseAnonKey}`
+    )
+
+    this.lastMerchantAuthCode = code
+    this.lastMerchantAuthBody = body
+
+    if (code < 200 || code > 299 || !body) {
+      return false
+    }
+
+    const parsed = safeParseJsonObject(body)
+    if (!parsed) {
+      return false
+    }
+
+    const accessToken = jsonString(parsed, 'access_token')
+    const refreshToken = jsonNullableString(parsed, 'refresh_token') || session.refreshToken
+    const user = parsed.user && typeof parsed.user === 'object' ? parsed.user as Record<string, unknown> : null
+    const authUserId = user ? jsonString(user, 'id', session.authUserId) : session.authUserId
+
+    if (!accessToken || !authUserId) {
+      return false
+    }
+
+    const nextSession: MerchantAuthSession = {
+      accessToken,
+      refreshToken,
+      authUserId,
+      loginName: session.loginName,
+      expiresAt: tokenExpiresAt(accessToken)
+    }
+
+    this.merchantSession = nextSession
+    this.merchantSessionCallbacks.onRefreshed?.(nextSession)
+
+    return true
+  }
+
+  private async httpAuthRequest(
+    url: string,
+    method: 'GET' | 'POST' | 'PATCH' | 'DELETE',
+    body: ShowcaseRepositoryJson | string | null = null,
+    prefer: string | null = method === 'GET' ? null : 'return=representation',
+    scopeStoreId?: string | null,
+    scopeClientId?: string | null
+  ): Promise<[number, string | null]> {
+    const session = this.merchantSession
+
+    if (!session?.accessToken) {
+      return [0, 'Merchant session missing']
+    }
+
+    await this.refreshMerchantSessionIfNeeded(false)
+
+    const activeSession = this.merchantSession
+    if (!activeSession?.accessToken) {
+      return [0, 'Merchant session missing']
+    }
+
+    const first = await this.request(url, {
+      method,
+      body,
+      prefer,
+      authorization: `Bearer ${activeSession.accessToken}`,
+      scopeStoreId,
+      scopeClientId
+    })
+
+    if (!this.shouldRetryWithMerchantRefresh(first.code, first.body)) {
+      return [first.code, first.body]
+    }
+
+    const refreshed = await this.refreshMerchantSessionIfNeeded(true)
+    if (!refreshed || !this.merchantSession?.accessToken) {
+      return [first.code, first.body]
+    }
+
+    const second = await this.request(url, {
+      method,
+      body,
+      prefer,
+      authorization: `Bearer ${this.merchantSession.accessToken}`,
+      scopeStoreId,
+      scopeClientId
+    })
+
+    return [second.code, second.body]
+  }
+
+  private async httpAuthGet(
+    url: string,
+    scopeStoreId?: string | null,
+    scopeClientId?: string | null
+  ): Promise<[number, string | null]> {
+    return this.httpAuthRequest(url, 'GET', null, null, scopeStoreId, scopeClientId)
+  }
+
+  private async httpAuthPost(
+    url: string,
+    body: ShowcaseRepositoryJson | string,
+    prefer: string | null = 'return=representation',
+    scopeStoreId?: string | null,
+    scopeClientId?: string | null
+  ): Promise<[number, string | null]> {
+    return this.httpAuthRequest(url, 'POST', body, prefer, scopeStoreId, scopeClientId)
+  }
+
+  private async httpAuthPatch(
+    url: string,
+    body: ShowcaseRepositoryJson | string,
+    prefer: string | null = 'return=representation',
+    scopeStoreId?: string | null,
+    scopeClientId?: string | null
+  ): Promise<[number, string | null]> {
+    return this.httpAuthRequest(url, 'PATCH', body, prefer, scopeStoreId, scopeClientId)
+  }
+
+  private async httpAuthDelete(
+    url: string,
+    scopeStoreId?: string | null,
+    scopeClientId?: string | null
+  ): Promise<[number, string | null]> {
+    return this.httpAuthRequest(url, 'DELETE', null, 'return=minimal', scopeStoreId, scopeClientId)
+  }
+
+  private async executeOnce<T>(
+    label: string,
+    block: () => Promise<T>,
+    fallback: T
+  ): Promise<T> {
+    try {
+      return await block()
+    } catch (error) {
+      console.warn(`[ShowcaseCloudRepository] ${label} failed`, error)
+      return fallback
+    }
+  }
+
+  private parseObjectArray(body: string | null): Record<string, unknown>[] {
+    const arr = safeParseJsonArray(body)
+    return arr.filter(item => item && typeof item === 'object' && !Array.isArray(item)) as Record<string, unknown>[]
+  }
+
+  private parseFirstObject(body: string | null): Record<string, unknown> | null {
+    const arr = this.parseObjectArray(body)
+    return arr[0] || safeParseJsonObject(body)
+  }
+
+  private buildSelectUrl(table: string, query: string): string {
+    return this.restUrl(`${table}?${query}`)
+  }
+
+  private buildStorageUploadPath(input: UploadBytesInput): string {
+    const safeStoreId = normalizePathPart(this.requireStoreId(input.storeId))
+    const safePrefix = normalizePathPart(input.pathPrefix || 'uploads')
+    const cleanFileName = normalizePathPart(input.fileName || `${createUuidLikeId()}.bin`)
+    return `${safeStoreId}/${safePrefix}/${cleanFileName}`
+  }
+
+  private buildChatStorageUploadPath(input: UploadBytesInput): string {
+    const safeStoreId = normalizePathPart(this.requireStoreId(input.storeId))
+    const safeClientId = normalizePathPart(input.clientId || input.pathPrefix || 'client')
+    const cleanFileName = normalizePathPart(input.fileName || `${createUuidLikeId()}.bin`)
+    return `${safeStoreId}/${safeClientId}/${cleanFileName}`
+  }
+
+  private buildStoragePublicObjectUrl(bucket: string, path: string): string {
+    return this.storagePublicUrl(bucket, path)
+  }
+
+  private formatIsoUtcMillis(value: number | null | undefined): string | null {
+    return formatIsoUtcMillis(value)
+  }
+
+  private parseIsoMillis(value: unknown): number | null {
+    return parseIsoMillis(value)
+  }
+
+  private parseStringArray(value: unknown): string[] {
+    return parseStringArray(value)
+  }
+
+  private buildCategoryWriteErrorMessage(actionLabel: string, code: number, body: string | null): string {
+    return buildCategoryWriteErrorMessage(actionLabel, code, body)
+  }
+
+  private parseCategory(raw: Record<string, unknown>): CloudCategory {
+    const nameZh = jsonNullableString(raw, 'name_zh')
+    const nameEn = jsonNullableString(raw, 'name_en')
+    const legacyName = jsonNullableString(raw, 'name')
+    const name = firstNonBlankJsonString(
+      {
+        nameZh,
+        nameEn,
+        legacyName
+      },
+      ['nameZh', 'nameEn', 'legacyName']
+    )
+
+    return {
+      id: jsonString(raw, 'id'),
+      name: name || '',
+      sortOrder: jsonNullableNumber(raw, 'sort_order')
+    }
+  }
+
+  private parseDish(raw: Record<string, unknown>, images: string[] = []): CloudDish {
+    const id = jsonNullableString(raw, 'id')
+    const nameEn = jsonString(raw, 'name_en', jsonString(raw, 'title', ''))
+    const nameZh = jsonString(raw, 'name_zh', nameEn)
+    const originalPrice = jsonNumber(raw, 'original_price', jsonNumber(raw, 'price', 0))
+    const imageUrl = jsonNullableString(raw, 'image_url')
+    const imageUrlsFromJson = parseStringArray(raw.image_urls)
+    const mergedImages = [
+      ...images,
+      ...imageUrlsFromJson,
+      ...(imageUrl ? [imageUrl] : [])
+    ]
+      .map(item => String(item || '').trim())
+      .filter(Boolean)
+
+    return {
+      id,
+      nameEn,
+      nameZh,
+      descriptionEn: jsonNullableString(raw, 'description_en') || jsonNullableString(raw, 'description'),
+      descriptionZh: jsonNullableString(raw, 'description_zh'),
+      categoryId: jsonNullableString(raw, 'category_id'),
+      categoryName: firstNonBlankJsonString(raw, [
+        'category_name',
+        'category',
+        'category_text',
+        'category_label'
+      ]),
+      price: originalPrice,
+      discountPrice: jsonNullableNumber(raw, 'discount_price'),
+      recommended: jsonBoolean(raw, 'recommended', jsonBoolean(raw, 'is_recommended', false)),
+      soldOut: jsonBoolean(raw, 'sold_out', jsonBoolean(raw, 'is_sold_out', false)),
+      hidden: jsonBoolean(raw, 'hidden', jsonBoolean(raw, 'is_hidden', false)),
+      imageUrl: mergedImages[0] || null,
+      imageUrls: Array.from(new Set(mergedImages)),
+      tags: parseStringArray(raw.tags),
+      externalLink: jsonNullableString(raw, 'external_link'),
+      updatedAt: this.parseIsoMillis(raw.updated_at),
+      clickCount: jsonNumber(raw, 'click_count', 0)
+    }
+  }
+
+  private cloudDishToDemoDish(dish: CloudDish, categoriesById: Map<string, CloudCategory> = new Map()): DemoDish {
+    const categoryFromId = dish.categoryId ? categoriesById.get(dish.categoryId)?.name || null : null
+    const category = firstNonBlankJsonString(
+      {
+        categoryFromId,
+        categoryName: dish.categoryName
+      },
+      ['categoryFromId', 'categoryName']
+    )
+
+    return {
+      id: dish.id || `dish_${Date.now()}`,
+      title: dish.nameEn || dish.nameZh || 'Untitled item',
+      nameZh: dish.nameZh || dish.nameEn || 'Untitled item',
+      nameEn: dish.nameEn || dish.nameZh || 'Untitled item',
+      descriptionEn: dish.descriptionEn || '',
+      category,
+      originalPrice: dish.price,
+      discountPrice: dish.discountPrice,
+      isRecommended: dish.recommended,
+      isSoldOut: dish.soldOut,
+      isHidden: dish.hidden,
+      imageUrls: dish.imageUrls,
+      tags: dish.tags,
+      clickCount: dish.clickCount,
+      updatedAt: dish.updatedAt || Date.now(),
+      syncState: 'Synced',
+      isFavorite: false
+    }
+  }
+
+  private demoDishToCloudPayload(storeId: string, dish: DemoDish, categoryId: string | null): Record<string, ShowcaseRepositoryJson> {
+    return {
+      id: dish.id,
+      store_id: storeId,
+      name_en: dish.nameEn || dish.title || '',
+      name_zh: dish.nameZh || dish.nameEn || dish.title || '',
+      description_en: dish.descriptionEn || '',
+      description_zh: '',
+      category_id: categoryId,
+      price: Number(dish.originalPrice || 0),
+      discount_price: dish.discountPrice == null ? null : Number(dish.discountPrice || 0),
+      recommended: Boolean(dish.isRecommended),
+      sold_out: Boolean(dish.isSoldOut),
+      hidden: Boolean(dish.isHidden),
+      tags: dish.tags || [],
+      click_count: Number(dish.clickCount || 0),
+      updated_at: Number(dish.updatedAt || Date.now())
+    }
+  }
+
+  private parseStoreProfile(raw: Record<string, unknown>, storeIdFallback: string): CloudStoreProfile {
+    return {
+      storeId: jsonString(raw, 'store_id', storeIdFallback),
+      title: jsonString(raw, 'title', jsonString(raw, 'display_name', 'Showcase Store')),
+      subtitle: jsonString(raw, 'subtitle', jsonString(raw, 'tagline', '')),
+      description: jsonString(raw, 'description'),
+      address: jsonString(raw, 'address'),
+      hours: jsonString(raw, 'hours', jsonString(raw, 'business_hours', '')),
+      mapUrl: jsonString(raw, 'map_url'),
+      extraContactsJson: typeof raw.extra_contacts_json === 'string'
+        ? raw.extra_contacts_json
+        : JSON.stringify(raw.extra_contacts || []),
+      servicesJson: typeof raw.services_json === 'string'
+        ? raw.services_json
+        : JSON.stringify(raw.services || []),
+      coverUrl: jsonString(raw, 'cover_url'),
+      logoUrl: jsonString(raw, 'logo_url'),
+      businessStatus: jsonString(raw, 'business_status'),
+      updatedAt: this.parseIsoMillis(raw.updated_at)
+    }
+  }
+
+  private storeProfilePayload(profile: CloudStoreProfile): Record<string, ShowcaseRepositoryJson> {
+    return {
+      store_id: profile.storeId,
+      title: profile.title,
+      subtitle: profile.subtitle,
+      description: profile.description,
+      address: profile.address,
+      hours: profile.hours,
+      map_url: profile.mapUrl,
+      extra_contacts_json: profile.extraContactsJson || '[]',
+      services_json: profile.servicesJson || '[]',
+      cover_url: profile.coverUrl,
+      logo_url: profile.logoUrl,
+      business_status: profile.businessStatus,
+      updated_at: new Date().toISOString()
+    }
+  }
+
+  async fetchCategories(storeIdInput?: string | null): Promise<CloudCategory[]> {
+    const storeId = this.requireStoreId(storeIdInput)
+    const query = [
+      'select=id,store_id,name_zh,name_en,sort_order',
+      `store_id=${this.encodeEq(storeId)}`,
+      'order=sort_order.asc.nullslast,name_zh.asc.nullslast,name_en.asc.nullslast'
+    ].join('&')
+
+    const url = this.buildSelectUrl(this.categoriesTable(), query)
+
+    return this.executeOnce('fetchCategories', async () => {
+      const [code, body] = await this.httpGet(url, storeId)
+      if (code < 200 || code > 299) return []
+      return this.parseObjectArray(body)
+        .map(item => this.parseCategory(item))
+        .filter(item => item.id && item.name.trim())
+    }, [])
+  }
+
+  async fetchCategoryMap(storeIdInput?: string | null): Promise<Map<string, CloudCategory>> {
+    const categories = await this.fetchCategories(storeIdInput)
+    return new Map(categories.map(item => [item.id, item]))
+  }
+  async fetchDishImagesByDishIds(
+    storeIdInput: string | null | undefined,
+    dishIds: string[]
+  ): Promise<Map<string, string[]>> {
+    const storeId = this.requireStoreId(storeIdInput)
+    const ids = dishIds
+      .map(id => String(id || '').trim())
+      .filter(Boolean)
+
+    if (!ids.length) return new Map()
+
+    const inValue = `in.(${ids.map(id => `"${id.replace(/"/g, '\\"')}"`).join(',')})`
+    const query = [
+      'select=dish_id,image_url,sort_order',
+      `store_id=${this.encodeEq(storeId)}`,
+      `dish_id=${encodeURIComponent(inValue)}`,
+      'order=sort_order.asc'
+    ].join('&')
+
+    const url = this.buildSelectUrl(this.dishImagesTable(), query)
+
+    return this.executeOnce('fetchDishImagesByDishIds', async () => {
+      const [code, body] = await this.httpGet(url, storeId)
+      const result = new Map<string, string[]>()
+
+      if (code < 200 || code > 299) return result
+
+      this.parseObjectArray(body).forEach(row => {
+        const dishId = jsonString(row, 'dish_id')
+        const imageUrl = jsonString(row, 'image_url')
+        if (!dishId || !imageUrl) return
+
+        const current = result.get(dishId) || []
+        current.push(imageUrl)
+        result.set(dishId, current)
+      })
+
+      return result
+    }, new Map())
+  }
+
+  async enrichDishesWithImages(storeIdInput: string | null | undefined, dishes: CloudDish[]): Promise<CloudDish[]> {
+    const storeId = this.requireStoreId(storeIdInput)
+    const ids = dishes
+      .map(item => String(item.id || '').trim())
+      .filter(Boolean)
+
+    if (!ids.length) return dishes
+
+    const imagesByDishId = await this.fetchDishImagesByDishIds(storeId, ids)
+
+    return dishes.map(item => {
+      const dishId = String(item.id || '').trim()
+      const images = dishId ? imagesByDishId.get(dishId) || [] : []
+      const mergedImages = Array.from(new Set([
+        ...images,
+        ...item.imageUrls,
+        ...(item.imageUrl ? [item.imageUrl] : [])
+      ].map(url => String(url || '').trim()).filter(Boolean)))
+
+      return {
+        ...item,
+        imageUrl: mergedImages[0] || null,
+        imageUrls: mergedImages
+      }
+    })
+  }
+
+  private async parseDishesArray(
+    storeIdInput: string | null | undefined,
+    body: string | null,
+    categoriesById: Map<string, CloudCategory>
+  ): Promise<DemoDish[]> {
+    const storeId = this.requireStoreId(storeIdInput)
+    const rows = this.parseObjectArray(body)
+    const dishIds = rows
+      .map(row => jsonNullableString(row, 'id'))
+      .filter((id): id is string => Boolean(id))
+
+    const imagesByDishId = await this.fetchDishImagesByDishIds(storeId, dishIds)
+
+    return rows.map(row => {
+      const dishId = jsonNullableString(row, 'id')
+      const images = dishId ? imagesByDishId.get(dishId) || [] : []
+      return this.cloudDishToDemoDish(this.parseDish(row, images), categoriesById)
+    })
+  }
+
+  async fetchDishes(storeIdInput?: string | null): Promise<DemoDish[]> {
+    const storeId = this.requireStoreId(storeIdInput)
+    const categoriesById = await this.fetchCategoryMap(storeId)
+    const query = [
+      'select=*',
+      `store_id=${this.encodeEq(storeId)}`,
+      'order=updated_at.desc.nullslast,name_en.asc'
+    ].join('&')
+
+    const url = this.buildSelectUrl(this.dishesTable(), query)
+
+    return this.executeOnce('fetchDishes', async () => {
+      const [code, body] = await this.httpGet(url, storeId)
+      if (code < 200 || code > 299) return []
+      return this.parseDishesArray(storeId, body, categoriesById)
+    }, [])
+  }
+
+  async fetchDishesPaged(input: {
+    storeId?: string | null
+    limit?: number
+    offset?: number
+  } = {}): Promise<DemoDish[]> {
+    const storeId = this.requireStoreId(input.storeId)
+    const limit = Math.max(1, Math.min(Number(input.limit || 50), 200))
+    const offset = Math.max(0, Number(input.offset || 0))
+    const categoriesById = await this.fetchCategoryMap(storeId)
+
+    const query = [
+      'select=*',
+      `store_id=${this.encodeEq(storeId)}`,
+      'order=updated_at.desc.nullslast,name_en.asc',
+      `limit=${limit}`,
+      `offset=${offset}`
+    ].join('&')
+
+    const url = this.buildSelectUrl(this.dishesTable(), query)
+
+    return this.executeOnce('fetchDishesPaged', async () => {
+      const [code, body] = await this.httpGet(url, storeId)
+      if (code < 200 || code > 299) return []
+      return this.parseDishesArray(storeId, body, categoriesById)
+    }, [])
+  }
+
+  async searchDishes(input: {
+    storeId?: string | null
+    query: string
+    limit?: number
+  }): Promise<DemoDish[]> {
+    const storeId = this.requireStoreId(input.storeId)
+    const search = String(input.query || '').trim()
+    if (!search) return this.fetchDishesPaged({ storeId, limit: input.limit || 50 })
+
+    const categoriesById = await this.fetchCategoryMap(storeId)
+    const limit = Math.max(1, Math.min(Number(input.limit || 50), 200))
+
+    const orQuery = [
+      `name_en.ilike.*${search}*`,
+      `name_zh.ilike.*${search}*`,
+      `description_en.ilike.*${search}*`
+    ].join(',')
+
+    const query = [
+      'select=*',
+      `store_id=${this.encodeEq(storeId)}`,
+      `or=(${encodeURIComponent(orQuery)})`,
+      'order=updated_at.desc.nullslast',
+      `limit=${limit}`
+    ].join('&')
+
+    const url = this.buildSelectUrl(this.dishesTable(), query)
+
+    return this.executeOnce('searchDishes', async () => {
+      const [code, body] = await this.httpGet(url, storeId)
+      if (code < 200 || code > 299) return []
+      return this.parseDishesArray(storeId, body, categoriesById)
+    }, [])
+  }
+
+  async getCategoryIdByName(storeIdInput: string | null | undefined, nameInput: string): Promise<string | null> {
+    const name = String(nameInput || '').trim()
+    if (!name) return null
+
+    const lowerName = name.toLowerCase()
+    const categories = await this.fetchCategories(storeIdInput)
+    return categories.find(item => item.name.trim().toLowerCase() === lowerName)?.id || null
+  }
+
+  async hasAnyDishReferencingCategoryId(storeIdInput: string | null | undefined, categoryIdInput: string): Promise<boolean> {
+    const storeId = this.requireStoreId(storeIdInput)
+    const categoryId = String(categoryIdInput || '').trim()
+    if (!categoryId) return false
+
+    const query = [
+      'select=id',
+      `store_id=${this.encodeEq(storeId)}`,
+      `category_id=${this.encodeEq(categoryId)}`,
+      'limit=1'
+    ].join('&')
+
+    const url = this.buildSelectUrl(this.dishesTable(), query)
+
+    return this.executeOnce('hasAnyDishReferencingCategoryId', async () => {
+      const [code, body] = await this.httpGet(url, storeId)
+      if (code < 200 || code > 299) return false
+      return this.parseObjectArray(body).length > 0
+    }, false)
+  }
+
+  async ensureCategoryExists(storeIdInput: string | null | undefined, nameInput: string): Promise<CategoryWriteResult> {
+    const storeId = this.requireStoreId(storeIdInput)
+    const name = String(nameInput || '').trim()
+
+    if (!name) {
+      return {
+        ok: false,
+        errorMessage: 'Add category failed. Category name is blank.',
+        errorCode: 0,
+        errorBody: null
+      }
+    }
+
+    const existingId = await this.getCategoryIdByName(storeId, name)
+    if (existingId) {
+      return {
+        ok: true,
+        errorMessage: null,
+        errorCode: 200,
+        errorBody: null
+      }
+    }
+
+    const categories = await this.fetchCategories(storeId)
+    const payload: Record<string, ShowcaseRepositoryJson> = {
+      id: createUuidLikeId(),
+      store_id: storeId,
+      name,
+      name_zh: name,
+      name_en: name,
+      sort_order: categories.length + 1
+    }
+
+    const url = this.restUrl(this.categoriesTable())
+    const [code, body] = await this.httpAuthPost(url, payload, 'return=representation', storeId)
+    const ok = code >= 200 && code <= 299
+
+    return {
+      ok,
+      errorMessage: ok ? null : this.buildCategoryWriteErrorMessage('Add category', code, body),
+      errorCode: code,
+      errorBody: body
+    }
+  }
+  async resolveOrCreateCategoryId(storeIdInput: string | null | undefined, categoryNameInput: string | null | undefined): Promise<string | null> {
+    const storeId = this.requireStoreId(storeIdInput)
+    const categoryName = String(categoryNameInput || '').trim()
+    if (!categoryName) return null
+
+    const lowerCategoryName = categoryName.toLowerCase()
+    const existing = await this.fetchCategories(storeId)
+    const matched = existing.find(item => item.name.trim().toLowerCase() === lowerCategoryName)
+    if (matched) return matched.id
+
+    const payload: Record<string, ShowcaseRepositoryJson> = {
+      id: createUuidLikeId(),
+      store_id: storeId,
+      name: categoryName,
+      name_zh: categoryName,
+      name_en: categoryName,
+      sort_order: existing.length + 1
+    }
+
+    const url = this.restUrl(`${this.categoriesTable()}?select=id,store_id,name_zh,name_en,sort_order`)
+    const [code, body] = await this.httpAuthPost(url, payload, 'return=representation', storeId)
+
+    if (code < 200 || code > 299) {
+      this.lastUpsertCode = code
+      this.lastUpsertBody = body
+      return null
+    }
+
+    const row = this.parseFirstObject(body)
+    if (!row) return null
+
+    return jsonString(row, 'id') || null
+  }
+
+  async replaceDishImages(input: {
+    storeId: string
+    dishId: string
+    imageUrls: string[]
+  }): Promise<boolean> {
+    const storeId = this.requireStoreId(input.storeId)
+    const dishId = String(input.dishId || '').trim()
+    if (!dishId) return false
+
+    const deleteUrl = this.restUrl(`${this.dishImagesTable()}?dish_id=${this.encodeEq(dishId)}`)
+    const [deleteCode, deleteBody] = await this.httpAuthDelete(deleteUrl)
+
+    if (deleteCode < 200 || deleteCode > 299) {
+      this.lastDeleteCode = deleteCode
+      this.lastDeleteBody = deleteBody
+      return false
+    }
+
+    const rows = input.imageUrls
+      .map(url => String(url || '').trim())
+      .filter(Boolean)
+      .map((url, index) => ({
+        dish_id: dishId,
+        store_id: storeId,
+        image_url: url,
+        sort_order: index + 1
+      }))
+
+    if (!rows.length) return true
+
+    const insertUrl = this.restUrl(this.dishImagesTable())
+    const [insertCode, insertBody] = await this.httpAuthPost(insertUrl, rows as unknown as ShowcaseRepositoryJson, 'return=minimal', storeId)
+
+    this.lastDishImageUploadCode = insertCode
+    this.lastDishImageUploadBody = insertBody
+
+    return insertCode >= 200 && insertCode <= 299
+  }
+
+  async deleteDishImageByUrl(imageUrlInput: string): Promise<boolean> {
+    const imageUrl = String(imageUrlInput || '').trim()
+    if (!imageUrl) return false
+
+    const marker = '/storage/v1/object/'
+    const publicMarker = '/storage/v1/object/public/'
+    let objectPart = ''
+
+    if (imageUrl.includes(publicMarker)) {
+      objectPart = imageUrl.slice(imageUrl.indexOf(publicMarker) + publicMarker.length)
+    } else if (imageUrl.includes(marker)) {
+      objectPart = imageUrl.slice(imageUrl.indexOf(marker) + marker.length)
+    }
+
+    if (!objectPart) return false
+
+    const parts = objectPart.split('/').filter(Boolean)
+    const bucket = parts.shift()
+    const objectPath = parts.join('/')
+
+    if (!bucket || !objectPath) return false
+
+    const url = this.storageObjectUrl(decodeURIComponent(bucket), decodeURIComponent(objectPath))
+    const [code, body] = await this.httpDelete(url)
+
+    this.lastDeleteCode = code
+    this.lastDeleteBody = body
+
+    return code >= 200 && code <= 299
+  }
+
+  async upsertDishFromDemo(storeIdInput: string | null | undefined, dish: DemoDish): Promise<boolean> {
+    const storeId = this.requireStoreId(storeIdInput)
+    const categoryId = await this.resolveOrCreateCategoryId(storeId, dish.category || null)
+    const payload = this.demoDishToCloudPayload(storeId, dish, categoryId)
+    const url = this.restUrl(this.dishesTable())
+
+    const [code, body] = await this.httpAuthPost(url, payload, 'resolution=merge-duplicates,return=representation', storeId)
+
+    this.lastUpsertCode = code
+    this.lastUpsertBody = body
+
+    if (code < 200 || code > 299) return false
+
+    const okImages = await this.replaceDishImages({
+      storeId,
+      dishId: dish.id,
+      imageUrls: dish.imageUrls || []
+    })
+
+    return okImages
+  }
+
+  async upsertDishSchemeA(input: {
+    storeId?: string | null
+    dishId?: string | null
+    nameEn: string
+    nameZh?: string | null
+    descriptionEn?: string | null
+    descriptionZh?: string | null
+    categoryName?: string | null
+    originalPrice: number
+    discountPrice?: number | null
+    isRecommended?: boolean
+    isSoldOut?: boolean
+    isHidden?: boolean
+    imageUrls?: string[]
+    tags?: string[]
+    externalLink?: string | null
+  }): Promise<string | null> {
+    const storeId = this.requireStoreId(input.storeId)
+    const dishId = String(input.dishId || '').trim() || createUuidLikeId()
+    const categoryId = await this.resolveOrCreateCategoryId(storeId, input.categoryName || null)
+
+    const payload: Record<string, ShowcaseRepositoryJson> = {
+      id: dishId,
+      store_id: storeId,
+      name_en: input.nameEn || '',
+      name_zh: input.nameZh || input.nameEn || '',
+      description_en: input.descriptionEn || '',
+      description_zh: input.descriptionZh || '',
+      category_id: categoryId,
+      price: Number(input.originalPrice || 0),
+      discount_price: input.discountPrice == null ? null : Number(input.discountPrice || 0),
+      recommended: Boolean(input.isRecommended),
+      sold_out: Boolean(input.isSoldOut),
+      hidden: Boolean(input.isHidden),
+      tags: input.tags || [],
+      external_link: input.externalLink || null,
+      updated_at: Date.now()
+    }
+
+    const url = this.restUrl(this.dishesTable())
+    const [code, body] = await this.httpAuthPost(url, payload, 'resolution=merge-duplicates,return=representation', storeId)
+
+    this.lastUpsertCode = code
+    this.lastUpsertBody = body
+
+    if (code < 200 || code > 299) return null
+
+    await this.replaceDishImages({
+      storeId,
+      dishId,
+      imageUrls: input.imageUrls || []
+    })
+
+    return dishId
+  }
+
+  async deleteDishById(dishIdInput: string): Promise<boolean> {
+    const dishId = String(dishIdInput || '').trim()
+    if (!dishId) return false
+
+    const imageDeleteUrl = this.restUrl(`${this.dishImagesTable()}?dish_id=${this.encodeEq(dishId)}`)
+    await this.httpAuthDelete(imageDeleteUrl)
+
+    const dishDeleteUrl = this.restUrl(`${this.dishesTable()}?id=${this.encodeEq(dishId)}`)
+    const [code, body] = await this.httpAuthDelete(dishDeleteUrl)
+
+    this.lastDeleteCode = code
+    this.lastDeleteBody = body
+
+    return code >= 200 && code <= 299
+  }
+
+  async deleteCategoryByName(storeIdInput: string | null | undefined, categoryNameInput: string): Promise<CategoryWriteResult> {
+    const storeId = this.requireStoreId(storeIdInput)
+    const categoryName = String(categoryNameInput || '').trim()
+
+    if (!categoryName) {
+      return {
+        ok: false,
+        errorMessage: 'Category name is required.',
+        errorCode: 0,
+        errorBody: null
+      }
+    }
+
+    const categoryId = await this.getCategoryIdByName(storeId, categoryName)
+
+    if (!categoryId) {
+      return {
+        ok: true,
+        errorMessage: null,
+        errorCode: 200,
+        errorBody: null
+      }
+    }
+
+    const url = this.restUrl(
+      `${this.categoriesTable()}?store_id=${this.encodeEq(storeId)}&id=${this.encodeEq(categoryId)}`
+    )
+
+    const [code, body] = await this.httpAuthDelete(url)
+
+    const ok = code >= 200 && code <= 299
+
+    return {
+      ok,
+      errorMessage: ok ? null : this.buildCategoryWriteErrorMessage('Delete category', code, body),
+      errorCode: code,
+      errorBody: body
+    }
+  }
+
+  async renameCategoryById(input: {
+    categoryId: string
+    newName: string
+  }): Promise<CategoryWriteResult> {
+    const categoryId = String(input.categoryId || '').trim()
+    const newName = String(input.newName || '').trim()
+
+    if (!categoryId || !newName) {
+      return {
+        ok: false,
+        errorMessage: 'Category id and name are required.',
+        errorCode: 0,
+        errorBody: null
+      }
+    }
+
+    const url = this.restUrl(`${this.categoriesTable()}?id=${this.encodeEq(categoryId)}`)
+    const [code, body] = await this.httpAuthPatch(url, {
+      name_zh: newName,
+      name_en: newName
+    }, 'return=representation')
+
+    const ok = code >= 200 && code <= 299
+
+    return {
+      ok,
+      errorMessage: ok ? null : this.buildCategoryWriteErrorMessage('Rename category', code, body),
+      errorCode: code,
+      errorBody: body
+    }
+  }
+
+  async setCategorySortOrder(input: {
+    categoryId: string
+    sortOrder: number
+  }): Promise<CategoryWriteResult> {
+    const categoryId = String(input.categoryId || '').trim()
+    const sortOrder = Number(input.sortOrder || 0)
+
+    if (!categoryId || !Number.isFinite(sortOrder)) {
+      return {
+        ok: false,
+        errorMessage: 'Category id and sort order are required.',
+        errorCode: 0,
+        errorBody: null
+      }
+    }
+
+    const url = this.restUrl(`${this.categoriesTable()}?id=${this.encodeEq(categoryId)}`)
+    const [code, body] = await this.httpAuthPatch(url, {
+      sort_order: sortOrder
+    }, 'return=representation')
+
+    const ok = code >= 200 && code <= 299
+
+    return {
+      ok,
+      errorMessage: ok ? null : this.buildCategoryWriteErrorMessage('Update category order', code, body),
+      errorCode: code,
+      errorBody: body
+    }
+  }
+
+  async uploadDishImageBytes(input: UploadBytesInput): Promise<string | null> {
+    const path = this.buildStorageUploadPath(input)
+    const bucket = this.dishImagesBucket()
+    const url = this.storageObjectUrl(bucket, path)
+
+    const [code, body] = await this.httpAuthPutBytes(
+      url,
+      input.bytes,
+      input.contentType,
+      input.storeId
+    )
+
+    this.lastDishImageUploadCode = code
+    this.lastDishImageUploadBody = body
+
+    if (code < 200 || code > 299) return null
+
+    return this.buildStoragePublicObjectUrl(bucket, path)
+  }
+
+  async uploadStoreImageBytes(input: UploadBytesInput): Promise<string | null> {
+    const path = this.buildStorageUploadPath(input)
+    const bucket = this.storeImagesBucket()
+    const url = this.storageObjectUrl(bucket, path)
+
+    const [code, body] = await this.httpAuthPutBytes(
+      url,
+      input.bytes,
+      input.contentType,
+      input.storeId
+    )
+
+    this.lastStoreImageUploadCode = code
+    this.lastStoreImageUploadBody = body
+
+    if (code < 200 || code > 299) return null
+
+    return this.buildStoragePublicObjectUrl(bucket, path)
+  }
+
+  async fetchStoreProfile(storeIdInput?: string | null): Promise<CloudStoreProfile | null> {
+    const storeId = this.requireStoreId(storeIdInput)
+    const query = [
+      'select=*',
+      `store_id=${this.encodeEq(storeId)}`,
+      'limit=1'
+    ].join('&')
+
+    const url = this.buildSelectUrl(this.storeProfileTable(), query)
+
+    return this.executeOnce('fetchStoreProfile', async () => {
+      const [code, body] = await this.httpGet(url, storeId)
+      if (code < 200 || code > 299) return null
+
+      const row = this.parseFirstObject(body)
+      if (!row) return null
+
+      return this.parseStoreProfile(row, storeId)
+    }, null)
+  }
+
+  async upsertStoreProfile(profileInput: CloudStoreProfile): Promise<boolean> {
+    const storeId = this.requireStoreId(profileInput.storeId)
+    const profile: CloudStoreProfile = {
+      ...profileInput,
+      storeId
+    }
+
+    const table = this.storeProfileTable()
+    const payload = this.storeProfilePayload(profile)
+
+    const checkQuery = [
+      'select=store_id',
+      `store_id=${this.encodeEq(storeId)}`,
+      'limit=1'
+    ].join('&')
+
+    const checkUrl = this.buildSelectUrl(table, checkQuery)
+    const [checkCode, checkBody] = await this.httpAuthGet(checkUrl, storeId)
+
+    const exists = checkCode >= 200 &&
+      checkCode <= 299 &&
+      this.parseObjectArray(checkBody).length > 0
+
+    let code = 0
+    let body: string | null = null
+
+    if (exists) {
+      const patchUrl = this.restUrl(`${table}?store_id=${this.encodeEq(storeId)}`)
+      const result = await this.httpAuthPatch(
+        patchUrl,
+        payload,
+        'return=representation',
+        storeId
+      )
+
+      code = result[0]
+      body = result[1]
+    } else {
+      const postUrl = this.restUrl(table)
+      const result = await this.httpAuthPost(
+        postUrl,
+        payload,
+        'return=representation',
+        storeId
+      )
+
+      code = result[0]
+      body = result[1]
+
+      if (
+        code === 409 ||
+        body?.includes('duplicate key value violates unique constraint') ||
+        body?.includes('uq_store_profiles_store_id')
+      ) {
+        const patchUrl = this.restUrl(`${table}?store_id=${this.encodeEq(storeId)}`)
+        const retryResult = await this.httpAuthPatch(
+          patchUrl,
+          payload,
+          'return=representation',
+          storeId
+        )
+
+        code = retryResult[0]
+        body = retryResult[1]
+      }
+    }
+
+    this.lastUpsertCode = code
+    this.lastUpsertBody = body
+
+    return code >= 200 && code <= 299
+  }
+  private parseAppointmentSettings(raw: Record<string, unknown>, storeIdFallback: string): CloudAppointmentSettings {
+    return {
+      storeId: jsonString(raw, 'store_id', storeIdFallback),
+      enabled: jsonBoolean(raw, 'enabled', true),
+      bookingWindowDays: jsonNumber(raw, 'booking_window_days', 7),
+      availableStartTime: jsonString(raw, 'available_start_time', '09:00'),
+      availableEndTime: jsonString(raw, 'available_end_time', '18:00'),
+      slotIntervalMinutes: jsonNumber(raw, 'slot_interval_minutes', 30),
+      closedDays: this.parseStringArray(raw.closed_days),
+      minimumNotice: jsonString(raw, 'minimum_notice', 'No notice'),
+      updatedAt: this.parseIsoMillis(raw.updated_at)
+    }
+  }
+
+  private appointmentSettingsPayload(settings: CloudAppointmentSettings): Record<string, ShowcaseRepositoryJson> {
+    return {
+      store_id: settings.storeId,
+      enabled: settings.enabled,
+      booking_window_days: settings.bookingWindowDays,
+      available_start_time: settings.availableStartTime,
+      available_end_time: settings.availableEndTime,
+      slot_interval_minutes: settings.slotIntervalMinutes,
+      closed_days: settings.closedDays,
+      minimum_notice: settings.minimumNotice,
+      updated_at: new Date().toISOString()
+    }
+  }
+
+  private parseAppointmentRequest(raw: Record<string, unknown>, storeIdFallback: string): CloudAppointmentRequest {
+    return {
+      id: jsonString(raw, 'id'),
+      storeId: jsonString(raw, 'store_id', storeIdFallback),
+      clientId: jsonString(raw, 'client_id'),
+      customerName: jsonString(raw, 'customer_name'),
+      customerContact: jsonString(raw, 'customer_contact'),
+      serviceTitle: jsonString(raw, 'service_title'),
+      preferredDate: jsonString(raw, 'preferred_date'),
+      preferredTime: jsonString(raw, 'preferred_time'),
+      note: jsonString(raw, 'note'),
+      sourceDishId: jsonNullableString(raw, 'source_dish_id'),
+      status: jsonString(raw, 'status', 'Pending'),
+      createdAt: this.parseIsoMillis(raw.created_at)
+    }
+  }
+
+  private appointmentRequestPayload(input: {
+    storeId: string
+    clientId: string
+    customerName: string
+    customerContact: string
+    serviceTitle: string
+    preferredDate: string
+    preferredTime: string
+    note?: string | null
+    sourceDishId?: string | null
+    status?: string | null
+  }): Record<string, ShowcaseRepositoryJson> {
+    return {
+      store_id: input.storeId,
+      client_id: String(input.clientId || '').trim(),
+      customer_name: String(input.customerName || ''),
+      customer_contact: String(input.customerContact || ''),
+      service_title: String(input.serviceTitle || ''),
+      preferred_date: String(input.preferredDate || ''),
+      preferred_time: String(input.preferredTime || ''),
+      note: String(input.note || ''),
+      source_dish_id: input.sourceDishId ? String(input.sourceDishId) : null,
+      status: String(input.status || 'pending').trim().toLowerCase()
+    }
+  }
+
+  async fetchAppointmentSettings(storeIdInput?: string | null): Promise<CloudAppointmentSettings | null> {
+    const storeId = this.requireStoreId(storeIdInput)
+    const query = [
+      'select=*',
+      `store_id=${this.encodeEq(storeId)}`,
+      'limit=1'
+    ].join('&')
+
+    const url = this.buildSelectUrl(this.appointmentSettingsTable(), query)
+
+    return this.executeOnce('fetchAppointmentSettings', async () => {
+      const [code, body] = await this.httpGet(url, storeId)
+      if (code < 200 || code > 299) return null
+
+      const row = this.parseFirstObject(body)
+      if (!row) return null
+
+      return this.parseAppointmentSettings(row, storeId)
+    }, null)
+  }
+
+  async upsertAppointmentSettings(settingsInput: CloudAppointmentSettings): Promise<boolean> {
+    const storeId = this.requireStoreId(settingsInput.storeId)
+    const settings: CloudAppointmentSettings = {
+      ...settingsInput,
+      storeId
+    }
+
+    const url = this.restUrl(this.appointmentSettingsTable())
+    const [code, body] = await this.httpAuthPost(
+      url,
+      this.appointmentSettingsPayload(settings),
+      'resolution=merge-duplicates,return=representation',
+      storeId
+    )
+
+    this.lastUpsertCode = code
+    this.lastUpsertBody = body
+
+    return code >= 200 && code <= 299
+  }
+
+  async submitAppointmentRequest(input: {
+    storeId?: string | null
+    clientId: string
+    customerName: string
+    customerContact: string
+    serviceTitle: string
+    preferredDate: string
+    preferredTime: string
+    note?: string | null
+    sourceDishId?: string | null
+  }): Promise<CloudAppointmentRequest | null> {
+    const storeId = this.requireStoreId(input.storeId)
+    const clientId = String(input.clientId || '').trim()
+
+    if (!clientId) return null
+
+    const payload = this.appointmentRequestPayload({
+      storeId,
+      clientId,
+      customerName: input.customerName,
+      customerContact: input.customerContact,
+      serviceTitle: input.serviceTitle,
+      preferredDate: input.preferredDate,
+      preferredTime: input.preferredTime,
+      note: input.note || '',
+      sourceDishId: input.sourceDishId || null,
+      status: 'pending'
+    })
+
+    const url = this.restUrl(this.appointmentRequestsTable())
+    const [code, body] = await this.httpPost(
+      url,
+      payload,
+      'return=representation',
+      storeId,
+      clientId
+    )
+
+    this.lastUpsertCode = code
+    this.lastUpsertBody = body
+
+    if (code < 200 || code > 299) return null
+
+    const row = this.parseFirstObject(body)
+    if (!row) return null
+
+    return this.parseAppointmentRequest(row, storeId)
+  }
+
+  async fetchAppointmentRequests(input: {
+    storeId?: string | null
+    clientId?: string | null
+    status?: string | null
+    merchant?: boolean
+  } = {}): Promise<CloudAppointmentRequest[]> {
+    const storeId = this.requireStoreId(input.storeId)
+    const clientId = String(input.clientId || '').trim()
+    const status = String(input.status || '').trim()
+    const merchant = Boolean(input.merchant)
+
+    const query = [
+      'select=id,store_id,client_id,customer_name,customer_contact,service_title,preferred_date,preferred_time,note,source_dish_id,status,created_at',
+      `store_id=${this.encodeEq(storeId)}`,
+      clientId ? `client_id=${this.encodeEq(clientId)}` : '',
+      status ? `status=${this.encodeEq(status)}` : '',
+      'order=created_at.desc'
+    ].filter(Boolean).join('&')
+
+    const url = this.buildSelectUrl(this.appointmentRequestsTable(), query)
+
+    return this.executeOnce(merchant ? 'fetchAppointmentRequestsForMerchant' : 'fetchAppointmentRequestsForClient', async () => {
+      const [code, body] = merchant
+        ? await this.httpAuthGet(url, storeId)
+        : await this.httpGet(url, storeId, clientId || null)
+
+      if (code < 200 || code > 299) return []
+
+      return this.parseObjectArray(body).map(row => this.parseAppointmentRequest(row, storeId))
+    }, [])
+  }
+
+  async fetchAppointmentRequestsForMerchant(storeIdInput?: string | null): Promise<CloudAppointmentRequest[]> {
+    return this.fetchAppointmentRequests({
+      storeId: storeIdInput,
+      merchant: true
+    })
+  }
+
+  async fetchAppointmentRequestsForClient(
+    storeIdInput: string | null | undefined,
+    clientIdInput: string
+  ): Promise<CloudAppointmentRequest[]> {
+    const clientId = String(clientIdInput || '').trim()
+    if (!clientId) return []
+
+    return this.fetchAppointmentRequests({
+      storeId: storeIdInput,
+      clientId,
+      merchant: false
+    })
+  }
+
+async updateAppointmentStatus(input: {
+  storeId?: string | null
+  appointmentId: string
+  status: string
+}): Promise<boolean> {
+  const storeId = this.requireStoreId(input.storeId)
+  const appointmentId = String(input.appointmentId || '').trim()
+  const status = String(input.status || '').trim().toLowerCase()
+
+  if (!appointmentId || !status) return false
+
+  const query = [
+    `id=${this.encodeEq(appointmentId)}`,
+    `store_id=${this.encodeEq(storeId)}`
+  ].join('&')
+
+  const url = this.restUrl(`${this.appointmentRequestsTable()}?${query}`)
+  const [code, body] = await this.httpAuthPatch(url, {
+    status
+  }, 'return=representation')
+
+  this.lastUpsertCode = code
+  this.lastUpsertBody = body
+
+  return code >= 200 && code <= 299
+}
+
+  private parseAnnouncement(raw: Record<string, unknown>, storeIdFallback: string): CloudAnnouncement {
+    return {
+      id: jsonString(raw, 'id'),
+      storeId: jsonString(raw, 'store_id', storeIdFallback),
+      coverUrl: jsonNullableString(raw, 'cover_url'),
+      body: jsonString(raw, 'body'),
+      status: jsonString(raw, 'status', 'draft'),
+      updatedAt: this.parseIsoMillis(raw.updated_at),
+      createdAt: this.parseIsoMillis(raw.created_at),
+      viewCount: jsonNumber(raw, 'view_count', 0)
+    }
+  }
+
+  private announcementPayload(input: {
+    id?: string | null
+    storeId: string
+    coverUrl?: string | null
+    body: string
+    status: string
+    updatedAt?: number | null
+    viewCount?: number | null
+  }): Record<string, ShowcaseRepositoryJson> {
+    const payload: Record<string, ShowcaseRepositoryJson> = {
+      store_id: input.storeId,
+      cover_url: input.coverUrl || null,
+      body: input.body,
+      status: input.status,
+      view_count: Number(input.viewCount || 0),
+      updated_at: formatIsoUtcMillis(input.updatedAt) || new Date().toISOString()
+    }
+
+    if (input.id) {
+      payload.id = input.id
+    }
+
+    return payload
+  }
+
+  async fetchAnnouncements(input: {
+    storeId?: string | null
+    includeDrafts?: boolean
+    limit?: number
+  } = {}): Promise<CloudAnnouncement[]> {
+    const storeId = this.requireStoreId(input.storeId)
+    const limit = Math.max(1, Math.min(Number(input.limit || 100), 300))
+
+    const query = [
+      'select=id,store_id,cover_url,body,status,updated_at,created_at,view_count',
+      `store_id=${this.encodeEq(storeId)}`,
+      input.includeDrafts ? '' : `status=${encodeURIComponent('eq.published')}`,
+      'order=updated_at.desc',
+      `limit=${limit}`
+    ].filter(Boolean).join('&')
+
+    const url = this.buildSelectUrl(this.announcementsTable(), query)
+
+    return this.executeOnce('fetchAnnouncements', async () => {
+      const [code, body] = input.includeDrafts
+        ? await this.httpAuthGet(url, storeId)
+        : await this.httpGet(url, storeId)
+
+      if (code < 200 || code > 299) return []
+
+      return this.parseObjectArray(body).map(row => this.parseAnnouncement(row, storeId))
+    }, [])
+  }
+
+  async upsertAnnouncement(input: {
+    id?: string | null
+    storeId?: string | null
+    coverUrl?: string | null
+    body: string
+    status: string
+    updatedAt?: number | null
+    viewCount?: number | null
+  }): Promise<CloudAnnouncement | null> {
+    const storeId = this.requireStoreId(input.storeId)
+    const payload = this.announcementPayload({
+      id: input.id || null,
+      storeId,
+      coverUrl: input.coverUrl || null,
+      body: input.body,
+      status: input.status,
+      updatedAt: input.updatedAt || null,
+      viewCount: input.viewCount || 0
+    })
+
+    const rows = [payload]
+    const rawPayload: Record<string, ShowcaseRepositoryJson> = {
+      __raw_array__: JSON.stringify(rows)
+    }
+
+    const url = this.restUrl(`${this.announcementsTable()}?on_conflict=id&select=*`)
+    const [code, body] = await this.httpAuthPost(
+      url,
+      rawPayload,
+      'resolution=merge-duplicates,return=representation',
+      storeId
+    )
+
+    this.lastAnnouncementUpsertCode = code
+    this.lastAnnouncementUpsertBody = body
+
+    if (code < 200 || code > 299) return null
+
+    const row = this.parseFirstObject(body)
+    if (!row) return null
+
+    return this.parseAnnouncement(row, storeId)
+  }
+
+  async deleteAnnouncement(idInput: string): Promise<boolean> {
+    const id = String(idInput || '').trim()
+    if (!id) return false
+
+    const url = this.restUrl(
+      `${this.announcementsTable()}?id=${this.encodeEq(id)}&status=${this.encodeEq('draft')}`
+    )
+    const [code, body] = await this.httpAuthDelete(url)
+
+    this.lastDeleteCode = code
+    this.lastDeleteBody = body
+
+    return code >= 200 && code <= 299
+  }
+
+  async deleteAnnouncements(storeIdInput: string | null | undefined, idsInput: string[]): Promise<boolean> {
+    const storeId = this.requireStoreId(storeIdInput)
+    const ids = idsInput.map(id => String(id || '').trim()).filter(Boolean)
+
+    if (!ids.length) return true
+
+    const inValue = `in.(${ids.map(id => `"${id.replace(/"/g, '\\"')}"`).join(',')})`
+    const url = this.restUrl(
+      `${this.announcementsTable()}?store_id=${this.encodeEq(storeId)}&status=${this.encodeEq('draft')}&id=${encodeURIComponent(inValue)}`
+    )
+
+    const [code, body] = await this.httpAuthDelete(url)
+
+    this.lastDeleteCode = code
+    this.lastDeleteBody = body
+
+    return code >= 200 && code <= 299
+  }
+
+  async incrementAnnouncementViewCount(input: {
+    storeId?: string | null
+    announcementId: string
+  }): Promise<boolean> {
+    const storeId = this.requireStoreId(input.storeId)
+    const announcementId = String(input.announcementId || '').trim()
+
+    if (!announcementId) return false
+
+    const url = this.restUrl('rpc/ndjc_inc_announcement_view_count')
+    const payload: Record<string, ShowcaseRepositoryJson> = {
+      p_store_id: storeId,
+      p_announcement_id: announcementId
+    }
+
+    const [code, body] = await this.httpPost(
+      url,
+      payload,
+      'return=minimal',
+      storeId
+    )
+
+    this.lastAnnouncementUpsertCode = code
+    this.lastAnnouncementUpsertBody = body
+
+    return code >= 200 && code <= 299
+  }
+
+  async uploadAnnouncementImageBytes(input: UploadBytesInput): Promise<string | null> {
+    const safeStoreId = normalizePathPart(this.requireStoreId(input.storeId))
+    const cleanFileName = normalizePathPart(input.fileName || `${createUuidLikeId()}.bin`)
+    const path = `${safeStoreId}/${cleanFileName}`
+    const bucket = this.announcementImagesBucket()
+    const url = this.storageObjectUrl(bucket, path)
+
+    const [code, body] = await this.httpAuthPutBytes(
+      url,
+      input.bytes,
+      input.contentType,
+      input.storeId
+    )
+
+    this.lastAnnouncementUpsertCode = code
+    this.lastAnnouncementUpsertBody = body
+
+    if (code < 200 || code > 299) return null
+
+    return this.buildStoragePublicObjectUrl(bucket, path)
+  }
+
+  private parseChatConversation(raw: Record<string, unknown>, storeIdFallback: string): ChatConversation {
+    return {
+      id: jsonString(raw, 'conversation_id', jsonString(raw, 'id')),
+      storeId: jsonString(raw, 'store_id', storeIdFallback),
+      clientId: jsonNullableString(raw, 'client_id'),
+      merchantAuthUserId: jsonNullableString(raw, 'merchant_auth_user_id'),
+      customerName: jsonNullableString(raw, 'customer_name'),
+      customerContact: jsonNullableString(raw, 'customer_contact'),
+      createdAt: this.parseIsoMillis(raw.created_at),
+      updatedAt: this.parseIsoMillis(raw.updated_at)
+    }
+  }
+  private parseChatMessage(raw: Record<string, unknown>, storeIdFallback: string): ChatMessage {
+    return {
+      id: jsonString(raw, 'id'),
+      storeId: jsonString(raw, 'store_id', storeIdFallback),
+      conversationId: jsonString(raw, 'conversation_id'),
+      senderRole: jsonString(raw, 'sender_role'),
+      senderId: jsonNullableString(raw, 'sender_id'),
+      body: jsonString(raw, 'body'),
+      imageUrls: this.parseStringArray(raw.image_urls),
+      productDishId: jsonNullableString(raw, 'product_dish_id'),
+      quotedMessageId: jsonNullableString(raw, 'quoted_message_id'),
+      createdAt: this.parseIsoMillis(raw.created_at),
+      readAt: this.parseIsoMillis(raw.read_at)
+    }
+  }
+
+  private parseChatThreadSummary(raw: Record<string, unknown>, storeIdFallback: string): ChatThreadSummary {
+    return {
+      conversationId: jsonString(raw, 'conversation_id', jsonString(raw, 'id')),
+      storeId: jsonString(raw, 'store_id', storeIdFallback),
+      clientId: jsonNullableString(raw, 'client_id'),
+      title: jsonString(raw, 'title', jsonString(raw, 'customer_name', 'Customer')),
+      lastMessage: jsonString(raw, 'last_message'),
+      lastMessageAt: this.parseIsoMillis(raw.last_message_at || raw.updated_at),
+      unreadCount: jsonNumber(raw, 'unread_count', 0),
+      pinned: jsonBoolean(raw, 'pinned', false)
+    }
+  }
+    buildConversationId(storeIdInput: string, clientIdInput: string): string {
+    const storeId = String(storeIdInput || '').trim()
+    const clientId = String(clientIdInput || '').trim()
+    return `cloud:${storeId}:${clientId}`
+  }
+
+  async upsertChatConversation(
+    conversationIdInput: string,
+    storeIdInput: string,
+    clientIdInput: string
+  ): Promise<boolean> {
+    const conversationId = String(conversationIdInput || '').trim()
+    const storeId = this.requireStoreId(storeIdInput)
+    const clientId = String(clientIdInput || '').trim()
+
+    if (!conversationId || !storeId || !clientId) return false
+
+    const rows = [
+      {
+        conversation_id: conversationId,
+        store_id: storeId,
+        client_id: clientId,
+        updated_at: new Date().toISOString()
+      }
+    ]
+
+    const payload: Record<string, ShowcaseRepositoryJson> = {
+      __raw_array__: JSON.stringify(rows)
+    }
+
+    const url = this.restUrl(`${this.chatConversationsTable()}?on_conflict=conversation_id`)
+    const [code, body] = await this.httpPost(
+      url,
+      payload,
+      'resolution=merge-duplicates,return=minimal',
+      storeId,
+      clientId
+    )
+
+    this.lastUpsertCode = code
+    this.lastUpsertBody = body
+
+    return code >= 200 && code <= 299
+  }
+
+  async findOrCreateChatConversation(input: {
+    storeId?: string | null
+    clientId: string
+    customerName?: string | null
+    customerContact?: string | null
+  }): Promise<ChatConversation | null> {
+    const storeId = this.requireStoreId(input.storeId)
+    const clientId = String(input.clientId || '').trim()
+    const conversationId = this.buildConversationId(storeId, clientId)
+
+    if (!clientId || !conversationId) return null
+
+    const query = [
+      'select=*',
+      `conversation_id=${this.encodeEq(conversationId)}`,
+      `store_id=${this.encodeEq(storeId)}`,
+      `client_id=${this.encodeEq(clientId)}`,
+      'limit=1'
+    ].join('&')
+
+    const existingUrl = this.buildSelectUrl(this.chatConversationsTable(), query)
+    const [existingCode, existingBody] = await this.httpGet(existingUrl, storeId, clientId)
+
+    if (existingCode >= 200 && existingCode <= 299) {
+      const row = this.parseFirstObject(existingBody)
+      if (row) return this.parseChatConversation(row, storeId)
+    }
+
+    const rows = [
+      {
+        conversation_id: conversationId,
+        store_id: storeId,
+        client_id: clientId,
+        customer_name: input.customerName || null,
+        customer_contact: input.customerContact || null,
+        updated_at: new Date().toISOString()
+      }
+    ]
+
+    const payload: Record<string, ShowcaseRepositoryJson> = {
+      __raw_array__: JSON.stringify(rows)
+    }
+
+    const createUrl = this.restUrl(`${this.chatConversationsTable()}?on_conflict=conversation_id&select=*`)
+    const [code, body] = await this.httpPost(
+      createUrl,
+      payload,
+      'resolution=merge-duplicates,return=representation',
+      storeId,
+      clientId
+    )
+
+    this.lastUpsertCode = code
+    this.lastUpsertBody = body
+
+    if (code < 200 || code > 299) return null
+
+    const created = this.parseFirstObject(body)
+    if (!created) return null
+
+    return this.parseChatConversation(created, storeId)
+  }
+
+  async fetchChatMessages(input: {
+    storeId?: string | null
+    clientId?: string | null
+    conversationId: string
+    limit?: number
+  }): Promise<ChatMessage[]> {
+    const storeId = this.requireStoreId(input.storeId)
+    const clientId = String(input.clientId || '').trim()
+    const conversationId = String(input.conversationId || '').trim()
+    if (!conversationId) return []
+
+    const limit = Math.max(1, Math.min(Number(input.limit || 200), 500))
+    const query = [
+      'select=*',
+      `store_id=${this.encodeEq(storeId)}`,
+      ...(clientId ? [`client_id=${this.encodeEq(clientId)}`] : []),
+      `conversation_id=${this.encodeEq(conversationId)}`,
+      'order=created_at.asc',
+      `limit=${limit}`
+    ].join('&')
+
+    const url = this.buildSelectUrl(this.chatMessagesTable(), query)
+
+    return this.executeOnce('fetchChatMessages', async () => {
+      const [code, body] = await this.httpGet(url, storeId, clientId || null)
+      if (code < 200 || code > 299) return []
+
+      return this.parseObjectArray(body).map(row => this.parseChatMessage(row, storeId))
+    }, [])
+  }
+
+  async insertChatMessage(input: {
+    storeId?: string | null
+    clientId?: string | null
+    conversationId: string
+    senderRole: string
+    senderId?: string | null
+    body: string
+    imageUrls?: string[]
+    productDishId?: string | null
+    quotedMessageId?: string | null
+  }): Promise<ChatMessage | null> {
+    const storeId = this.requireStoreId(input.storeId)
+    const clientId = String(input.clientId || '').trim()
+    const conversationId = String(input.conversationId || '').trim()
+    if (!conversationId) return null
+
+    const payload: Record<string, ShowcaseRepositoryJson> = {
+      store_id: storeId,
+      client_id: clientId || null,
+      conversation_id: conversationId,
+      sender_role: input.senderRole,
+      sender_id: input.senderId || null,
+      body: input.body || '',
+      image_urls: input.imageUrls || [],
+      product_dish_id: input.productDishId || null,
+      quoted_message_id: input.quotedMessageId || null
+    }
+
+    const url = this.restUrl(`${this.chatMessagesTable()}?select=*`)
+    const [code, body] = await this.httpPost(
+      url,
+      payload,
+      'return=representation',
+      storeId,
+      clientId || null
+    )
+
+    this.lastUpsertCode = code
+    this.lastUpsertBody = body
+
+    if (code < 200 || code > 299) return null
+
+    const row = this.parseFirstObject(body)
+    if (!row) return null
+
+    await this.touchChatConversation(storeId, conversationId, clientId || null)
+
+    return this.parseChatMessage(row, storeId)
+  }
+
+  async touchChatConversation(
+    storeIdInput: string | null | undefined,
+    conversationIdInput: string,
+    clientIdInput?: string | null
+  ): Promise<boolean> {
+    const storeId = this.requireStoreId(storeIdInput)
+    const conversationId = String(conversationIdInput || '').trim()
+    const clientId = String(clientIdInput || '').trim()
+    if (!conversationId) return false
+
+    const url = this.restUrl(
+      `${this.chatConversationsTable()}?store_id=${this.encodeEq(storeId)}&conversation_id=${this.encodeEq(conversationId)}`
+    )
+    const [code, body] = await this.httpPatch(url, {
+      updated_at: new Date().toISOString()
+    }, 'return=minimal', storeId, clientId || null)
+
+    this.lastUpsertCode = code
+    this.lastUpsertBody = body
+
+    return code >= 200 && code <= 299
+  }
+
+  async markChatMessagesRead(input: {
+    storeId?: string | null
+    clientId?: string | null
+    conversationId: string
+    readerRole: string
+  }): Promise<boolean> {
+    const storeId = this.requireStoreId(input.storeId)
+    const clientId = String(input.clientId || '').trim()
+    const conversationId = String(input.conversationId || '').trim()
+    const readerRole = String(input.readerRole || '').trim()
+
+    if (!conversationId || !readerRole) return false
+
+    const url = this.restUrl(
+      `${this.chatMessagesTable()}?store_id=${this.encodeEq(storeId)}${clientId ? `&client_id=${this.encodeEq(clientId)}` : ''}&conversation_id=${this.encodeEq(conversationId)}&sender_role=neq.${encodeURIComponent(readerRole)}&read_at=is.null`
+    )
+
+    const [code, body] = await this.httpPatch(url, {
+      read_at: new Date().toISOString()
+    }, 'return=minimal', storeId, clientId || null)
+
+    this.lastUpsertCode = code
+    this.lastUpsertBody = body
+
+    return code >= 200 && code <= 299
+  }
+  async markUserMessagesRead(
+    storeIdInput: string | null | undefined,
+    conversationIdInput: string,
+    clientIdInput?: string | null
+  ): Promise<boolean> {
+    const storeId = this.requireStoreId(storeIdInput)
+    const clientId = String(clientIdInput || '').trim()
+    const conversationId = String(conversationIdInput || '').trim()
+
+    if (!conversationId) return false
+
+    const url = this.restUrl(
+      `${this.chatMessagesTable()}?store_id=${this.encodeEq(storeId)}${clientId ? `&client_id=${this.encodeEq(clientId)}` : ''}&conversation_id=${this.encodeEq(conversationId)}&sender_role=${this.encodeEq('user')}&read_at=is.null`
+    )
+
+    const [code, body] = await this.httpAuthPatch(url, {
+      read_at: new Date().toISOString()
+    }, 'return=minimal', storeId)
+
+    this.lastUpsertCode = code
+    this.lastUpsertBody = body
+
+    return code >= 200 && code <= 299
+  }
+
+  async fetchChatThreadSummaries(input: {
+    storeId?: string | null
+    limit?: number
+  } = {}): Promise<ChatThreadSummary[]> {
+    const storeId = this.requireStoreId(input.storeId)
+    const limit = Math.max(1, Math.min(Number(input.limit || 100), 300))
+
+    const query = [
+      'select=*',
+      `store_id=${this.encodeEq(storeId)}`,
+      'order=last_message_at.desc.nullslast,updated_at.desc.nullslast',
+      `limit=${limit}`
+    ].join('&')
+
+    const url = this.buildSelectUrl(this.chatThreadSummariesView(), query)
+
+    return this.executeOnce('fetchChatThreadSummaries', async () => {
+      const [code, body] = await this.httpAuthGet(url, storeId)
+      if (code < 200 || code > 299) return []
+
+      return this.parseObjectArray(body).map(row => this.parseChatThreadSummary(row, storeId))
+    }, [])
+  }
+
+  async updateChatThreadPinned(input: {
+    storeId?: string | null
+    conversationId: string
+    pinned: boolean
+  }): Promise<boolean> {
+    const storeId = this.requireStoreId(input.storeId)
+    const conversationId = String(input.conversationId || '').trim()
+    if (!conversationId) return false
+
+    const url = this.restUrl(`${this.chatConversationsTable()}?store_id=${this.encodeEq(storeId)}&id=${this.encodeEq(conversationId)}`)
+    const [code, body] = await this.httpAuthPatch(url, {
+      pinned: input.pinned,
+      updated_at: new Date().toISOString()
+    }, 'return=minimal', storeId)
+
+    this.lastUpsertCode = code
+    this.lastUpsertBody = body
+
+    return code >= 200 && code <= 299
+  }
+
+  async deleteChatThread(
+    storeIdInput: string | null | undefined,
+    conversationIdInput: string
+  ): Promise<boolean> {
+    const storeId = this.requireStoreId(storeIdInput)
+    const conversationId = String(conversationIdInput || '').trim()
+    if (!conversationId) return false
+
+    const messagesUrl = this.restUrl(
+      `${this.chatMessagesTable()}?store_id=${this.encodeEq(storeId)}&conversation_id=${this.encodeEq(conversationId)}`
+    )
+    await this.httpAuthDelete(messagesUrl, storeId)
+
+    const threadUrl = this.restUrl(
+      `${this.chatConversationsTable()}?store_id=${this.encodeEq(storeId)}&id=${this.encodeEq(conversationId)}`
+    )
+    const [code, body] = await this.httpAuthDelete(threadUrl, storeId)
+
+    this.lastDeleteCode = code
+    this.lastDeleteBody = body
+
+    return code >= 200 && code <= 299
+  }
+
+  async uploadChatImageBytes(input: UploadBytesInput): Promise<string | null> {
+    const path = this.buildChatStorageUploadPath(input)
+    const bucket = this.chatImagesBucket()
+    const url = this.storageObjectUrl(bucket, path)
+
+    const [code, body] = await this.httpPutBytes(
+      url,
+      input.bytes,
+      input.contentType,
+      null,
+      input.storeId,
+      input.clientId || null
+    )
+
+    this.lastStoreImageUploadCode = code
+    this.lastStoreImageUploadBody = body
+
+    if (code < 200 || code > 299) return null
+
+    return this.buildStoragePublicObjectUrl(bucket, path)
+  }
+
+  async upsertPushDevice(input: PushDeviceUpsert): Promise<boolean> {
+    const storeId = this.requireStoreId(input.storeId)
+    const token = String(input.token || '').trim()
+    const audience = normalizePushAudience(input.audience)
+    const clientId = String(input.clientId || '').trim()
+    const conversationId = String(input.conversationId || '').trim()
+
+    if (!token || !audience) return false
+
+    const usePublicActor =
+      audience === 'announcement_subscriber' ||
+      (audience === 'chat_client' && Boolean(clientId))
+
+    if (audience === 'chat_client' && !clientId) return false
+
+    const payload: Record<string, ShowcaseRepositoryJson> = {
+      store_id: storeId,
+      audience,
+      token,
+      conversation_id: conversationId || null,
+      client_id: clientId || null,
+      platform: input.platform || 'web',
+      app_version: input.appVersion || null,
+      last_seen_at: new Date().toISOString()
+    }
+
+    const url = usePublicActor
+      ? this.restUrl(this.pushDevicesTable())
+      : this.restUrl(`${this.pushDevicesTable()}?on_conflict=store_id,token,audience,conversation_scope`)
+
+    const scopeClientId = audience === 'chat_client' && usePublicActor
+      ? clientId
+      : null
+
+    const [code, body] = usePublicActor
+      ? await this.httpPost(
+          url,
+          payload,
+          'return=minimal',
+          storeId,
+          scopeClientId
+        )
+      : await this.httpAuthPost(
+          url,
+          payload,
+          'resolution=merge-duplicates,return=minimal',
+          storeId
+        )
+
+    this.lastUpsertCode = code
+    this.lastUpsertBody = body
+
+    return (code >= 200 && code <= 299) || code === 409
+  }
+
+  private async dispatchPush(
+    payload: Record<string, ShowcaseRepositoryJson>,
+    options: {
+      storeId: string
+      actor: PushRequestActor
+      scopeClientId?: string | null
+    }
+  ): Promise<boolean> {
+    const storeId = this.requireStoreId(options.storeId)
+    const scopeClientId = String(options.scopeClientId || '').trim() || null
+    const url = this.functionUrl(this.edgeFunctions.sendPush)
+
+    const [code, body] = options.actor === 'merchant'
+      ? await this.httpAuthPost(url, payload, null, storeId)
+      : await this.httpPost(url, payload, null, storeId, scopeClientId)
+
+    this.lastAnnouncementPushCode = code
+    this.lastAnnouncementPushBody = body
+
+    return code >= 200 && code <= 299
+  }
+
+  async dispatchChatPush(input: {
+    storeId?: string | null
+    conversationId: string
+    title: string
+    body: string
+    senderRole: string
+    targetAudience?: string | null
+    openAs?: string | null
+    targetClientId?: string | null
+    senderClientId?: string | null
+  }): Promise<boolean> {
+    const storeId = this.requireStoreId(input.storeId)
+    const targetAudience = normalizePushAudience(input.targetAudience)
+    const senderRole = String(input.senderRole || '').trim().toLowerCase()
+    const actor: PushRequestActor = senderRole === 'merchant' ? 'merchant' : 'public'
+    const openAs = String(input.openAs || '').trim() || (
+      targetAudience === 'chat_merchant'
+        ? 'merchant'
+        : targetAudience === 'chat_client'
+          ? 'client'
+          : ''
+    )
+    const scopeClientId = actor === 'public'
+      ? String(input.senderClientId || input.targetClientId || '').trim()
+      : null
+
+    return this.dispatchPush({
+      type: 'chat',
+      audience: targetAudience || null,
+      target_audience: targetAudience || null,
+      store_id: storeId,
+      conversation_id: input.conversationId,
+      title: input.title,
+      body: input.body,
+      sender_role: input.senderRole,
+      open_as: openAs || null,
+      target_client_id: input.targetClientId || null
+    }, {
+      storeId,
+      actor,
+      scopeClientId
+    })
+  }
+
+  async dispatchAppointmentPush(input: {
+    storeId?: string | null
+    appointmentId: string
+    title: string
+    body: string
+    bodyPreview?: string | null
+    targetAudience?: string | null
+    openAs?: string | null
+    targetClientId?: string | null
+    scopeClientId?: string | null
+    actor?: string | null
+  }): Promise<boolean> {
+    const storeId = this.requireStoreId(input.storeId)
+    const actor = normalizePushActor(input.actor || 'merchant')
+    const targetAudience = normalizePushAudience(input.targetAudience)
+    const scopeClientId = actor === 'public'
+      ? String(input.scopeClientId || input.targetClientId || '').trim()
+      : null
+
+    return this.dispatchPush({
+      type: 'appointment',
+      push_type: 'appointment',
+      audience: targetAudience || null,
+      target_audience: targetAudience || null,
+      store_id: storeId,
+      appointment_id: input.appointmentId,
+      open_as: input.openAs || null,
+      target_client_id: input.targetClientId || null,
+      scope_client_id: input.scopeClientId || null,
+      actor,
+      title: input.title,
+      body: input.body,
+      body_preview: input.bodyPreview || input.body
+    }, {
+      storeId,
+      actor,
+      scopeClientId
+    })
+  }
+    async incrementDishClickCount(
+    storeIdInput: string | null | undefined,
+    dishIdInput: string
+  ): Promise<boolean> {
+    const storeId = this.requireStoreId(storeIdInput)
+    const dishId = String(dishIdInput || '').trim()
+
+    if (!dishId) return false
+
+    const url = this.restUrl('rpc/ndjc_inc_dish_click_count')
+    const [code, body] = await this.httpPost(url, {
+      p_store_id: storeId,
+      p_dish_id: dishId
+    }, null, storeId)
+
+    this.lastUpsertCode = code
+    this.lastUpsertBody = body
+
+    return code >= 200 && code <= 299
+  }
+
+  async dispatchAnnouncementPush(input: {
+    storeId?: string | null
+    announcementId: string
+    bodyPreview: string
+  }): Promise<boolean> {
+    const storeId = this.requireStoreId(input.storeId)
+    const bodyPreview = String(input.bodyPreview || '').trim() || 'Posted a new announcement'
+
+    return this.dispatchPush({
+      type: 'announcement',
+      audience: 'announcement_subscriber',
+      store_id: storeId,
+      announcement_id: input.announcementId,
+      title: 'New announcement',
+      body: bodyPreview
+    }, {
+      storeId,
+      actor: 'merchant',
+      scopeClientId: null
+    })
+  }
+
+  private parseMerchantSession(body: string | null, loginName: string): MerchantAuthSession | null {
+    const parsed = safeParseJsonObject(body)
+    if (!parsed) return null
+
+    const accessToken = jsonString(parsed, 'access_token')
+    const refreshToken = jsonNullableString(parsed, 'refresh_token')
+    const user = parsed.user && typeof parsed.user === 'object' ? parsed.user as Record<string, unknown> : null
+    const authUserId = user ? jsonString(user, 'id') : ''
+
+    if (!accessToken || !authUserId) return null
+
+    return {
+      accessToken,
+      refreshToken,
+      authUserId,
+      loginName,
+      expiresAt: tokenExpiresAt(accessToken)
+    }
+  }
+
+  async signInMerchant(input: {
+    loginName: string
+    password: string
+  }): Promise<MerchantAuthSession | null> {
+    const loginName = String(input.loginName || '').trim()
+    const password = String(input.password || '').trim()
+
+    if (!loginName || !password) return null
+
+    const [code, body] = await this.openAuthConnection('/token?grant_type=password', {
+      email: loginName,
+      password
+    }, `Bearer ${this.supabaseAnonKey}`)
+
+    this.lastMerchantAuthCode = code
+    this.lastMerchantAuthBody = body
+
+    if (code < 200 || code > 299) return null
+
+    const session = this.parseMerchantSession(body, loginName)
+    this.merchantSession = session
+
+    return session
+  }
+
+  async signOutMerchant(): Promise<void> {
+    const session = this.merchantSession
+    this.merchantSession = null
+
+    if (!session?.accessToken) return
+
+    await this.request(this.authUrl('/logout'), {
+      method: 'POST',
+      authorization: `Bearer ${session.accessToken}`,
+      body: {}
+    })
+  }
+
+  async fetchMerchantStoreMemberships(authUserIdInput?: string | null): Promise<MerchantStoreMembership[]> {
+    const authUserId = String(authUserIdInput || this.merchantSession?.authUserId || '').trim()
+    if (!authUserId) return []
+
+    const query = [
+      'select=*',
+      `auth_user_id=${this.encodeEq(authUserId)}`
+    ].join('&')
+
+    const url = this.buildSelectUrl(this.merchantStoreMembershipsTable(), query)
+
+    return this.executeOnce('fetchMerchantStoreMemberships', async () => {
+      const [code, body] = await this.httpAuthGet(url)
+      if (code < 200 || code > 299) return []
+
+      return this.parseObjectArray(body).map(row => ({
+        storeId: jsonString(row, 'store_id'),
+        authUserId: jsonString(row, 'auth_user_id'),
+        loginName: jsonNullableString(row, 'login_name')
+      }))
+    }, [])
+  }
+    async fetchMerchantBindingForCurrentStore(storeIdInput: string): Promise<MerchantStoreMembership | null> {
+    const storeId = this.requireStoreId(storeIdInput)
+
+    const query = [
+      'select=store_id,auth_user_id,login_name',
+      `store_id=${this.encodeEq(storeId)}`,
+      'limit=1'
+    ].join('&')
+
+    const url = this.buildSelectUrl(this.merchantStoreMembershipsTable(), query)
+
+    return this.executeOnce('fetchMerchantBindingForCurrentStore', async () => {
+      const [code, body] = await this.httpAuthGet(url, storeId)
+      if (code < 200 || code > 299) return null
+
+      const row = this.parseFirstObject(body)
+      if (!row) return null
+
+      return {
+        storeId: jsonString(row, 'store_id'),
+        authUserId: jsonString(row, 'auth_user_id'),
+        loginName: jsonNullableString(row, 'login_name')
+      }
+    }, null)
+  }
+
+  async fetchMerchantBindingForStoreAndAuthUser(
+    storeIdInput: string,
+    authUserIdInput: string
+  ): Promise<MerchantStoreMembership | null> {
+    const storeId = String(storeIdInput || '').trim()
+    const authUserId = String(authUserIdInput || '').trim()
+
+    if (!storeId || !authUserId) return null
+
+    const query = [
+      'select=store_id,auth_user_id,login_name',
+      `store_id=${this.encodeEq(storeId)}`,
+      `auth_user_id=${this.encodeEq(authUserId)}`,
+      'limit=1'
+    ].join('&')
+
+    const url = this.buildSelectUrl(this.merchantStoreMembershipsTable(), query)
+
+    return this.executeOnce('fetchMerchantBindingForStoreAndAuthUser', async () => {
+      const [code, body] = await this.httpAuthGet(url, storeId)
+      if (code < 200 || code > 299) return null
+
+      const row = this.parseFirstObject(body)
+      if (!row) return null
+
+      return {
+        storeId: jsonString(row, 'store_id'),
+        authUserId: jsonString(row, 'auth_user_id'),
+        loginName: jsonNullableString(row, 'login_name')
+      }
+    }, null)
+  }
+
+  async updateMerchantPassword(input: {
+    newPassword: string
+  }): Promise<boolean> {
+    const newPassword = String(input.newPassword || '').trim()
+    if (!newPassword || !this.merchantSession?.accessToken) return false
+
+    const result = await this.request(this.authUrl('/user'), {
+      method: 'PUT',
+      authorization: `Bearer ${this.merchantSession.accessToken}`,
+      body: {
+        password: newPassword
+      }
+    })
+
+    this.lastMerchantAuthCode = result.code
+    this.lastMerchantAuthBody = result.body
+
+    return result.code >= 200 && result.code <= 299
+  }
+
+  async updateMerchantLoginName(input: {
+    newLoginName: string
+  }): Promise<boolean> {
+    const newLoginName = String(input.newLoginName || '').trim()
+    if (!newLoginName || !this.merchantSession?.accessToken) return false
+
+    const result = await this.request(this.authUrl('/user'), {
+      method: 'PUT',
+      authorization: `Bearer ${this.merchantSession.accessToken}`,
+      body: {
+        email: newLoginName
+      }
+    })
+
+    this.lastMerchantAuthCode = result.code
+    this.lastMerchantAuthBody = result.body
+
+    if (result.code >= 200 && result.code <= 299 && this.merchantSession) {
+      this.merchantSession = {
+        ...this.merchantSession,
+        loginName: newLoginName
+      }
+      return true
+    }
+
+    return false
+  }
+
+  private parseStoreServiceStatus(raw: Record<string, unknown>, storeIdFallback: string): CloudStoreServiceStatus {
+    return {
+      storeId: jsonString(raw, 'store_id', storeIdFallback),
+      planType: jsonString(raw, 'plan_type', 'trial'),
+      serviceStatus: jsonString(raw, 'service_status', 'active'),
+      serviceEndAt: jsonNullableString(raw, 'service_end_at'),
+      deleteAt: jsonNullableString(raw, 'delete_at'),
+      isWriteAllowed: jsonBoolean(raw, 'is_write_allowed', true)
+    }
+  }
+
+  async fetchStoreServiceStatus(storeIdInput?: string | null): Promise<CloudStoreServiceStatus | null> {
+    const storeId = this.requireStoreId(storeIdInput)
+    const query = [
+      'select=*',
+      `store_id=${this.encodeEq(storeId)}`,
+      'limit=1'
+    ].join('&')
+
+    const url = this.buildSelectUrl(this.storesTable(), query)
+
+    return this.executeOnce('fetchStoreServiceStatus', async () => {
+      const [code, body] = this.merchantSession?.accessToken
+        ? await this.httpAuthGet(url, storeId)
+        : await this.httpGet(url, storeId)
+
+      if (code < 200 || code > 299) return null
+
+      const row = this.parseFirstObject(body)
+      if (!row) return null
+
+      return this.parseStoreServiceStatus(row, storeId)
+    }, null)
+  }
+    async isStoreWriteAllowed(storeIdInput?: string | null): Promise<boolean> {
+    const status = await this.fetchStoreServiceStatus(storeIdInput)
+    if (!status) return true
+
+    const serviceStatus = status.serviceStatus.trim().toLowerCase()
+
+    return Boolean(
+      status.isWriteAllowed &&
+      serviceStatus !== 'read_only' &&
+      serviceStatus !== 'deleted'
+    )
+  }
+
+  async updateStoreServiceStatus(input: {
+    storeId?: string | null
+    planType?: string | null
+    serviceStatus?: string | null
+    serviceEndAt?: string | null
+    deleteAt?: string | null
+    isWriteAllowed?: boolean | null
+  }): Promise<boolean> {
+    const storeId = this.requireStoreId(input.storeId)
+
+    const payload: Record<string, ShowcaseRepositoryJson> = {
+      store_id: storeId,
+      updated_at: new Date().toISOString()
+    }
+
+    if (input.planType != null) payload.plan_type = input.planType
+    if (input.serviceStatus != null) payload.service_status = input.serviceStatus
+    if (input.serviceEndAt !== undefined) payload.service_end_at = input.serviceEndAt
+    if (input.deleteAt !== undefined) payload.delete_at = input.deleteAt
+    if (input.isWriteAllowed != null) payload.is_write_allowed = input.isWriteAllowed
+
+    const url = this.restUrl(this.storesTable())
+    const [code, body] = await this.httpAuthPost(url, payload, 'resolution=merge-duplicates,return=representation', storeId)
+
+    this.lastUpsertCode = code
+    this.lastUpsertBody = body
+
+    return code >= 200 && code <= 299
+  }
+}
+
+export function createShowcaseCloudRepository(config: RepositoryConfigInput = {}): ShowcaseCloudRepository {
+  return new ShowcaseCloudRepository(config)
+}
+
+export const showcaseCloudRepository = createShowcaseCloudRepository()
+
+export default showcaseCloudRepository
