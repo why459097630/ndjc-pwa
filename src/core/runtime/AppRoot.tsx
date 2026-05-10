@@ -67,6 +67,22 @@ export function AppRoot({ assembly }: { assembly: Assembly }) {
         type="button"
         onClick={async () => {
           try {
+            if (typeof window === 'undefined' || !('Notification' in globalThis)) {
+              globalThis.alert?.('Notification API is not supported in this browser.')
+              return
+            }
+
+            const directPermission = Notification.permission === 'granted'
+              ? 'granted'
+              : await Notification.requestPermission()
+
+            console.log('[NDJC_PUSH_TEST] direct permission result:', directPermission)
+
+            if (directPermission !== 'granted') {
+              window.alert(`Notification permission was not granted directly: ${directPermission}`)
+              return
+            }
+
             const { runNdjcFirebaseMessagingDiagnostics } = await import('@/pwa/firebaseMessaging')
             const diagnostics = await runNdjcFirebaseMessagingDiagnostics()
 
