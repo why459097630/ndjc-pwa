@@ -67,10 +67,35 @@ export function AppRoot({ assembly }: { assembly: Assembly }) {
         type="button"
         onClick={async () => {
           try {
-            const { getNdjcFirebaseMessagingToken } = await import('@/pwa/firebaseMessaging')
-            const token = await getNdjcFirebaseMessagingToken()
-            console.log('[NDJC_PUSH_TEST] token:', token)
-            window.alert(token ? 'FCM token success. Check console.' : 'No FCM token returned.')
+            const { runNdjcFirebaseMessagingDiagnostics } = await import('@/pwa/firebaseMessaging')
+            const diagnostics = await runNdjcFirebaseMessagingDiagnostics()
+
+            console.log('[NDJC_PUSH_TEST] diagnostics:', diagnostics)
+            console.table({
+              href: diagnostics.href,
+              origin: diagnostics.origin,
+              isSecureContext: diagnostics.isSecureContext,
+              notificationPermissionBefore: diagnostics.notificationPermissionBefore,
+              notificationPermissionAfter: diagnostics.notificationPermissionAfter,
+              hasServiceWorkerApi: diagnostics.hasServiceWorkerApi,
+              serviceWorkerRegistrationCount: diagnostics.serviceWorkerRegistrationCount,
+              serviceWorkerScope: diagnostics.serviceWorkerScope,
+              serviceWorkerActive: diagnostics.serviceWorkerActive,
+              serviceWorkerScriptURL: diagnostics.serviceWorkerScriptURL,
+              messagingSupported: diagnostics.messagingSupported,
+              vapidKey: diagnostics.env.vapidKey,
+              vapidKeyLength: diagnostics.env.vapidKeyLength,
+              tokenLength: diagnostics.tokenLength,
+              tokenPrefix: diagnostics.tokenPrefix,
+              error: diagnostics.error
+            })
+
+            if (diagnostics.token) {
+              window.alert(`FCM token success. tokenLength=${diagnostics.tokenLength}`)
+              return
+            }
+
+            window.alert(`FCM token failed. error=${diagnostics.error || 'empty token'} permissionBefore=${diagnostics.notificationPermissionBefore} permissionAfter=${diagnostics.notificationPermissionAfter} swActive=${diagnostics.serviceWorkerActive} vapidKeyLength=${diagnostics.env.vapidKeyLength}`)
           } catch (error) {
             console.error('[NDJC_PUSH_TEST] failed:', error)
             window.alert(error instanceof Error ? error.message : String(error))
