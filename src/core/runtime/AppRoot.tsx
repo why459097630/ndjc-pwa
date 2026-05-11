@@ -53,6 +53,7 @@ export function AppRoot({ assembly }: { assembly: Assembly }) {
   const [notificationOptInVisible, setNotificationOptInVisible] = useState(false)
   const [notificationOptInBusy, setNotificationOptInBusy] = useState(false)
   const [notificationOptInMessage, setNotificationOptInMessage] = useState<string | null>(null)
+  const [notificationRegisteredToken, setNotificationRegisteredToken] = useState<string | null>(null)
   const [notificationPermissionState, setNotificationPermissionState] = useState<'default' | 'granted' | 'denied' | 'unsupported'>('default')
   const [notificationRegistrationState, setNotificationRegistrationState] = useState<'idle' | 'registered' | 'failed'>('idle')
 
@@ -187,11 +188,31 @@ export function AppRoot({ assembly }: { assembly: Assembly }) {
                     fontSize: 12,
                     lineHeight: 1.4,
                     fontWeight: 600,
-                    color: '#ef4444'
+                    color: notificationRegisteredToken ? '#16a34a' : '#ef4444'
                   }}
                 >
                   {notificationOptInMessage}
                 </p>
+              ) : null}
+
+              {notificationRegisteredToken ? (
+                <div
+                  style={{
+                    marginTop: 4,
+                    padding: 10,
+                    borderRadius: 12,
+                    border: '1px solid rgba(17, 24, 39, 0.12)',
+                    background: '#f9fafb',
+                    color: '#111827',
+                    fontSize: 11,
+                    lineHeight: 1.45,
+                    fontWeight: 700,
+                    wordBreak: 'break-all',
+                    overflowWrap: 'anywhere'
+                  }}
+                >
+                  token: {notificationRegisteredToken}
+                </div>
               ) : null}
             </div>
 
@@ -233,6 +254,7 @@ export function AppRoot({ assembly }: { assembly: Assembly }) {
 
                   setNotificationOptInBusy(true)
                   setNotificationOptInMessage(null)
+                  setNotificationRegisteredToken(null)
 
                   try {
                     if (!('Notification' in window)) {
@@ -282,6 +304,7 @@ export function AppRoot({ assembly }: { assembly: Assembly }) {
                     })
 
                     if (!diagnostics.token) {
+                      setNotificationRegisteredToken(null)
                       setNotificationRegistrationState('failed')
                       setNotificationOptInMessage(
                         `Notifications were allowed, but push registration failed: ${diagnostics.error || 'empty token'}`
@@ -316,6 +339,7 @@ export function AppRoot({ assembly }: { assembly: Assembly }) {
                     })
 
                     if (!registered) {
+                      setNotificationRegisteredToken(null)
                       setNotificationRegistrationState('failed')
                       setNotificationOptInMessage(
                         `Notifications were allowed, but device registration failed. code=${repository.lastUpsertCode ?? 'unknown'} body=${repository.lastUpsertBody || 'empty'}`
@@ -325,12 +349,14 @@ export function AppRoot({ assembly }: { assembly: Assembly }) {
 
                     window.localStorage.setItem('ndjc_notification_opt_in_enabled', '1')
                     window.localStorage.removeItem('ndjc_notification_opt_in_dismissed')
+                    setNotificationRegisteredToken(diagnostics.token)
                     setNotificationPermissionState('granted')
                     setNotificationRegistrationState('registered')
                     setNotificationOptInVisible(true)
                     setNotificationOptInMessage('This device is registered for notifications.')
                   } catch (error) {
                     console.error('[NDJC_PUSH_OPT_IN] failed:', error)
+                    setNotificationRegisteredToken(null)
                     setNotificationRegistrationState('failed')
                     setNotificationOptInMessage(error instanceof Error ? error.message : String(error))
                   } finally {
