@@ -53,29 +53,35 @@ export function AppRoot({ assembly }: { assembly: Assembly }) {
   const [notificationOptInVisible, setNotificationOptInVisible] = useState(false)
   const [notificationOptInBusy, setNotificationOptInBusy] = useState(false)
   const [notificationOptInMessage, setNotificationOptInMessage] = useState<string | null>(null)
+  const [notificationPermissionState, setNotificationPermissionState] = useState<'default' | 'granted' | 'denied' | 'unsupported'>('default')
+  const [notificationRegistrationState, setNotificationRegistrationState] = useState<'idle' | 'registered' | 'failed'>('idle')
 
   useEffect(() => {
     setHydrated(true)
 
     if (typeof window === 'undefined') return
 
-    const dismissed = window.localStorage.getItem('ndjc_notification_opt_in_dismissed') === '1'
     const permission = 'Notification' in window ? Notification.permission : 'unsupported'
 
-    if (permission === 'granted') {
-      setNotificationOptInVisible(true)
-      setNotificationOptInMessage('Notifications are allowed. Tap Refresh to register this device again.')
-      return
-    }
+    setNotificationPermissionState(permission)
+    setNotificationOptInVisible(true)
 
-    if (!dismissed && permission !== 'denied') {
-      setNotificationOptInVisible(true)
+    if (permission === 'granted') {
+      setNotificationOptInMessage('Notifications are allowed. Tap Refresh to register this device again.')
       return
     }
 
     if (permission === 'denied') {
       setNotificationOptInMessage('Notifications are blocked for this site. You can enable them from your browser site settings.')
+      return
     }
+
+    if (permission === 'unsupported') {
+      setNotificationOptInMessage('Notifications are not supported in this browser.')
+      return
+    }
+
+    setNotificationOptInMessage(null)
   }, [])
 
   const runtimeStoreId = useMemo(
@@ -151,9 +157,11 @@ export function AppRoot({ assembly }: { assembly: Assembly }) {
                   color: '#111827'
                 }}
               >
-                {typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted'
-                  ? 'Refresh notifications'
-                  : 'Turn on notifications'}
+                {notificationRegistrationState === 'registered'
+                  ? 'Notifications registered'
+                  : notificationPermissionState === 'granted'
+                    ? 'Refresh notifications'
+                    : 'Turn on notifications'}
               </h2>
 
               <p
@@ -165,7 +173,11 @@ export function AppRoot({ assembly }: { assembly: Assembly }) {
                   color: 'rgba(17, 24, 39, 0.72)'
                 }}
               >
-                Get alerts when this store sends you a message, confirms a booking, or posts an update.
+                {notificationRegistrationState === 'registered'
+                  ? 'This device is registered for store updates. Tap Refresh if notifications stop working.'
+                  : notificationPermissionState === 'granted'
+                    ? 'Notifications are allowed. Register this device so this store can send updates.'
+                    : 'Get alerts when this store sends you a message, confirms a booking, or posts an update.'}
               </p>
 
               {notificationOptInMessage ? (
@@ -192,12 +204,7 @@ export function AppRoot({ assembly }: { assembly: Assembly }) {
             >
               <button
                 type="button"
-                disabled={notificationOptInBusy}
-                onClick={() => {
-                  window.localStorage.setItem('ndjc_notification_opt_in_dismissed', '1')
-                  setNotificationOptInVisible(false)
-                  setNotificationOptInMessage(null)
-                }}
+                disabled
                 style={{
                   minHeight: 44,
                   border: '1px solid rgba(17, 24, 39, 0.12)',
@@ -206,10 +213,16 @@ export function AppRoot({ assembly }: { assembly: Assembly }) {
                   color: '#374151',
                   fontSize: 14,
                   fontWeight: 800,
-                  opacity: notificationOptInBusy ? 0.55 : 1
+                  opacity: 1
                 }}
               >
-                Not now
+                {notificationRegistrationState === 'registered'
+                  ? 'Registered'
+                  : notificationPermissionState === 'granted'
+                    ? 'Allowed'
+                    : notificationPermissionState === 'denied'
+                      ? 'Blocked'
+                      : 'Not registered'}
               </button>
 
               <button
@@ -230,6 +243,9 @@ export function AppRoot({ assembly }: { assembly: Assembly }) {
                     const permission = Notification.permission === 'granted'
                       ? 'granted'
                       : await Notification.requestPermission()
+
+                    setNotificationPermissionState(permission)
+                    setNotificationRegistrationState('idle')
 
                     console.log('[NDJC_PUSH_OPT_IN] browser permission result:', permission)
 
@@ -266,6 +282,7 @@ export function AppRoot({ assembly }: { assembly: Assembly }) {
                     })
 
                     if (!diagnostics.token) {
+                      setNotificationRegistrationState('failed')
                       setNotificationOptInMessage(
                         `Notifications were allowed, but push registration failed: ${diagnostics.error || 'empty token'}`
                       )
@@ -299,6 +316,7 @@ export function AppRoot({ assembly }: { assembly: Assembly }) {
                     })
 
                     if (!registered) {
+                      setNotificationRegistrationState('failed')
                       setNotificationOptInMessage(
                         `Notifications were allowed, but device registration failed. code=${repository.lastUpsertCode ?? 'unknown'} body=${repository.lastUpsertBody || 'empty'}`
                       )
@@ -307,12 +325,13 @@ export function AppRoot({ assembly }: { assembly: Assembly }) {
 
                     window.localStorage.setItem('ndjc_notification_opt_in_enabled', '1')
                     window.localStorage.removeItem('ndjc_notification_opt_in_dismissed')
-                    setNotificationOptInMessage('Notifications are enabled.')
-                    window.setTimeout(() => {
-                      setNotificationOptInVisible(false)
-                    }, 900)
+                    setNotificationPermissionState('granted')
+                    setNotificationRegistrationState('registered')
+                    setNotificationOptInVisible(true)
+                    setNotificationOptInMessage('This device is registered for notifications.')
                   } catch (error) {
                     console.error('[NDJC_PUSH_OPT_IN] failed:', error)
+                    setNotificationRegistrationState('failed')
                     setNotificationOptInMessage(error instanceof Error ? error.message : String(error))
                   } finally {
                     setNotificationOptInBusy(false)
@@ -331,9 +350,11 @@ export function AppRoot({ assembly }: { assembly: Assembly }) {
               >
                 {notificationOptInBusy
                   ? 'Registering...'
-                  : typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted'
+                  : notificationPermissionState === 'granted'
                     ? 'Refresh'
-                    : 'Enable'}
+                    : notificationRegistrationState === 'failed'
+                      ? 'Retry'
+                      : 'Enable'}
               </button>
             </div>
           </div>
