@@ -277,7 +277,6 @@ export function AppRoot({ assembly }: { assembly: Assembly }) {
                       clientId: deviceInstallId,
                       platform: 'web',
                       appVersion: 'pwa',
-                      conversationScope: 'announcement',
                       deviceInstallId
                     })
 
