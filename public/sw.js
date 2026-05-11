@@ -78,20 +78,6 @@ self.addEventListener('push', event => {
     'Open the app to view details.'
   )
 
-  const icon = String(
-    mergedData.icon ||
-    notificationData.icon ||
-    nestedData.icon ||
-    '/icons/icon-192.svg'
-  )
-
-  const badge = String(
-    mergedData.badge ||
-    notificationData.badge ||
-    nestedData.badge ||
-    '/icons/icon-192.svg'
-  )
-
   const notificationPayload = {
     ...mergedData,
     raw_push_payload: rawData
@@ -105,12 +91,7 @@ self.addEventListener('push', event => {
 
   const options = {
     body,
-    icon,
-    badge,
-    data: notificationPayload,
-    tag: String(mergedData.tag || mergedData.announcement_id || mergedData.conversation_id || 'ndjc-push'),
-    renotify: true,
-    requireInteraction: false
+    data: notificationPayload
   }
 
   console.log('[NDJC_SW_PUSH_RECEIVED]', {
@@ -119,7 +100,19 @@ self.addEventListener('push', event => {
     payload: notificationPayload
   })
 
-  event.waitUntil(self.registration.showNotification(title, options))
+  event.waitUntil(
+    self.registration.showNotification(title, options).then(() => {
+      console.log('[NDJC_SW_SHOW_NOTIFICATION_OK]', {
+        title,
+        body
+      })
+    }).catch(error => {
+      console.error('[NDJC_SW_SHOW_NOTIFICATION_ERROR]', {
+        name: error && error.name ? error.name : null,
+        message: error && error.message ? error.message : String(error)
+      })
+    })
+  )
 })
 
 function appendPushPayloadToRoute(routeInput, payloadInput) {
