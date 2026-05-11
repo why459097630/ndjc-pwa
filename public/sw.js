@@ -35,31 +35,89 @@ self.addEventListener('fetch', event => {
 })
 
 self.addEventListener('push', event => {
-  let data = {}
+  let rawData = {}
+  let rawText = ''
+
   try {
-    data = event.data ? event.data.json() : {}
+    rawText = event.data ? event.data.text() : ''
+    rawData = rawText ? JSON.parse(rawText) : {}
   } catch (error) {
-    data = { title: 'NDJC', body: event.data ? event.data.text() : '' }
+    rawData = {
+      title: 'NDJC',
+      body: rawText || ''
+    }
   }
 
-  const title = data.title || 'NDJC'
+  const notificationData =
+    rawData && typeof rawData.notification === 'object' && rawData.notification !== null
+      ? rawData.notification
+      : {}
+
+  const nestedData =
+    rawData && typeof rawData.data === 'object' && rawData.data !== null
+      ? rawData.data
+      : {}
+
+  const mergedData = {
+    ...rawData,
+    ...notificationData,
+    ...nestedData
+  }
+
+  const title = String(
+    mergedData.title ||
+    notificationData.title ||
+    nestedData.title ||
+    'NDJC'
+  )
+
+  const body = String(
+    mergedData.body ||
+    notificationData.body ||
+    nestedData.body ||
+    'Open the app to view details.'
+  )
+
+  const icon = String(
+    mergedData.icon ||
+    notificationData.icon ||
+    nestedData.icon ||
+    '/icons/icon-192.svg'
+  )
+
+  const badge = String(
+    mergedData.badge ||
+    notificationData.badge ||
+    nestedData.badge ||
+    '/icons/icon-192.svg'
+  )
+
   const notificationPayload = {
-    ...data,
-    ...(data.data && typeof data.data === 'object' ? data.data : {})
+    ...mergedData,
+    raw_push_payload: rawData
   }
 
+  delete notificationPayload.notification
   delete notificationPayload.title
   delete notificationPayload.body
   delete notificationPayload.icon
   delete notificationPayload.badge
-  delete notificationPayload.data
 
   const options = {
-    body: data.body || '',
-    icon: data.icon || '/icons/icon-192.svg',
-    badge: data.badge || '/icons/icon-192.svg',
-    data: notificationPayload
+    body,
+    icon,
+    badge,
+    data: notificationPayload,
+    tag: String(mergedData.tag || mergedData.announcement_id || mergedData.conversation_id || 'ndjc-push'),
+    renotify: true,
+    requireInteraction: false
   }
+
+  console.log('[NDJC_SW_PUSH_RECEIVED]', {
+    title,
+    body,
+    payload: notificationPayload
+  })
 
   event.waitUntil(self.registration.showNotification(title, options))
 })
