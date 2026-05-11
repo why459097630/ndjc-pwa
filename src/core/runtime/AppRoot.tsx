@@ -60,11 +60,17 @@ export function AppRoot({ assembly }: { assembly: Assembly }) {
     if (typeof window === 'undefined') return
 
     const dismissed = window.localStorage.getItem('ndjc_notification_opt_in_dismissed') === '1'
-    const enabled = window.localStorage.getItem('ndjc_notification_opt_in_enabled') === '1'
     const permission = 'Notification' in window ? Notification.permission : 'unsupported'
 
-    if (!dismissed && !enabled && permission !== 'granted' && permission !== 'denied') {
+    if (permission === 'granted') {
       setNotificationOptInVisible(true)
+      setNotificationOptInMessage('Notifications are allowed. Tap Refresh to register this device again.')
+      return
+    }
+
+    if (!dismissed && permission !== 'denied') {
+      setNotificationOptInVisible(true)
+      return
     }
 
     if (permission === 'denied') {
@@ -145,7 +151,9 @@ export function AppRoot({ assembly }: { assembly: Assembly }) {
                   color: '#111827'
                 }}
               >
-                Turn on notifications
+                {typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted'
+                  ? 'Refresh notifications'
+                  : 'Turn on notifications'}
               </h2>
 
               <p
@@ -321,7 +329,11 @@ export function AppRoot({ assembly }: { assembly: Assembly }) {
                   opacity: notificationOptInBusy ? 0.65 : 1
                 }}
               >
-                {notificationOptInBusy ? 'Enabling...' : 'Enable'}
+                {notificationOptInBusy
+                  ? 'Registering...'
+                  : typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted'
+                    ? 'Refresh'
+                    : 'Enable'}
               </button>
             </div>
           </div>
