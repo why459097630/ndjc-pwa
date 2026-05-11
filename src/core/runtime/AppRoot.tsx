@@ -273,7 +273,7 @@ export function AppRoot({ assembly }: { assembly: Assembly }) {
                       storeId: runtimeStoreId,
                       audience: 'announcement_subscriber',
                       token: diagnostics.token,
-                      conversationId: null,
+                      conversationId: '__announcement__',
                       clientId: deviceInstallId,
                       platform: 'web',
                       appVersion: 'pwa',
