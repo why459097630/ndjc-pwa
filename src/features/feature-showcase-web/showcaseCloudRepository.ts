@@ -164,7 +164,6 @@ export type PushDeviceUpsert = {
   clientId?: string | null
   platform?: string
   appVersion?: string | null
-  conversationScope?: string | null
   deviceInstallId?: string | null
 }
 
@@ -3004,7 +3003,6 @@ async updateAppointmentStatus(input: {
     if (audience === 'chat_client' && !clientId) return false
 
     const nowIso = new Date().toISOString()
-    const conversationScope = String(input.conversationScope || '').trim()
     const deviceInstallId = String(input.deviceInstallId || '').trim()
 
     const payload: Record<string, ShowcaseRepositoryJson> = {
@@ -3015,7 +3013,6 @@ async updateAppointmentStatus(input: {
       client_id: clientId || null,
       platform: input.platform || 'web',
       app_version: input.appVersion || null,
-      conversation_scope: conversationScope || null,
       device_install_id: deviceInstallId || null,
       updated_at: nowIso,
       created_at: nowIso
