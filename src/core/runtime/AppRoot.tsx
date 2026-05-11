@@ -113,7 +113,7 @@ export function AppRoot({ assembly }: { assembly: Assembly }) {
             position: 'fixed',
             left: 16,
             right: 16,
-            bottom: 110,
+            bottom: 120,
             zIndex: 999999,
             border: '1px solid rgba(17, 24, 39, 0.10)',
             borderRadius: 22,
