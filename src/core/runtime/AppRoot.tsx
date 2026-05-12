@@ -10,6 +10,7 @@ import { createShowcaseCloudRepositoryConfig } from '@/features/feature-showcase
 
 const LOCAL_FALLBACK_STORE_ID = 'store_showcase_trial_000001'
 const NDJC_PWA_DEVICE_INSTALL_ID_STORAGE_KEY = 'ndjc_pwa_device_install_id'
+const NDJC_SHOWCASE_CLIENT_ID_STORAGE_KEY = 'ndjc_showcase_client_id'
 
 function normalizeStoreId(value: unknown): string | null {
   const text = String(value ?? '').trim()
@@ -36,6 +37,29 @@ function getOrCreatePwaDeviceInstallId(): string {
 
   const created = createPwaDeviceInstallId()
   window.localStorage.setItem(NDJC_PWA_DEVICE_INSTALL_ID_STORAGE_KEY, created)
+  return created
+}
+
+function createShowcaseClientId(): string {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return `client_${crypto.randomUUID()}`
+  }
+
+  return `client_${Date.now()}_${Math.random().toString(36).slice(2, 12)}`
+}
+
+function getOrCreateShowcaseClientId(): string {
+  if (typeof window === 'undefined') {
+    return createShowcaseClientId()
+  }
+
+  const existing = window.localStorage.getItem(NDJC_SHOWCASE_CLIENT_ID_STORAGE_KEY)
+  if (existing && existing.trim()) {
+    return existing.trim()
+  }
+
+  const created = createShowcaseClientId()
+  window.localStorage.setItem(NDJC_SHOWCASE_CLIENT_ID_STORAGE_KEY, created)
   return created
 }
 
@@ -312,31 +336,33 @@ export function AppRoot({ assembly }: { assembly: Assembly }) {
                       return
                     }
 
-                    const deviceInstallId = getOrCreatePwaDeviceInstallId()
-                    const repository = createShowcaseCloudRepository(
-                      createShowcaseCloudRepositoryConfig(runtimeStoreId)
-                    )
+const deviceInstallId = getOrCreatePwaDeviceInstallId()
+const showcaseClientId = getOrCreateShowcaseClientId()
+const repository = createShowcaseCloudRepository(
+  createShowcaseCloudRepositoryConfig(runtimeStoreId)
+)
 
-                    const registered = await repository.upsertPushDevice({
-                      storeId: runtimeStoreId,
-                      audience: 'announcement_subscriber',
-                      token: diagnostics.token,
-                      conversationId: '__announcement__',
-                      clientId: deviceInstallId,
-                      platform: 'web',
-                      appVersion: 'pwa',
-                      deviceInstallId
-                    })
+const registered = await repository.upsertPushDevice({
+  storeId: runtimeStoreId,
+  audience: 'announcement_subscriber',
+  token: diagnostics.token,
+  conversationId: '__announcement__',
+  clientId: showcaseClientId,
+  platform: 'web',
+  appVersion: 'pwa',
+  deviceInstallId
+})
 
-                    console.log('[NDJC_PUSH_OPT_IN] push device registration result:', {
-                      registered,
-                      storeId: runtimeStoreId,
-                      audience: 'announcement_subscriber',
-                      platform: 'web',
-                      deviceInstallId,
-                      lastUpsertCode: repository.lastUpsertCode,
-                      lastUpsertBody: repository.lastUpsertBody
-                    })
+console.log('[NDJC_PUSH_OPT_IN] push device registration result:', {
+  registered,
+  storeId: runtimeStoreId,
+  audience: 'announcement_subscriber',
+  platform: 'web',
+  clientId: showcaseClientId,
+  deviceInstallId,
+  lastUpsertCode: repository.lastUpsertCode,
+  lastUpsertBody: repository.lastUpsertBody
+})
 
                     if (!registered) {
                       setNotificationRegisteredToken(null)
