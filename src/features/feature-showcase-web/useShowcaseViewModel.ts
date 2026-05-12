@@ -1820,6 +1820,8 @@ export function useShowcaseViewModel(input: UseShowcaseViewModelInput = {}): Sho
   const [merchantBindings, setMerchantBindings] = useState<MerchantStoreMembership[]>([])
   const [isAdminLoggedIn, setIsAdminLoggedIn] = useState(Boolean(initialMerchantSessionRef.current?.accessToken))
   const renderCountRef = useRef(0)
+  const currentScreenRef = useRef<ShowcaseScreenName>(screen)
+  const isAdminLoggedInRef = useRef(isAdminLoggedIn)
 
   renderCountRef.current += 1
 
@@ -1835,6 +1837,11 @@ export function useShowcaseViewModel(input: UseShowcaseViewModelInput = {}): Sho
       storeId
     })
   }
+
+  useEffect(() => {
+    currentScreenRef.current = screen
+    isAdminLoggedInRef.current = isAdminLoggedIn
+  }, [screen, isAdminLoggedIn])
 
   useEffect(() => {
     setCurrentStoreId(storeId)
@@ -8722,15 +8729,29 @@ async function refreshCustomerAppointmentsFromCloud(statusMessageOverride: strin
       return
     }
 
+    const latestScreen = currentScreenRef.current
+    const latestAdminLoggedIn = isAdminLoggedInRef.current || isMerchantLoggedInInStoreSession()
+    const isCustomerBookingsScreen = latestScreen === ShowcaseScreens.CustomerBookings
+    const canUpdateCustomerAppointmentList = !latestAdminLoggedIn && isCustomerBookingsScreen
+
     try {
       const latest = await repository.fetchAppointmentRequestsForClient(storeId, currentClientId)
       const sortedItems = [...latest].sort((left, right) => {
         return (right.createdAt || 0) - (left.createdAt || 0)
       })
 
-      if (!isAdminLoggedIn || screen === ShowcaseScreens.CustomerBookings) {
+      if (canUpdateCustomerAppointmentList) {
         setAppointmentRequests(sortedItems)
         saveAppointmentsToStorage(storeId, sortedItems)
+      } else {
+        console.log('[NDJC_APPOINTMENTS] Skip customer booking list overwrite from entry polling.', {
+          storeId,
+          currentClientId,
+          latestScreen,
+          latestAdminLoggedIn,
+          isCustomerBookingsScreen,
+          itemCount: sortedItems.length
+        })
       }
 
       const seenKeys = loadSeenAppointmentStatusAlertKeys(storeId, currentClientId)
@@ -8741,7 +8762,7 @@ async function refreshCustomerAppointmentsFromCloud(statusMessageOverride: strin
         .some(key => !seenKeys.includes(key))
 
       setBookingsEntryDotVisible(
-        screen === ShowcaseScreens.CustomerBookings
+        latestAdminLoggedIn || isCustomerBookingsScreen
           ? false
           : hasUnseenAlert
       )
