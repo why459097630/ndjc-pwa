@@ -3883,11 +3883,7 @@ function backFromAppointments(): void {
       setScreen('Admin')
       showSnackbar('Signed in.')
 
-      void ensurePushRegistration({ audience: 'chat_merchant' }).then(registered => {
-        if (!registered) {
-          merchantPushRegistrationKeyRef.current = ''
-        }
-      })
+      void registerMerchantPushDevice('merchant-sign-in-success', true)
 
       await tryLoadFromCloud(ShowcaseRetryOps.LoadFromCloud)
       await refreshAdminHomeCloudState(false)
@@ -4066,11 +4062,9 @@ function backFromAppointments(): void {
     setMerchantSession(restored)
     setIsAdminLoggedIn(Boolean(restored.accessToken))
 
-    void ensurePushRegistration({ audience: 'chat_merchant' }).then(registered => {
-      if (!registered) {
-        merchantPushRegistrationKeyRef.current = ''
-      }
-    })
+    window.setTimeout(() => {
+      void registerMerchantPushDevice('merchant-session-restored', true)
+    }, 0)
   }
 
   async function saveAdminCredentialsFromDraft(): Promise<void> {
@@ -9952,25 +9946,117 @@ async function refreshCustomerAppointmentsFromCloud(statusMessageOverride: strin
     return registered
   }
 
-  useEffect(() => {
-    if (!isAdminLoggedIn || !merchantSession?.accessToken) return
+  async function registerMerchantPushDevice(reason: string, force = false): Promise<void> {
+    if (!isBrowser()) return
+
+    const hasMerchantSession = Boolean(merchantSession?.accessToken)
+    const hasMerchantRuntimeSession = isMerchantLoggedInInStoreSession()
+
+    if (!hasMerchantSession && !hasMerchantRuntimeSession && !isAdminLoggedIn) {
+      console.warn('[NDJC_PUSH] Skip merchant push registration because merchant is not logged in.', {
+        reason,
+        storeId,
+        screen,
+        isAdminLoggedIn,
+        hasMerchantSession,
+        hasMerchantRuntimeSession
+      })
+      return
+    }
 
     const merchantKey = [
       storeId,
       'chat_merchant',
-      merchantSession.authUserId || merchantSession.loginName || 'merchant'
+      merchantSession?.authUserId || merchantSession?.loginName || 'merchant'
     ].join(':')
 
-    if (merchantPushRegistrationKeyRef.current === merchantKey) return
+    if (!force && merchantPushRegistrationKeyRef.current === merchantKey) {
+      console.log('[NDJC_PUSH] Skip duplicate merchant push registration.', {
+        reason,
+        storeId,
+        merchantKey
+      })
+      return
+    }
 
     merchantPushRegistrationKeyRef.current = merchantKey
 
-    void ensurePushRegistration({ audience: 'chat_merchant' }).then(registered => {
-      if (!registered) {
-        merchantPushRegistrationKeyRef.current = ''
-      }
+    console.log('[NDJC_PUSH] Register merchant push device start.', {
+      reason,
+      storeId,
+      screen,
+      isAdminLoggedIn,
+      hasMerchantSession,
+      hasMerchantRuntimeSession,
+      authUserId: merchantSession?.authUserId || null,
+      loginName: merchantSession?.loginName || null
     })
+
+    const registered = await ensurePushRegistration({ audience: 'chat_merchant' })
+
+    console.log('[NDJC_PUSH] Register merchant push device result.', {
+      reason,
+      registered,
+      storeId,
+      code: repository.lastUpsertCode,
+      body: repository.lastUpsertBody
+    })
+
+    if (!registered) {
+      merchantPushRegistrationKeyRef.current = ''
+    }
+  }
+
+  useEffect(() => {
+    if (!isAdminLoggedIn || !merchantSession?.accessToken) return
+
+    void registerMerchantPushDevice('merchant-login-effect')
   }, [
+    isAdminLoggedIn,
+    merchantSession?.accessToken,
+    merchantSession?.authUserId,
+    merchantSession?.loginName,
+    storeId
+  ])
+
+  useEffect(() => {
+    if (!isBrowser()) return
+    if (!isAdminLoggedIn || !merchantSession?.accessToken) return
+
+    const adminScreens: ShowcaseScreenName[] = [
+      ShowcaseScreens.Admin,
+      ShowcaseScreens.AdminAppointmentManager,
+      ShowcaseScreens.AdminAnnouncementEdit,
+      ShowcaseScreens.AdminItems,
+      ShowcaseScreens.AdminCategories,
+      ShowcaseScreens.MerchantChatList,
+      ShowcaseScreens.StoreProfile,
+      ShowcaseScreens.ChangePassword
+    ]
+
+    if (!adminScreens.includes(screen)) return
+
+    void registerMerchantPushDevice('merchant-admin-screen', true)
+
+    const handleWindowFocus = (): void => {
+      void registerMerchantPushDevice('merchant-window-focus', true)
+    }
+
+    const handleVisibilityChange = (): void => {
+      if (document.visibilityState === 'visible') {
+        void registerMerchantPushDevice('merchant-document-visible', true)
+      }
+    }
+
+    window.addEventListener('focus', handleWindowFocus)
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+
+    return () => {
+      window.removeEventListener('focus', handleWindowFocus)
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
+    }
+  }, [
+    screen,
     isAdminLoggedIn,
     merchantSession?.accessToken,
     merchantSession?.authUserId,
