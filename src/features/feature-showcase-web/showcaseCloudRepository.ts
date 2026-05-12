@@ -3018,24 +3018,24 @@ async updateAppointmentStatus(input: {
       created_at: nowIso
     }
 
-    const url = usePublicActor
-      ? this.restUrl(this.pushDevicesTable())
-      : this.restUrl(`${this.pushDevicesTable()}?on_conflict=store_id,token,audience,conversation_scope`)
+    const upsertUrl = this.restUrl(
+      `${this.pushDevicesTable()}?on_conflict=store_id,token,audience,conversation_scope`
+    )
 
-    const scopeClientId = audience === 'chat_client' && usePublicActor
-      ? clientId
+    const scopeClientId = usePublicActor
+      ? clientId || null
       : null
 
     const [code, body] = usePublicActor
       ? await this.httpPost(
-          url,
+          upsertUrl,
           payload,
-          'return=minimal',
+          'resolution=merge-duplicates,return=minimal',
           storeId,
           scopeClientId
         )
       : await this.httpAuthPost(
-          url,
+          upsertUrl,
           payload,
           'resolution=merge-duplicates,return=minimal',
           storeId
@@ -3044,7 +3044,7 @@ async updateAppointmentStatus(input: {
     this.lastUpsertCode = code
     this.lastUpsertBody = body
 
-    return (code >= 200 && code <= 299) || code === 409
+    return code >= 200 && code <= 299
   }
 
   private async dispatchPush(
