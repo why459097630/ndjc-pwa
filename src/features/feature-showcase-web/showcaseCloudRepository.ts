@@ -2998,6 +2998,7 @@ async updateAppointmentStatus(input: {
 
     const usePublicActor =
       audience === 'announcement_subscriber' ||
+      audience === 'chat_merchant' ||
       (audience === 'chat_client' && Boolean(clientId))
 
     if (audience === 'chat_client' && !clientId) return false
