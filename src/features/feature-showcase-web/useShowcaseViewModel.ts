@@ -2055,6 +2055,7 @@ export function useShowcaseViewModel(input: UseShowcaseViewModelInput = {}): Sho
   const chatDbObserveAbortRef = useRef<AbortController | null>(null)
   const pushLocationSearchConsumedRef = useRef(false)
   const merchantPushRegistrationKeyRef = useRef('')
+  const chatClientPushRegistrationKeyRef = useRef('')
   const activeConversationIdRef = useRef(activeConversationId)
   const chatMessageLoadSeqRef = useRef(0)
   const chatContextSnapshotRef = useRef<{
@@ -9735,6 +9736,8 @@ async function refreshCustomerAppointmentsFromCloud(statusMessageOverride: strin
     setActiveConversationId(conversation.id)
     setRuntimeActiveConversationId(conversation.id)
 
+    void registerChatClientPushDevice(conversation.id, 'client-chat-context-restored', true)
+
     await refreshChatMessages(conversation.id, true, true)
     await acknowledgeVisibleClientConversation(conversation.id)
   }
@@ -9911,6 +9914,7 @@ async function refreshCustomerAppointmentsFromCloud(statusMessageOverride: strin
 
   async function ensurePushRegistration(options?: {
     audience?: 'chat_merchant' | 'chat_client' | 'announcement_subscriber'
+    conversationId?: string | null
   }): Promise<boolean> {
     const token = await awaitFcmToken()
     if (!token) return false
@@ -9923,16 +9927,20 @@ async function refreshCustomerAppointmentsFromCloud(statusMessageOverride: strin
           : 'announcement_subscriber'
     )
 
+    const explicitConversationId = String(options?.conversationId || '').trim()
+
+    const registrationConversationId =
+      audience === 'chat_client'
+        ? explicitConversationId || activeConversationId
+        : audience === 'chat_merchant'
+          ? '__merchant__'
+          : '__announcement__'
+
     const registered = await repository.upsertPushDevice({
       storeId,
       audience,
       token,
-      conversationId:
-        audience === 'chat_client'
-          ? activeConversationId
-          : audience === 'chat_merchant'
-            ? '__merchant__'
-            : '__announcement__',
+      conversationId: registrationConversationId,
       clientId: audience === 'chat_merchant' ? null : clientId,
       platform: 'web',
       appVersion: 'pwa'
@@ -9942,6 +9950,7 @@ async function refreshCustomerAppointmentsFromCloud(statusMessageOverride: strin
       console.warn('[NDJC_PUSH] Push device registration failed.', {
         storeId,
         audience,
+        conversationId: registrationConversationId,
         clientId: audience === 'chat_merchant' ? null : clientId,
         code: repository.lastUpsertCode,
         body: repository.lastUpsertBody
@@ -9949,6 +9958,65 @@ async function refreshCustomerAppointmentsFromCloud(statusMessageOverride: strin
     }
 
     return registered
+  }
+
+  async function registerChatClientPushDevice(
+    conversationIdInput: string | null | undefined,
+    reason: string,
+    force = false
+  ): Promise<void> {
+    if (!isBrowser()) return
+    if (isAdminLoggedIn) return
+    if (currentChatRole() === 'merchant') return
+
+    const conversationId = String(conversationIdInput || '').trim()
+    if (!conversationId) return
+
+    const key = [
+      storeId,
+      'chat_client',
+      clientId,
+      conversationId
+    ].join(':')
+
+    if (!force && chatClientPushRegistrationKeyRef.current === key) {
+      console.log('[NDJC_PUSH] Skip duplicate chat client push registration.', {
+        reason,
+        storeId,
+        clientId,
+        conversationId
+      })
+      return
+    }
+
+    chatClientPushRegistrationKeyRef.current = key
+
+    console.log('[NDJC_PUSH] Register chat client push device start.', {
+      reason,
+      storeId,
+      clientId,
+      conversationId,
+      screen
+    })
+
+    const registered = await ensurePushRegistration({
+      audience: 'chat_client',
+      conversationId
+    })
+
+    console.log('[NDJC_PUSH] Register chat client push device result.', {
+      reason,
+      registered,
+      storeId,
+      clientId,
+      conversationId,
+      code: repository.lastUpsertCode,
+      body: repository.lastUpsertBody
+    })
+
+    if (!registered) {
+      chatClientPushRegistrationKeyRef.current = ''
+    }
   }
 
   async function registerMerchantPushDevice(reason: string, force = false): Promise<void> {
@@ -10066,6 +10134,30 @@ async function refreshCustomerAppointmentsFromCloud(statusMessageOverride: strin
     merchantSession?.accessToken,
     merchantSession?.authUserId,
     merchantSession?.loginName,
+    storeId
+  ])
+
+  useEffect(() => {
+    if (!isBrowser()) return
+    if (isAdminLoggedIn) return
+    if (currentChatRole() === 'merchant') return
+
+    const conversationId = String(activeConversationId || '').trim()
+    if (!conversationId) return
+
+    const isClientChatScreen =
+      screen === ShowcaseScreens.Chat ||
+      screen === ShowcaseScreens.ChatMedia ||
+      screen === ShowcaseScreens.ChatSearchResults
+
+    if (!isClientChatScreen) return
+
+    void registerChatClientPushDevice(conversationId, 'client-chat-screen')
+  }, [
+    screen,
+    isAdminLoggedIn,
+    activeConversationId,
+    clientId,
     storeId
   ])
 
