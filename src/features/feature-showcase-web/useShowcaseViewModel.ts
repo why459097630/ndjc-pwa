@@ -9927,7 +9927,12 @@ async function refreshCustomerAppointmentsFromCloud(statusMessageOverride: strin
       storeId,
       audience,
       token,
-      conversationId: audience === 'chat_client' ? activeConversationId : null,
+      conversationId:
+        audience === 'chat_client'
+          ? activeConversationId
+          : audience === 'chat_merchant'
+            ? '__merchant__'
+            : '__announcement__',
       clientId: audience === 'chat_merchant' ? null : clientId,
       platform: 'web',
       appVersion: 'pwa'
