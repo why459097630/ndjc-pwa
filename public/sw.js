@@ -34,6 +34,100 @@ self.addEventListener('fetch', event => {
   }
 })
 
+const NDJC_CHAT_VISIBILITY_GRACE_MS = 2500
+const ndjcVisibleChatClients = new Map()
+
+function ndjcNormalizeText(value) {
+  return String(value || '').trim()
+}
+
+function ndjcNowMs() {
+  return Date.now()
+}
+
+function ndjcRememberChatVisibility(clientId, payload) {
+  const key = ndjcNormalizeText(clientId)
+  if (!key) return
+
+  const visible = Boolean(payload && payload.visible)
+  const conversationId = ndjcNormalizeText(payload && payload.conversation_id)
+  const screen = ndjcNormalizeText(payload && payload.screen)
+  const updatedAt = ndjcNowMs()
+
+  if (!visible || !conversationId) {
+    ndjcVisibleChatClients.delete(key)
+    return
+  }
+
+  ndjcVisibleChatClients.set(key, {
+    conversation_id: conversationId,
+    screen,
+    updated_at: updatedAt
+  })
+}
+
+function ndjcPruneChatVisibility() {
+  const now = ndjcNowMs()
+  const maxAgeMs = 5 * 60 * 1000
+
+  ndjcVisibleChatClients.forEach((value, key) => {
+    const updatedAt = Number(value && value.updated_at ? value.updated_at : 0)
+
+    if (!updatedAt || now - updatedAt > maxAgeMs) {
+      ndjcVisibleChatClients.delete(key)
+    }
+  })
+}
+
+function ndjcIsChatPushPayload(payload) {
+  const type = ndjcNormalizeText(payload && (payload.type || payload.push_type || payload.pushType)).toLowerCase()
+  return type === 'chat'
+}
+
+function ndjcPayloadConversationId(payload) {
+  return ndjcNormalizeText(payload && (payload.conversation_id || payload.conversationId))
+}
+
+function ndjcShouldSuppressVisibleChatNotification(payload) {
+  if (!ndjcIsChatPushPayload(payload)) {
+    return false
+  }
+
+  const conversationId = ndjcPayloadConversationId(payload)
+  if (!conversationId) {
+    return false
+  }
+
+  ndjcPruneChatVisibility()
+
+  const now = ndjcNowMs()
+
+  for (const value of ndjcVisibleChatClients.values()) {
+    const visibleConversationId = ndjcNormalizeText(value && value.conversation_id)
+    const updatedAt = Number(value && value.updated_at ? value.updated_at : 0)
+
+    if (
+      visibleConversationId === conversationId &&
+      updatedAt > 0 &&
+      now - updatedAt <= NDJC_CHAT_VISIBILITY_GRACE_MS
+    ) {
+      return true
+    }
+  }
+
+  return false
+}
+
+self.addEventListener('message', event => {
+  const payload = event.data || {}
+
+  if (!payload || payload.type !== 'NDJC_CHAT_VISIBILITY') {
+    return
+  }
+
+  ndjcRememberChatVisibility(event.source && event.source.id, payload)
+})
+
 self.addEventListener('push', event => {
   let rawData = {}
   let rawText = ''
@@ -99,6 +193,14 @@ self.addEventListener('push', event => {
     body,
     payload: notificationPayload
   })
+
+  if (ndjcShouldSuppressVisibleChatNotification(notificationPayload)) {
+    console.log('[NDJC_SW_SUPPRESS_VISIBLE_CHAT_NOTIFICATION]', {
+      conversation_id: ndjcPayloadConversationId(notificationPayload),
+      payload: notificationPayload
+    })
+    return
+  }
 
   event.waitUntil(
     self.registration.showNotification(title, options).then(() => {
