@@ -167,6 +167,15 @@ export type PushDeviceUpsert = {
   deviceInstallId?: string | null
 }
 
+export type PushDeviceUnregister = {
+  storeId: string
+  audience: string
+  token?: string | null
+  conversationId?: string | null
+  clientId?: string | null
+  deviceInstallId?: string | null
+}
+
 type PushRequestActor = 'public' | 'merchant'
 
 function normalizePushAudience(value: string | null | undefined): string {
@@ -3047,6 +3056,44 @@ async updateAppointmentStatus(input: {
       payload,
       'resolution=merge-duplicates,return=minimal',
       storeId
+    )
+
+    this.lastUpsertCode = code
+    this.lastUpsertBody = body
+
+    return code >= 200 && code <= 299
+  }
+
+  async unregisterPushDevice(input: PushDeviceUnregister): Promise<boolean> {
+    const storeId = this.requireStoreId(input.storeId)
+    const audience = normalizePushAudience(input.audience)
+    const token = String(input.token || '').trim()
+    const conversationId = String(input.conversationId || '').trim()
+    const clientId = String(input.clientId || '').trim()
+    const deviceInstallId = String(input.deviceInstallId || '').trim()
+
+    if (!audience) return false
+    if (!deviceInstallId && !token) return false
+
+    const payload: Record<string, ShowcaseRepositoryJson> = {
+      action: 'unregister_push_device',
+      store_id: storeId,
+      audience,
+      token: token || null,
+      conversation_id: conversationId || null,
+      client_id: clientId || null,
+      device_install_id: deviceInstallId || null
+    }
+
+    const url = this.functionUrl(this.edgeFunctions.sendPush)
+    const scopeClientId = clientId || null
+
+    const [code, body] = await this.httpPost(
+      url,
+      payload,
+      null,
+      storeId,
+      scopeClientId
     )
 
     this.lastUpsertCode = code
