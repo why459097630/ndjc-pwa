@@ -10506,18 +10506,60 @@ async function sendChatMessage(): Promise<void> {
     setChatMessages(latestLocalMessages.map(chatEntityToCloudMessage))
 
     const senderRole = currentChatRole()
+    const targetAudience = senderRole === 'merchant' ? 'chat_client' : 'chat_merchant'
+    const openAs = senderRole === 'merchant' ? 'client' : 'merchant'
+    const targetClientId = conversation.clientId || clientId
+    const senderClientId = senderRole === 'merchant' ? null : targetClientId
+    const suppressLocalVisibleChatPush = shouldSuppressRuntimeChatPush(conversation.id)
 
-    if (!shouldSuppressRuntimeChatPush(conversation.id)) {
-      await repository.dispatchChatPush({
+    console.log('[NDJC_PUSH] Chat push dispatch start.', {
+      storeId,
+      conversationId: conversation.id,
+      senderRole,
+      targetAudience,
+      openAs,
+      targetClientId,
+      senderClientId,
+      suppressLocalVisibleChatPush,
+      pushBody: operationResult.pushBody
+    })
+
+    const chatPushOk = await repository.dispatchChatPush({
+      storeId,
+      conversationId: conversation.id,
+      title: resolveChatPushSenderName(senderRole),
+      body: operationResult.pushBody,
+      senderRole,
+      targetAudience,
+      openAs,
+      targetClientId,
+      senderClientId
+    })
+
+    console.log('[NDJC_PUSH] Chat push dispatch result.', {
+      storeId,
+      conversationId: conversation.id,
+      senderRole,
+      targetAudience,
+      openAs,
+      targetClientId,
+      senderClientId,
+      chatPushOk,
+      code: repository.lastAnnouncementPushCode,
+      body: repository.lastAnnouncementPushBody
+    })
+
+    if (!chatPushOk) {
+      console.warn('[NDJC_PUSH] Chat push dispatch failed.', {
         storeId,
         conversationId: conversation.id,
-        title: resolveChatPushSenderName(senderRole),
-        body: operationResult.pushBody,
         senderRole,
-        targetAudience: senderRole === 'merchant' ? 'chat_client' : 'chat_merchant',
-        openAs: senderRole === 'merchant' ? 'client' : 'merchant',
-        targetClientId: conversation.clientId || clientId,
-        senderClientId: senderRole === 'merchant' ? null : (conversation.clientId || clientId)
+        targetAudience,
+        openAs,
+        targetClientId,
+        senderClientId,
+        code: repository.lastAnnouncementPushCode,
+        body: repository.lastAnnouncementPushBody
       })
     }
 
@@ -11503,18 +11545,60 @@ async function sendChatMessage(): Promise<void> {
       setChatMessages(latestLocalMessages.map(chatEntityToCloudMessage))
 
       const senderRole = currentChatRole()
+      const targetAudience = senderRole === 'merchant' ? 'chat_client' : 'chat_merchant'
+      const openAs = senderRole === 'merchant' ? 'client' : 'merchant'
+      const targetClientId = conversation.clientId || clientId
+      const senderClientId = senderRole === 'merchant' ? null : targetClientId
+      const suppressLocalVisibleChatPush = shouldSuppressRuntimeChatPush(conversation.id)
 
-      if (!shouldSuppressRuntimeChatPush(conversation.id)) {
-        await repository.dispatchChatPush({
+      console.log('[NDJC_PUSH] Chat push dispatch start.', {
+        storeId,
+        conversationId: conversation.id,
+        senderRole,
+        targetAudience,
+        openAs,
+        targetClientId,
+        senderClientId,
+        suppressLocalVisibleChatPush,
+        pushBody: operationResult.pushBody
+      })
+
+      const chatPushOk = await repository.dispatchChatPush({
+        storeId,
+        conversationId: conversation.id,
+        title: resolveChatPushSenderName(senderRole),
+        body: operationResult.pushBody,
+        senderRole,
+        targetAudience,
+        openAs,
+        targetClientId,
+        senderClientId
+      })
+
+      console.log('[NDJC_PUSH] Chat push dispatch result.', {
+        storeId,
+        conversationId: conversation.id,
+        senderRole,
+        targetAudience,
+        openAs,
+        targetClientId,
+        senderClientId,
+        chatPushOk,
+        code: repository.lastAnnouncementPushCode,
+        body: repository.lastAnnouncementPushBody
+      })
+
+      if (!chatPushOk) {
+        console.warn('[NDJC_PUSH] Chat push dispatch failed.', {
           storeId,
           conversationId: conversation.id,
-          title: resolveChatPushSenderName(senderRole),
-          body: operationResult.pushBody,
           senderRole,
-          targetAudience: senderRole === 'merchant' ? 'chat_client' : 'chat_merchant',
-          openAs: senderRole === 'merchant' ? 'client' : 'merchant',
-          targetClientId: conversation.clientId || clientId,
-          senderClientId: senderRole === 'merchant' ? null : (conversation.clientId || clientId)
+          targetAudience,
+          openAs,
+          targetClientId,
+          senderClientId,
+          code: repository.lastAnnouncementPushCode,
+          body: repository.lastAnnouncementPushBody
         })
       }
 
