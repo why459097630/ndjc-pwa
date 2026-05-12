@@ -2054,6 +2054,7 @@ export function useShowcaseViewModel(input: UseShowcaseViewModelInput = {}): Sho
   const [chatPendingProduct, setChatPendingProduct] = useState<ShowcaseChatProductShare | null>(() => readChatDraft(storeId, buildDefaultConversationId(storeId, initialClientIdRef.current))?.pendingProduct || defaultChatUiState.pendingProduct)
   const [chatQuotedMessageId, setChatQuotedMessageId] = useState<string | null>(() => readChatDraft(storeId, buildDefaultConversationId(storeId, initialClientIdRef.current))?.quotedMessageId || defaultChatUiState.quotedMessageId)
   const [chatIsSending, setChatIsSending] = useState(defaultChatUiState.isSending)
+  const [chatIsOpening, setChatIsOpening] = useState(false)
   const [chatStatusMessage, setChatStatusMessage] = useState<string | null>(defaultChatUiState.statusMessage)
   const [chatSelectedMessageIds, setChatSelectedMessageIds] = useState<string[]>(defaultChatUiState.selectedMessageIds)
   const [chatFindQuery, setChatFindQuery] = useState(defaultChatUiState.findQuery)
@@ -2104,6 +2105,7 @@ export function useShowcaseViewModel(input: UseShowcaseViewModelInput = {}): Sho
   const chatClientPushRegistrationKeyRef = useRef('')
   const pushRegistrationThrottleAtRef = useRef<Record<string, number>>({})
   const activeConversationIdRef = useRef(activeConversationId)
+  const chatIsOpeningRef = useRef(false)
   const chatMessageLoadSeqRef = useRef(0)
   const chatContextSnapshotRef = useRef<{
     conversationId: string
@@ -2111,6 +2113,11 @@ export function useShowcaseViewModel(input: UseShowcaseViewModelInput = {}): Sho
     isAdmin: boolean
     focusedMessageId: string | null
   } | null>(null)
+
+  function setChatOpeningState(nextValue: boolean): void {
+    chatIsOpeningRef.current = nextValue
+    setChatIsOpening(nextValue)
+  }
 
   useEffect(() => {
     activeConversationIdRef.current = activeConversationId
@@ -3123,7 +3130,8 @@ function backFromAppointments(): void {
     stopChatDbObserve()
 
     setChatMode('Client')
-    setChatStatusMessage('Loading chat...')
+    setChatStatusMessage(null)
+    setChatOpeningState(true)
     setRuntimeChatVisible(true)
     setScreen(ShowcaseScreens.Chat)
 
@@ -3140,6 +3148,8 @@ function backFromAppointments(): void {
         error
       })
       setChatStatusMessage('Chat is temporarily unavailable. Please try again.')
+    } finally {
+      setChatOpeningState(false)
     }
   }
 
@@ -9810,7 +9820,15 @@ async function refreshCustomerAppointmentsFromCloud(statusMessageOverride: strin
     conversationId: string,
     pendingProduct: ShowcaseChatProductShare | null = null
   ): void {
-    const draft = readChatDraft(storeId, conversationId)
+    const normalizedConversationId = String(conversationId || '').trim()
+    const currentConversationId = String(activeConversationIdRef.current || activeConversationId || '').trim()
+    const isSameConversation = Boolean(
+      normalizedConversationId &&
+      currentConversationId &&
+      normalizedConversationId === currentConversationId
+    )
+
+    const draft = readChatDraft(storeId, normalizedConversationId || conversationId)
     const nextDraft = draft?.draft || ''
     const nextImageUrls = draft?.draftImageUrls || []
     const nextQuotedMessageId = draft?.quotedMessageId || null
@@ -9818,8 +9836,11 @@ async function refreshCustomerAppointmentsFromCloud(statusMessageOverride: strin
 
     chatMessageLoadSeqRef.current += 1
 
-    setChatMessages([])
-    setChatMediaItems([])
+    if (!isSameConversation) {
+      setChatMessages([])
+      setChatMediaItems([])
+    }
+
     setChatSelectedMessageIds([])
     setChatFindQuery('')
     setChatFindResultIds([])
@@ -9838,7 +9859,7 @@ async function refreshCustomerAppointmentsFromCloud(statusMessageOverride: strin
     if (pendingProduct) {
       writeChatDraft({
         storeId,
-        conversationId,
+        conversationId: normalizedConversationId || conversationId,
         draft: nextDraft,
         draftImageUrls: nextImageUrls,
         pendingProduct,
@@ -10633,7 +10654,7 @@ async function refreshCustomerAppointmentsFromCloud(statusMessageOverride: strin
   }
 
 async function sendChatMessage(): Promise<void> {
-  if (chatIsSending) return
+  if (chatIsSending || chatIsOpeningRef.current) return
 
   const rawBody = chatDraft.trim()
   const draftImageUploadPlan = buildChatDraftImageUploadPlan({
@@ -11480,7 +11501,7 @@ async function sendChatMessage(): Promise<void> {
       isPinned: chatPinned,
       isConnecting: false,
       isRefreshing: false,
-      isSending: chatIsSending,
+      isSending: chatIsSending || chatIsOpening,
 
       isLoadingOlder: false,
       canLoadOlder: true,
@@ -11703,7 +11724,7 @@ async function sendChatMessage(): Promise<void> {
   }
 
   async function sendPendingProductShare(): Promise<void> {
-    if (chatIsSending) return
+    if (chatIsSending || chatIsOpeningRef.current) return
 
     const product = chatPendingProduct
     if (!product) return
@@ -13289,7 +13310,7 @@ function onChatImageLimitReached(): void {
     draftImageUrls: chatDraftImageUrls,
     pendingProduct: chatPendingProduct,
     quotedMessageId: chatQuotedMessageId,
-    isSending: chatIsSending,
+    isSending: chatIsSending || chatIsOpening,
     statusMessage: chatStatusMessage || snackbarMessage || (chatPollingEnabled || chatEntryPollingEnabled ? null : null),
     inputPlaceholder: DEFAULT_CHAT_INPUT_PLACEHOLDER,
 
