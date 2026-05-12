@@ -3006,6 +3006,7 @@ async updateAppointmentStatus(input: {
     const deviceInstallId = String(input.deviceInstallId || '').trim()
 
     const payload: Record<string, ShowcaseRepositoryJson> = {
+      action: 'register_push_device',
       store_id: storeId,
       audience,
       token,
@@ -3018,28 +3019,34 @@ async updateAppointmentStatus(input: {
       created_at: nowIso
     }
 
+    if (usePublicActor) {
+      const url = this.functionUrl(this.edgeFunctions.sendPush)
+      const scopeClientId = clientId || null
+
+      const [code, body] = await this.httpPost(
+        url,
+        payload,
+        null,
+        storeId,
+        scopeClientId
+      )
+
+      this.lastUpsertCode = code
+      this.lastUpsertBody = body
+
+      return code >= 200 && code <= 299
+    }
+
     const upsertUrl = this.restUrl(
       `${this.pushDevicesTable()}?on_conflict=store_id,token,audience,conversation_scope`
     )
 
-    const scopeClientId = usePublicActor
-      ? clientId || null
-      : null
-
-    const [code, body] = usePublicActor
-      ? await this.httpPost(
-          upsertUrl,
-          payload,
-          'resolution=merge-duplicates,return=minimal',
-          storeId,
-          scopeClientId
-        )
-      : await this.httpAuthPost(
-          upsertUrl,
-          payload,
-          'resolution=merge-duplicates,return=minimal',
-          storeId
-        )
+    const [code, body] = await this.httpAuthPost(
+      upsertUrl,
+      payload,
+      'resolution=merge-duplicates,return=minimal',
+      storeId
+    )
 
     this.lastUpsertCode = code
     this.lastUpsertBody = body
