@@ -11,6 +11,7 @@ import { createShowcaseCloudRepositoryConfig } from '@/features/feature-showcase
 const LOCAL_FALLBACK_STORE_ID = 'store_showcase_trial_000001'
 const NDJC_PWA_DEVICE_INSTALL_ID_STORAGE_KEY = 'ndjc_pwa_device_install_id'
 const NDJC_SHOWCASE_CLIENT_ID_STORAGE_KEY = 'ndjc_showcase_client_id'
+const NDJC_ANNOUNCEMENT_PUSH_REGISTRATION_THROTTLE_MS = 5 * 60 * 1000
 
 function normalizeStoreId(value: unknown): string | null {
   const text = String(value ?? '').trim()
@@ -69,6 +70,23 @@ function resolveRuntimeStoreId(assemblyStoreId: unknown): string {
     normalizeStoreId(process.env.NEXT_PUBLIC_APP_DEFAULT_STORE_ID) ||
     LOCAL_FALLBACK_STORE_ID
   )
+}
+
+function createAnnouncementPushRegistrationThrottleKey(
+  storeId: string,
+  clientId: string,
+  deviceInstallId: string
+): string {
+  return [
+    'ndjc',
+    'push',
+    'registration',
+    'announcement_subscriber',
+    storeId,
+    clientId,
+    deviceInstallId,
+    '__announcement__'
+  ].join(':')
 }
 
 export function AppRoot({ assembly }: { assembly: Assembly }) {
@@ -340,6 +358,37 @@ export function AppRoot({ assembly }: { assembly: Assembly }) {
 
                     const deviceInstallId = getOrCreatePwaDeviceInstallId()
                     const showcaseClientId = getOrCreateShowcaseClientId()
+                    const throttleKey = createAnnouncementPushRegistrationThrottleKey(
+                      runtimeStoreId,
+                      showcaseClientId,
+                      deviceInstallId
+                    )
+                    const lastRegisteredAtText = window.localStorage.getItem(throttleKey)
+                    const lastRegisteredAt = Number.parseInt(lastRegisteredAtText || '0', 10)
+                    const now = Date.now()
+                    const elapsedMs = lastRegisteredAt > 0 ? now - lastRegisteredAt : Number.POSITIVE_INFINITY
+
+                    if (elapsedMs < NDJC_ANNOUNCEMENT_PUSH_REGISTRATION_THROTTLE_MS) {
+                      console.log('[NDJC_PUSH_OPT_IN] skip recent announcement push registration:', {
+                        storeId: runtimeStoreId,
+                        audience: 'announcement_subscriber',
+                        clientId: showcaseClientId,
+                        deviceInstallId,
+                        elapsedMs,
+                        throttleMs: NDJC_ANNOUNCEMENT_PUSH_REGISTRATION_THROTTLE_MS
+                      })
+
+                      window.localStorage.setItem('ndjc_notification_opt_in_enabled', '1')
+                      window.localStorage.removeItem('ndjc_notification_opt_in_dismissed')
+                      setNotificationRegisteredToken(diagnostics.token)
+                      setNotificationPermissionState('granted')
+                      setNotificationRegistrationState('registered')
+                      setNotificationOptInVisible(true)
+                      setNotificationOptInPanelOpen(false)
+                      setNotificationOptInMessage('This device is already registered for notifications.')
+                      return
+                    }
+
                     const repository = createShowcaseCloudRepository(
                       createShowcaseCloudRepositoryConfig(runtimeStoreId)
                     )
@@ -375,6 +424,7 @@ export function AppRoot({ assembly }: { assembly: Assembly }) {
                       return
                     }
 
+                    window.localStorage.setItem(throttleKey, String(Date.now()))
                     window.localStorage.setItem('ndjc_notification_opt_in_enabled', '1')
                     window.localStorage.removeItem('ndjc_notification_opt_in_dismissed')
                     setNotificationRegisteredToken(diagnostics.token)
