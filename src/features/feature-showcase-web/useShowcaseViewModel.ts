@@ -3929,6 +3929,7 @@ function backFromAppointments(): void {
 
   async function signOutMerchant(): Promise<void> {
     try {
+      await unregisterMerchantPushDevice('merchant-sign-out')
       await repository.signOutMerchant()
     } finally {
       setStoreMerchantSessionFromAuthSession(null)
@@ -10146,6 +10147,49 @@ async function refreshCustomerAppointmentsFromCloud(statusMessageOverride: strin
       merchantPushRegistrationKeyRef.current = ''
       clearPushRegistrationThrottle(merchantKey)
     }
+  }
+
+  async function unregisterMerchantPushDevice(reason: string): Promise<void> {
+    if (!isBrowser()) return
+
+    const deviceInstallId = getOrCreatePwaDeviceInstallId()
+
+    console.log('[NDJC_PUSH] Unregister merchant push device start.', {
+      reason,
+      storeId,
+      deviceInstallId,
+      audience: 'chat_merchant',
+      conversationId: '__merchant__'
+    })
+
+    const unregistered = await repository.unregisterPushDevice({
+      storeId,
+      audience: 'chat_merchant',
+      conversationId: '__merchant__',
+      deviceInstallId
+    })
+
+    const merchantKeyPrefix = [
+      storeId,
+      'chat_merchant'
+    ].join(':')
+
+    merchantPushRegistrationKeyRef.current = ''
+
+    Object.keys(pushRegistrationThrottleAtRef.current).forEach(key => {
+      if (key.startsWith(merchantKeyPrefix)) {
+        clearPushRegistrationThrottle(key)
+      }
+    })
+
+    console.log('[NDJC_PUSH] Unregister merchant push device result.', {
+      reason,
+      unregistered,
+      storeId,
+      deviceInstallId,
+      code: repository.lastUpsertCode,
+      body: repository.lastUpsertBody
+    })
   }
 
   useEffect(() => {
