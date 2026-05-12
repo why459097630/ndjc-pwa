@@ -323,6 +323,7 @@ const SHOWCASE_ITEM_EDITOR_DRAFT_KEY = 'ndjc_showcase_item_editor_draft'
 const SHOWCASE_ADMIN_ANNOUNCEMENT_EDITOR_DRAFT_KEY = 'ndjc_showcase_admin_announcement_editor_draft'
 const SHOWCASE_LOCAL_TEMP_IMAGES_KEY = 'ndjc_showcase_local_temp_images'
 const SHOWCASE_PENDING_CHAT_CAMERA_KEY = 'ndjc_showcase_pending_chat_camera'
+const NDJC_PWA_DEVICE_INSTALL_ID_STORAGE_KEY = 'ndjc_pwa_device_install_id'
 
 const DEFAULT_STORE_ID = 'store_showcase_trial_000001'
 const DEFAULT_CUSTOMER_NAME = 'Customer'
@@ -370,6 +371,25 @@ function createUuidLikeId(): string {
 
 function createId(prefix: string): string {
   return `${prefix}_${createUuidLikeId()}`
+}
+
+function createPwaDeviceInstallId(): string {
+  return createId('web')
+}
+
+function getOrCreatePwaDeviceInstallId(): string {
+  if (!canUseLocalStorage()) {
+    return createPwaDeviceInstallId()
+  }
+
+  const existing = window.localStorage.getItem(NDJC_PWA_DEVICE_INSTALL_ID_STORAGE_KEY)
+  if (existing && existing.trim()) {
+    return existing.trim()
+  }
+
+  const created = createPwaDeviceInstallId()
+  window.localStorage.setItem(NDJC_PWA_DEVICE_INSTALL_ID_STORAGE_KEY, created)
+  return created
 }
 
 function normalizeStoreId(storeId: string | null | undefined): string {
@@ -2056,6 +2076,7 @@ export function useShowcaseViewModel(input: UseShowcaseViewModelInput = {}): Sho
   const pushLocationSearchConsumedRef = useRef(false)
   const merchantPushRegistrationKeyRef = useRef('')
   const chatClientPushRegistrationKeyRef = useRef('')
+  const pushRegistrationThrottleAtRef = useRef<Record<string, number>>({})
   const activeConversationIdRef = useRef(activeConversationId)
   const chatMessageLoadSeqRef = useRef(0)
   const chatContextSnapshotRef = useRef<{
@@ -9936,6 +9957,8 @@ async function refreshCustomerAppointmentsFromCloud(statusMessageOverride: strin
           ? '__merchant__'
           : '__announcement__'
 
+    const deviceInstallId = getOrCreatePwaDeviceInstallId()
+
     const registered = await repository.upsertPushDevice({
       storeId,
       audience,
@@ -9943,7 +9966,8 @@ async function refreshCustomerAppointmentsFromCloud(statusMessageOverride: strin
       conversationId: registrationConversationId,
       clientId: audience === 'chat_merchant' ? null : clientId,
       platform: 'web',
-      appVersion: 'pwa'
+      appVersion: 'pwa',
+      deviceInstallId
     })
 
     if (!registered) {
@@ -9952,12 +9976,40 @@ async function refreshCustomerAppointmentsFromCloud(statusMessageOverride: strin
         audience,
         conversationId: registrationConversationId,
         clientId: audience === 'chat_merchant' ? null : clientId,
+        deviceInstallId,
         code: repository.lastUpsertCode,
         body: repository.lastUpsertBody
       })
     }
 
     return registered
+  }
+
+  function shouldThrottlePushRegistration(
+    registrationKey: string,
+    reason: string
+  ): boolean {
+    const throttleMs = 5 * 60 * 1000
+    const now = Date.now()
+    const lastRegisteredAt = pushRegistrationThrottleAtRef.current[registrationKey] || 0
+    const elapsedMs = lastRegisteredAt > 0 ? now - lastRegisteredAt : Number.POSITIVE_INFINITY
+
+    if (elapsedMs < throttleMs) {
+      console.log('[NDJC_PUSH] Skip recent push registration.', {
+        reason,
+        registrationKey,
+        elapsedMs,
+        throttleMs
+      })
+      return true
+    }
+
+    pushRegistrationThrottleAtRef.current[registrationKey] = now
+    return false
+  }
+
+  function clearPushRegistrationThrottle(registrationKey: string): void {
+    delete pushRegistrationThrottleAtRef.current[registrationKey]
   }
 
   async function registerChatClientPushDevice(
@@ -9989,6 +10041,10 @@ async function refreshCustomerAppointmentsFromCloud(statusMessageOverride: strin
       return
     }
 
+    if (shouldThrottlePushRegistration(key, reason)) {
+      return
+    }
+
     chatClientPushRegistrationKeyRef.current = key
 
     console.log('[NDJC_PUSH] Register chat client push device start.', {
@@ -10010,12 +10066,16 @@ async function refreshCustomerAppointmentsFromCloud(statusMessageOverride: strin
       storeId,
       clientId,
       conversationId,
+      deviceInstallId: canUseLocalStorage()
+        ? window.localStorage.getItem(NDJC_PWA_DEVICE_INSTALL_ID_STORAGE_KEY)
+        : null,
       code: repository.lastUpsertCode,
       body: repository.lastUpsertBody
     })
 
     if (!registered) {
       chatClientPushRegistrationKeyRef.current = ''
+      clearPushRegistrationThrottle(key)
     }
   }
 
@@ -10052,6 +10112,10 @@ async function refreshCustomerAppointmentsFromCloud(statusMessageOverride: strin
       return
     }
 
+    if (shouldThrottlePushRegistration(merchantKey, reason)) {
+      return
+    }
+
     merchantPushRegistrationKeyRef.current = merchantKey
 
     console.log('[NDJC_PUSH] Register merchant push device start.', {
@@ -10071,12 +10135,16 @@ async function refreshCustomerAppointmentsFromCloud(statusMessageOverride: strin
       reason,
       registered,
       storeId,
+      deviceInstallId: canUseLocalStorage()
+        ? window.localStorage.getItem(NDJC_PWA_DEVICE_INSTALL_ID_STORAGE_KEY)
+        : null,
       code: repository.lastUpsertCode,
       body: repository.lastUpsertBody
     })
 
     if (!registered) {
       merchantPushRegistrationKeyRef.current = ''
+      clearPushRegistrationThrottle(merchantKey)
     }
   }
 
