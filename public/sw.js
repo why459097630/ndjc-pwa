@@ -34,7 +34,7 @@ self.addEventListener('fetch', event => {
   }
 })
 
-const NDJC_CHAT_VISIBILITY_GRACE_MS = 2500
+const NDJC_CHAT_VISIBILITY_GRACE_MS = 8000
 const ndjcVisibleChatClients = new Map()
 
 function ndjcNormalizeText(value) {
@@ -118,6 +118,30 @@ function ndjcShouldSuppressVisibleChatNotification(payload) {
   return false
 }
 
+function ndjcBuildChatPushMessage(payload, title, body) {
+  return {
+    type: 'NDJC_CHAT_PUSH_RECEIVED',
+    push_type: 'chat',
+    conversation_id: ndjcPayloadConversationId(payload),
+    title: String(title || ''),
+    body: String(body || ''),
+    payload
+  }
+}
+
+async function ndjcBroadcastToWindowClients(message) {
+  const windowClients = await self.clients.matchAll({
+    type: 'window',
+    includeUncontrolled: true
+  })
+
+  windowClients.forEach(client => {
+    client.postMessage(message)
+  })
+
+  return windowClients.length
+}
+
 self.addEventListener('message', event => {
   const payload = event.data || {}
 
@@ -194,26 +218,51 @@ self.addEventListener('push', event => {
     payload: notificationPayload
   })
 
-  if (ndjcShouldSuppressVisibleChatNotification(notificationPayload)) {
-    console.log('[NDJC_SW_SUPPRESS_VISIBLE_CHAT_NOTIFICATION]', {
-      conversation_id: ndjcPayloadConversationId(notificationPayload),
-      payload: notificationPayload
-    })
-    return
-  }
+  const isChatPush = ndjcIsChatPushPayload(notificationPayload)
+  const shouldSuppressVisibleChatNotification = ndjcShouldSuppressVisibleChatNotification(notificationPayload)
+  const chatPushMessage = isChatPush
+    ? ndjcBuildChatPushMessage(notificationPayload, title, body)
+    : null
 
   event.waitUntil(
-    self.registration.showNotification(title, options).then(() => {
-      console.log('[NDJC_SW_SHOW_NOTIFICATION_OK]', {
-        title,
-        body
+    Promise.resolve()
+      .then(() => {
+        if (!chatPushMessage) {
+          return 0
+        }
+
+        return ndjcBroadcastToWindowClients(chatPushMessage).then(count => {
+          console.log('[NDJC_SW_BROADCAST_CHAT_PUSH_TO_CLIENTS]', {
+            count,
+            conversation_id: chatPushMessage.conversation_id
+          })
+
+          return count
+        })
       })
-    }).catch(error => {
-      console.error('[NDJC_SW_SHOW_NOTIFICATION_ERROR]', {
-        name: error && error.name ? error.name : null,
-        message: error && error.message ? error.message : String(error)
+      .then(() => {
+        if (shouldSuppressVisibleChatNotification) {
+          console.log('[NDJC_SW_SUPPRESS_VISIBLE_CHAT_NOTIFICATION]', {
+            conversation_id: ndjcPayloadConversationId(notificationPayload),
+            payload: notificationPayload
+          })
+          return null
+        }
+
+        return self.registration.showNotification(title, options).then(() => {
+          console.log('[NDJC_SW_SHOW_NOTIFICATION_OK]', {
+            title,
+            body
+          })
+          return null
+        })
       })
-    })
+      .catch(error => {
+        console.error('[NDJC_SW_SHOW_NOTIFICATION_ERROR]', {
+          name: error && error.name ? error.name : null,
+          message: error && error.message ? error.message : String(error)
+        })
+      })
   )
 })
 
