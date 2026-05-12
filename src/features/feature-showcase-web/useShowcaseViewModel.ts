@@ -345,6 +345,24 @@ function canUseLocalStorage(): boolean {
   }
 }
 
+function postChatVisibilityToServiceWorker(input: {
+  visible: boolean
+  conversationId: string | null | undefined
+  screen: ShowcaseScreenName | string
+}): void {
+  if (!isBrowser()) return
+
+  const controller = window.navigator.serviceWorker?.controller
+  if (!controller) return
+
+  controller.postMessage({
+    type: 'NDJC_CHAT_VISIBILITY',
+    visible: input.visible,
+    conversation_id: String(input.conversationId || '').trim(),
+    screen: String(input.screen || '')
+  })
+}
+
 function nowMillis(): number {
   return Date.now()
 }
@@ -3103,16 +3121,25 @@ function backFromAppointments(): void {
     stopChatPolling()
     stopChatDbObserve()
 
-    await restoreClientChatContext(pendingProduct)
-
-    setChatStatusMessage(null)
+    setChatMode('Client')
+    setChatStatusMessage('Loading chat...')
     setRuntimeChatVisible(true)
     setScreen(ShowcaseScreens.Chat)
 
-    await syncChat()
-
-    startChatDbObserve()
-    startChatPolling()
+    try {
+      await restoreClientChatContext(pendingProduct)
+      setChatStatusMessage(null)
+      await syncChat()
+      startChatDbObserve()
+      startChatPolling()
+    } catch (error) {
+      console.warn('[NDJC_CHAT] Failed to open customer chat.', {
+        storeId,
+        backTarget,
+        error
+      })
+      setChatStatusMessage('Chat is temporarily unavailable. Please try again.')
+    }
   }
 
   function openChatFromBottomBar(): void {
@@ -6638,12 +6665,22 @@ function backFromAppointments(): void {
     if (screen === ShowcaseScreens.Chat) {
       markRuntimeConversationVisible(activeConversationId)
       setRuntimeChatVisible(true)
+      postChatVisibilityToServiceWorker({
+        visible: true,
+        conversationId: activeConversationId,
+        screen
+      })
       startChatPolling()
       startChatDbObserve()
 
       return () => {
         markRuntimeConversationRecentlySeen(activeConversationId)
         setRuntimeChatVisible(false)
+        postChatVisibilityToServiceWorker({
+          visible: false,
+          conversationId: activeConversationId,
+          screen
+        })
         stopChatPolling()
         stopChatDbObserve()
       }
@@ -6651,6 +6688,11 @@ function backFromAppointments(): void {
 
     markRuntimeConversationRecentlySeen(activeConversationId)
     setRuntimeChatVisible(false)
+    postChatVisibilityToServiceWorker({
+      visible: false,
+      conversationId: activeConversationId,
+      screen
+    })
     stopChatPolling()
     stopChatDbObserve()
     return undefined
@@ -12228,6 +12270,11 @@ function onChatImageLimitReached(): void {
   function onChatScreenVisible(): void {
     markRuntimeConversationVisible(activeConversationId)
     setRuntimeChatVisible(true)
+    postChatVisibilityToServiceWorker({
+      visible: true,
+      conversationId: activeConversationId,
+      screen
+    })
     snapshotCurrentChatContext()
     startChatPolling()
     startChatDbObserve()
@@ -12237,6 +12284,11 @@ function onChatImageLimitReached(): void {
   function onChatScreenHidden(): void {
     snapshotCurrentChatContext()
     setRuntimeChatVisible(false)
+    postChatVisibilityToServiceWorker({
+      visible: false,
+      conversationId: activeConversationId,
+      screen
+    })
     stopChatPolling()
     stopChatDbObserve()
   }
