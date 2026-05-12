@@ -330,6 +330,7 @@ const DEFAULT_CUSTOMER_NAME = 'Customer'
 const DEFAULT_CHAT_INPUT_PLACEHOLDER = 'Message'
 const DEFAULT_APPOINTMENT_STATUS = 'Pending'
 const LOCAL_TEMP_IMAGE_MAX_AGE_MS = 24 * 60 * 60 * 1000
+const NDJC_CHAT_VISIBILITY_HEARTBEAT_MS = 1000
 
 function isBrowser(): boolean {
   return typeof window !== 'undefined'
@@ -6661,7 +6662,7 @@ function backFromAppointments(): void {
   useEffect(() => {
     updateChatDraftPersistence(chatDraft)
   }, [chatDraft, chatDraftImageUrls, chatPendingProduct, chatQuotedMessageId, activeConversationId])
-    useEffect(() => {
+  useEffect(() => {
     if (screen === ShowcaseScreens.Chat) {
       markRuntimeConversationVisible(activeConversationId)
       setRuntimeChatVisible(true)
@@ -6673,7 +6674,21 @@ function backFromAppointments(): void {
       startChatPolling()
       startChatDbObserve()
 
+      const heartbeatTimer = isBrowser()
+        ? window.setInterval(() => {
+            postChatVisibilityToServiceWorker({
+              visible: true,
+              conversationId: activeConversationId,
+              screen
+            })
+          }, NDJC_CHAT_VISIBILITY_HEARTBEAT_MS)
+        : null
+
       return () => {
+        if (heartbeatTimer != null && isBrowser()) {
+          window.clearInterval(heartbeatTimer)
+        }
+
         markRuntimeConversationRecentlySeen(activeConversationId)
         setRuntimeChatVisible(false)
         postChatVisibilityToServiceWorker({
@@ -6697,6 +6712,45 @@ function backFromAppointments(): void {
     stopChatDbObserve()
     return undefined
   }, [screen, activeConversationId])
+
+  useEffect(() => {
+    if (!isBrowser()) return undefined
+
+    const serviceWorkerContainer = window.navigator.serviceWorker
+    if (!serviceWorkerContainer) return undefined
+
+    function handleServiceWorkerMessage(event: MessageEvent): void {
+      const payload = event.data || {}
+
+      if (!payload || payload.type !== 'NDJC_CHAT_PUSH_RECEIVED') {
+        return
+      }
+
+      const pushedConversationId = String(payload.conversation_id || '').trim()
+
+      console.log('[NDJC_CHAT] Service Worker chat push received.', {
+        pushedConversationId,
+        screen,
+        activeConversationId: activeConversationIdRef.current
+      })
+
+      void refreshChatEntryDotOnce()
+
+      if (
+        screen === ShowcaseScreens.Chat &&
+        pushedConversationId &&
+        activeConversationIdRef.current.trim() === pushedConversationId
+      ) {
+        void syncChat()
+      }
+    }
+
+    serviceWorkerContainer.addEventListener('message', handleServiceWorkerMessage)
+
+    return () => {
+      serviceWorkerContainer.removeEventListener('message', handleServiceWorkerMessage)
+    }
+  }, [screen])
   useEffect(() => {
     if (screen !== ShowcaseScreens.Home) return
 
