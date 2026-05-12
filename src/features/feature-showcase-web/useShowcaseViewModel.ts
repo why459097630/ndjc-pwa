@@ -3882,6 +3882,13 @@ function backFromAppointments(): void {
       setPreviousScreen(screen)
       setScreen('Admin')
       showSnackbar('Signed in.')
+
+      void ensurePushRegistration({ audience: 'chat_merchant' }).then(registered => {
+        if (!registered) {
+          merchantPushRegistrationKeyRef.current = ''
+        }
+      })
+
       await tryLoadFromCloud(ShowcaseRetryOps.LoadFromCloud)
       await refreshAdminHomeCloudState(false)
 
@@ -4057,6 +4064,13 @@ function backFromAppointments(): void {
     setStoreMerchantSessionFromAuthSession(restored)
     bindMerchantSessionToRepository(repository)
     setMerchantSession(restored)
+    setIsAdminLoggedIn(Boolean(restored.accessToken))
+
+    void ensurePushRegistration({ audience: 'chat_merchant' }).then(registered => {
+      if (!registered) {
+        merchantPushRegistrationKeyRef.current = ''
+      }
+    })
   }
 
   async function saveAdminCredentialsFromDraft(): Promise<void> {
