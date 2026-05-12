@@ -75,6 +75,7 @@ export function AppRoot({ assembly }: { assembly: Assembly }) {
   const [debugTapCount, setDebugTapCount] = useState(0)
   const [hydrated, setHydrated] = useState(false)
   const [notificationOptInVisible, setNotificationOptInVisible] = useState(false)
+  const [notificationOptInPanelOpen, setNotificationOptInPanelOpen] = useState(false)
   const [notificationOptInBusy, setNotificationOptInBusy] = useState(false)
   const [notificationOptInMessage, setNotificationOptInMessage] = useState<string | null>(null)
   const [notificationRegisteredToken, setNotificationRegisteredToken] = useState<string | null>(null)
@@ -150,7 +151,7 @@ export function AppRoot({ assembly }: { assembly: Assembly }) {
             position: 'fixed',
             left: 16,
             right: 16,
-            bottom: 120,
+            bottom: notificationOptInPanelOpen ? 88 : -1000,
             zIndex: 999999,
             border: '1px solid rgba(17, 24, 39, 0.10)',
             borderRadius: 22,
@@ -158,7 +159,8 @@ export function AppRoot({ assembly }: { assembly: Assembly }) {
             background: '#ffffff',
             boxShadow: '0 18px 48px rgba(15, 23, 42, 0.22)',
             color: '#111827',
-            pointerEvents: 'auto'
+            pointerEvents: notificationOptInPanelOpen ? 'auto' : 'none',
+            transition: 'bottom 180ms ease'
           }}
         >
           <div
@@ -336,33 +338,33 @@ export function AppRoot({ assembly }: { assembly: Assembly }) {
                       return
                     }
 
-const deviceInstallId = getOrCreatePwaDeviceInstallId()
-const showcaseClientId = getOrCreateShowcaseClientId()
-const repository = createShowcaseCloudRepository(
-  createShowcaseCloudRepositoryConfig(runtimeStoreId)
-)
+                    const deviceInstallId = getOrCreatePwaDeviceInstallId()
+                    const showcaseClientId = getOrCreateShowcaseClientId()
+                    const repository = createShowcaseCloudRepository(
+                      createShowcaseCloudRepositoryConfig(runtimeStoreId)
+                    )
 
-const registered = await repository.upsertPushDevice({
-  storeId: runtimeStoreId,
-  audience: 'announcement_subscriber',
-  token: diagnostics.token,
-  conversationId: '__announcement__',
-  clientId: showcaseClientId,
-  platform: 'web',
-  appVersion: 'pwa',
-  deviceInstallId
-})
+                    const registered = await repository.upsertPushDevice({
+                      storeId: runtimeStoreId,
+                      audience: 'announcement_subscriber',
+                      token: diagnostics.token,
+                      conversationId: '__announcement__',
+                      clientId: showcaseClientId,
+                      platform: 'web',
+                      appVersion: 'pwa',
+                      deviceInstallId
+                    })
 
-console.log('[NDJC_PUSH_OPT_IN] push device registration result:', {
-  registered,
-  storeId: runtimeStoreId,
-  audience: 'announcement_subscriber',
-  platform: 'web',
-  clientId: showcaseClientId,
-  deviceInstallId,
-  lastUpsertCode: repository.lastUpsertCode,
-  lastUpsertBody: repository.lastUpsertBody
-})
+                    console.log('[NDJC_PUSH_OPT_IN] push device registration result:', {
+                      registered,
+                      storeId: runtimeStoreId,
+                      audience: 'announcement_subscriber',
+                      platform: 'web',
+                      clientId: showcaseClientId,
+                      deviceInstallId,
+                      lastUpsertCode: repository.lastUpsertCode,
+                      lastUpsertBody: repository.lastUpsertBody
+                    })
 
                     if (!registered) {
                       setNotificationRegisteredToken(null)
@@ -379,6 +381,7 @@ console.log('[NDJC_PUSH_OPT_IN] push device registration result:', {
                     setNotificationPermissionState('granted')
                     setNotificationRegistrationState('registered')
                     setNotificationOptInVisible(true)
+                    setNotificationOptInPanelOpen(false)
                     setNotificationOptInMessage('This device is registered for notifications.')
                   } catch (error) {
                     console.error('[NDJC_PUSH_OPT_IN] failed:', error)
@@ -411,6 +414,34 @@ console.log('[NDJC_PUSH_OPT_IN] push device registration result:', {
             </div>
           </div>
         </section>
+      ) : null}
+
+      {notificationOptInVisible ? (
+        <button
+          type="button"
+          aria-label={notificationOptInPanelOpen ? 'Close notification registration' : 'Open notification registration'}
+          onClick={() => setNotificationOptInPanelOpen(value => !value)}
+          style={{
+            position: 'fixed',
+            right: 16,
+            bottom: 24,
+            zIndex: 1000000,
+            width: 44,
+            height: 44,
+            border: '1px solid rgba(17, 24, 39, 0.12)',
+            borderRadius: 999,
+            background: '#ffffff',
+            color: '#111827',
+            boxShadow: '0 10px 28px rgba(15, 23, 42, 0.20)',
+            fontSize: 18,
+            fontWeight: 900,
+            lineHeight: '44px',
+            textAlign: 'center',
+            pointerEvents: 'auto'
+          }}
+        >
+          {notificationOptInPanelOpen ? '×' : '🔔'}
+        </button>
       ) : null}
 
       <NDJCAppHost
