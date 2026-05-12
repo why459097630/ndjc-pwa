@@ -2508,8 +2508,13 @@ const apkBottomTabLabelStyle: React.CSSProperties = {
   textOverflow: 'ellipsis'
 }
 
-function apkPrimaryButtonStyle(disabled?: boolean, isLoading?: boolean): React.CSSProperties {
+function apkPrimaryButtonStyle(
+  disabled?: boolean,
+  isLoading?: boolean,
+  pressed?: boolean
+): React.CSSProperties {
   const enabled = !disabled && !isLoading
+  const isPressed = Boolean(pressed && enabled)
 
   return {
     width: '100%',
@@ -2522,16 +2527,32 @@ function apkPrimaryButtonStyle(disabled?: boolean, isLoading?: boolean): React.C
     justifyContent: 'center',
     color: enabled ? APK_CORE_UI.white : APK_CORE_UI.primaryButtonDisabledText,
     background: enabled ? APK_HOME_NAV_UI.topBannerGradientBottom : APK_CORE_UI.primaryButtonDisabledBg,
-    boxShadow: enabled ? APK_CORE_UI.primaryButtonElevation : 'none',
+    backgroundClip: 'padding-box',
+    boxShadow: enabled
+      ? isPressed
+        ? APK_CORE_UI.primaryButtonPressedElevation
+        : APK_CORE_UI.primaryButtonElevation
+      : 'none',
     fontSize: APK_CORE_UI.primaryButtonFontSize,
     lineHeight: 1,
     fontWeight: 600,
     whiteSpace: 'nowrap',
     overflow: 'hidden',
     textOverflow: 'ellipsis',
-    transform: 'scale(1)',
+    outline: 'none',
+    appearance: 'none',
+    WebkitAppearance: 'none',
+    transform: isPressed
+      ? `scale(${APK_CORE_UI.primaryButtonPressedScale})`
+      : 'scale(1)',
+    transformOrigin: 'center center',
+    transition: 'transform 120ms ease, box-shadow 120ms ease, opacity 120ms ease',
+    willChange: enabled ? 'transform' : undefined,
     opacity: isLoading ? 0.86 : 1,
-    cursor: enabled ? 'pointer' : 'not-allowed'
+    cursor: enabled ? 'pointer' : 'not-allowed',
+    WebkitTapHighlightColor: 'transparent',
+    userSelect: 'none',
+    touchAction: 'manipulation'
   }
 }
 
@@ -4835,6 +4856,53 @@ export function NdjcUnifiedBackground({
             height: 0;
             display: none;
           }
+
+          .ndjc-unified-background button,
+          .ndjc-unified-background a,
+          .ndjc-unified-background [role="button"],
+          .ndjc-unified-background input,
+          .ndjc-unified-background textarea,
+          .ndjc-unified-background select {
+            -webkit-tap-highlight-color: transparent;
+          }
+
+          .ndjc-unified-background button {
+            appearance: none;
+            -webkit-appearance: none;
+            outline: none;
+            background-clip: padding-box;
+          }
+
+          .ndjc-unified-background button:focus,
+          .ndjc-unified-background button:focus-visible,
+          .ndjc-unified-background [role="button"]:focus,
+          .ndjc-unified-background [role="button"]:focus-visible,
+          .ndjc-unified-background a:focus,
+          .ndjc-unified-background a:focus-visible {
+            outline: none;
+          }
+
+          .ndjc-unified-background .ndjc-primary-action-button,
+          .ndjc-unified-background .ndjc-button,
+          .ndjc-unified-background .ndjc-pill-button,
+          .ndjc-unified-background .ndjc-control-pill-button,
+          .ndjc-unified-background .ndjc-card-back-button,
+          .ndjc-unified-background .ndjc-top-icon-button,
+          .ndjc-unified-background .ndjc-bottom-tab-button,
+          .ndjc-unified-background .ndjc-bottom-nav-button,
+          .ndjc-unified-background button[role="tab"],
+          .ndjc-unified-background button[type="button"],
+          .ndjc-unified-background button[type="submit"] {
+            -webkit-tap-highlight-color: transparent;
+            touch-action: manipulation;
+            user-select: none;
+            overflow: hidden;
+            background-clip: padding-box;
+          }
+
+          .ndjc-unified-background * {
+            -webkit-touch-callout: none;
+          }
         `}
       </style>
 
@@ -5079,14 +5147,30 @@ export function NdjcPrimaryActionButton({
   className?: string
 }) {
   const blocked = Boolean(disabled || isLoading)
+  const [pressed, setPressed] = React.useState(false)
+
+  function releasePressState(): void {
+    setPressed(false)
+  }
 
   return (
     <button
       type={type}
       className={cx('ndjc-primary-action-button', className)}
-      style={apkPrimaryButtonStyle(disabled, isLoading)}
+      style={apkPrimaryButtonStyle(disabled, isLoading, pressed)}
       disabled={blocked}
-      onClick={onClick}
+      onPointerDown={() => {
+        if (blocked) return
+        setPressed(true)
+      }}
+      onPointerUp={releasePressState}
+      onPointerCancel={releasePressState}
+      onPointerLeave={releasePressState}
+      onBlur={releasePressState}
+      onClick={() => {
+        if (blocked) return
+        onClick?.()
+      }}
       aria-busy={isLoading || undefined}
     >
       {isLoading ? (
@@ -9639,51 +9723,58 @@ function UniversalStoreLogoPlaceholder() {
         borderRadius: 999,
         display: 'grid',
         placeItems: 'center',
-        color: '#aeb7c2',
-        background: '#e5e7eb'
+        color: '#7f8a97',
+        background: 'linear-gradient(180deg, rgba(255, 255, 255, 0.72), #e5e7eb)',
+        boxShadow: 'inset 0 1px 0 rgba(255, 255, 255, 0.72)'
       }}
       aria-hidden="true"
     >
-      <span
+      <svg
+        width="34"
+        height="34"
+        viewBox="0 0 30 30"
+        fill="none"
+        xmlns="http://www.w3.org/2000/svg"
         style={{
-          position: 'relative',
-          width: 30,
-          height: 30,
-          borderRadius: 999,
-          border: '2px solid #aeb7c2',
-          display: 'block',
-          boxSizing: 'border-box'
+          display: 'block'
         }}
       >
-        <span
-          style={{
-            position: 'absolute',
-            left: '50%',
-            top: 6,
-            width: 8,
-            height: 8,
-            borderRadius: 999,
-            border: '2px solid #aeb7c2',
-            transform: 'translateX(-50%)',
-            boxSizing: 'border-box'
-          }}
+        <path
+          d="M7.25 12.75L8.55 7.75C8.78 6.88 9.56 6.25 10.46 6.25H19.54C20.44 6.25 21.22 6.88 21.45 7.75L22.75 12.75"
+          stroke="#7f8a97"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
         />
-
-        <span
-          style={{
-            position: 'absolute',
-            left: '50%',
-            bottom: 6,
-            width: 16,
-            height: 9,
-            borderRadius: '999px 999px 0 0',
-            border: '2px solid #aeb7c2',
-            borderBottom: 0,
-            transform: 'translateX(-50%)',
-            boxSizing: 'border-box'
-          }}
+        <path
+          d="M7.5 12.75H22.5"
+          stroke="#7f8a97"
+          strokeWidth="2"
+          strokeLinecap="round"
         />
-      </span>
+        <path
+          d="M8.75 13.25V21.5C8.75 22.19 9.31 22.75 10 22.75H20C20.69 22.75 21.25 22.19 21.25 21.5V13.25"
+          stroke="#7f8a97"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+        <path
+          d="M12 22.5V17.25C12 16.56 12.56 16 13.25 16H16.75C17.44 16 18 16.56 18 17.25V22.5"
+          stroke="#7f8a97"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+        <path
+          d="M8.5 12.75C8.5 14.13 9.62 15.25 11 15.25C12.1 15.25 13.03 14.54 13.36 13.56C13.66 14.54 14.57 15.25 15.65 15.25C16.73 15.25 17.64 14.54 17.94 13.56C18.27 14.54 19.2 15.25 20.3 15.25C21.52 15.25 22.54 14.37 22.75 13.21"
+          stroke="#7f8a97"
+          strokeWidth="1.65"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          opacity="0.92"
+        />
+      </svg>
     </div>
   )
 }
@@ -17169,7 +17260,7 @@ export function ShowcaseChatThread({
                     actions.onSend()
                   }}
                 >
-                  Send
+                  {state.isSending ? 'Loading' : 'Send'}
                 </button>
               </section>
             </>
