@@ -2054,6 +2054,7 @@ export function useShowcaseViewModel(input: UseShowcaseViewModelInput = {}): Sho
   const merchantChatListDbObserveAbortRef = useRef<AbortController | null>(null)
   const chatDbObserveAbortRef = useRef<AbortController | null>(null)
   const pushLocationSearchConsumedRef = useRef(false)
+  const merchantPushRegistrationKeyRef = useRef('')
   const activeConversationIdRef = useRef(activeConversationId)
   const chatMessageLoadSeqRef = useRef(0)
   const chatContextSnapshotRef = useRef<{
@@ -9900,26 +9901,68 @@ async function refreshCustomerAppointmentsFromCloud(statusMessageOverride: strin
     }
   }
 
-  async function ensurePushRegistration(): Promise<void> {
+  async function ensurePushRegistration(options?: {
+    audience?: 'chat_merchant' | 'chat_client' | 'announcement_subscriber'
+  }): Promise<boolean> {
     const token = await awaitFcmToken()
-    if (!token) return
+    if (!token) return false
 
-    const audience = isAdminLoggedIn
-      ? 'chat_merchant'
-      : activeConversationId
-        ? 'chat_client'
-        : 'announcement_subscriber'
+    const audience = options?.audience || (
+      isAdminLoggedIn
+        ? 'chat_merchant'
+        : activeConversationId
+          ? 'chat_client'
+          : 'announcement_subscriber'
+    )
 
-    await repository.upsertPushDevice({
+    const registered = await repository.upsertPushDevice({
       storeId,
       audience,
       token,
       conversationId: audience === 'chat_client' ? activeConversationId : null,
-      clientId: isAdminLoggedIn ? null : clientId,
+      clientId: audience === 'chat_merchant' ? null : clientId,
       platform: 'web',
       appVersion: 'pwa'
     })
+
+    if (!registered) {
+      console.warn('[NDJC_PUSH] Push device registration failed.', {
+        storeId,
+        audience,
+        clientId: audience === 'chat_merchant' ? null : clientId,
+        code: repository.lastUpsertCode,
+        body: repository.lastUpsertBody
+      })
+    }
+
+    return registered
   }
+
+  useEffect(() => {
+    if (!isAdminLoggedIn || !merchantSession?.accessToken) return
+
+    const merchantKey = [
+      storeId,
+      'chat_merchant',
+      merchantSession.authUserId || merchantSession.loginName || 'merchant'
+    ].join(':')
+
+    if (merchantPushRegistrationKeyRef.current === merchantKey) return
+
+    merchantPushRegistrationKeyRef.current = merchantKey
+
+    void ensurePushRegistration({ audience: 'chat_merchant' }).then(registered => {
+      if (!registered) {
+        merchantPushRegistrationKeyRef.current = ''
+      }
+    })
+  }, [
+    isAdminLoggedIn,
+    merchantSession?.accessToken,
+    merchantSession?.authUserId,
+    merchantSession?.loginName,
+    storeId
+  ])
 
   function resolveChatPushSenderName(senderRoleInput: string): string {
     const senderRole = senderRoleInput.trim().toLowerCase()
@@ -10109,7 +10152,9 @@ async function refreshCustomerAppointmentsFromCloud(statusMessageOverride: strin
   }, [screen, isAdminLoggedIn, activeConversationId, storeId])
 
   async function dispatchNewAppointmentPushToMerchant(appointment: CloudAppointmentRequest): Promise<void> {
-    await repository.dispatchAppointmentPush({
+    const body = `${appointment.customerName || 'A customer'} requested ${appointment.serviceTitle || 'an appointment'}.`
+
+    const pushOk = await repository.dispatchAppointmentPush({
       storeId,
       appointmentId: appointment.id,
       targetAudience: 'chat_merchant',
@@ -10117,8 +10162,19 @@ async function refreshCustomerAppointmentsFromCloud(statusMessageOverride: strin
       actor: 'public',
       scopeClientId: appointment.clientId,
       title: 'New booking request',
-      body: `${appointment.customerName || 'A customer'} requested ${appointment.serviceTitle || 'an appointment'}.`
+      body,
+      bodyPreview: body
     })
+
+    if (!pushOk) {
+      console.warn('[NDJC_PUSH] New appointment push to merchant failed.', {
+        storeId,
+        appointmentId: appointment.id,
+        clientId: appointment.clientId,
+        code: repository.lastAnnouncementPushCode,
+        body: repository.lastAnnouncementPushBody
+      })
+    }
   }
 
   async function dispatchAppointmentStatusPushToCustomer(appointment: CloudAppointmentRequest, nextStatus: string): Promise<void> {
