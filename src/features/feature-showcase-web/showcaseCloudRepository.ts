@@ -1469,9 +1469,9 @@ export class ShowcaseCloudRepository {
   async fetchCategories(storeIdInput?: string | null): Promise<CloudCategory[]> {
     const storeId = this.requireStoreId(storeIdInput)
     const query = [
-      'select=id,store_id,name_zh,name_en,sort_order',
+      'select=id,store_id,name,name_zh,name_en,sort_order',
       `store_id=${this.encodeEq(storeId)}`,
-      'order=sort_order.asc.nullslast,name_zh.asc.nullslast,name_en.asc.nullslast'
+      'order=sort_order.asc.nullslast,name_zh.asc.nullslast,name_en.asc.nullslast,name.asc.nullslast'
     ].join('&')
 
     const url = this.buildSelectUrl(this.categoriesTable(), query)
@@ -1970,23 +1970,29 @@ export class ShowcaseCloudRepository {
   }
 
   async renameCategoryById(input: {
+    storeId: string
     categoryId: string
     newName: string
   }): Promise<CategoryWriteResult> {
+    const storeId = this.requireStoreId(input.storeId)
     const categoryId = String(input.categoryId || '').trim()
     const newName = String(input.newName || '').trim()
 
-    if (!categoryId || !newName) {
+    if (!storeId || !categoryId || !newName) {
       return {
         ok: false,
-        errorMessage: 'Category id and name are required.',
+        errorMessage: 'Category store id, id, and name are required.',
         errorCode: 0,
         errorBody: null
       }
     }
 
-    const url = this.restUrl(`${this.categoriesTable()}?id=${this.encodeEq(categoryId)}`)
+    const url = this.restUrl(
+      `${this.categoriesTable()}?id=${this.encodeEq(categoryId)}&store_id=${this.encodeEq(storeId)}`
+    )
+
     const [code, body] = await this.httpAuthPatch(url, {
+      name: newName,
       name_zh: newName,
       name_en: newName
     }, 'return=representation')
@@ -2002,22 +2008,27 @@ export class ShowcaseCloudRepository {
   }
 
   async setCategorySortOrder(input: {
+    storeId: string
     categoryId: string
     sortOrder: number
   }): Promise<CategoryWriteResult> {
+    const storeId = this.requireStoreId(input.storeId)
     const categoryId = String(input.categoryId || '').trim()
     const sortOrder = Number(input.sortOrder || 0)
 
-    if (!categoryId || !Number.isFinite(sortOrder)) {
+    if (!storeId || !categoryId || !Number.isFinite(sortOrder)) {
       return {
         ok: false,
-        errorMessage: 'Category id and sort order are required.',
+        errorMessage: 'Category store id, id, and sort order are required.',
         errorCode: 0,
         errorBody: null
       }
     }
 
-    const url = this.restUrl(`${this.categoriesTable()}?id=${this.encodeEq(categoryId)}`)
+    const url = this.restUrl(
+      `${this.categoriesTable()}?id=${this.encodeEq(categoryId)}&store_id=${this.encodeEq(storeId)}`
+    )
+
     const [code, body] = await this.httpAuthPatch(url, {
       sort_order: sortOrder
     }, 'return=representation')

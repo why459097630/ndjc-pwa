@@ -1347,6 +1347,8 @@ const apkShellScreenStyle: React.CSSProperties = {
   placeItems: 'center',
   background: APK_SHELL_UI.systemBarFallbackBg,
   overflow: 'hidden',
+  overscrollBehavior: 'none',
+  overscrollBehaviorY: 'none',
   boxSizing: 'border-box'
 }
 
@@ -1361,6 +1363,8 @@ const apkPhoneSurfaceStyle: React.CSSProperties = {
   margin: '0 auto',
   background: APK_SHELL_UI.pageBg,
   overflow: 'hidden',
+  overscrollBehavior: 'contain',
+  overscrollBehaviorY: 'contain',
   boxSizing: 'border-box'
 }
 
@@ -4845,6 +4849,20 @@ export function NdjcUnifiedBackground({
 
       <style>
         {`
+          html,
+          body {
+            overscroll-behavior: none;
+            overscroll-behavior-y: none;
+            overflow: hidden;
+          }
+
+          .ndjc-screen,
+          .ndjc-phone-surface,
+          .ndjc-unified-background {
+            overscroll-behavior: contain;
+            overscroll-behavior-y: contain;
+          }
+
           .ndjc-unified-background,
           .ndjc-unified-background * {
             scrollbar-width: none;

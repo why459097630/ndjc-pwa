@@ -1191,6 +1191,24 @@ function manualCategoryNamesToCloudCategories(categories: string[]): CloudCatego
   }))
 }
 
+function cloudCategoriesToManualCategoryNames(categories: CloudCategory[]): string[] {
+  const seen = new Set<string>()
+  const result: string[] = []
+
+  categories.forEach(category => {
+    const name = String(category.name || '').trim()
+    if (!name) return
+
+    const key = name.toLowerCase()
+    if (seen.has(key)) return
+
+    seen.add(key)
+    result.push(name)
+  })
+
+  return result
+}
+
 function buildPendingDishSyncOperations(items: DemoDish[]): PendingSyncOperation[] {
   const operations = new Map<string, PendingSyncOperation>()
 
@@ -2125,15 +2143,8 @@ export function useShowcaseViewModel(input: UseShowcaseViewModelInput = {}): Sho
   }, [activeConversationId])
 
   const manualCategories = useMemo(() => {
-    const cloudNames = categories
-      .map(item => item.name)
-      .map(item => item.trim())
-      .filter(Boolean)
-
-    const dishNames = categoryOptionsFromDishes(dishes)
-
-    return Array.from(new Set([...cloudNames, ...dishNames])).sort()
-  }, [categories, dishes])
+    return cloudCategoriesToManualCategoryNames(categories)
+  }, [categories])
 
   const allTags = useMemo(() => allTagsFromDishes(dishes), [dishes])
 
@@ -3552,14 +3563,9 @@ function backFromAppointments(): void {
         }
       }
 
-      const effectiveCategoryNames = Array.from(
-        new Set([
-          ...effectiveManualCategories,
-          ...effectiveDishes
-            .map(item => item.category?.trim() || '')
-            .filter(Boolean)
-        ])
-      )
+      const effectiveCategoryNames = cloudCategories.length
+        ? cloudCategoriesToManualCategoryNames(cloudCategories)
+        : effectiveManualCategories
 
       if (selectedCategory && !effectiveCategoryNames.includes(selectedCategory)) {
         setSelectedCategory(null)
@@ -4529,14 +4535,9 @@ function backFromAppointments(): void {
       setCategories(manualCategoryNamesToCloudCategories(localManualCategories))
     }
 
-    const effectiveLocalCategoryNames = Array.from(
-      new Set([
-        ...localManualCategories,
-        ...effectiveLocalDishes
-          .map(item => item.category?.trim() || '')
-          .filter(Boolean)
-      ])
-    )
+    const effectiveLocalCategoryNames = localManualCategories
+      .map(item => item.trim())
+      .filter(Boolean)
 
     if (selectedCategory && effectiveLocalCategoryNames.length && !effectiveLocalCategoryNames.includes(selectedCategory)) {
       setSelectedCategory(null)
@@ -5236,14 +5237,7 @@ function backFromAppointments(): void {
         ? mergeRemoteAndLocal(cloudDishes, localDishes)
         : dishes
 
-      const allCategoryNames = Array.from(
-        new Set(
-          cloudCategories
-            .map(item => item.name)
-            .map(item => item.trim())
-            .filter(Boolean)
-        )
-      )
+      const allCategoryNames = cloudCategoriesToManualCategoryNames(cloudCategories)
 
       setDishes(finalDishes)
       setCategories(cloudCategories)
@@ -5767,14 +5761,7 @@ function backFromAppointments(): void {
         ? mergeRemoteAndLocal(cloudDishes, localDishes)
         : dishes
 
-      const allCategoryNames = Array.from(
-        new Set(
-          cloudCategories
-            .map(item => item.name)
-            .map(item => item.trim())
-            .filter(Boolean)
-        )
-      )
+      const allCategoryNames = cloudCategoriesToManualCategoryNames(cloudCategories)
 
       setDishes(finalDishes)
       setCategories(cloudCategories)
@@ -5845,6 +5832,7 @@ function backFromAppointments(): void {
       }
 
       const result = await repository.renameCategoryById({
+        storeId,
         categoryId,
         newName: to
       })
@@ -5880,14 +5868,7 @@ function backFromAppointments(): void {
         }
       })
 
-      const allCategoryNames = Array.from(
-        new Set(
-          cloudCategories
-            .map(item => item.name)
-            .map(item => item.trim())
-            .filter(Boolean)
-        )
-      )
+      const allCategoryNames = cloudCategoriesToManualCategoryNames(cloudCategories)
 
       setDishes(finalDishes)
       setCategories(cloudCategories)
@@ -5909,6 +5890,7 @@ function backFromAppointments(): void {
     bindMerchantSessionToRepository(repository)
 
     const result = await repository.setCategorySortOrder({
+      storeId,
       categoryId,
       sortOrder
     })

@@ -22,8 +22,36 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en">
-      <body style={{ margin: 0, background: '#ffffff', color: '#171717' }}>
+    <html
+      lang="en"
+      style={{
+        width: '100%',
+        minWidth: 0,
+        height: '100%',
+        minHeight: '100%',
+        margin: 0,
+        padding: 0,
+        overflow: 'hidden',
+        overscrollBehavior: 'none',
+        overscrollBehaviorY: 'none',
+        background: '#ffffff'
+      }}
+    >
+      <body
+        style={{
+          width: '100%',
+          minWidth: 0,
+          height: '100%',
+          minHeight: '100%',
+          margin: 0,
+          padding: 0,
+          overflow: 'hidden',
+          overscrollBehavior: 'none',
+          overscrollBehaviorY: 'none',
+          background: '#ffffff',
+          color: '#171717'
+        }}
+      >
         {children}
       </body>
     </html>
