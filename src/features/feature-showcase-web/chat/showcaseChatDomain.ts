@@ -1,7 +1,12 @@
 import type {
+  ShowcaseChatAppointmentShare,
   ShowcaseChatMessage as ShowcaseUiContractChatMessage,
   ShowcaseChatProductShare
 } from '../showcaseUiContract'
+import type { ShowcaseImageVariants } from '../showcaseModels'
+import {
+  formatShowcaseDateTime
+} from '../showcaseDateTime'
 import {
   newLocalChatId,
   type ShowcaseChatDirection,
@@ -17,8 +22,14 @@ export const NDJC_QUOTE_END = '⟪/Q⟫'
 export const NDJC_IMG_START = '⟪I⟫'
 export const NDJC_IMG_END = '⟪/I⟫'
 
+export const NDJC_IMG_VARIANTS_START = '⟪IV⟫'
+export const NDJC_IMG_VARIANTS_END = '⟪/IV⟫'
+
 export const NDJC_PRODUCT_START = '⟪P⟫'
 export const NDJC_PRODUCT_END = '⟪/P⟫'
+
+export const NDJC_APPOINTMENT_START = '⟪B⟫'
+export const NDJC_APPOINTMENT_END = '⟪/B⟫'
 
 export type NdjcParsedQuote = {
   body: string
@@ -28,6 +39,7 @@ export type NdjcParsedQuote = {
 
 export type NdjcParsedImages = {
   imageUris: string[]
+  imageVariants: ShowcaseImageVariants[]
   innerText: string
 }
 
@@ -35,7 +47,31 @@ export type NdjcParsedProduct = {
   dishId: string
   title: string
   price: string
+  originalPriceText: string | null
+  discountPriceText: string | null
   imageUrl: string | null
+  imageVariants: ShowcaseImageVariants | null
+  isRecommended: boolean
+}
+
+export type NdjcParsedAppointment = {
+  appointmentId: string
+  title: string
+  preferredDate: string
+  preferredTime: string
+  statusLabel: string
+  imageUrl: string | null
+  imageVariants: ShowcaseImageVariants | null
+  customerName: string
+  customerContact: string
+  note: string
+  sourceDishId: string | null
+  priceText: string | null
+  originalPriceText: string | null
+  discountPriceText: string | null
+  categoryText: string | null
+  itemAvailable: boolean
+  createdAtText: string
 }
 
 export type ShowcaseChatLocalEntity = {
@@ -122,12 +158,69 @@ export function buildNdjcQuotePayload(
   return `${NDJC_QUOTE_START}${inner}${NDJC_QUOTE_END}\n${body}`
 }
 
+function encodeImageVariantListForPayload(variants: ReadonlyArray<ShowcaseImageVariants | null | undefined> | null | undefined): string {
+  if (!variants?.length) return ''
+
+  const encoded = variants
+    .map(item => encodeImageVariantsForPayload(item))
+    .filter(Boolean)
+
+  if (!encoded.length) return ''
+
+  return encoded.join('|')
+}
+
+function decodeImageVariantListFromPayload(value: string | null | undefined): ShowcaseImageVariants[] {
+  const raw = String(value || '').trim()
+  if (!raw) return []
+
+  return raw
+    .split('|')
+    .map(item => decodeImageVariantsFromPayload(item))
+    .filter((item): item is ShowcaseImageVariants => item !== null)
+    .slice(0, 9)
+}
+
+function parseNdjcImageVariantsText(text: string): {
+  imageVariants: ShowcaseImageVariants[]
+  innerText: string
+} {
+  const source = String(text || '')
+
+  if (!source.startsWith(NDJC_IMG_VARIANTS_START)) {
+    return {
+      imageVariants: [],
+      innerText: source
+    }
+  }
+
+  const endIndex = source.indexOf(NDJC_IMG_VARIANTS_END)
+
+  if (endIndex <= NDJC_IMG_VARIANTS_START.length) {
+    return {
+      imageVariants: [],
+      innerText: source
+    }
+  }
+
+  const variantsRaw = source.slice(NDJC_IMG_VARIANTS_START.length, endIndex).trim()
+  const innerText = source
+    .slice(endIndex + NDJC_IMG_VARIANTS_END.length)
+    .replace(/^[\n ]+/, '')
+
+  return {
+    imageVariants: decodeImageVariantListFromPayload(variantsRaw),
+    innerText
+  }
+}
+
 export function parseNdjcImages(text: string): NdjcParsedImages {
   const source = String(text || '')
 
   if (!source.startsWith(NDJC_IMG_START)) {
     return {
       imageUris: [],
+      imageVariants: [],
       innerText: source
     }
   }
@@ -137,30 +230,48 @@ export function parseNdjcImages(text: string): NdjcParsedImages {
   if (endIndex <= NDJC_IMG_START.length) {
     return {
       imageUris: [],
+      imageVariants: [],
       innerText: source
     }
   }
 
   const urisRaw = source.slice(NDJC_IMG_START.length, endIndex).trim()
-  const innerText = source
-    .slice(endIndex + NDJC_IMG_END.length)
-    .replace(/^[\n ]+/, '')
+  const imageVariantParsed = parseNdjcImageVariantsText(
+    source
+      .slice(endIndex + NDJC_IMG_END.length)
+      .replace(/^[\n ]+/, '')
+  )
 
   const imageUris = uniqueNonEmptyStrings(urisRaw.split('|')).slice(0, 9)
 
   return {
     imageUris,
-    innerText
+    imageVariants: imageVariantParsed.imageVariants.length
+      ? imageVariantParsed.imageVariants
+      : imageUris
+        .map(url => createRemoteOnlyImageVariantsForChat(url))
+        .filter((item): item is ShowcaseImageVariants => item !== null),
+    innerText: imageVariantParsed.innerText
   }
 }
 
-export function rebuildNdjcImages(imageUris: string[], innerText: string): string {
+export function rebuildNdjcImages(
+  imageUris: string[],
+  innerText: string,
+  imageVariants: ReadonlyArray<ShowcaseImageVariants | null | undefined> = []
+): string {
   const images = uniqueNonEmptyStrings(imageUris).slice(0, 9)
   const text = String(innerText || '')
 
   if (!images.length) return text
 
-  return `${NDJC_IMG_START}${images.join('|')}${NDJC_IMG_END}\n${text}`
+  const variantPayload = encodeImageVariantListForPayload(imageVariants)
+
+  if (!variantPayload) {
+    return `${NDJC_IMG_START}${images.join('|')}${NDJC_IMG_END}\n${text}`
+  }
+
+  return `${NDJC_IMG_START}${images.join('|')}${NDJC_IMG_END}\n${NDJC_IMG_VARIANTS_START}${variantPayload}${NDJC_IMG_VARIANTS_END}\n${text}`
 }
 
 export function buildNdjcChatPayload(input: {
@@ -168,6 +279,7 @@ export function buildNdjcChatPayload(input: {
   quoteMessageId?: string | null
   quotePreview?: string | null
   imageUris?: string[]
+  imageVariants?: ReadonlyArray<ShowcaseImageVariants | null | undefined>
 }): string {
   const inner = buildNdjcQuotePayload(
     input.rawBody,
@@ -175,7 +287,70 @@ export function buildNdjcChatPayload(input: {
     input.quotePreview ?? null
   )
 
-  return rebuildNdjcImages(input.imageUris || [], inner)
+  return rebuildNdjcImages(input.imageUris || [], inner, input.imageVariants || [])
+}
+
+function encodeImageVariantsForPayload(variants: ShowcaseImageVariants | null | undefined): string {
+  if (!variants) return ''
+
+  try {
+    return encodeURIComponent(JSON.stringify({
+      originalUrl: variants.originalUrl || null,
+      largeUrl: variants.largeUrl || null,
+      mediumUrl: variants.mediumUrl || null,
+      thumbUrl: variants.thumbUrl || null,
+      blurDataUrl: variants.blurDataUrl || null
+    }))
+  } catch {
+    return ''
+  }
+}
+
+function decodeImageVariantsFromPayload(value: string | null | undefined): ShowcaseImageVariants | null {
+  const raw = String(value || '').trim()
+  if (!raw) return null
+
+  try {
+    const parsed = JSON.parse(decodeURIComponent(raw))
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return null
+
+    const record = parsed as Record<string, unknown>
+    const variants: ShowcaseImageVariants = {
+      originalUrl: String(record.originalUrl || '').trim() || null,
+      largeUrl: String(record.largeUrl || '').trim() || null,
+      mediumUrl: String(record.mediumUrl || '').trim() || null,
+      thumbUrl: String(record.thumbUrl || '').trim() || null,
+      blurDataUrl: String(record.blurDataUrl || '').trim() || null
+    }
+
+    if (
+      !variants.originalUrl &&
+      !variants.largeUrl &&
+      !variants.mediumUrl &&
+      !variants.thumbUrl &&
+      !variants.blurDataUrl
+    ) {
+      return null
+    }
+
+    return variants
+  } catch {
+    return null
+  }
+}
+
+function createRemoteOnlyImageVariantsForChat(urlInput: string | null | undefined): ShowcaseImageVariants | null {
+  const url = String(urlInput || '').trim()
+
+  if (!url) return null
+
+  return {
+    originalUrl: url,
+    largeUrl: url,
+    mediumUrl: url,
+    thumbUrl: url,
+    blurDataUrl: null
+  }
 }
 
 export function buildNdjcProductSharePayload(product: ShowcaseChatProductShare): string {
@@ -183,7 +358,11 @@ export function buildNdjcProductSharePayload(product: ShowcaseChatProductShare):
     product.dishId,
     product.title,
     product.price,
-    product.imageUrl || ''
+    product.imageUrl || '',
+    product.isRecommended ? '1' : '0',
+    product.originalPriceText || '',
+    product.discountPriceText || '',
+    encodeImageVariantsForPayload(product.imageVariants ?? null)
   ].map(item => String(item || '').replace(/\n/g, ' ').replace(/\|/g, ' '))
 
   return `${NDJC_PRODUCT_START}\n${safe.join('|')}\n${NDJC_PRODUCT_END}`
@@ -191,6 +370,92 @@ export function buildNdjcProductSharePayload(product: ShowcaseChatProductShare):
 
 export function buildProductSharePayloadForClipboard(product: ShowcaseChatProductShare): string {
   return buildNdjcProductSharePayload(product)
+}
+
+export function buildNdjcAppointmentSharePayload(appointment: ShowcaseChatAppointmentShare): string {
+  const safe = [
+    appointment.appointmentId,
+    appointment.title,
+    appointment.preferredDate,
+    appointment.preferredTime,
+    appointment.statusLabel,
+    appointment.imageUrl || '',
+    appointment.customerName,
+    appointment.customerContact,
+    appointment.note,
+    appointment.sourceDishId || '',
+    appointment.priceText || '',
+    appointment.categoryText || '',
+    appointment.itemAvailable ? '1' : '0',
+    appointment.createdAtText,
+    appointment.originalPriceText || '',
+    appointment.discountPriceText || '',
+    encodeImageVariantsForPayload(appointment.imageVariants ?? null)
+  ].map(item => String(item || '').replace(/\n/g, ' ').replace(/\|/g, ' '))
+
+  return `${NDJC_APPOINTMENT_START}\n${safe.join('|')}\n${NDJC_APPOINTMENT_END}`
+}
+
+export function parseNdjcAppointmentSharePayload(text: string): NdjcParsedAppointment | null {
+  const source = String(text || '').trim()
+  const start = source.indexOf(NDJC_APPOINTMENT_START)
+  const end = source.indexOf(NDJC_APPOINTMENT_END)
+
+  if (start < 0 || end < 0 || end <= start) return null
+
+  const inner = source
+    .slice(start + NDJC_APPOINTMENT_START.length, end)
+    .trim()
+
+  const line = inner
+    .split(/\r?\n/)
+    .find(item => item.trim())
+
+  if (!line) return null
+
+  const parts = line.split('|')
+  const appointmentId = String(parts[0] || '').trim()
+  const title = String(parts[1] || '').trim()
+  const preferredDate = String(parts[2] || '').trim()
+  const preferredTime = String(parts[3] || '').trim()
+  const statusLabel = String(parts[4] || '').trim()
+  const imageUrl = String(parts[5] || '').trim() || null
+  const customerName = String(parts[6] || '').trim()
+  const customerContact = String(parts[7] || '').trim()
+  const note = String(parts[8] || '').trim()
+  const sourceDishId = String(parts[9] || '').trim() || null
+  const priceText = String(parts[10] || '').trim() || null
+  const categoryText = String(parts[11] || '').trim() || null
+  const itemAvailable = String(parts[12] || '1').trim() !== '0'
+  const createdAtText = String(parts[13] || '').trim()
+  const originalPriceText = String(parts[14] || '').trim() || priceText || null
+  const discountPriceText = String(parts[15] || '').trim() || null
+
+  if (!appointmentId && !title) return null
+
+  return {
+    appointmentId,
+    title,
+    preferredDate,
+    preferredTime,
+    statusLabel,
+    imageUrl,
+    imageVariants: decodeImageVariantsFromPayload(parts[16]) ?? createRemoteOnlyImageVariantsForChat(imageUrl),
+    customerName,
+    customerContact,
+    note,
+    sourceDishId,
+    priceText,
+    originalPriceText,
+    discountPriceText,
+    categoryText,
+    itemAvailable,
+    createdAtText
+  }
+}
+
+export function buildAppointmentSharePayloadForClipboard(appointment: ShowcaseChatAppointmentShare): string {
+  return buildNdjcAppointmentSharePayload(appointment)
 }
 
 export function parseNdjcProductSharePayload(text: string): NdjcParsedProduct | null {
@@ -215,6 +480,9 @@ export function parseNdjcProductSharePayload(text: string): NdjcParsedProduct | 
   const title = String(parts[1] || '').trim()
   const price = String(parts[2] || '').trim()
   const imageUrl = String(parts[3] || '').trim() || null
+  const isRecommended = String(parts[4] || '').trim() === '1'
+  const originalPriceText = String(parts[5] || '').trim() || price || null
+  const discountPriceText = String(parts[6] || '').trim() || null
 
   if (!dishId && !title) return null
 
@@ -222,27 +490,40 @@ export function parseNdjcProductSharePayload(text: string): NdjcParsedProduct | 
     dishId,
     title,
     price,
-    imageUrl
+    originalPriceText,
+    discountPriceText,
+    imageUrl,
+    imageVariants: decodeImageVariantsFromPayload(parts[7]) ?? createRemoteOnlyImageVariantsForChat(imageUrl),
+    isRecommended
   }
 }
 
 export function parseNdjcChatPayload(text: string): {
   body: string
   imageUris: string[]
+  imageVariants: ShowcaseImageVariants[]
   quoteMessageId: string | null
   quotePreview: string | null
   product: NdjcParsedProduct | null
+  appointment: NdjcParsedAppointment | null
 } {
   const imageParsed = parseNdjcImages(text)
   const quoteParsed = parseNdjcQuotePayload(imageParsed.innerText)
   const product = parseNdjcProductSharePayload(quoteParsed.body)
+  const appointment = product ? null : parseNdjcAppointmentSharePayload(quoteParsed.body)
 
   return {
-    body: product ? '' : quoteParsed.body,
+    body: product || appointment ? '' : quoteParsed.body,
     imageUris: imageParsed.imageUris,
+    imageVariants: imageParsed.imageVariants.length
+      ? imageParsed.imageVariants
+      : imageParsed.imageUris
+        .map(url => createRemoteOnlyImageVariantsForChat(url))
+        .filter((item): item is ShowcaseImageVariants => item !== null),
     quoteMessageId: quoteParsed.quoteMessageId,
     quotePreview: quoteParsed.quotePreview,
-    product
+    product,
+    appointment
   }
 }
 
@@ -270,7 +551,11 @@ export function applyDraftTextChange(
         dishId: parsedProduct.dishId,
         title: parsedProduct.title,
         price: parsedProduct.price,
-        imageUrl: parsedProduct.imageUrl
+        originalPriceText: parsedProduct.originalPriceText,
+        discountPriceText: parsedProduct.discountPriceText,
+        imageUrl: parsedProduct.imageUrl,
+        imageVariants: parsedProduct.imageVariants,
+        isRecommended: parsedProduct.isRecommended
       },
       draftText: '',
       quoteMessageId: null,
@@ -304,6 +589,43 @@ export function clearPendingProductShare(
   return {
     ...state,
     pendingProduct: null
+  }
+}
+
+export function applyPendingAppointmentForChat(input: {
+  draftText: string
+  draftImageUris: string[]
+  currentQuoteMessageId: string | null
+  appointment: ShowcaseChatAppointmentShare | null
+}): {
+  pendingAppointment: ShowcaseChatAppointmentShare | null
+  quoteMessageId: string | null
+  draftText: string
+  draftImageUris: string[]
+} {
+  if (input.appointment) {
+    return {
+      pendingAppointment: input.appointment,
+      quoteMessageId: null,
+      draftText: input.draftText,
+      draftImageUris: input.draftImageUris
+    }
+  }
+
+  return {
+    pendingAppointment: null,
+    quoteMessageId: input.currentQuoteMessageId,
+    draftText: input.draftText,
+    draftImageUris: input.draftImageUris
+  }
+}
+
+export function clearPendingAppointmentShare(
+  state: ShowcaseChatUiStateDomain
+): ShowcaseChatUiStateDomain {
+  return {
+    ...state,
+    pendingAppointment: null
   }
 }
 
@@ -364,7 +686,10 @@ export function buildQuotePayloadForSend(
       dishId: product.dishId,
       title: product.title,
       price: product.price,
-      imageUrl: product.imageUrl
+      originalPriceText: product.originalPriceText,
+      discountPriceText: product.discountPriceText,
+      imageUrl: product.imageUrl,
+      isRecommended: product.isRecommended
     })
   }
 
@@ -1035,20 +1360,7 @@ export function replaceLocalWithServer(
 }
 
 export function formatChatTime(date: Date): string {
-  if (Number.isNaN(date.getTime())) return ''
-
-  const datePart = [
-    date.getFullYear(),
-    String(date.getMonth() + 1).padStart(2, '0'),
-    String(date.getDate()).padStart(2, '0')
-  ].join('-')
-
-  const hour24 = date.getHours()
-  const minute = String(date.getMinutes()).padStart(2, '0')
-  const ampm = hour24 < 12 ? 'AM' : 'PM'
-  const hour12 = hour24 === 0 ? 12 : hour24 > 12 ? hour24 - 12 : hour24
-
-  return `${datePart} ${ampm} ${hour12}:${minute}`
+  return formatShowcaseDateTime(date)
 }
 
 export function formatServerTimeToChatText(createdAt: string | null): string {
@@ -1061,15 +1373,7 @@ export function formatServerTimeToChatText(createdAt: string | null): string {
     return formatChatTime(parsed)
   }
 
-  const datePart = source.length >= 10 ? source.slice(0, 10) : ''
-  const tIndex = source.indexOf('T')
-  const hhmmRaw = tIndex >= 0 && source.length >= tIndex + 6
-    ? source.slice(tIndex + 1, tIndex + 6)
-    : ''
-
-  const formattedTime = formatRawHourMinute(hhmmRaw)
-
-  return [datePart, formattedTime].filter(Boolean).join(' ')
+  return source
 }
 
 export function ensureClientIdFromStorage(input: {
@@ -1274,12 +1578,14 @@ export type ShowcaseChatSendPlan = {
   bodies: string[]
   hasImages: boolean
   hasProduct: boolean
+  hasAppointment: boolean
   clearDraftOnSuccess: boolean
 }
 
 export function buildChatMessageSendPlan(input: {
   rawBody: string
   uploadedImageUris: string[]
+  uploadedImageVariants?: ReadonlyArray<ShowcaseImageVariants | null | undefined>
   quoteMessageId: string | null
   quotePreview: string | null
   conversationId: string
@@ -1291,6 +1597,7 @@ export function buildChatMessageSendPlan(input: {
 }): ShowcaseChatSendPlan | null {
   const rawBody = String(input.rawBody || '').trim()
   const imageUris = uniqueNonEmptyStrings(input.uploadedImageUris).slice(0, 9)
+  const imageVariants = (input.uploadedImageVariants || []).slice(0, 9)
 
   if (!rawBody && !imageUris.length) return null
 
@@ -1302,14 +1609,16 @@ export function buildChatMessageSendPlan(input: {
         rawBody: index === 0 ? rawBody : '',
         quoteMessageId: index === 0 ? input.quoteMessageId : null,
         quotePreview: index === 0 ? input.quotePreview : null,
-        imageUris: [imageUri]
+        imageUris: [imageUri],
+        imageVariants: [imageVariants[index] || createRemoteOnlyImageVariantsForChat(imageUri)]
       }))
     : [
         buildNdjcChatPayload({
           rawBody,
           quoteMessageId: input.quoteMessageId,
           quotePreview: input.quotePreview,
-          imageUris: []
+          imageUris: [],
+          imageVariants: []
         })
       ]
 
@@ -1317,6 +1626,7 @@ export function buildChatMessageSendPlan(input: {
     bodies,
     hasImages: imageUris.length > 0,
     hasProduct: false,
+    hasAppointment: false,
     clearDraftOnSuccess: true,
     entities: bodies.map((body, index) => ({
       id: input.createMessageId(),
@@ -1352,6 +1662,45 @@ export function buildPendingProductShareSendPlan(input: {
     bodies: [body],
     hasImages: false,
     hasProduct: true,
+    hasAppointment: false,
+    clearDraftOnSuccess: true,
+    entities: [
+      {
+        id: input.createMessageId(),
+        conversationId: input.conversationId,
+        storeId: input.storeId,
+        clientId: input.clientId,
+        role,
+        direction,
+        text: body,
+        timeMs: input.now,
+        status: 'sending',
+        isRead: false
+      }
+    ]
+  }
+}
+
+export function buildPendingAppointmentShareSendPlan(input: {
+  appointment: ShowcaseChatAppointmentShare | null
+  conversationId: string
+  storeId: string
+  clientId: string
+  senderRole: 'merchant' | 'client'
+  now: number
+  createMessageId: () => string
+}): ShowcaseChatSendPlan | null {
+  if (!input.appointment) return null
+
+  const role = input.senderRole === 'merchant' ? 'merchant' : 'client'
+  const direction = input.senderRole === 'merchant' ? 'out' : 'in'
+  const body = buildNdjcAppointmentSharePayload(input.appointment)
+
+  return {
+    bodies: [body],
+    hasImages: false,
+    hasProduct: false,
+    hasAppointment: true,
     clearDraftOnSuccess: true,
     entities: [
       {
@@ -1374,20 +1723,23 @@ export function buildChatPushBodyPreviewFromPayload(input: {
   body: string
   hasImages?: boolean
   hasProduct?: boolean
+  hasAppointment?: boolean
 }): string {
   const parsed = parseNdjcChatPayload(input.body)
-  const normalizedBody = (parsed.body || parsed.product?.title || '')
+  const normalizedBody = (parsed.body || parsed.product?.title || parsed.appointment?.title || '')
     .replace(/\s+/g, ' ')
     .replace(/^>.*$/gm, '')
     .trim()
   const hasProduct = Boolean(input.hasProduct || parsed.product)
+  const hasAppointment = Boolean(input.hasAppointment || parsed.appointment)
   const hasImages = Boolean(input.hasImages || parsed.imageUris.length > 0)
 
   if (normalizedBody) {
     return normalizedBody.length > 120 ? `${normalizedBody.slice(0, 117)}...` : normalizedBody
   }
 
-  if (hasProduct) return 'Product card'
+  if (hasAppointment) return 'Booking card'
+  if (hasProduct) return 'Item card'
   if (hasImages) return 'Image message'
 
   return 'New message'
@@ -1420,7 +1772,8 @@ export function buildChatSendOperationResult(input: {
       : buildChatPushBodyPreviewFromPayload({
           body: firstBody,
           hasImages: input.sendPlan.hasImages,
-          hasProduct: input.sendPlan.hasProduct
+          hasProduct: input.sendPlan.hasProduct,
+          hasAppointment: input.sendPlan.hasAppointment
         })
   }
 }
@@ -1429,6 +1782,7 @@ export type ShowcaseChatDraftClearPlan = {
   draftText: string
   draftImageUris: string[]
   pendingProduct: ShowcaseChatProductShare | null
+  pendingAppointment: ShowcaseChatAppointmentShare | null
   quoteMessageId: string | null
 }
 
@@ -1437,6 +1791,7 @@ export function buildChatDraftClearPlan(): ShowcaseChatDraftClearPlan {
     draftText: '',
     draftImageUris: [],
     pendingProduct: null,
+    pendingAppointment: null,
     quoteMessageId: null
   }
 }
@@ -1455,12 +1810,38 @@ export function toShowcaseChatDomainMessage(input: {
   const message = input.message
   const parsedPayload = parseNdjcChatPayload(message.body)
   const parsedProduct = parsedPayload.product
+  const parsedAppointment = parsedPayload.appointment
   const resolvedProduct = message.product || (parsedProduct
     ? {
         dishId: parsedProduct.dishId,
         title: parsedProduct.title,
         price: parsedProduct.price,
-        imageUrl: parsedProduct.imageUrl
+        originalPriceText: parsedProduct.originalPriceText,
+        discountPriceText: parsedProduct.discountPriceText,
+        imageUrl: parsedProduct.imageUrl,
+        imageVariants: parsedProduct.imageVariants,
+        isRecommended: parsedProduct.isRecommended
+      }
+    : null)
+  const resolvedAppointment = message.appointment || (parsedAppointment
+    ? {
+        appointmentId: parsedAppointment.appointmentId,
+        title: parsedAppointment.title,
+        preferredDate: parsedAppointment.preferredDate,
+        preferredTime: parsedAppointment.preferredTime,
+        statusLabel: parsedAppointment.statusLabel,
+        imageUrl: parsedAppointment.imageUrl,
+        imageVariants: parsedAppointment.imageVariants,
+        customerName: parsedAppointment.customerName,
+        customerContact: parsedAppointment.customerContact,
+        note: parsedAppointment.note,
+        sourceDishId: parsedAppointment.sourceDishId,
+        priceText: parsedAppointment.priceText,
+        originalPriceText: parsedAppointment.originalPriceText,
+        discountPriceText: parsedAppointment.discountPriceText,
+        categoryText: parsedAppointment.categoryText,
+        itemAvailable: parsedAppointment.itemAvailable,
+        createdAtText: parsedAppointment.createdAtText
       }
     : null)
   const resolvedQuoteMessageId = message.quotedMessageId ?? parsedPayload.quoteMessageId
@@ -1471,14 +1852,16 @@ export function toShowcaseChatDomainMessage(input: {
   ].map(url => String(url || '').trim()).filter(Boolean)))
   const resolvedBody = parsedPayload.body || message.body
 
-  const text = resolvedProduct
-    ? buildNdjcProductSharePayload(resolvedProduct)
-    : buildNdjcChatPayload({
-        rawBody: resolvedBody,
-        quoteMessageId: resolvedQuoteMessageId ?? null,
-        quotePreview,
-        imageUris: resolvedImageUrls
-      })
+  const text = resolvedAppointment
+    ? buildNdjcAppointmentSharePayload(resolvedAppointment)
+    : resolvedProduct
+      ? buildNdjcProductSharePayload(resolvedProduct)
+      : buildNdjcChatPayload({
+          rawBody: resolvedBody,
+          quoteMessageId: resolvedQuoteMessageId ?? null,
+          quotePreview,
+          imageUris: resolvedImageUrls
+        })
 
   return {
     id: message.id,

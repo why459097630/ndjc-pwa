@@ -1,6 +1,6 @@
 'use client'
 
-import React from 'react'
+import React, { useEffect } from 'react'
 import { ActiveAssembly } from '@/core/assembly/types'
 import { Navigator } from '@/core/routing/navigator'
 import { useShowcaseViewModel, type ShowcaseScreenName } from '@/features/feature-showcase-web/useShowcaseViewModel'
@@ -12,6 +12,9 @@ export type ModuleUiRenderer = {
 
 const rendererMap = new Map<string, ModuleUiRenderer>()
 let registered = false
+
+const NDJC_SHOWCASE_SCREEN_CHANGE_EVENT = 'ndjc:showcase-screen-change'
+const NDJC_SHOWCASE_CURRENT_SCREEN_KEY = '__ndjc_showcase_current_screen__'
 
 function key(moduleId: string, uiPackId: string) {
   return `${moduleId}::${uiPackId}`
@@ -82,8 +85,31 @@ function ShowcaseGreenpinkRuntime({ routeId, storeId }: { routeId: string; store
     initialScreen: routeToShowcaseScreen(debugScreen || routeId)
   })
 
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+
+    window[NDJC_SHOWCASE_CURRENT_SCREEN_KEY as keyof Window] = viewModel.screen as never
+
+    window.dispatchEvent(
+      new CustomEvent(NDJC_SHOWCASE_SCREEN_CHANGE_EVENT, {
+        detail: {
+          screen: viewModel.screen
+        }
+      })
+    )
+  }, [viewModel.screen])
+
+  const renderWithOfflineBanner = (node: React.ReactNode) => (
+    <>
+      <GreenpinkShowcaseUiRenderer.OfflineStatusBanner
+        message={viewModel.offlineStatus.bannerMessage}
+      />
+      {node}
+    </>
+  )
+
   if (viewModel.screen === 'Detail') {
-    return (
+    return renderWithOfflineBanner(
       <GreenpinkShowcaseUiRenderer.BottomBarHost
         actions={viewModel.detailActions}
         activeTab={null}
@@ -101,84 +127,120 @@ function ShowcaseGreenpinkRuntime({ routeId, storeId }: { routeId: string; store
   }
 
   if (viewModel.screen === 'Login') {
-    return <GreenpinkShowcaseUiRenderer.Login state={viewModel.loginState} actions={viewModel.loginActions} />
+    return renderWithOfflineBanner(
+      <GreenpinkShowcaseUiRenderer.Login state={viewModel.loginState} actions={viewModel.loginActions} />
+    )
   }
 
   if (viewModel.screen === 'Admin') {
-    return <GreenpinkShowcaseUiRenderer.Admin state={viewModel.adminState} actions={viewModel.adminActions} />
+    return renderWithOfflineBanner(
+      <GreenpinkShowcaseUiRenderer.Admin state={viewModel.adminState} actions={viewModel.adminActions} />
+    )
   }
 
   if (viewModel.screen === 'AdminItems') {
-    return <GreenpinkShowcaseUiRenderer.AdminItems state={viewModel.adminState} actions={viewModel.adminActions} />
+    return renderWithOfflineBanner(
+      <GreenpinkShowcaseUiRenderer.AdminItems state={viewModel.adminState} actions={viewModel.adminActions} />
+    )
   }
 
   if (viewModel.screen === 'AdminCategories') {
-    return <GreenpinkShowcaseUiRenderer.AdminCategories state={viewModel.adminState} actions={viewModel.adminActions} />
+    return renderWithOfflineBanner(
+      <GreenpinkShowcaseUiRenderer.AdminCategories state={viewModel.adminState} actions={viewModel.adminActions} />
+    )
   }
 
   if (viewModel.screen === 'Edit') {
-    return <GreenpinkShowcaseUiRenderer.EditDish state={viewModel.editDishState} actions={viewModel.editDishActions} />
+    return renderWithOfflineBanner(
+      <GreenpinkShowcaseUiRenderer.EditDish state={viewModel.editDishState} actions={viewModel.editDishActions} />
+    )
   }
 
   if (viewModel.screen === 'StoreProfile') {
-    return <GreenpinkShowcaseUiRenderer.StoreProfileEdit state={viewModel.storeProfileState} actions={viewModel.storeProfileActions} />
+    return renderWithOfflineBanner(
+      <GreenpinkShowcaseUiRenderer.StoreProfileEdit state={viewModel.storeProfileState} actions={viewModel.storeProfileActions} />
+    )
   }
 
   if (viewModel.screen === 'ChangePassword') {
-    return <GreenpinkShowcaseUiRenderer.ChangePassword state={viewModel.changePasswordState} actions={viewModel.changePasswordActions} />
+    return renderWithOfflineBanner(
+      <GreenpinkShowcaseUiRenderer.ChangePassword state={viewModel.changePasswordState} actions={viewModel.changePasswordActions} />
+    )
   }
 
   if (viewModel.screen === 'MerchantChatList') {
-    return (
-    <GreenpinkShowcaseUiRenderer.MerchantChatList
-      threads={viewModel.showcaseWiring.merchantChatList.visibleThreads}
-      refreshing={viewModel.showcaseWiring.merchantChatList.refreshing}
-      actions={viewModel.merchantChatListActions}
+    return renderWithOfflineBanner(
+      <GreenpinkShowcaseUiRenderer.MerchantChatList
+        threads={viewModel.showcaseWiring.merchantChatList.visibleThreads}
+        searchQuery={viewModel.showcaseWiring.merchantChatList.searchQuery}
+        refreshing={viewModel.showcaseWiring.merchantChatList.refreshing}
+        pagination={viewModel.showcaseWiring.merchantChatList.pagination}
+        actions={viewModel.merchantChatListActions}
       />
     )
   }
 
   if (viewModel.screen === 'ChatSearchResults') {
-    return <GreenpinkShowcaseUiRenderer.ChatSearchResults state={viewModel.chatState} actions={viewModel.chatActions} />
+    return renderWithOfflineBanner(
+      <GreenpinkShowcaseUiRenderer.ChatSearchResults state={viewModel.chatState} actions={viewModel.chatActions} />
+    )
   }
 
   if (viewModel.screen === 'ChatMedia') {
-    return <GreenpinkShowcaseUiRenderer.ChatMedia state={viewModel.chatState} actions={viewModel.chatMediaActions} />
+    return renderWithOfflineBanner(
+      <GreenpinkShowcaseUiRenderer.ChatMedia state={viewModel.chatState} actions={viewModel.chatMediaActions} />
+    )
   }
 
   if (viewModel.screen === 'AdminAppointmentManager') {
-    return <GreenpinkShowcaseUiRenderer.AdminAppointmentManager state={viewModel.adminAppointmentsState} actions={viewModel.adminAppointmentsActions} />
+    return renderWithOfflineBanner(
+      <GreenpinkShowcaseUiRenderer.AdminAppointmentManager state={viewModel.adminAppointmentsState} actions={viewModel.adminAppointmentsActions} />
+    )
   }
 
   if (viewModel.screen === 'AdminAnnouncementEdit') {
-    return <GreenpinkShowcaseUiRenderer.AdminAnnouncementEdit state={viewModel.announcementEditState} actions={viewModel.announcementEditActions} />
+    return renderWithOfflineBanner(
+      <GreenpinkShowcaseUiRenderer.AdminAnnouncementEdit state={viewModel.announcementEditState} actions={viewModel.announcementEditActions} />
+    )
   }
 
   if (viewModel.screen === 'Chat') {
-    return <GreenpinkShowcaseUiRenderer.ChatThread state={viewModel.chatState} actions={viewModel.chatActions} />
+    return renderWithOfflineBanner(
+      <GreenpinkShowcaseUiRenderer.ChatThread state={viewModel.chatState} actions={viewModel.chatActions} />
+    )
   }
 
   if (viewModel.screen === 'Appointments') {
-    return <GreenpinkShowcaseUiRenderer.Appointments state={viewModel.appointmentsState} actions={viewModel.appointmentsActions} />
+    return renderWithOfflineBanner(
+      <GreenpinkShowcaseUiRenderer.Appointments state={viewModel.appointmentsState} actions={viewModel.appointmentsActions} />
+    )
   }
 
   if (viewModel.screen === 'CustomerBookings') {
-    return <GreenpinkShowcaseUiRenderer.CustomerBookings state={viewModel.customerBookingsState} actions={viewModel.customerBookingsActions} />
+    return renderWithOfflineBanner(
+      <GreenpinkShowcaseUiRenderer.CustomerBookings state={viewModel.customerBookingsState} actions={viewModel.customerBookingsActions} />
+    )
   }
 
   if (viewModel.screen === 'Announcements') {
-    return <GreenpinkShowcaseUiRenderer.Announcements state={viewModel.announcementsState} actions={viewModel.announcementsActions} />
+    return renderWithOfflineBanner(
+      <GreenpinkShowcaseUiRenderer.Announcements state={viewModel.announcementsState} actions={viewModel.announcementsActions} />
+    )
   }
 
   if (viewModel.screen === 'Favorites') {
-    return <GreenpinkShowcaseUiRenderer.Favorites state={viewModel.favoritesState} actions={viewModel.favoritesActions} />
+    return renderWithOfflineBanner(
+      <GreenpinkShowcaseUiRenderer.Favorites state={viewModel.favoritesState} actions={viewModel.favoritesActions} />
+    )
   }
 
   if (viewModel.screen === 'StoreProfileView') {
-    return <GreenpinkShowcaseUiRenderer.StoreProfileView state={viewModel.storeProfileState} actions={viewModel.storeProfileActions} />
+    return renderWithOfflineBanner(
+      <GreenpinkShowcaseUiRenderer.StoreProfileView state={viewModel.storeProfileState} actions={viewModel.storeProfileActions} />
+    )
   }
 
-  return (
+  return renderWithOfflineBanner(
     <GreenpinkShowcaseUiRenderer.BottomBarHost
       actions={viewModel.homeActions}
       activeTab={null}
@@ -194,7 +256,6 @@ function ShowcaseGreenpinkRuntime({ routeId, storeId }: { routeId: string; store
     </GreenpinkShowcaseUiRenderer.BottomBarHost>
   )
 }
-
 function routeToShowcaseScreen(routeId: string): ShowcaseScreenName {
   if (routeId === 'admin') return 'Admin'
   if (routeId === 'items') return 'AdminItems'

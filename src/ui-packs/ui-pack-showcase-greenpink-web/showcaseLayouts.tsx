@@ -1,6 +1,12 @@
 'use client'
 
 import React from 'react'
+import { createPortal } from 'react-dom'
+import type {
+  ShowcaseNotificationMessageCode,
+  ShowcaseNotificationPermissionState,
+  ShowcaseNotificationRegistrationState
+} from '@/features/feature-showcase-web/showcasePushRegistrationService'
 import type {
   ShowcaseAdminActions,
   ShowcaseAdminAppointmentsActions,
@@ -17,6 +23,7 @@ import type {
   ShowcaseChangePasswordActions,
   ShowcaseChangePasswordUiState,
   ShowcaseChatActions,
+  ShowcaseChatAppointmentShare,
   ShowcaseChatMediaActions,
   ShowcaseChatMessage,
   ShowcaseChatProductShare,
@@ -37,11 +44,21 @@ import type {
   ShowcaseLoginActions,
   ShowcaseLoginUiState,
   ShowcaseMerchantChatListActions,
+  ShowcasePaginationUiState,
   ShowcaseStoreProfileActions,
   ShowcaseStoreProfileUiState
 } from '@/features/feature-showcase-web/showcaseUiContract'
 import type { DemoDish } from '@/features/feature-showcase-web/showcaseModels'
 import { getDishPrice, getDishTitle } from '@/features/feature-showcase-web/showcaseModels'
+import {
+  selectAnnouncementCoverUrl,
+  selectChatImageUrls,
+  selectDishImageUrl,
+  selectShowcaseImageBlurDataUrl,
+  selectShowcaseImageVariantList,
+  selectStoreCoverUrl,
+  selectStoreLogoUrl
+} from '@/features/feature-showcase-web/showcaseImageVariants'
 
 type BackHomeActions = {
   onBack?: () => void
@@ -72,7 +89,7 @@ function cx(...values: Array<string | false | null | undefined>): string {
 }
 
 function dishImage(dish: DemoDish | null | undefined): string | null {
-  return dish?.imageUrls?.find(Boolean) || null
+  return selectDishImageUrl(dish, 'detail')
 }
 
 function priceText(value: number): string {
@@ -99,7 +116,7 @@ const APK_FILTER_UI = {
   chipTextColor: '#000000',
   chipSelectedTextColor: '#ffffff',
   chipRemoveColor: 'rgba(0, 0, 0, 0.80)',
-  chipPressedScale: 0.965,
+  chipPressedScale: 0.92,
   chipFontSize: 14,
   chipLineHeight: 1,
   chipTextWeight: 500,
@@ -153,7 +170,9 @@ const APK_FILTER_UI = {
 } as const
 
 const apkFilterLazyRowStyle: React.CSSProperties = {
+  width: '100%',
   minWidth: 0,
+  maxWidth: '100%',
   display: 'flex',
   flexWrap: 'nowrap',
   alignItems: 'center',
@@ -161,7 +180,8 @@ const apkFilterLazyRowStyle: React.CSSProperties = {
   overflowX: 'auto',
   overflowY: 'hidden',
   scrollbarWidth: 'none',
-  WebkitOverflowScrolling: 'touch'
+  WebkitOverflowScrolling: 'touch',
+  boxSizing: 'border-box'
 }
 
 const apkFilterChipBaseStyle: React.CSSProperties = {
@@ -1034,20 +1054,20 @@ const apkStoreEditPickerHintStyle: React.CSSProperties = {
 const APK_APPOINTMENT_UI = {
   black: '#000000',
   white: '#ffffff',
-  brand: '#fe9595',
-  green: '#26c6a4',
+  brand: '#c43f4d',
+  green: '#0f766e',
   surface: '#ffffff',
   softSurface: '#f7f7fb',
   warningSurface: '#fff4e5',
   warningText: '#7a4e00',
   disabledSurface: '#f2f4f7',
-  disabledBorder: '#e4e7ec',
-  disabledText: '#98a2b3',
-  secondaryText: '#667085',
+  disabledBorder: '#d0d5dd',
+  disabledText: '#667085',
+  secondaryText: '#475467',
   border10: 'rgba(0, 0, 0, 0.10)',
-  black55: 'rgba(0, 0, 0, 0.55)',
-  black65: 'rgba(0, 0, 0, 0.65)',
-  black75: 'rgba(0, 0, 0, 0.75)',
+  black55: 'rgba(0, 0, 0, 0.72)',
+  black65: 'rgba(0, 0, 0, 0.78)',
+  black75: 'rgba(0, 0, 0, 0.82)',
   black90: 'rgba(0, 0, 0, 0.90)',
 
   sectionGap: 10,
@@ -1278,10 +1298,10 @@ const APK_SHELL_UI = {
   transparent: 'transparent',
   pageBg: '#eff3f2',
   brand: '#fe9595',
-  green: '#26c6a4',
+  green: '#0f766e',
   ink: '#111827',
-  muted: '#6b7280',
-  mutedText: 'rgba(0, 0, 0, 0.75)',
+  muted: '#4b5563',
+  mutedText: 'rgba(0, 0, 0, 0.82)',
   systemBarFallbackBg: '#dfe5e3',
 
   phoneViewportWidth: '100%',
@@ -1298,8 +1318,8 @@ const APK_SHELL_UI = {
 
   backButtonSize: 50,
   backButtonRadius: 12,
-  backButtonShadow: '0 6px 14px rgba(0, 0, 0, 0.16)',
-  backButtonPressedShadow: '0 2px 6px rgba(0, 0, 0, 0.10)',
+  backButtonShadow: '0 6px 14px rgba(254, 149, 149, 0.26)',
+  backButtonPressedShadow: '0 2px 6px rgba(254, 149, 149, 0.18)',
   backButtonIconSize: 26,
   backButtonPressedScale: 0.965,
   backButtonPressedDurationMs: 120,
@@ -1307,7 +1327,7 @@ const APK_SHELL_UI = {
   topNavHorizontalPadding: 16,
   topNavTopPadding: 2,
   topNavToCardSpacing: 30,
-  topNavZ: 10,
+  topNavZ: 1000,
   topNavButtonSlotSize: 50,
 
   homeEntryHorizontalPadding: 16,
@@ -1490,10 +1510,15 @@ function apkBgCircleStyle({
 const apkPullRefreshRootStyle: React.CSSProperties = {
   position: 'relative',
   width: '100%',
+  minWidth: 0,
+  maxWidth: '100%',
   height: '100%',
   minHeight: 0,
   display: 'grid',
+  gridTemplateColumns: 'minmax(0, 1fr)',
   overflow: 'hidden',
+  overflowX: 'hidden',
+  boxSizing: 'border-box',
   touchAction: 'auto',
   overscrollBehaviorY: 'auto',
   overscrollBehaviorX: 'auto'
@@ -1511,13 +1536,43 @@ const apkPullRefreshIndicatorWrapStyle: React.CSSProperties = {
 }
 
 const apkPullRefreshIndicatorStyle: React.CSSProperties = {
-  width: APK_SHELL_UI.pullRefreshIndicatorSize,
-  height: APK_SHELL_UI.pullRefreshIndicatorSize,
-  borderRadius: 999,
-  border: '2px solid rgba(38, 198, 164, 0.24)',
-  borderTopColor: APK_SHELL_UI.green,
   background: APK_SHELL_UI.white,
   boxShadow: APK_SHELL_UI.whiteCardShadow
+}
+
+const apkPullRefreshHintStyle: React.CSSProperties = {
+  position: 'absolute',
+  top: 0,
+  left: 0,
+  right: 0,
+  zIndex: 21,
+  height: 56,
+  display: 'flex',
+  justifyContent: 'center',
+  alignItems: 'flex-start',
+  pointerEvents: 'none',
+  overflow: 'hidden'
+}
+
+const apkPullRefreshHintPillStyle: React.CSSProperties = {
+  minHeight: 24,
+  padding: 0,
+  borderRadius: 0,
+  display: 'inline-flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  background: 'transparent',
+  boxShadow: 'none',
+  color: 'rgba(0, 0, 0, 0.72)',
+  fontSize: 14,
+  lineHeight: 1,
+  fontWeight: 600,
+  whiteSpace: 'nowrap',
+  backdropFilter: 'none',
+  WebkitBackdropFilter: 'none',
+  transform: 'translateY(-120%)',
+  transition: 'transform 180ms ease-out, opacity 180ms ease-out',
+  willChange: 'transform, opacity'
 }
 
 const apkHomeEntryOverlayStyle: React.CSSProperties = {
@@ -1590,22 +1645,30 @@ const APK_PAGE_SHELL_UI = {
 const apkHomeRootStyle: React.CSSProperties = {
   position: 'relative',
   width: '100%',
+  minWidth: 0,
+  maxWidth: '100%',
   height: '100%',
   minHeight: 0,
   display: 'grid',
+  gridTemplateColumns: 'minmax(0, 1fr)',
   gridTemplateRows: 'auto minmax(0, 1fr)',
   alignContent: 'start',
   background: 'transparent',
   overflow: 'hidden',
+  overflowX: 'hidden',
   boxSizing: 'border-box'
 }
 
 const apkHomeControlsStyle: React.CSSProperties = {
   width: '100%',
+  minWidth: 0,
+  maxWidth: '100%',
   display: 'grid',
+  gridTemplateColumns: 'minmax(0, 1fr)',
   alignContent: 'start',
   gap: 0,
   zIndex: 2,
+  overflowX: 'hidden',
   boxSizing: 'border-box'
 }
 
@@ -1615,19 +1678,28 @@ const apkHomeControlsGapStyle: React.CSSProperties = {
 
 const apkHomeTagsWrapStyle: React.CSSProperties = {
   width: '100%',
+  minWidth: 0,
+  maxWidth: '100%',
   padding: `0 ${APK_HOME_PAGE_UI.chipRowHorizontalPadding}px ${APK_HOME_PAGE_UI.controlsGap}px`,
+  overflowX: 'hidden',
   boxSizing: 'border-box'
 }
 
 const apkHomeSortWrapStyle: React.CSSProperties = {
   width: '100%',
+  minWidth: 0,
+  maxWidth: '100%',
   padding: `0 ${APK_HOME_PAGE_UI.chipRowHorizontalPadding}px ${APK_HOME_PAGE_UI.controlsGap}px`,
+  overflowX: 'hidden',
   boxSizing: 'border-box'
 }
 
 const apkHomeCategoryWrapStyle: React.CSSProperties = {
   width: '100%',
+  minWidth: 0,
+  maxWidth: '100%',
   paddingBottom: APK_HOME_PAGE_UI.chipsToListGap,
+  overflowX: 'hidden',
   boxSizing: 'border-box'
 }
 
@@ -1836,34 +1908,147 @@ const apkDetailHeaderRowStyle: React.CSSProperties = {
   boxSizing: 'border-box'
 }
 
-const apkDetailPickBadgeStyle: React.CSSProperties = {
-  border: `${APK_DETAIL_PAGE_UI.pickBadgeBorderWidth}px solid ${APK_DETAIL_PAGE_UI.pickBadgeBorderColor}`,
-  borderRadius: APK_DETAIL_PAGE_UI.pickBadgeRadius,
-  padding: `${APK_DETAIL_PAGE_UI.pickBadgePaddingY}px ${APK_DETAIL_PAGE_UI.pickBadgePaddingX}px`,
+const apkPickBadgeStyle: React.CSSProperties = {
+  border: '1px solid rgba(255, 255, 255, 0.38)',
+  borderRadius: 999,
+  padding: '3px 8px',
+  minHeight: 22,
   display: 'inline-flex',
   alignItems: 'center',
-  gap: APK_DETAIL_PAGE_UI.pickBadgeGap,
-  color: APK_DETAIL_PAGE_UI.pickBadgeTextColor,
-  background: APK_DETAIL_PAGE_UI.pickBadgeBg,
-  boxSizing: 'border-box'
-}
-
-const apkDetailPickBadgeIconStyle: React.CSSProperties = {
-  width: APK_DETAIL_PAGE_UI.pickBadgeIconSize,
-  height: APK_DETAIL_PAGE_UI.pickBadgeIconSize,
-  display: 'grid',
-  placeItems: 'center',
-  fontSize: APK_DETAIL_PAGE_UI.pickBadgeIconSize,
+  justifyContent: 'center',
+  gap: 4,
+  color: '#ffffff',
+  background: '#fe9595',
+  boxSizing: 'border-box',
   lineHeight: 1,
+  whiteSpace: 'nowrap',
+  verticalAlign: 'middle',
   flex: '0 0 auto'
 }
 
-const apkDetailPickBadgeTextStyle: React.CSSProperties = {
-  fontSize: APK_DETAIL_PAGE_UI.pickBadgeTextSize,
-  lineHeight: APK_DETAIL_PAGE_UI.pickBadgeTextLineHeight,
-  fontWeight: APK_DETAIL_PAGE_UI.pickBadgeTextWeight,
-  whiteSpace: 'nowrap'
+const apkPickBadgeIconStyle: React.CSSProperties = {
+  width: 15,
+  height: 15,
+  display: 'block',
+  flex: '0 0 15px'
 }
+
+const apkPickBadgeTextStyle: React.CSSProperties = {
+  height: 12,
+  display: 'inline-flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  fontSize: 12,
+  lineHeight: '12px',
+  fontWeight: 600,
+  whiteSpace: 'nowrap',
+  minWidth: 0
+}
+
+function ApkPickBadgeIcon() {
+  return (
+    <svg
+      aria-hidden="true"
+      focusable="false"
+      viewBox="0 0 24 24"
+      style={apkPickBadgeIconStyle}
+    >
+      <path
+        fill="currentColor"
+        d="M12 2.75l2.78 5.63 6.22.9-4.5 4.39 1.06 6.2L12 16.94l-5.56 2.93 1.06-6.2L3 9.28l6.22-.9L12 2.75z"
+      />
+    </svg>
+  )
+}
+
+function ApkHiddenBadgeIcon() {
+  return (
+    <svg
+      aria-hidden="true"
+      focusable="false"
+      viewBox="0 0 24 24"
+      style={apkPickBadgeIconStyle}
+    >
+      <path
+        fill="currentColor"
+        d="M2.1 3.51 1 4.61l4.03 4.03C3.21 10.12 1.78 11.92 1 12c2.73 4.35 6.8 7 11 7 1.91 0 3.75-.55 5.4-1.53l4.99 4.99 1.1-1.1Zm9.9 4.49a4 4 0 0 1 4 4c0 .73-.2 1.41-.55 2l-5.45-5.45c.59-.35 1.27-.55 2-.55Zm0-3c-4.2 0-8.27 2.65-11 7 .91 1.45 2.02 2.7 3.27 3.71l2.17-2.17A4 4 0 0 1 10.46 8.3l1.67 1.67a4 4 0 0 1 3.57 3.57l2.87 2.87c1.64-1.16 3.08-2.69 4.43-4.41-2.73-4.35-6.8-7-11-7Z"
+      />
+    </svg>
+  )
+}
+
+function NdjcItemStatusBadge({
+  text,
+  variant = 'pick'
+}: {
+  text: string
+  variant?: 'pick' | 'hidden'
+}) {
+  const isHidden = variant === 'hidden'
+
+  return (
+    <span
+      style={{
+        ...apkHomeBadgeStyle,
+        background: isHidden ? '#ececec' : apkHomeBadgeStyle.background,
+        color: isHidden ? '#7b7b7b' : apkHomeBadgeStyle.color
+      }}
+    >
+      {isHidden ? (
+        <ApkHiddenBadgeIcon />
+      ) : (
+        <ApkPickBadgeIcon />
+      )}
+
+      <span
+        style={{
+          ...apkHomeBadgeTextStyle,
+          color: isHidden ? '#7b7b7b' : apkHomeBadgeTextStyle.color
+        }}
+      >
+        {text}
+      </span>
+    </span>
+  )
+}
+
+function NdjcItemStatusBadgeRow({
+  recommended,
+  hidden
+}: {
+  recommended?: boolean
+  hidden?: boolean
+}) {
+  if (!recommended && !hidden) return null
+
+  return (
+    <span
+      className="ndjc-item-status-badge-row"
+      style={{
+        minWidth: 0,
+        display: 'flex',
+        alignItems: 'center',
+        gap: 6,
+        flexWrap: 'wrap'
+      }}
+    >
+      {recommended ? (
+        <NdjcItemStatusBadge text={APK_SHOWCASE_ITEM_UI.homeBadgeText} />
+      ) : null}
+
+      {hidden ? (
+        <NdjcItemStatusBadge
+          text="Hidden"
+          variant="hidden"
+        />
+      ) : null}
+    </span>
+  )
+}
+
+const apkDetailPickBadgeStyle: React.CSSProperties = apkPickBadgeStyle
+
+const apkDetailPickBadgeTextStyle: React.CSSProperties = apkPickBadgeTextStyle
 
 const apkDetailFavoriteButtonStyle: React.CSSProperties = {
   width: APK_DETAIL_PAGE_UI.headerRowFavoriteSize,
@@ -2023,7 +2208,7 @@ const apkDetailTagsRowStyle: React.CSSProperties = {
 
 const APK_HOME_NAV_UI = {
   topBarHorizontalPadding: 16,
-  topBarTopPadding: 2,
+  topBarTopPadding: 6,
   topBarBottomPadding: 0,
   topBannerHeight: 60,
   topBannerRadius: 22,
@@ -2157,14 +2342,6 @@ const APK_CORE_UI = {
   dialogButtonHeight: 40,
   dialogButtonPaddingX: 12,
   dialogButtonRadius: 999,
-
-  overlayZIndex: 240,
-  overlayCardMinWidth: 180,
-  overlayCardPaddingX: 18,
-  overlayCardPaddingY: 16,
-  overlayCardGap: 12,
-  overlaySpinnerSize: 20,
-  overlaySpinnerStroke: 2.2,
 
   emptyVerticalPadding: 32,
   emptyGap: 4,
@@ -2562,10 +2739,13 @@ function apkPrimaryButtonStyle(
 
 function apkPillButtonStyle(selected?: boolean, disabled?: boolean): React.CSSProperties {
   return {
+    height: APK_CORE_UI.pillHeight,
     minHeight: APK_CORE_UI.pillHeight,
+    flex: '0 0 auto',
+    maxWidth: 'none',
     border: `${selected ? 0 : APK_CORE_UI.pillBorderWidth}px solid ${APK_CORE_UI.border}`,
     borderRadius: APK_CORE_UI.pillRadius,
-    padding: `${APK_CORE_UI.pillPaddingY}px ${APK_CORE_UI.pillPaddingX}px`,
+    padding: `0 ${APK_CORE_UI.pillPaddingX}px`,
     display: 'inline-flex',
     alignItems: 'center',
     justifyContent: 'center',
@@ -2580,9 +2760,12 @@ function apkPillButtonStyle(selected?: boolean, disabled?: boolean): React.CSSPr
     overflow: 'hidden',
     textOverflow: 'ellipsis',
     opacity: disabled ? 0.55 : 1,
-    transform: 'scale(1)',
-    cursor: disabled ? 'not-allowed' : 'pointer'
-  }
+    cursor: disabled ? 'not-allowed' : 'pointer',
+    boxSizing: 'border-box',
+    WebkitTapHighlightColor: 'transparent',
+    touchAction: 'manipulation',
+    ['--ndjc-pill-pressed-scale' as string]: String(APK_FILTER_UI.chipPressedScale)
+  } as React.CSSProperties
 }
 
 function apkControlPillButtonStyle(
@@ -2744,38 +2927,6 @@ const apkDialogActionsStyle: React.CSSProperties = {
   gap: 8
 }
 
-const apkBlockingOverlayStyle: React.CSSProperties = {
-  position: 'fixed',
-  inset: 0,
-  zIndex: APK_CORE_UI.overlayZIndex,
-  display: 'grid',
-  placeItems: 'center',
-  background: 'transparent',
-  pointerEvents: 'auto'
-}
-
-const apkBlockingProgressCardStyle: React.CSSProperties = {
-  minWidth: APK_CORE_UI.overlayCardMinWidth,
-  borderRadius: APK_SHELL_UI.whiteCardRadius,
-  padding: `${APK_CORE_UI.overlayCardPaddingY}px ${APK_CORE_UI.overlayCardPaddingX}px`,
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-  gap: APK_CORE_UI.overlayCardGap,
-  color: APK_CORE_UI.ink,
-  background: APK_CORE_UI.white,
-  boxShadow: APK_SHELL_UI.whiteCardShadow
-}
-
-const apkBlockingSpinnerStyle: React.CSSProperties = {
-  width: APK_CORE_UI.overlaySpinnerSize,
-  height: APK_CORE_UI.overlaySpinnerSize,
-  borderRadius: 999,
-  border: `${APK_CORE_UI.overlaySpinnerStroke}px solid rgba(38, 198, 164, 0.24)`,
-  borderTopColor: APK_CORE_UI.green,
-  display: 'inline-block'
-}
-
 const apkInlineEmptyStateRootStyle: React.CSSProperties = {
   width: '100%',
   padding: `${APK_CORE_UI.emptyVerticalPadding}px 0`,
@@ -2908,21 +3059,21 @@ const apkSyncErrorBannerButtonStyle: React.CSSProperties = {
 const APK_CHAT_UI = {
   black: '#000000',
   white: '#ffffff',
-  brand: '#fe9595',
-  green: '#26c6a4',
+  brand: '#c43f4d',
+  green: '#0f766e',
   incomingBubble: '#f2f3f5',
   outgoingBubble: '#fe9595',
   surface: '#ffffff',
   softSurface: '#f2f4f7',
   unavailableSurface: '#f3f4f6',
-  danger: '#e53935',
-  muted: '#6b7280',
-  black45: 'rgba(0, 0, 0, 0.45)',
-  black55: 'rgba(0, 0, 0, 0.55)',
-  black65: 'rgba(0, 0, 0, 0.65)',
-  black70: 'rgba(0, 0, 0, 0.70)',
-  black75: 'rgba(0, 0, 0, 0.75)',
-  black85: 'rgba(0, 0, 0, 0.85)',
+  danger: '#d92d20',
+  muted: '#4b5563',
+  black45: 'rgba(0, 0, 0, 0.70)',
+  black55: 'rgba(0, 0, 0, 0.72)',
+  black65: 'rgba(0, 0, 0, 0.78)',
+  black70: 'rgba(0, 0, 0, 0.82)',
+  black75: 'rgba(0, 0, 0, 0.84)',
+  black85: 'rgba(0, 0, 0, 0.88)',
   border08: 'rgba(0, 0, 0, 0.08)',
   border10: 'rgba(0, 0, 0, 0.10)',
   selectedBg: 'rgba(254, 149, 149, 0.14)',
@@ -2959,19 +3110,20 @@ const APK_CHAT_UI = {
   timePillPaddingY: 6,
   timePillWrapPaddingY: 6,
 
-  bubbleMaxWidth: '78%',
+  bubbleMaxWidthRatio: 2 / 3,
+  bubbleMaxWidth: '66.6667%',
   textBubbleRadius: 14,
   textBubbleTightRadius: 0,
-  textBubblePaddingX: 12,
-  textBubblePaddingY: 10,
+  textBubblePaddingX: 6,
+  textBubblePaddingY: 4,
   messageRowGap: 6,
   messageStackGap: 6,
   messageToolsGap: 6,
   chatBubbleToDividerGap: 8,
   chatFooterReservedBottom: 20,
-  retryButtonSize: 26,
-  retryIconSize: 14,
-  retryButtonGap: 6,
+  retryButtonSize: 22,
+  retryIconSize: 16,
+  retryButtonGap: 16,
   messageMenuMinWidth: 156,
   messageMenuRadius: 4,
   messageMenuPadding: 8,
@@ -2992,6 +3144,7 @@ const APK_CHAT_UI = {
   gridMaxPreview: 4,
 
   productCardWidth: 236,
+  productQuoteMaxWidth: 320,
   productImageSize: 54,
   productImageRadius: 12,
   productRadius: 14,
@@ -3002,7 +3155,8 @@ const APK_CHAT_UI = {
   pendingProductPadding: 10,
   pendingProductGap: 8,
 
-  toolButtonHeight: 40,
+  toolButtonWidth: 58,
+  toolButtonHeight: 42,
   toolButtonRadius: 12,
   toolButtonPaddingX: 12,
   toolButtonIconSize: 18,
@@ -3014,6 +3168,12 @@ const APK_CHAT_UI = {
   quoteBlockGap: 3,
   quoteLabelSize: 12,
   quoteTextSize: 13,
+  quoteRailWidth: 2,
+  quoteRailHeight: 22,
+  quoteRailGap: 8,
+  quoteReplyFont: '500 12px system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
+  quoteTextFont: '600 13px system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
+  bodyTextFont: '400 15px system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
 
   richBubblePadding: 6,
   richBubbleDefaultBorder: '1px solid rgba(0, 0, 0, 0.18)',
@@ -3127,6 +3287,7 @@ const apkChatTextareaStyle: React.CSSProperties = {
   minWidth: 0,
   minHeight: APK_CHAT_UI.inputMinHeight - APK_CHAT_UI.inputPaddingY * 2,
   maxHeight: APK_CHAT_UI.inputMaxHeight - APK_CHAT_UI.inputPaddingY * 2,
+  height: APK_CHAT_UI.inputMinHeight - APK_CHAT_UI.inputPaddingY * 2,
   border: 0,
   outline: 0,
   padding: 0,
@@ -3137,8 +3298,9 @@ const apkChatTextareaStyle: React.CSSProperties = {
   lineHeight: 1.35,
   fontWeight: 400,
   resize: 'none',
-  overflowY: 'auto',
-  fontFamily: 'inherit'
+  overflowY: 'hidden',
+  fontFamily: 'inherit',
+  boxSizing: 'border-box'
 }
 
 function apkChatToolButtonStyle(disabled?: boolean): React.CSSProperties {
@@ -3210,13 +3372,14 @@ function apkChatMessageRowStyle(outgoing?: boolean, selected?: boolean, failed?:
     padding: selected ? '6px 8px' : '2px 0',
     borderRadius: selected ? APK_CHAT_UI.textBubbleRadius : 0,
     background: selected ? APK_CHAT_UI.selectedBg : 'transparent',
-    opacity: failed ? 0.72 : 1
+    opacity: 1
   }
 }
 
 function apkChatMessageContentRowStyle(outgoing?: boolean): React.CSSProperties {
   return {
     width: '100%',
+    minWidth: 0,
     display: 'flex',
     justifyContent: outgoing ? 'flex-end' : 'flex-start',
     alignItems: 'center'
@@ -3236,30 +3399,95 @@ function apkChatRetryButtonStyle(): React.CSSProperties {
     color: APK_CHAT_UI.white,
     background: APK_CHAT_UI.danger,
     boxShadow: 'none',
-    fontSize: APK_CHAT_UI.retryIconSize,
-    lineHeight: 1,
-    fontWeight: 700,
-    cursor: 'pointer'
+    cursor: 'pointer',
+    WebkitTapHighlightColor: 'transparent'
   }
 }
 
-function apkChatMessageStackStyle(outgoing?: boolean): React.CSSProperties {
+const apkChatRetryIconStyle: React.CSSProperties = {
+  width: APK_CHAT_UI.retryIconSize + 2,
+  height: APK_CHAT_UI.retryIconSize + 2,
+  display: 'block',
+  transformOrigin: '50% 50%',
+  pointerEvents: 'none'
+}
+const NDJC_CHAT_RETRY_BUTTON_PREVIEW = true
+
+function apkChatMessageStackStyle(outgoing?: boolean, failed?: boolean): React.CSSProperties {
   return {
     position: 'relative',
+    width: APK_CHAT_UI.bubbleMaxWidth,
+    minWidth: 0,
     maxWidth: APK_CHAT_UI.bubbleMaxWidth,
     display: 'grid',
     justifyItems: outgoing ? 'end' : 'start',
-    gap: APK_CHAT_UI.messageStackGap
+    gap: APK_CHAT_UI.messageStackGap,
+    boxSizing: 'border-box'
   }
 }
 
-function apkChatMessageMenuStyle(outgoing?: boolean): React.CSSProperties {
+function apkChatFailedBubbleRowStyle(): React.CSSProperties {
+  return {
+    width: '100%',
+    maxWidth: '100%',
+    minWidth: 0,
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+    boxSizing: 'border-box'
+  }
+}
+
+function apkChatBubbleOnlyStackStyle(outgoing?: boolean, richBubble?: boolean): React.CSSProperties {
+  return {
+    width: richBubble ? '100%' : undefined,
+    minWidth: 0,
+    maxWidth: richBubble
+      ? '100%'
+      : `calc(100% - ${APK_CHAT_UI.retryButtonSize + APK_CHAT_UI.retryButtonGap}px)`,
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: outgoing ? 'flex-end' : 'flex-start',
+    gap: APK_CHAT_UI.messageStackGap,
+    boxSizing: 'border-box',
+    flex: richBubble ? '1 1 auto' : '0 1 auto'
+  }
+}
+
+function apkChatRichRetryBubbleHostStyle(): React.CSSProperties {
+  return {
+    position: 'relative',
+    width: '100%',
+    maxWidth: '100%',
+    minWidth: 0,
+    display: 'block',
+    boxSizing: 'border-box'
+  }
+}
+
+function apkChatRichRetryButtonOverlayStyle(): React.CSSProperties {
   return {
     position: 'absolute',
-    top: 'calc(100% + 4px)',
+    left: -(APK_CHAT_UI.retryButtonSize + APK_CHAT_UI.retryButtonGap),
+    top: '50%',
+    transform: 'translateY(-50%)',
+    zIndex: 2
+  }
+}
+
+type NdjcChatMessageMenuPlacement = 'above' | 'below'
+
+function apkChatMessageMenuStyle(
+  outgoing?: boolean,
+  placement: NdjcChatMessageMenuPlacement = 'below'
+): React.CSSProperties {
+  return {
+    position: 'absolute',
+    top: placement === 'below' ? 'calc(100% + 4px)' : 'auto',
+    bottom: placement === 'above' ? 'calc(100% + 4px)' : 'auto',
     right: outgoing ? 0 : 'auto',
     left: outgoing ? 'auto' : 0,
-    zIndex: 40,
+    zIndex: 80,
     minWidth: APK_CHAT_UI.messageMenuMinWidth,
     borderRadius: APK_CHAT_UI.messageMenuRadius,
     padding: APK_CHAT_UI.messageMenuPadding,
@@ -3305,17 +3533,20 @@ function apkChatTextBubbleStyle(
         ? APK_CHAT_UI.richBubbleMatchedBorder
         : APK_CHAT_UI.richBubbleDefaultBorder
 
-  return {
-    maxWidth: '100%',
-    border,
-    borderRadius: outgoing
-      ? `${APK_CHAT_UI.textBubbleRadius}px ${APK_CHAT_UI.textBubbleTightRadius}px ${APK_CHAT_UI.textBubbleRadius}px ${APK_CHAT_UI.textBubbleRadius}px`
-      : `${APK_CHAT_UI.textBubbleTightRadius}px ${APK_CHAT_UI.textBubbleRadius}px ${APK_CHAT_UI.textBubbleRadius}px ${APK_CHAT_UI.textBubbleRadius}px`,
-    padding: `${APK_CHAT_UI.textBubblePaddingY}px ${APK_CHAT_UI.textBubblePaddingX}px`,
-    color: APK_CHAT_UI.black,
-    background: outgoing ? APK_CHAT_UI.outgoingBubble : APK_CHAT_UI.incomingBubble,
-    boxShadow: '0 1px 3px rgba(0, 0, 0, 0.08)'
-  }
+return {
+  width: 'fit-content',
+  minWidth: 0,
+  maxWidth: '100%',
+  border,
+  borderRadius: outgoing
+    ? `${APK_CHAT_UI.textBubbleRadius}px ${APK_CHAT_UI.textBubbleTightRadius}px ${APK_CHAT_UI.textBubbleRadius}px ${APK_CHAT_UI.textBubbleRadius}px`
+    : `${APK_CHAT_UI.textBubbleTightRadius}px ${APK_CHAT_UI.textBubbleRadius}px ${APK_CHAT_UI.textBubbleRadius}px ${APK_CHAT_UI.textBubbleRadius}px`,
+  padding: APK_CHAT_UI.richBubblePadding,
+  color: APK_CHAT_UI.black,
+  background: outgoing ? APK_CHAT_UI.outgoingBubble : APK_CHAT_UI.incomingBubble,
+  boxShadow: '0 1px 3px rgba(0, 0, 0, 0.08)',
+  boxSizing: 'border-box'
+}
 }
 
 const apkChatTextStyle: React.CSSProperties = {
@@ -3325,7 +3556,8 @@ const apkChatTextStyle: React.CSSProperties = {
   lineHeight: 1.42,
   fontWeight: 400,
   whiteSpace: 'pre-wrap',
-  overflowWrap: 'anywhere'
+  overflowWrap: 'anywhere',
+  wordBreak: 'break-word'
 }
 
 const apkChatTimeTextStyle: React.CSSProperties = {
@@ -3348,7 +3580,7 @@ const apkChatImageButtonBaseStyle: React.CSSProperties = {
 
 const apkProductBubbleStyle: React.CSSProperties = {
   width: '100%',
-  maxWidth: 320,
+  maxWidth: '100%',
   minWidth: 0,
   border: 0,
   borderRadius: APK_CHAT_UI.productRadius,
@@ -3361,7 +3593,7 @@ const apkProductBubbleStyle: React.CSSProperties = {
 }
 const apkChatProductCardShellStyle: React.CSSProperties = {
   width: '100%',
-  maxWidth: 320,
+  maxWidth: '100%',
   minWidth: 0,
   borderRadius: APK_CHAT_UI.productRadius,
   display: 'block',
@@ -3466,6 +3698,111 @@ const apkChatQuoteBlockRailStyle: React.CSSProperties = {
   background: APK_CHAT_UI.green
 }
 
+let ndjcChatMeasureCanvasContext: CanvasRenderingContext2D | null = null
+
+function getNdjcChatMeasureContext(): CanvasRenderingContext2D | null {
+  if (typeof document === 'undefined') return null
+
+  if (ndjcChatMeasureCanvasContext) return ndjcChatMeasureCanvasContext
+
+  const canvas = document.createElement('canvas')
+  ndjcChatMeasureCanvasContext = canvas.getContext('2d')
+
+  return ndjcChatMeasureCanvasContext
+}
+
+function getApkChatViewportWidthPx(): number {
+  if (typeof window === 'undefined') return 0
+
+  const visualViewportWidth = Math.floor(window.visualViewport?.width || 0)
+  if (visualViewportWidth > 0) return visualViewportWidth
+
+  return Math.floor(window.innerWidth || 0)
+}
+
+function measureChatTextWidthPx(text: string, font: string, maxWidthPx: number): number {
+  const cleanText = String(text || '').trim()
+  if (!cleanText || maxWidthPx <= 0) return 0
+
+  const lines = cleanText
+    .split(/\r?\n/)
+    .map(line => line.replace(/\s+/g, ' ').trim())
+    .filter(Boolean)
+
+  if (!lines.length) return 0
+
+  const context = getNdjcChatMeasureContext()
+
+  if (!context) {
+    const fallbackWidth = Math.max(...lines.map(line => line.length * 8))
+    return Math.min(Math.ceil(fallbackWidth), maxWidthPx)
+  }
+
+  context.font = font
+
+  const measuredWidth = Math.max(...lines.map(line => context.measureText(line).width))
+
+  return Math.min(Math.ceil(measuredWidth), maxWidthPx)
+}
+
+function computeApkChatTextQuoteContentWidthPx(input: {
+  body: string
+  quote: string
+}): number | undefined {
+  const viewportWidthPx = getApkChatViewportWidthPx()
+  if (viewportWidthPx <= 0) return undefined
+
+  const maxBubbleWidthPx = Math.floor(viewportWidthPx * APK_CHAT_UI.bubbleMaxWidthRatio)
+  const contentMaxPx = Math.max(0, maxBubbleWidthPx - (APK_CHAT_UI.richBubblePadding * 2))
+  const bodyTextMaxPx = Math.max(0, contentMaxPx - (APK_CHAT_UI.textBubblePaddingX * 2))
+  const quoteTextMaxPx = Math.max(
+    0,
+    contentMaxPx -
+      (APK_CHAT_UI.quotedBarPaddingX * 2) -
+      APK_CHAT_UI.quoteRailWidth -
+      APK_CHAT_UI.quoteRailGap
+  )
+
+  const cleanBody = String(input.body || '').trim()
+  const cleanQuote = String(input.quote || '').replace(/\n/g, ' ').trim()
+
+  const bodyNeededWidthPx = cleanBody
+    ? Math.min(
+      contentMaxPx,
+      measureChatTextWidthPx(cleanBody, APK_CHAT_UI.bodyTextFont, bodyTextMaxPx) +
+        (APK_CHAT_UI.textBubblePaddingX * 2)
+    )
+    : 0
+
+  const replyWidthPx = measureChatTextWidthPx(
+    'Replying to',
+    APK_CHAT_UI.quoteReplyFont,
+    quoteTextMaxPx
+  )
+
+  const quoteWidthPx = cleanQuote
+    ? measureChatTextWidthPx(
+      cleanQuote,
+      APK_CHAT_UI.quoteTextFont,
+      quoteTextMaxPx
+    )
+    : 0
+
+  const quoteNeededWidthPx = cleanQuote
+    ? Math.min(
+      contentMaxPx,
+      (APK_CHAT_UI.quotedBarPaddingX * 2) +
+        APK_CHAT_UI.quoteRailWidth +
+        APK_CHAT_UI.quoteRailGap +
+        Math.max(replyWidthPx, quoteWidthPx)
+    )
+    : 0
+
+  const contentWidthPx = Math.min(contentMaxPx, Math.max(bodyNeededWidthPx, quoteNeededWidthPx))
+
+  return contentWidthPx > 0 ? contentWidthPx : undefined
+}
+
 function apkChatRichBubbleFrameStyle(input: {
   outgoing?: boolean
   selected?: boolean
@@ -3485,8 +3822,9 @@ function apkChatRichBubbleFrameStyle(input: {
         : APK_CHAT_UI.richBubbleDefaultBorder
 
   return {
-    width: 'min(76vw, 320px)',
+    width: '100%',
     maxWidth: '100%',
+    minWidth: 0,
     border,
     borderRadius: bubbleShape,
     padding: APK_CHAT_UI.richBubblePadding,
@@ -3526,14 +3864,14 @@ const APK_SHOWCASE_ITEM_UI = {
   white: '#ffffff',
   ink: '#111827',
   ink2: '#374151',
-  muted: '#6b7280',
-  brand: '#fe9595',
-  green: '#26c6a4',
+  muted: '#4b5563',
+  brand: '#c43f4d',
+  green: '#0f766e',
   card: '#ffffff',
   transparent: 'transparent',
   chipBg: '#e4e5f0',
   imageAreaBg: 'rgba(255, 255, 255, 0.92)',
-  disabledAlpha: 0.58,
+  disabledAlpha: 0.72,
 
   homeImageHeightRatio: 0.64,
   homeCardHeight: 265,
@@ -3552,14 +3890,14 @@ const APK_SHOWCASE_ITEM_UI = {
   homeTitleSize: 16,
   homeTitleLineHeight: 1.2,
   homeTitleWeight: 600,
-  homePriceSize: 22,
-  homePriceLineHeight: 'normal',
-  homePriceWeight: 500,
-  homeOriginalSize: 14,
-  homeOriginalLineHeight: 'normal',
-  homeOriginalWeight: 500,
-  homeOriginalAlpha: 0.55,
-  homePriceGap: 4,
+  homePriceSize: 20,
+  homePriceLineHeight: '24px',
+  homePriceWeight: 550,
+  homeOriginalSize: 12,
+  homeOriginalLineHeight: '16px',
+  homeOriginalWeight: 600,
+  homeOriginalAlpha: 0.72,
+  homePriceGap: 6,
   homeFavoriteSize: 18,
   homeFavoriteIconSize: 18,
   homeFavoriteTop: 6,
@@ -3589,13 +3927,13 @@ const APK_SHOWCASE_ITEM_UI = {
   catalogCategorySize: 12,
   catalogCategoryLineHeight: '16px',
   catalogCategoryWeight: 600,
-  catalogPriceSize: 22,
-  catalogPriceLineHeight: '26px',
-  catalogPriceWeight: 600,
-  catalogOriginalSize: 15,
+  catalogPriceSize: 18,
+  catalogPriceLineHeight: '22px',
+  catalogPriceWeight: 550,
+  catalogOriginalSize: 12,
   catalogOriginalLineHeight: '16px',
-  catalogOriginalWeight: 400,
-  catalogPriceGap: 8,
+  catalogOriginalWeight: 600,
+  catalogPriceGap: 6,
   catalogChipPaddingX: 10,
   catalogChipPaddingY: 6,
   catalogPressedScale: 0.965,
@@ -3613,9 +3951,9 @@ const APK_ANNOUNCEMENT_UI = {
   white: '#ffffff',
   ink: '#111827',
   ink2: '#374151',
-  muted: '#6b7280',
-  brand: '#fe9595',
-  green: '#26c6a4',
+  muted: '#4b5563',
+  brand: '#c43f4d',
+  green: '#0f766e',
   card: '#ffffff',
   softSurface: '#f2f4f7',
   divider: 'rgba(0, 0, 0, 0.04)',
@@ -3757,7 +4095,7 @@ const apkHomeMediaTitleStyle: React.CSSProperties = {
 const apkHomePriceRowStyle: React.CSSProperties = {
   minWidth: 0,
   display: 'flex',
-  alignItems: 'center',
+  alignItems: 'baseline',
   gap: APK_SHOWCASE_ITEM_UI.homePriceGap
 }
 
@@ -3780,27 +4118,16 @@ const apkHomeSecondaryPriceStyle: React.CSSProperties = {
   lineHeight: APK_SHOWCASE_ITEM_UI.homeOriginalLineHeight,
   fontWeight: APK_SHOWCASE_ITEM_UI.homeOriginalWeight,
   textDecoration: 'line-through',
+  textDecorationThickness: 1.5,
+  textDecorationColor: `rgba(0, 0, 0, ${APK_SHOWCASE_ITEM_UI.homeOriginalAlpha})`,
   whiteSpace: 'nowrap',
   overflow: 'hidden',
   textOverflow: 'ellipsis'
 }
 
-const apkHomeBadgeStyle: React.CSSProperties = {
-  border: `${APK_SHOWCASE_ITEM_UI.homeBadgeBorderWidth}px solid rgba(255, 255, 255, 0.38)`,
-  borderRadius: APK_SHOWCASE_ITEM_UI.homeBadgeRadius,
-  padding: `${APK_SHOWCASE_ITEM_UI.homeBadgePaddingY}px ${APK_SHOWCASE_ITEM_UI.homeBadgePaddingX}px`,
-  display: 'inline-flex',
-  alignItems: 'center',
-  gap: APK_SHOWCASE_ITEM_UI.homeBadgeGap,
-  color: APK_SHOWCASE_ITEM_UI.white,
-  background: APK_SHOWCASE_ITEM_UI.brand,
-  fontSize: APK_SHOWCASE_ITEM_UI.homeBadgeFontSize,
-  lineHeight: `${APK_SHOWCASE_ITEM_UI.homeBadgeFontSize}px`,
-  fontWeight: APK_SHOWCASE_ITEM_UI.homeBadgeWeight,
-  whiteSpace: 'nowrap',
-  flex: '0 0 auto'
-}
+const apkHomeBadgeStyle: React.CSSProperties = apkPickBadgeStyle
 
+const apkHomeBadgeTextStyle: React.CSSProperties = apkPickBadgeTextStyle
 const apkHomeFavoriteOverlayStyle: React.CSSProperties = {
   position: 'absolute',
   top: APK_SHOWCASE_ITEM_UI.homeFavoriteTop,
@@ -3925,18 +4252,20 @@ const apkCatalogPriceStyle: React.CSSProperties = {
 }
 
 const apkCatalogOriginalPriceStyle: React.CSSProperties = {
-  color: 'rgba(17, 24, 39, 0.60)',
+  color: 'rgba(17, 24, 39, 0.72)',
   fontSize: APK_SHOWCASE_ITEM_UI.catalogOriginalSize,
   lineHeight: APK_SHOWCASE_ITEM_UI.catalogOriginalLineHeight,
   fontStyle: 'normal',
   fontWeight: APK_SHOWCASE_ITEM_UI.catalogOriginalWeight,
   textDecoration: 'line-through',
+  textDecorationThickness: 1.5,
+  textDecorationColor: 'rgba(17, 24, 39, 0.45)',
   whiteSpace: 'nowrap'
 }
 
 const apkCatalogMetaTextStyle: React.CSSProperties = {
   marginLeft: 'auto',
-  color: 'rgba(0, 0, 0, 0.55)',
+  color: 'rgba(0, 0, 0, 0.72)',
   fontSize: 13,
   lineHeight: 1.2,
   fontWeight: 500,
@@ -4037,7 +4366,7 @@ const apkAnnouncementFeedPlaceholderStyle: React.CSSProperties = {
   display: 'grid',
   placeItems: 'center',
   overflow: 'hidden',
-  color: 'rgba(0, 0, 0, 0.45)',
+  color: 'rgba(0, 0, 0, 0.72)',
   background: 'rgba(0, 0, 0, 0.06)',
   fontSize: APK_ANNOUNCEMENT_UI.bodySize,
   lineHeight: APK_ANNOUNCEMENT_UI.bodyLineHeight,
@@ -4470,7 +4799,8 @@ export function NdjcTextField({
   singleLine,
   minLines = 1,
   fillContentWidth = true,
-  inputMode
+  inputMode,
+  autoComplete
 }: {
   value: string
   onChange: (value: string) => void
@@ -4487,6 +4817,7 @@ export function NdjcTextField({
   minLines?: number
   fillContentWidth?: boolean
   inputMode?: React.HTMLAttributes<HTMLInputElement>['inputMode']
+  autoComplete?: string
 }) {
   const isMultiline = multiline || singleLine === false
   const cleanLabel = label?.trim() || ''
@@ -4625,6 +4956,7 @@ export function NdjcTextField({
               placeholder={nativePlaceholder}
               disabled={disabled}
               aria-invalid={isError}
+              autoComplete={autoComplete}
               rows={Math.max(1, minLines)}
               onChange={event => onChange(event.target.value)}
             />
@@ -4638,6 +4970,7 @@ export function NdjcTextField({
               placeholder={nativePlaceholder}
               disabled={disabled}
               aria-invalid={isError}
+              autoComplete={autoComplete}
               onChange={event => onChange(event.target.value)}
             />
           )}
@@ -4688,6 +5021,7 @@ type NdjcDialogActions = {
   onCancel?: () => void
   onDismissRequest?: () => void
   confirmEnabled?: boolean
+  confirmLoading?: boolean
   destructiveConfirm?: boolean
 }
 
@@ -4776,6 +5110,208 @@ function shouldSkipNdjcPullRefreshPointer(event: React.PointerEvent<HTMLElement>
   return isNdjcInteractivePointerTarget(event.target)
 }
 
+function getNdjcKeyboardViewportHeightPx(): number {
+  if (typeof window === 'undefined') return 0
+
+  const layoutHeight = Math.max(0, Math.round(window.innerHeight || 0))
+  const visualViewport = window.visualViewport
+
+  if (!visualViewport) return layoutHeight
+
+  const visualHeight = Math.max(0, Math.round(visualViewport.height || 0))
+
+  if (visualHeight > 0) return visualHeight
+
+  return layoutHeight
+}
+
+function getNdjcVisualViewportOffsetTopPx(): number {
+  if (typeof window === 'undefined') return 0
+
+  const visualViewport = window.visualViewport
+  if (!visualViewport) return 0
+
+  const offsetTop = Math.max(0, Math.round(visualViewport.offsetTop || 0))
+
+  return offsetTop
+}
+
+function syncNdjcKeyboardViewportCssVars(): void {
+  if (typeof document === 'undefined') return
+
+  const viewportHeight = getNdjcKeyboardViewportHeightPx()
+  const viewportOffsetTop = getNdjcVisualViewportOffsetTopPx()
+
+  document.documentElement.style.setProperty(
+    '--ndjc-stable-viewport-height',
+    `${Math.max(0, viewportHeight)}px`
+  )
+
+  document.documentElement.style.setProperty(
+    '--ndjc-visual-viewport-offset-top',
+    `${Math.max(0, viewportOffsetTop)}px`
+  )
+
+  document.documentElement.style.setProperty(
+    '--ndjc-keyboard-inset',
+    '0px'
+  )
+
+  window.dispatchEvent(
+    new CustomEvent('ndjc:keyboard-viewport-change', {
+      detail: {
+        viewportHeight: Math.max(0, viewportHeight),
+        viewportOffsetTop: Math.max(0, viewportOffsetTop)
+      }
+    })
+  )
+}
+
+function clearNdjcKeyboardViewportCssVars(): void {
+  if (typeof document === 'undefined') return
+
+  document.documentElement.style.removeProperty('--ndjc-stable-viewport-height')
+  document.documentElement.style.removeProperty('--ndjc-visual-viewport-offset-top')
+  document.documentElement.style.removeProperty('--ndjc-keyboard-inset')
+}
+
+function NdjcChatKeyboardDebugPanel(): React.ReactElement | null {
+  const [mounted, setMounted] = React.useState(false)
+  const [snapshot, setSnapshot] = React.useState({
+    scrollY: 0,
+    docTop: 0,
+    bodyTop: 0,
+    innerHeight: 0,
+    vvHeight: 0,
+    vvOffsetTop: 0,
+    vvOffsetLeft: 0,
+    vvPageTop: 0,
+    cssHeight: '',
+    cssOffsetTop: '',
+    shellTop: 0,
+    shellHeight: 0,
+    scaffoldTop: 0,
+    scaffoldHeight: 0,
+    footerTop: 0,
+    footerHeight: 0,
+    topBarTop: 0,
+    topBarHeight: 0,
+    panelTop: 8,
+    panelLeft: 8
+  })
+
+  React.useEffect(() => {
+    setMounted(true)
+  }, [])
+
+  React.useEffect(() => {
+    if (typeof window === 'undefined') return
+    if (typeof document === 'undefined') return
+
+    const read = () => {
+      const root = document.documentElement
+      const body = document.body
+      const visualViewport = window.visualViewport
+      const shell = document.querySelector('.ndjc-chat-keyboard-shell')
+      const scaffold = document.querySelector('.ndjc-conversation-page-scaffold')
+      const footer = document.querySelector('.ndjc-conversation-footer')
+      const topBar = document.querySelector('.ndjc-conversation-top-surface')
+
+      const shellRect = shell?.getBoundingClientRect()
+      const scaffoldRect = scaffold?.getBoundingClientRect()
+      const footerRect = footer?.getBoundingClientRect()
+      const topBarRect = topBar?.getBoundingClientRect()
+
+      const visualOffsetTop = Math.round(visualViewport?.offsetTop || 0)
+      const visualOffsetLeft = Math.round(visualViewport?.offsetLeft || 0)
+
+      setSnapshot({
+        scrollY: Math.round(window.scrollY || 0),
+        docTop: Math.round(root.scrollTop || 0),
+        bodyTop: Math.round(body.scrollTop || 0),
+        innerHeight: Math.round(window.innerHeight || 0),
+        vvHeight: Math.round(visualViewport?.height || 0),
+        vvOffsetTop: visualOffsetTop,
+        vvOffsetLeft: visualOffsetLeft,
+        vvPageTop: Math.round(visualViewport?.pageTop || 0),
+        cssHeight: root.style.getPropertyValue('--ndjc-stable-viewport-height') || '',
+        cssOffsetTop: root.style.getPropertyValue('--ndjc-visual-viewport-offset-top') || '',
+        shellTop: Math.round(shellRect?.top || 0),
+        shellHeight: Math.round(shellRect?.height || 0),
+        scaffoldTop: Math.round(scaffoldRect?.top || 0),
+        scaffoldHeight: Math.round(scaffoldRect?.height || 0),
+        footerTop: Math.round(footerRect?.top || 0),
+        footerHeight: Math.round(footerRect?.height || 0),
+        topBarTop: Math.round(topBarRect?.top || 0),
+        topBarHeight: Math.round(topBarRect?.height || 0),
+        panelTop: Math.max(8, visualOffsetTop + 8),
+        panelLeft: Math.max(8, visualOffsetLeft + 8)
+      })
+    }
+
+    read()
+
+    const timerId = window.setInterval(read, 100)
+
+    window.addEventListener('scroll', read, true)
+    window.addEventListener('resize', read)
+    window.visualViewport?.addEventListener('resize', read)
+    window.visualViewport?.addEventListener('scroll', read)
+
+    return () => {
+      window.clearInterval(timerId)
+      window.removeEventListener('scroll', read, true)
+      window.removeEventListener('resize', read)
+      window.visualViewport?.removeEventListener('resize', read)
+      window.visualViewport?.removeEventListener('scroll', read)
+    }
+  }, [])
+
+  if (!mounted) return null
+  if (typeof document === 'undefined') return null
+
+  return createPortal(
+    <div
+      style={{
+        position: 'fixed',
+        left: snapshot.panelLeft,
+        top: snapshot.panelTop,
+        zIndex: 2147483647,
+        maxWidth: 280,
+        padding: '10px 12px',
+        borderRadius: 8,
+        background: 'rgba(0, 0, 0, 0.82)',
+        color: '#00ff7f',
+        fontSize: 11,
+        lineHeight: 1.35,
+        fontFamily: 'monospace',
+        pointerEvents: 'none',
+        whiteSpace: 'pre-wrap'
+      }}
+    >
+      {`scrollY: ${snapshot.scrollY}
+docTop: ${snapshot.docTop}
+bodyTop: ${snapshot.bodyTop}
+innerH: ${snapshot.innerHeight}
+vvH: ${snapshot.vvHeight}
+vvOff: ${snapshot.vvOffsetTop}
+vvLeft: ${snapshot.vvOffsetLeft}
+vvPage: ${snapshot.vvPageTop}
+cssH: ${snapshot.cssHeight}
+cssOff: ${snapshot.cssOffsetTop}
+shellTop: ${snapshot.shellTop}
+shellH: ${snapshot.shellHeight}
+scaffoldTop: ${snapshot.scaffoldTop}
+scaffoldH: ${snapshot.scaffoldHeight}
+topBarTop: ${snapshot.topBarTop}
+topBarH: ${snapshot.topBarHeight}
+footerTop: ${snapshot.footerTop}
+footerH: ${snapshot.footerHeight}`}
+    </div>,
+    document.body
+  )
+}
+
 export function NdjcUnifiedBackground({
   children,
   className,
@@ -4798,6 +5334,85 @@ export function NdjcUnifiedBackground({
   const resolvedBottomBar = bottomBar ?? contextBottomBar
   const bottomBarHostRef = React.useRef<HTMLElement | null>(null)
   const [bottomBarHeightPx, setBottomBarHeightPx] = React.useState(0)
+  const isChatKeyboardShell = typeof className === 'string' && className.includes('ndjc-chat-keyboard-shell')
+
+  React.useLayoutEffect(() => {
+    if (!isChatKeyboardShell) return
+    if (typeof window === 'undefined') return
+
+    let frameId: number | null = null
+    let firstTimeoutId: number | null = null
+    let secondTimeoutId: number | null = null
+
+    const clearScheduledKeyboardViewportSync = () => {
+      if (frameId != null) {
+        window.cancelAnimationFrame(frameId)
+        frameId = null
+      }
+
+      if (firstTimeoutId != null) {
+        window.clearTimeout(firstTimeoutId)
+        firstTimeoutId = null
+      }
+
+      if (secondTimeoutId != null) {
+        window.clearTimeout(secondTimeoutId)
+        secondTimeoutId = null
+      }
+    }
+
+    const syncKeyboardViewportNow = () => {
+      syncNdjcKeyboardViewportCssVars()
+    }
+
+    const syncKeyboardViewportInFrame = () => {
+      frameId = null
+      syncNdjcKeyboardViewportCssVars()
+    }
+
+    const syncKeyboardViewportAfterFirstDelay = () => {
+      firstTimeoutId = null
+      syncNdjcKeyboardViewportCssVars()
+    }
+
+    const syncKeyboardViewportAfterSecondDelay = () => {
+      secondTimeoutId = null
+      syncNdjcKeyboardViewportCssVars()
+    }
+
+    const scheduleSyncKeyboardViewport = () => {
+      syncKeyboardViewportNow()
+
+      if (frameId == null) {
+        frameId = window.requestAnimationFrame(syncKeyboardViewportInFrame)
+      }
+
+      if (firstTimeoutId == null) {
+        firstTimeoutId = window.setTimeout(syncKeyboardViewportAfterFirstDelay, 50)
+      }
+
+      if (secondTimeoutId == null) {
+        secondTimeoutId = window.setTimeout(syncKeyboardViewportAfterSecondDelay, 150)
+      }
+    }
+
+    scheduleSyncKeyboardViewport()
+
+    window.visualViewport?.addEventListener('resize', scheduleSyncKeyboardViewport)
+    window.visualViewport?.addEventListener('scroll', scheduleSyncKeyboardViewport)
+    window.addEventListener('resize', scheduleSyncKeyboardViewport)
+    window.addEventListener('orientationchange', scheduleSyncKeyboardViewport)
+
+    return () => {
+      clearScheduledKeyboardViewportSync()
+
+      window.visualViewport?.removeEventListener('resize', scheduleSyncKeyboardViewport)
+      window.visualViewport?.removeEventListener('scroll', scheduleSyncKeyboardViewport)
+      window.removeEventListener('resize', scheduleSyncKeyboardViewport)
+      window.removeEventListener('orientationchange', scheduleSyncKeyboardViewport)
+      clearNdjcKeyboardViewportCssVars()
+    }
+  }, [isChatKeyboardShell])
 
   React.useLayoutEffect(() => {
     if (!resolvedBottomBar) {
@@ -4837,14 +5452,29 @@ export function NdjcUnifiedBackground({
     ? bottomBarHeightPx || APK_PAGE_SHELL_UI.tabBottomReserve
     : 0
 
+  const screenStyleWithKeyboardInsets = {
+    ...apkShellScreenStyle,
+    height: isChatKeyboardShell ? 'var(--ndjc-stable-viewport-height, 100dvh)' : apkShellScreenStyle.height,
+    minHeight: isChatKeyboardShell ? 'var(--ndjc-stable-viewport-height, 100dvh)' : apkShellScreenStyle.minHeight,
+    maxHeight: isChatKeyboardShell ? 'var(--ndjc-stable-viewport-height, 100dvh)' : apkShellScreenStyle.maxHeight,
+    transform: isChatKeyboardShell
+      ? 'translate3d(0, var(--ndjc-visual-viewport-offset-top, 0px), 0)'
+      : apkShellScreenStyle.transform,
+    transformOrigin: isChatKeyboardShell ? 'top left' : apkShellScreenStyle.transformOrigin,
+    willChange: isChatKeyboardShell ? 'transform' : apkShellScreenStyle.willChange
+  } as React.CSSProperties
+
   const unifiedBackgroundSurfaceStyleWithBottomReserve = {
     ...apkUnifiedBackgroundSurfaceStyle,
+    height: isChatKeyboardShell ? 'var(--ndjc-stable-viewport-height, 100dvh)' : apkUnifiedBackgroundSurfaceStyle.height,
+    minHeight: isChatKeyboardShell ? 'var(--ndjc-stable-viewport-height, 100dvh)' : apkUnifiedBackgroundSurfaceStyle.minHeight,
+    maxHeight: isChatKeyboardShell ? 'var(--ndjc-stable-viewport-height, 100dvh)' : apkUnifiedBackgroundSurfaceStyle.maxHeight,
     [NDJC_BOTTOM_BAR_HEIGHT_CSS_VAR]: `${bottomBarReservePx}px`,
     [NDJC_BOTTOM_BAR_RESERVE_CSS_VAR]: `${bottomBarReservePx}px`
   } as React.CSSProperties
 
   return (
-    <main className={cx('ndjc-screen', className)} style={apkShellScreenStyle}>
+    <main className={cx('ndjc-screen', className)} style={screenStyleWithKeyboardInsets}>
       <NdjcSystemBarsTransparent darkIcons />
 
       <style>
@@ -4884,6 +5514,19 @@ export function NdjcUnifiedBackground({
             -webkit-tap-highlight-color: transparent;
           }
 
+          .ndjc-unified-background input[type="search"]::-webkit-search-cancel-button,
+          .ndjc-unified-background input[type="search"]::-webkit-search-decoration,
+          .ndjc-unified-background input[type="search"]::-webkit-search-results-button,
+          .ndjc-unified-background input[type="search"]::-webkit-search-results-decoration {
+            display: none;
+            -webkit-appearance: none;
+          }
+
+          .ndjc-unified-background input[type="search"] {
+            -webkit-appearance: none;
+            appearance: none;
+          }
+
           .ndjc-unified-background button {
             appearance: none;
             -webkit-appearance: none;
@@ -4918,8 +5561,44 @@ export function NdjcUnifiedBackground({
             background-clip: padding-box;
           }
 
+          .ndjc-unified-background .ndjc-pill-button {
+            transform: translateZ(0) scale(1);
+            transition: transform 90ms ease-out, background 120ms ease, color 120ms ease, border-color 120ms ease, opacity 120ms ease;
+            will-change: transform;
+          }
+
+          .ndjc-unified-background .ndjc-pill-button:active:not(:disabled) {
+            transform: translateZ(0) scale(var(--ndjc-pill-pressed-scale, 0.92));
+            filter: brightness(0.92);
+            box-shadow: inset 0 2px 7px rgba(0, 0, 0, 0.20);
+          }
+
           .ndjc-unified-background * {
             -webkit-touch-callout: none;
+          }
+
+          @keyframes ndjcAdminProgressSlide {
+            0% {
+              transform: translateX(-120%);
+            }
+
+            55% {
+              transform: translateX(65%);
+            }
+
+            100% {
+              transform: translateX(260%);
+            }
+          }
+
+          @keyframes ndjcSpinnerRotate {
+            0% {
+              transform: rotate(0deg);
+            }
+
+            100% {
+              transform: rotate(360deg);
+            }
           }
         `}
       </style>
@@ -5149,6 +5828,50 @@ export function NdjcTopNavOverlay({
 
 
 
+export function NdjcSpinner({
+  size = 18,
+  stroke = 2,
+  tone = 'primary',
+  className,
+  style
+}: {
+  size?: number
+  stroke?: number
+  tone?: 'primary' | 'light' | 'danger'
+  className?: string
+  style?: React.CSSProperties
+}) {
+  const trackColor = tone === 'light'
+    ? 'rgba(255, 255, 255, 0.42)'
+    : tone === 'danger'
+      ? 'rgba(220, 38, 38, 0.22)'
+      : 'rgba(38, 198, 164, 0.25)'
+
+  const activeColor = tone === 'light'
+    ? APK_CORE_UI.white
+    : tone === 'danger'
+      ? APK_CORE_UI.danger
+      : APK_SHELL_UI.green
+
+  return (
+    <span
+      className={cx('ndjc-spinner', className)}
+      style={{
+        width: size,
+        height: size,
+        borderRadius: 999,
+        border: `${stroke}px solid ${trackColor}`,
+        borderTopColor: activeColor,
+        display: 'inline-block',
+        flexShrink: 0,
+        animation: 'ndjcSpinnerRotate 780ms linear infinite',
+        ...style
+      }}
+      aria-hidden="true"
+    />
+  )
+}
+
 export function NdjcPrimaryActionButton({
   children,
   onClick,
@@ -5192,17 +5915,11 @@ export function NdjcPrimaryActionButton({
       aria-busy={isLoading || undefined}
     >
       {isLoading ? (
-        <span
+        <NdjcSpinner
           className="ndjc-primary-action-spinner"
-          style={{
-            width: 18,
-            height: 18,
-            borderRadius: 999,
-            border: `2px solid rgba(255, 255, 255, 0.42)`,
-            borderTopColor: APK_CORE_UI.white,
-            display: 'inline-block'
-          }}
-          aria-hidden="true"
+          size={18}
+          stroke={2}
+          tone="light"
         />
       ) : (
         <span
@@ -5219,7 +5936,6 @@ export function NdjcPrimaryActionButton({
     </button>
   )
 }
-
 export function NdjcPillButton({
   children,
   selected,
@@ -5239,12 +5955,21 @@ export function NdjcPillButton({
       className={cx('ndjc-pill-button', selected && 'is-selected', className)}
       style={apkPillButtonStyle(selected, disabled)}
       disabled={disabled}
-      onClick={onClick}
+      onClick={() => {
+        if (disabled) return
+        onClick?.()
+      }}
       aria-pressed={selected}
     >
       <span
         style={{
           minWidth: 0,
+          display: 'inline-flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          height: '100%',
+          lineHeight: 1,
+          transform: 'translateY(1px)',
           overflow: 'hidden',
           textOverflow: 'ellipsis',
           whiteSpace: 'nowrap'
@@ -5253,6 +5978,47 @@ export function NdjcPillButton({
         {children}
       </span>
     </button>
+  )
+}
+
+export function NdjcPillBadge({
+  children,
+  selected,
+  disabled,
+  className
+}: {
+  children: React.ReactNode
+  selected?: boolean
+  disabled?: boolean
+  className?: string
+}) {
+  return (
+    <span
+      className={cx('ndjc-pill-badge', selected && 'is-selected', className)}
+      style={{
+        ...apkPillButtonStyle(selected, disabled),
+        cursor: 'default',
+        pointerEvents: 'none'
+      }}
+      aria-hidden="true"
+    >
+      <span
+        style={{
+          minWidth: 0,
+          display: 'inline-flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          height: '100%',
+          lineHeight: 1,
+          transform: 'translateY(1px)',
+          overflow: 'hidden',
+          textOverflow: 'ellipsis',
+          whiteSpace: 'nowrap'
+        }}
+      >
+        {children}
+      </span>
+    </span>
   )
 }
 
@@ -5584,16 +6350,123 @@ export function NdjcInlineEmptyState({
   )
 }
 
+export function NdjcPaginationFooter({
+  pagination,
+  idleText = 'Load more',
+  loadingText = 'Loading more...',
+  endText = 'No more items',
+  onLoadMore
+}: {
+  pagination: ShowcasePaginationUiState
+  idleText?: string
+  loadingText?: string
+  endText?: string
+  onLoadMore?: () => Promise<void> | void
+}) {
+  if (pagination.isLoadingMore) {
+    return (
+      <footer className="ndjc-pagination-footer" style={apkNoMoreListFooterStyle}>
+        {loadingText}
+      </footer>
+    )
+  }
+
+  if (pagination.hasMore && idleText.trim()) {
+    return (
+      <footer className="ndjc-pagination-footer" style={apkNoMoreListFooterStyle}>
+        <button
+          type="button"
+          onClick={() => {
+            if (onLoadMore) {
+              void Promise.resolve(onLoadMore())
+            }
+          }}
+          style={{
+            margin: 0,
+            padding: '8px 14px',
+            border: 'none',
+            borderRadius: 999,
+            background: 'transparent',
+            color: APK_CORE_UI.noMoreTextColor,
+            font: 'inherit',
+            cursor: onLoadMore ? 'pointer' : 'default'
+          }}
+        >
+          {idleText}
+        </button>
+      </footer>
+    )
+  }
+
+  if (!pagination.hasMore && endText.trim()) {
+    return (
+      <footer className="ndjc-pagination-footer" style={apkNoMoreListFooterStyle}>
+        — {endText} —
+      </footer>
+    )
+  }
+
+  return null
+}
+
 export function NdjcNoMoreListFooter({
   text = 'No more items'
 }: {
   text?: string
 }) {
   return (
-    <footer className="ndjc-no-more-list-footer" style={apkNoMoreListFooterStyle}>
-      — {text} —
-    </footer>
+    <NdjcPaginationFooter
+      pagination={{
+        hasMore: false,
+        isLoadingMore: false
+      }}
+      endText={text}
+    />
   )
+}
+
+function ndjcShouldLoadMoreFromScroll(
+  element: HTMLElement,
+  thresholdPx = 120
+): boolean {
+  return element.scrollHeight - element.scrollTop - element.clientHeight <= thresholdPx
+}
+
+function ndjcShouldLoadOlderFromScroll(
+  element: HTMLElement,
+  thresholdPx = 80
+): boolean {
+  return element.scrollTop <= thresholdPx
+}
+
+function ndjcHandleLoadMoreScroll(
+  event: React.UIEvent<HTMLElement>,
+  pagination: ShowcasePaginationUiState,
+  onLoadMore: () => Promise<void> | void,
+  thresholdPx = 120
+): void {
+  if (pagination.isLoadingMore || !pagination.hasMore) return
+
+  const element = event.currentTarget
+
+  if (!ndjcShouldLoadMoreFromScroll(element, thresholdPx)) return
+
+  void Promise.resolve(onLoadMore())
+}
+
+function ndjcHandleLoadOlderScroll(
+  event: React.UIEvent<HTMLElement>,
+  pagination: ShowcasePaginationUiState,
+  onLoadOlder: () => Promise<void> | void,
+  thresholdPx = 80
+): void {
+  if (pagination.isLoadingMore || !pagination.hasMore) return
+
+  const element = event.currentTarget
+
+  if (!ndjcShouldLoadOlderFromScroll(element, thresholdPx)) return
+
+  void Promise.resolve(onLoadOlder())
 }
 
 export function NdjcSnackbarHost({
@@ -5686,6 +6559,885 @@ export function NdjcSyncErrorBanner({
   )
 }
 
+export function NdjcOfflineStatusBanner({
+  message
+}: {
+  message?: string | null
+}) {
+  const normalizedMessage = String(message || '').trim()
+
+  if (!normalizedMessage) return null
+
+  return (
+    <section
+      className="ndjc-offline-status-banner"
+      role="status"
+      aria-live="polite"
+      style={{
+        position: 'fixed',
+        left: 'calc(50vw - min(50vw, 240px) + 12px)',
+        top: 'calc(2px + env(safe-area-inset-top))',
+        zIndex: 1000001,
+        width: 'calc(min(100vw, 480px) - 24px)',
+        height: 50,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        pointerEvents: 'none',
+        boxSizing: 'border-box'
+      }}
+    >
+      <div
+        style={{
+          width: 'fit-content',
+          maxWidth: '100%',
+          height: 34,
+          minHeight: 34,
+          borderRadius: 999,
+          padding: '0 13px',
+          display: 'inline-flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: 8,
+          background: 'rgba(17, 24, 39, 0.88)',
+          color: '#ffffff',
+          boxShadow: '0 12px 28px rgba(15, 23, 42, 0.22)',
+          boxSizing: 'border-box',
+          backdropFilter: 'blur(12px)',
+          WebkitBackdropFilter: 'blur(12px)'
+        }}
+      >
+        <span
+          aria-hidden="true"
+          style={{
+            width: 20,
+            height: 34,
+            display: 'inline-flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            color: '#fbbf24',
+            flexShrink: 0,
+            lineHeight: 0
+          }}
+        >
+          <svg
+            width="19"
+            height="19"
+            viewBox="0 0 24 24"
+            fill="none"
+            aria-hidden="true"
+            focusable="false"
+            style={{
+              display: 'block'
+            }}
+          >
+            <path
+              d="M3.75 8.7A14.5 14.5 0 0 1 12 6.1c2.05 0 4 .43 5.75 1.2"
+              stroke="currentColor"
+              strokeWidth="2.35"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+            <path
+              d="M7.1 12.05A8.7 8.7 0 0 1 12 10.55c1.1 0 2.15.2 3.1.58"
+              stroke="currentColor"
+              strokeWidth="2.35"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+            <path
+              d="M10.25 15.35A3.85 3.85 0 0 1 12 14.95c.38 0 .75.05 1.1.16"
+              stroke="currentColor"
+              strokeWidth="2.35"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+            <path
+              d="M12 19.2h.01"
+              stroke="currentColor"
+              strokeWidth="3"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+            <path
+              d="M4.8 4.8l14.4 14.4"
+              stroke="currentColor"
+              strokeWidth="2.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </svg>
+        </span>
+
+        <p
+          style={{
+            margin: 0,
+            minWidth: 0,
+            height: 34,
+            color: '#ffffff',
+            fontSize: 12,
+            lineHeight: '34px',
+            fontWeight: 900,
+            textAlign: 'center',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap'
+          }}
+        >
+          {normalizedMessage}
+        </p>
+      </div>
+    </section>
+  )
+}
+
+function notificationOptInMessageText(messageCode: ShowcaseNotificationMessageCode): string | null {
+  if (messageCode === 'notifications-allowed-auto') {
+    return 'Notifications are allowed. This device will stay registered automatically.'
+  }
+
+  if (messageCode === 'notifications-blocked-site-settings') {
+    return 'Notifications are blocked for this site. Enable them from your browser site settings.'
+  }
+
+  if (messageCode === 'notifications-unsupported-browser') {
+    return 'Notifications are not supported in this browser.'
+  }
+
+  if (messageCode === 'offline-reconnect') {
+    return 'You are offline. Please reconnect and try again.'
+  }
+
+  if (messageCode === 'notifications-blocked-enable-site-settings') {
+    return 'Notifications are blocked. Enable them from your browser site settings.'
+  }
+
+  if (messageCode === 'notifications-not-enabled-try-later') {
+    return 'Notifications were not enabled. You can try again later.'
+  }
+
+  if (messageCode === 'push-registration-failed-after-allowed') {
+    return 'Notifications were allowed, but push registration failed.'
+  }
+
+  if (messageCode === 'device-registration-failed') {
+    return 'Device registration failed. Try again later.'
+  }
+
+  if (messageCode === 'notifications-enabled-device') {
+    return 'Notifications are enabled for this device.'
+  }
+
+  if (messageCode === 'notifications-active') {
+    return 'Notifications are active.'
+  }
+
+  if (messageCode === 'push-registration-failed-check-connection') {
+    return 'Push registration failed. Check your connection and try again.'
+  }
+
+  return null
+}
+
+export function NdjcPwaUpdateBanner({
+  refreshing,
+  onRefresh,
+  onDismiss
+}: {
+  refreshing: boolean
+  onRefresh: () => void
+  onDismiss: () => void
+}) {
+  return (
+    <div
+      role="status"
+      aria-live="polite"
+      style={{
+        position: 'fixed',
+        left: 16,
+        right: 16,
+        top: 'calc(8px + env(safe-area-inset-top))',
+        zIndex: 1000002,
+        display: 'flex',
+        justifyContent: 'center',
+        pointerEvents: 'none',
+        boxSizing: 'border-box'
+      }}
+    >
+      <style>
+        {`
+          .ndjc-pwa-update-banner {
+            border: 1px solid rgba(17, 24, 39, 0.08) !important;
+            background: rgba(255, 255, 255, 0.96) !important;
+          }
+
+          .ndjc-pwa-update-banner::before,
+          .ndjc-pwa-update-banner::after {
+            display: none !important;
+            content: none !important;
+          }
+
+          .ndjc-pwa-update-secondary-button {
+            width: 72px !important;
+            min-width: 72px !important;
+            max-width: 72px !important;
+            min-height: 34px !important;
+            height: 34px !important;
+            padding: 0 10px !important;
+            border-radius: 999px !important;
+            background: #f3f4f6 !important;
+            color: #374151 !important;
+            border: 1px solid rgba(17, 24, 39, 0.08) !important;
+            box-shadow: none !important;
+            font-size: 12px !important;
+            line-height: 1 !important;
+            font-weight: 900 !important;
+            white-space: nowrap !important;
+            overflow: visible !important;
+            text-overflow: clip !important;
+          }
+
+          .ndjc-pwa-update-primary-button {
+            width: 72px !important;
+            min-width: 72px !important;
+            max-width: 72px !important;
+            min-height: 34px !important;
+            height: 34px !important;
+            padding: 0 10px !important;
+            border-radius: 999px !important;
+            font-size: 12px !important;
+            line-height: 1 !important;
+            font-weight: 900 !important;
+            white-space: nowrap !important;
+            overflow: visible !important;
+            text-overflow: clip !important;
+          }
+
+          .ndjc-pwa-update-secondary-button:active,
+          .ndjc-pwa-update-primary-button:active {
+            transform: scale(0.98);
+          }
+        `}
+      </style>
+
+      <NdjcWhiteCard
+        className="ndjc-pwa-update-banner"
+        style={{
+          width: '100%',
+          maxWidth: 404,
+          borderRadius: 20,
+          padding: '10px 12px',
+          pointerEvents: 'auto',
+          boxShadow: '0 12px 34px rgba(15, 23, 42, 0.16)',
+          backdropFilter: 'blur(14px)',
+          WebkitBackdropFilter: 'blur(14px)'
+        }}
+      >
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateColumns: '28px 1fr auto',
+            gap: 9,
+            alignItems: 'center'
+          }}
+        >
+          <div
+            aria-hidden="true"
+            style={{
+              width: 28,
+              height: 28,
+              borderRadius: 14,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              background: 'linear-gradient(135deg, rgba(251, 139, 139, 0.16), rgba(45, 212, 191, 0.16))',
+              color: '#fb7185',
+              boxShadow: 'inset 0 0 0 1px rgba(251, 139, 139, 0.18)',
+              lineHeight: 1,
+              flexShrink: 0
+            }}
+          >
+            <svg
+              width="15"
+              height="15"
+              viewBox="0 0 24 24"
+              fill="none"
+              aria-hidden="true"
+              focusable="false"
+              style={{
+                display: 'block'
+              }}
+            >
+              <path
+                d="M20 6.5V11h-4.5"
+                stroke="#fb7185"
+                strokeWidth="2.4"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+              <path
+                d="M19.1 11A7.25 7.25 0 0 0 6.6 6.2L5.3 7.5"
+                stroke="#fb7185"
+                strokeWidth="2.4"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+              <path
+                d="M4 17.5V13h4.5"
+                stroke="#14b8a6"
+                strokeWidth="2.4"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+              <path
+                d="M4.9 13A7.25 7.25 0 0 0 17.4 17.8l1.3-1.3"
+                stroke="#14b8a6"
+                strokeWidth="2.4"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
+          </div>
+
+          <div style={{ minWidth: 0 }}>
+            <h2
+              style={{
+                margin: 0,
+                color: '#111827',
+                fontSize: 13,
+                lineHeight: 1.2,
+                fontWeight: 900,
+                letterSpacing: '-0.01em',
+                whiteSpace: 'nowrap',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis'
+              }}
+            >
+              New version available
+            </h2>
+
+            <p
+              style={{
+                margin: '3px 0 0',
+                color: 'rgba(17, 24, 39, 0.62)',
+                fontSize: 11,
+                lineHeight: 1.25,
+                fontWeight: 700,
+                whiteSpace: 'nowrap',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis'
+              }}
+            >
+              Refresh to use the latest app files.
+            </p>
+          </div>
+
+          <div
+            style={{
+              width: 151,
+              minWidth: 151,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'flex-end',
+              gap: 7,
+              flexShrink: 0
+            }}
+          >
+            <NdjcPrimaryActionButton
+              className="ndjc-pwa-update-secondary-button"
+              onClick={onDismiss}
+              disabled={refreshing}
+              isLoading={false}
+            >
+              Later
+            </NdjcPrimaryActionButton>
+
+            <NdjcPrimaryActionButton
+              className="ndjc-pwa-update-primary-button"
+              onClick={onRefresh}
+              disabled={refreshing}
+              isLoading={refreshing}
+            >
+              Refresh
+            </NdjcPrimaryActionButton>
+          </div>
+        </div>
+      </NdjcWhiteCard>
+    </div>
+  )
+}
+
+export function NdjcNotificationOptInPanel({
+  open,
+  busy,
+  registered,
+  permissionState,
+  registrationState,
+  messageCode,
+  onRegister
+}: {
+  open: boolean
+  busy: boolean
+  registered: boolean
+  permissionState: ShowcaseNotificationPermissionState
+  registrationState: ShowcaseNotificationRegistrationState
+  messageCode: ShowcaseNotificationMessageCode
+  onRegister: () => void
+}) {
+  const messageText = notificationOptInMessageText(messageCode)
+  const blocked = permissionState === 'denied'
+  const failed = registrationState === 'failed'
+  const ready = permissionState === 'granted' && registrationState !== 'registered'
+  const title = registrationState === 'registered'
+    ? 'Notifications on'
+    : blocked
+      ? 'Notifications blocked'
+      : failed
+        ? 'Notifications need attention'
+        : ready
+          ? 'Notifications ready'
+          : 'Enable notifications'
+  const description = registrationState === 'registered'
+    ? 'Messages, bookings, and announcements are active.'
+    : blocked
+      ? 'Allow notifications in browser site settings, then retry.'
+      : failed
+        ? 'Check your connection and try again.'
+        : ready
+          ? 'Turn on alerts for this device.'
+          : 'Get alerts for messages, booking updates, and announcements.'
+  const statusLabel = registrationState === 'registered'
+    ? 'Registered'
+    : blocked
+      ? 'Blocked'
+      : failed
+        ? 'Failed'
+        : ready
+          ? 'Allowed'
+          : 'Not registered'
+  const actionLabel = busy
+    ? 'Saving...'
+    : registrationState === 'registered'
+      ? 'Refresh'
+      : blocked
+        ? 'Retry'
+        : failed
+          ? 'Retry'
+          : ready
+            ? 'Turn on'
+            : 'Enable'
+
+  return (
+    <div
+      aria-hidden={!open}
+      style={{
+        position: 'fixed',
+        left: 'calc(50vw + min(50vw, 240px) - min(220px, calc(100vw - 32px)) - 16px)',
+        bottom: open ? 'calc(121px + env(safe-area-inset-bottom))' : -1000,
+        zIndex: 999999,
+        width: 'min(220px, calc(100vw - 32px))',
+        pointerEvents: open ? 'auto' : 'none',
+        transition: 'bottom 180ms ease, opacity 160ms ease, transform 160ms ease',
+        opacity: open ? 1 : 0,
+        transform: open ? 'translateY(0)' : 'translateY(8px)'
+      }}
+    >
+      <NdjcWhiteCard
+        className="ndjc-notification-opt-in-panel"
+        style={{
+          borderRadius: 20,
+          padding: '10px 10px 9px',
+          border: '1px solid rgba(17, 24, 39, 0.08)',
+          background: 'rgba(255, 255, 255, 0.96)',
+          boxShadow: '0 14px 38px rgba(15, 23, 42, 0.18)',
+          backdropFilter: 'blur(14px)',
+          WebkitBackdropFilter: 'blur(14px)',
+          boxSizing: 'border-box'
+        }}
+      >
+        <style>
+          {`
+            .ndjc-notification-opt-in-panel {
+              box-sizing: border-box;
+            }
+
+            .ndjc-notification-opt-in-panel::before,
+            .ndjc-notification-opt-in-panel::after {
+              display: none !important;
+              content: none !important;
+            }
+
+            .ndjc-notification-action-button {
+              min-height: 32px !important;
+              height: 32px !important;
+              border-radius: 999px !important;
+              font-size: 13px !important;
+              font-weight: 900 !important;
+            }
+          `}
+        </style>
+
+        <div
+          style={{
+            display: 'grid',
+            gap: 8
+          }}
+        >
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: '30px 1fr',
+              gap: 8,
+              alignItems: 'start'
+            }}
+          >
+            <div
+              aria-hidden="true"
+              style={{
+                width: 32,
+                height: 32,
+                borderRadius: 16,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                background: registered
+                  ? 'linear-gradient(135deg, rgba(236, 253, 245, 0.98), rgba(209, 250, 229, 0.92))'
+                  : blocked || failed
+                    ? 'linear-gradient(135deg, rgba(255, 241, 242, 0.98), rgba(255, 228, 230, 0.92))'
+                    : 'linear-gradient(135deg, rgba(248, 250, 252, 0.98), rgba(241, 245, 249, 0.92))',
+                color: registered
+                  ? '#047857'
+                  : blocked || failed
+                    ? '#be123c'
+                    : '#111827',
+                boxShadow: registered
+                  ? 'inset 0 0 0 1px rgba(4, 120, 87, 0.14), 0 6px 14px rgba(4, 120, 87, 0.10)'
+                  : blocked || failed
+                    ? 'inset 0 0 0 1px rgba(190, 18, 60, 0.14), 0 6px 14px rgba(190, 18, 60, 0.08)'
+                    : 'inset 0 0 0 1px rgba(17, 24, 39, 0.08), 0 6px 14px rgba(15, 23, 42, 0.08)',
+                flexShrink: 0,
+                position: 'relative',
+                marginTop: 1
+              }}
+            >
+              <svg
+                width="17"
+                height="17"
+                viewBox="0 0 24 24"
+                fill="none"
+                aria-hidden="true"
+                focusable="false"
+                style={{
+                  display: 'block'
+                }}
+              >
+                <path
+                  d="M12 3.75c-3.05 0-5.45 2.45-5.45 5.55v2.3c0 1.28-.45 2.52-1.28 3.49L4.35 16.2c-.54.64-.08 1.62.76 1.62h13.78c.84 0 1.3-.98.76-1.62l-.92-1.11a5.37 5.37 0 0 1-1.28-3.49V9.3c0-3.1-2.4-5.55-5.45-5.55Z"
+                  stroke="currentColor"
+                  strokeWidth="2.15"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+                <path
+                  d="M9.7 19.25c.42.75 1.22 1.25 2.3 1.25s1.88-.5 2.3-1.25"
+                  stroke="currentColor"
+                  strokeWidth="2.15"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+                <path
+                  d="M15.75 6.05c.72.62 1.18 1.52 1.25 2.55"
+                  stroke="currentColor"
+                  strokeWidth="1.75"
+                  strokeLinecap="round"
+                  opacity="0.55"
+                />
+              </svg>
+
+              {registered ? (
+                <span
+                  aria-hidden="true"
+                  style={{
+                    position: 'absolute',
+                    right: 4,
+                    top: 4,
+                    width: 6,
+                    height: 6,
+                    borderRadius: 999,
+                    background: '#10b981',
+                    boxShadow: '0 0 0 2px rgba(236, 253, 245, 0.98)'
+                  }}
+                />
+              ) : null}
+
+              {blocked || failed ? (
+                <span
+                  aria-hidden="true"
+                  style={{
+                    position: 'absolute',
+                    right: 4,
+                    top: 4,
+                    width: 6,
+                    height: 6,
+                    borderRadius: 999,
+                    background: '#fb7185',
+                    boxShadow: '0 0 0 2px rgba(255, 241, 242, 0.98)'
+                  }}
+                />
+              ) : null}
+            </div>
+
+            <div
+              style={{
+                minWidth: 0,
+                display: 'grid',
+                gap: 4
+              }}
+            >
+              <span
+                style={{
+                  width: 'fit-content',
+                  height: 22,
+                  padding: '0 9px',
+                  borderRadius: 999,
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: 6,
+                  background: registrationState === 'registered'
+                    ? 'rgba(236, 253, 245, 0.92)'
+                    : blocked || failed
+                      ? 'rgba(255, 241, 242, 0.92)'
+                      : '#f8fafc',
+                  color: registrationState === 'registered'
+                    ? '#047857'
+                    : blocked || failed
+                      ? '#be123c'
+                      : '#475569',
+                  border: registrationState === 'registered'
+                    ? '1px solid rgba(4, 120, 87, 0.14)'
+                    : blocked || failed
+                      ? '1px solid rgba(190, 18, 60, 0.14)'
+                      : '1px solid rgba(71, 85, 105, 0.14)',
+                  fontSize: 11,
+                  lineHeight: 1,
+                  fontWeight: 900,
+                  whiteSpace: 'nowrap',
+                  flexShrink: 0
+                }}
+              >
+                <span
+                  aria-hidden="true"
+                  style={{
+                    width: 6,
+                    height: 6,
+                    borderRadius: 999,
+                    background: registrationState === 'registered'
+                      ? '#10b981'
+                      : blocked || failed
+                        ? '#fb7185'
+                        : '#94a3b8',
+                    flexShrink: 0
+                  }}
+                />
+                {statusLabel}
+              </span>
+
+              <h2
+                style={{
+                  margin: 0,
+                  color: '#111827',
+                  fontSize: 16,
+                  lineHeight: 1.18,
+                  fontWeight: 900,
+                  letterSpacing: '-0.02em'
+                }}
+              >
+                {title}
+              </h2>
+
+              <p
+                style={{
+                  margin: 0,
+                  color: 'rgba(17, 24, 39, 0.66)',
+                  fontSize: 12,
+                  lineHeight: 1.35,
+                  fontWeight: 600
+                }}
+              >
+                {description}
+              </p>
+            </div>
+          </div>
+
+          {messageText ? (
+            <div
+              role="status"
+              aria-live="polite"
+              style={{
+                borderRadius: 14,
+                padding: '8px 10px',
+                background: registered
+                  ? '#ecfdf5'
+                  : 'rgba(254, 242, 242, 0.92)',
+                color: registered
+                  ? '#047857'
+                  : '#b91c1c',
+                fontSize: 11,
+                lineHeight: 1.35,
+                fontWeight: 800
+              }}
+            >
+              {messageText}
+            </div>
+          ) : null}
+
+          <div
+            style={{
+              display: 'flex',
+              justifyContent: 'flex-end'
+            }}
+          >
+            <div style={{ width: 116 }}>
+              <NdjcPrimaryActionButton
+                className="ndjc-notification-action-button"
+                onClick={onRegister}
+                disabled={busy}
+                isLoading={busy}
+              >
+                {actionLabel}
+              </NdjcPrimaryActionButton>
+            </div>
+          </div>
+        </div>
+      </NdjcWhiteCard>
+    </div>
+  )
+}
+
+export function NdjcNotificationOptInFloatingButton({
+  open,
+  permissionState,
+  registrationState,
+  onToggle
+}: {
+  open: boolean
+  permissionState: ShowcaseNotificationPermissionState
+  registrationState: ShowcaseNotificationRegistrationState
+  onToggle: () => void
+}) {
+  const registered = registrationState === 'registered'
+  const blocked = permissionState === 'denied'
+  const failed = registrationState === 'failed'
+  const hasProblem = failed || blocked
+  const ariaLabel = open ? 'Close notification settings' : 'Open notification settings'
+  const iconTint = APK_SHELL_UI.white
+
+  const notificationIcon = open ? (
+    <span
+      aria-hidden="true"
+      style={{
+        display: 'block',
+        color: 'currentColor',
+        fontSize: APK_SHELL_UI.backButtonIconSize,
+        lineHeight: 1,
+        fontWeight: 900,
+        transform: 'translateY(-1px)'
+      }}
+    >
+      ×
+    </span>
+  ) : (
+    <span
+      aria-hidden="true"
+      style={{
+        position: 'relative',
+        width: APK_SHELL_UI.backButtonIconSize,
+        height: APK_SHELL_UI.backButtonIconSize,
+        display: 'grid',
+        placeItems: 'center',
+        color: 'currentColor',
+        lineHeight: 0
+      }}
+    >
+      <svg
+        width="21"
+        height="21"
+        viewBox="0 0 24 24"
+        fill="none"
+        aria-hidden="true"
+        focusable="false"
+        style={{
+          display: 'block'
+        }}
+      >
+        <path
+          d="M12 3.25c-3.35 0-5.95 2.68-5.95 6.05v2.3c0 1.16-.41 2.29-1.16 3.17l-.92 1.1c-.83.98-.13 2.48 1.15 2.48h13.76c1.28 0 1.98-1.5 1.15-2.48l-.92-1.1a4.9 4.9 0 0 1-1.16-3.17V9.3c0-3.37-2.6-6.05-5.95-6.05Z"
+          fill="currentColor"
+        />
+        <path
+          d="M9.3 19.25c.47 1.08 1.42 1.75 2.7 1.75s2.23-.67 2.7-1.75H9.3Z"
+          fill="currentColor"
+        />
+      </svg>
+
+      {registered ? (
+        <span
+          aria-hidden="true"
+          style={{
+            position: 'absolute',
+            right: 0,
+            top: 0,
+            width: 8,
+            height: 8,
+            borderRadius: 999,
+            background: '#10b981',
+            boxShadow: '0 0 0 2px #ffffff'
+          }}
+        />
+      ) : null}
+
+      {hasProblem ? (
+        <span
+          aria-hidden="true"
+          style={{
+            position: 'absolute',
+            right: 0,
+            top: 0,
+            width: 8,
+            height: 8,
+            borderRadius: 999,
+            background: '#be123c',
+            boxShadow: '0 0 0 2px #ffffff'
+          }}
+        />
+      ) : null}
+    </span>
+  )
+
+  return (
+    <div
+      style={{
+        position: 'fixed',
+        left: 'calc(50vw + min(50vw, 240px) - 50px - 16px)',
+        bottom: 'calc(63px + env(safe-area-inset-bottom))',
+        zIndex: 1000000,
+        width: 50,
+        height: 50,
+        pointerEvents: 'auto'
+      }}
+    >
+      <NdjcCardBackButton
+        onClick={onToggle}
+        label={ariaLabel}
+        icon={notificationIcon}
+        iconOnly={false}
+        iconTint={iconTint}
+      />
+    </div>
+  )
+}
+
 export function NdjcBaseDialog({
   title,
   message,
@@ -5700,6 +7452,7 @@ export function NdjcBaseDialog({
   onDismissClick,
   onDismissRequest,
   confirmEnabled = true,
+  confirmLoading = false,
   destructiveConfirm = false
 }: {
   title: string
@@ -5715,6 +7468,7 @@ export function NdjcBaseDialog({
   const handleDismissRequest = onDismissRequest || onDismissClick || onCancel
   const handleDismissClick = onDismissClick || onCancel
   const handleConfirmClick = onConfirmClick || onConfirm
+  const confirmBlocked = !confirmEnabled || confirmLoading
 
   return (
     <section
@@ -5722,6 +7476,7 @@ export function NdjcBaseDialog({
       style={apkDialogBackdropStyle}
       onMouseDown={event => {
         if (event.target === event.currentTarget) {
+          if (confirmLoading) return
           handleDismissRequest?.()
         }
       }}
@@ -5756,8 +7511,14 @@ export function NdjcBaseDialog({
           {resolvedDismissText && handleDismissClick ? (
             <button
               type="button"
-              style={apkDialogTextButtonStyle()}
-              onClick={handleDismissClick}
+              style={apkDialogTextButtonStyle({
+                disabled: confirmLoading
+              })}
+              disabled={confirmLoading}
+              onClick={() => {
+                if (confirmLoading) return
+                handleDismissClick()
+              }}
             >
               {resolvedDismissText}
             </button>
@@ -5769,12 +7530,22 @@ export function NdjcBaseDialog({
               style={apkDialogTextButtonStyle({
                 primary: !destructiveConfirm,
                 destructive: destructiveConfirm,
-                disabled: !confirmEnabled
+                disabled: confirmBlocked
               })}
-              disabled={!confirmEnabled}
+              disabled={confirmBlocked}
               onClick={handleConfirmClick}
+              aria-busy={confirmLoading || undefined}
             >
-              {resolvedConfirmText}
+              {confirmLoading ? (
+                <NdjcSpinner
+                  className="ndjc-dialog-action-spinner"
+                  size={16}
+                  stroke={2}
+                  tone={destructiveConfirm ? 'danger' : 'primary'}
+                />
+              ) : (
+                resolvedConfirmText
+              )}
             </button>
           ) : null}
         </footer>
@@ -5858,45 +7629,6 @@ export function DeleteConfirmDialogPreview() {
   )
 }
 
-export function NdjcBlockingProgressOverlay({
-  visible,
-  text = 'Please wait'
-}: {
-  visible: boolean
-  text?: string
-}) {
-  if (!visible) return null
-
-  return (
-    <section
-      className="ndjc-blocking-progress-overlay"
-      style={apkBlockingOverlayStyle}
-      aria-live="polite"
-      aria-busy="true"
-      onClick={event => {
-        event.preventDefault()
-        event.stopPropagation()
-      }}
-    >
-      <div className="ndjc-blocking-progress-card" style={apkBlockingProgressCardStyle}>
-        <span className="ndjc-spinner" style={apkBlockingSpinnerStyle} aria-hidden="true" />
-
-        <strong
-          style={{
-            color: APK_CORE_UI.ink,
-            fontSize: 14,
-            lineHeight: 1.25,
-            fontWeight: 500,
-            whiteSpace: 'nowrap'
-          }}
-        >
-          {text}
-        </strong>
-      </div>
-    </section>
-  )
-}
-
 export function SheetHeader({
   title,
   clearText = 'Clear',
@@ -5916,13 +7648,13 @@ export function SheetHeader({
         </h2>
 
         {showAction && onClear ? (
-          <button
-            type="button"
-            style={apkFilterChipStyle(false)}
+          <NdjcPillButton
+            selected={false}
             onClick={onClear}
+            className="ndjc-sheet-clear-pill"
           >
-            <span>{clearText}</span>
-          </button>
+            {clearText}
+          </NdjcPillButton>
         ) : null}
       </div>
 
@@ -5946,7 +7678,8 @@ function NdjcFilterBottomSheet({
   onPriceMaxDraftChange,
   showPriceFields = false,
   showHeaderAction = true,
-  showApplyButton = true
+  showApplyButton = true,
+  applyLoading = false
 }: {
   open: boolean
   title?: string
@@ -5963,17 +7696,27 @@ function NdjcFilterBottomSheet({
   showPriceFields?: boolean
   showHeaderAction?: boolean
   showApplyButton?: boolean
+  applyLoading?: boolean
 }) {
   const sheetRef = React.useRef<HTMLElement | null>(null)
   const dragStartYRef = React.useRef<number | null>(null)
   const dragDeltaYRef = React.useRef(0)
+  const closeTimerRef = React.useRef<number | null>(null)
+  const openFrameRef = React.useRef<number | null>(null)
+  const onCloseRef = React.useRef(onClose)
   const [dragOffsetY, setDragOffsetY] = React.useState(0)
+  const [sheetVisible, setSheetVisible] = React.useState(false)
+
+  React.useEffect(() => {
+    onCloseRef.current = onClose
+  }, [onClose])
 
   React.useEffect(() => {
     if (!open) {
       dragStartYRef.current = null
       dragDeltaYRef.current = 0
       setDragOffsetY(0)
+      setSheetVisible(false)
       return
     }
 
@@ -5983,10 +7726,17 @@ function NdjcFilterBottomSheet({
     document.body.style.overflow = 'hidden'
     document.documentElement.style.overflow = 'hidden'
 
+    setSheetVisible(false)
+
+    openFrameRef.current = window.requestAnimationFrame(() => {
+      openFrameRef.current = null
+      setSheetVisible(true)
+    })
+
     function handleWindowKeyDown(event: KeyboardEvent): void {
       if (event.key === 'Escape') {
         event.preventDefault()
-        onClose()
+        requestClose()
       }
     }
 
@@ -5996,14 +7746,38 @@ function NdjcFilterBottomSheet({
       window.removeEventListener('keydown', handleWindowKeyDown)
       document.body.style.overflow = previousBodyOverflow
       document.documentElement.style.overflow = previousHtmlOverflow
+
+      if (openFrameRef.current != null) {
+        window.cancelAnimationFrame(openFrameRef.current)
+        openFrameRef.current = null
+      }
+
+      if (closeTimerRef.current != null) {
+        window.clearTimeout(closeTimerRef.current)
+        closeTimerRef.current = null
+      }
     }
-  }, [open, onClose])
+  }, [open])
 
   if (!open) return null
 
+  function requestClose(): void {
+    if (closeTimerRef.current != null) return
+
+    dragStartYRef.current = null
+    dragDeltaYRef.current = 0
+    setDragOffsetY(0)
+    setSheetVisible(false)
+
+    closeTimerRef.current = window.setTimeout(() => {
+      closeTimerRef.current = null
+      onCloseRef.current()
+    }, 220)
+  }
+
   function handleBackdropPointerDown(event: React.PointerEvent<HTMLElement>): void {
     if (event.target === event.currentTarget) {
-      onClose()
+      requestClose()
     }
   }
 
@@ -6038,8 +7812,7 @@ function NdjcFilterBottomSheet({
     dragDeltaYRef.current = 0
 
     if (shouldDismiss) {
-      setDragOffsetY(0)
-      onClose()
+      requestClose()
       return
     }
 
@@ -6069,7 +7842,12 @@ function NdjcFilterBottomSheet({
   return (
     <section
       className="ndjc-sheet-backdrop"
-      style={apkSheetBackdropStyle}
+      style={{
+        ...apkSheetBackdropStyle,
+        opacity: sheetVisible ? 1 : 0,
+        transition: 'opacity 180ms ease',
+        pointerEvents: sheetVisible ? 'auto' : 'none'
+      }}
       onPointerDown={handleBackdropPointerDown}
     >
       <section
@@ -6077,8 +7855,13 @@ function NdjcFilterBottomSheet({
         className="ndjc-filter-bottom-sheet"
         style={{
           ...apkSheetSurfaceStyle,
-          transform: `translateY(${dragOffsetY}px)`,
-          transition: dragStartYRef.current == null ? 'transform 160ms ease' : 'none'
+          transform: sheetVisible
+            ? `translateY(${dragOffsetY}px)`
+            : 'translateY(calc(100% + 24px))',
+          transition: dragStartYRef.current == null
+            ? 'transform 220ms cubic-bezier(0.2, 0, 0, 1)'
+            : 'none',
+          willChange: 'transform'
         }}
         role="dialog"
         aria-modal="true"
@@ -6147,7 +7930,12 @@ function NdjcFilterBottomSheet({
 
               <NdjcPrimaryActionButton
                 className="ndjc-filter-bottom-sheet-apply"
-                onClick={handleApplyClick}
+                disabled={applyLoading}
+                isLoading={applyLoading}
+                onClick={() => {
+                  if (applyLoading) return
+                  handleApplyClick()
+                }}
               >
                 {applyText}
               </NdjcPrimaryActionButton>
@@ -6339,13 +8127,27 @@ export function NdjcShimmerImage({
   alt,
   className,
   placeholderCornerRadius = APK_MEDIA_UI.imageRadius,
-  contentScale = 'cover'
+  contentScale = 'cover',
+  loading = 'lazy',
+  fetchPriority = 'low',
+  decoding = 'async',
+  imageWidth,
+  imageHeight,
+  sizes,
+  blurDataUrl
 }: {
   src?: string | null
   alt: string
   className?: string
   placeholderCornerRadius?: number
   contentScale?: React.CSSProperties['objectFit']
+  loading?: 'eager' | 'lazy'
+  fetchPriority?: 'high' | 'low' | 'auto'
+  decoding?: 'async' | 'sync' | 'auto'
+  imageWidth?: number
+  imageHeight?: number
+  sizes?: string
+  blurDataUrl?: string | null
 }) {
   const cleanSrc = src?.trim() || ''
   const imageRef = React.useRef<HTMLImageElement | null>(null)
@@ -6409,7 +8211,10 @@ export function NdjcShimmerImage({
           className="ndjc-shimmer-image-placeholder"
           style={{
             ...apkImagePlaceholderStyle,
-            borderRadius: placeholderCornerRadius
+            borderRadius: placeholderCornerRadius,
+            backgroundImage: blurDataUrl ? `url(${blurDataUrl})` : apkImagePlaceholderStyle.backgroundImage,
+            backgroundSize: 'cover',
+            backgroundPosition: 'center'
           }}
           aria-hidden="true"
         >
@@ -6436,6 +8241,12 @@ export function NdjcShimmerImage({
           }}
           src={cleanSrc}
           alt={alt}
+          loading={loading}
+          fetchPriority={fetchPriority}
+          decoding={decoding}
+          width={imageWidth}
+          height={imageHeight}
+          sizes={sizes}
           onLoad={() => setLoaded(true)}
           onError={() => setLoaded(false)}
         />
@@ -8182,7 +9993,9 @@ export function NdjcHomeStyleMediaCard({
   trailingOverlay,
   bottomTrailingContent,
   bottomContentOverride,
-  disabled = false
+  disabled = false,
+  priorityImage = false,
+  imageBlurDataUrl = null
 }: {
   title: string
   imageUrl?: string | null
@@ -8196,6 +10009,8 @@ export function NdjcHomeStyleMediaCard({
   bottomTrailingContent?: React.ReactNode
   bottomContentOverride?: React.ReactNode
   disabled?: boolean
+  priorityImage?: boolean
+  imageBlurDataUrl?: string | null
 }) {
   const [pressed, setPressed] = React.useState(false)
   const cleanImageUrl = imageUrl?.trim() || ''
@@ -8226,6 +10041,13 @@ export function NdjcHomeStyleMediaCard({
               alt={title}
               placeholderCornerRadius={APK_SHOWCASE_ITEM_UI.homeImageRadius}
               contentScale={APK_SHOWCASE_ITEM_UI.homeImageContentScale}
+              loading={priorityImage ? 'eager' : 'lazy'}
+              fetchPriority={priorityImage ? 'high' : 'low'}
+              decoding="async"
+              imageWidth={600}
+              imageHeight={600}
+              sizes="(max-width: 720px) 50vw, 320px"
+              blurDataUrl={imageBlurDataUrl}
             />
           ) : (
             <span
@@ -8276,23 +10098,7 @@ export function NdjcHomeStyleMediaCard({
                 {cleanBadgeText ? (
                   <>
                     <span style={{ width: 8, flex: '0 0 8px' }} aria-hidden="true" />
-                    <span style={apkHomeBadgeStyle}>
-<span
-  style={{
-    width: APK_SHOWCASE_ITEM_UI.homeBadgeIconSize,
-    height: APK_SHOWCASE_ITEM_UI.homeBadgeIconSize,
-    display: 'grid',
-    placeItems: 'center',
-    fontSize: APK_SHOWCASE_ITEM_UI.homeBadgeIconSize,
-    lineHeight: 1,
-    flex: '0 0 auto'
-  }}
-  aria-hidden="true"
->
-  ★
-</span>
-<span style={{ minWidth: 0 }}>{cleanBadgeText}</span>
-                    </span>
+                    <NdjcItemStatusBadge text={cleanBadgeText} />
                   </>
                 ) : null}
 
@@ -8388,6 +10194,13 @@ export function NdjcCatalogItemCard({
 
           <span className="ndjc-catalog-item-spacer" style={apkCatalogSpacerStyle} aria-hidden="true" />
 
+          <NdjcItemStatusBadgeRow
+            recommended={dish.isRecommended}
+            hidden={dish.isHidden}
+          />
+
+          <span className="ndjc-catalog-item-spacer" style={apkCatalogSpacerStyle} aria-hidden="true" />
+
           <span className="ndjc-catalog-price-stack" style={apkCatalogPriceStackStyle}>
             {resolvedBottomContent ? (
               <span
@@ -8469,6 +10282,8 @@ export function NdjcLinkedCatalogItemCard({
   imageUrl,
   subtitle,
   price,
+  originalPrice,
+  discountPrice,
   selected,
   available = true,
   allowClickWhenUnavailable = false,
@@ -8477,12 +10292,15 @@ export function NdjcLinkedCatalogItemCard({
   onOpen,
   onToggleSelect,
   trailing,
+  middle,
   bottom
 }: {
   title: string
   imageUrl?: string | null
   subtitle?: string
   price?: string
+  originalPrice?: string | null
+  discountPrice?: string | null
   selected?: boolean
   available?: boolean
   allowClickWhenUnavailable?: boolean
@@ -8491,9 +10309,17 @@ export function NdjcLinkedCatalogItemCard({
   onOpen?: () => void
   onToggleSelect?: () => void
   trailing?: React.ReactNode
+  middle?: React.ReactNode
   bottom?: React.ReactNode
 }) {
   const cleanTitle = title || 'Untitled item'
+  const cleanPrice = String(price || '').trim()
+  const cleanOriginalPrice = String(originalPrice || '').trim()
+  const cleanDiscountPrice = String(discountPrice || '').trim()
+  const visiblePrice = cleanDiscountPrice || cleanPrice
+  const visibleOriginalPrice = cleanDiscountPrice && cleanOriginalPrice && cleanOriginalPrice !== cleanDiscountPrice
+    ? cleanOriginalPrice
+    : null
   const cleanImageUnavailableText = String(imageUnavailableText || 'Item no longer available').trim()
   const clickEnabled = available || allowClickWhenUnavailable
   const cardPressEnabled = Boolean(clickEnabled && onOpen)
@@ -8583,6 +10409,14 @@ export function NdjcLinkedCatalogItemCard({
 
           <span className="ndjc-catalog-item-spacer" style={apkCatalogSpacerStyle} aria-hidden="true" />
 
+          {middle ? (
+            <span className="ndjc-linked-catalog-item-middle" style={{ minWidth: 0, display: 'block' }}>
+              {middle}
+            </span>
+          ) : null}
+
+          <span className="ndjc-catalog-item-spacer" style={apkCatalogSpacerStyle} aria-hidden="true" />
+
           <span className="ndjc-catalog-price-stack" style={apkCatalogPriceStackStyle}>
             {bottom ? (
               <span className="ndjc-catalog-item-bottom" style={{ minWidth: 0, display: 'block' }}>
@@ -8590,7 +10424,12 @@ export function NdjcLinkedCatalogItemCard({
               </span>
             ) : (
               <span className="ndjc-catalog-price-row" style={apkCatalogPriceRowStyle}>
-                {price ? <b style={apkCatalogPriceStyle}>{price}</b> : null}
+                {visiblePrice ? <b style={apkCatalogPriceStyle}>{visiblePrice}</b> : null}
+                {visibleOriginalPrice ? (
+                  <em style={apkCatalogOriginalPriceStyle}>
+                    {visibleOriginalPrice}
+                  </em>
+                ) : null}
               </span>
             )}
 
@@ -8702,23 +10541,79 @@ export function BgCircle({
     />
   )
 }
-
+export function NdjcAdminPageProgressSlot({
+  active,
+  className,
+  style
+}: {
+  active: boolean
+  className?: string
+  style?: React.CSSProperties
+}) {
+  return (
+    <div
+      className={cx('ndjc-admin-page-progress-slot', className)}
+      style={{
+        width: '100%',
+        height: 4,
+        borderRadius: 999,
+        overflow: 'hidden',
+        background: active ? 'rgba(38, 198, 164, 0.18)' : 'transparent',
+        transition: 'background 120ms ease',
+        flexShrink: 0,
+        position: 'relative',
+        ...style
+      }}
+      aria-hidden="true"
+      data-active={active ? 'true' : 'false'}
+    >
+      <div
+        className="ndjc-admin-page-progress-bar"
+        style={{
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          width: '42%',
+          height: '100%',
+          borderRadius: 999,
+          background: APK_SHELL_UI.green,
+          opacity: active ? 1 : 0,
+          animation: active ? 'ndjcAdminProgressSlide 1.15s ease-in-out infinite' : 'none',
+          transition: 'opacity 120ms ease',
+          willChange: active ? 'transform' : undefined
+        }}
+      />
+    </div>
+  )
+}
 export function NdjcPullRefreshContainer({
   children,
   isRefreshing = false,
   refreshing,
-  onRefresh
+  onRefresh,
+  showIndicator = true,
+  showHint = false
 }: {
   children: React.ReactNode
   isRefreshing?: boolean
   refreshing?: boolean
   onRefresh?: () => void
+  showIndicator?: boolean
+  showHint?: boolean
 }) {
   const activeRefreshing = refreshing ?? isRefreshing
+  const [pullHintState, setPullHintState] = React.useState<'idle' | 'pull' | 'release'>('idle')
   const touchStartYRef = React.useRef<number | null>(null)
   const touchStartXRef = React.useRef<number | null>(null)
   const pullDistanceRef = React.useRef(0)
   const refreshLockedRef = React.useRef(false)
+
+  function resetPullState(): void {
+    touchStartYRef.current = null
+    touchStartXRef.current = null
+    pullDistanceRef.current = 0
+    setPullHintState('idle')
+  }
 
   function findScrollableParent(target: EventTarget | null): HTMLElement | null {
     let node = target instanceof HTMLElement ? target : null
@@ -8746,15 +10641,14 @@ export function NdjcPullRefreshContainer({
 
     const scrollable = findScrollableParent(event.target)
     if (scrollable && scrollable.scrollTop > 0) {
-      touchStartYRef.current = null
-      touchStartXRef.current = null
-      pullDistanceRef.current = 0
+      resetPullState()
       return
     }
 
     touchStartYRef.current = touch.clientY
     touchStartXRef.current = touch.clientX
     pullDistanceRef.current = 0
+    setPullHintState('idle')
   }
 
   function handleTouchMove(event: React.TouchEvent<HTMLElement>): void {
@@ -8769,31 +10663,37 @@ export function NdjcPullRefreshContainer({
 
     if (deltaY <= 0 || deltaX > deltaY) {
       pullDistanceRef.current = 0
+      setPullHintState('idle')
       return
     }
 
     const scrollable = findScrollableParent(event.target)
     if (scrollable && scrollable.scrollTop > 0) {
       pullDistanceRef.current = 0
+      setPullHintState('idle')
       return
     }
 
     pullDistanceRef.current = deltaY
+
+    if (deltaY >= 40) {
+      setPullHintState('release')
+    } else if (deltaY >= 8) {
+      setPullHintState('pull')
+    } else {
+      setPullHintState('idle')
+    }
   }
 
   function handleTouchEnd(): void {
     if (activeRefreshing || refreshLockedRef.current || !onRefresh) {
-      touchStartYRef.current = null
-      touchStartXRef.current = null
-      pullDistanceRef.current = 0
+      resetPullState()
       return
     }
 
-    const shouldRefresh = pullDistanceRef.current >= 56
+    const shouldRefresh = pullDistanceRef.current >= 40
 
-    touchStartYRef.current = null
-    touchStartXRef.current = null
-    pullDistanceRef.current = 0
+    resetPullState()
 
     if (!shouldRefresh) return
 
@@ -8809,10 +10709,16 @@ export function NdjcPullRefreshContainer({
   }
 
   function handleTouchCancel(): void {
-    touchStartYRef.current = null
-    touchStartXRef.current = null
-    pullDistanceRef.current = 0
+    resetPullState()
   }
+
+  const hintText = activeRefreshing
+    ? 'Refreshing...'
+    : pullHintState === 'release'
+      ? 'Release to refresh'
+      : pullHintState === 'pull'
+        ? 'Pull to refresh'
+        : ''
 
   return (
     <section
@@ -8825,14 +10731,37 @@ export function NdjcPullRefreshContainer({
       onTouchEnd={handleTouchEnd}
       onTouchCancel={handleTouchCancel}
     >
-      {activeRefreshing ? (
+      {showHint ? (
+        <div
+          className="ndjc-pull-refresh-hint-wrap"
+          style={apkPullRefreshHintStyle}
+          aria-hidden="true"
+          data-visible={hintText ? 'true' : 'false'}
+        >
+          <span
+            className="ndjc-pull-refresh-hint-pill"
+            style={{
+              ...apkPullRefreshHintPillStyle,
+              opacity: hintText ? 1 : 0,
+              transform: hintText ? 'translateY(18px)' : 'translateY(-120%)'
+            }}
+          >
+            {hintText || 'Pull to refresh'}
+          </span>
+        </div>
+      ) : null}
+
+      {activeRefreshing && showIndicator ? (
         <div
           className="ndjc-pull-refresh-indicator-wrap"
           style={apkPullRefreshIndicatorWrapStyle}
           aria-hidden="true"
         >
-          <span
+          <NdjcSpinner
             className="ndjc-pull-refresh-indicator"
+            size={APK_SHELL_UI.pullRefreshIndicatorSize}
+            stroke={2}
+            tone="primary"
             style={apkPullRefreshIndicatorStyle}
           />
         </div>
@@ -8842,7 +10771,53 @@ export function NdjcPullRefreshContainer({
     </section>
   )
 }
+export function NdjcAdminPullRefreshContainer({
+  children,
+  isRefreshing = false,
+  refreshing,
+  onRefresh
+}: {
+  children: React.ReactNode
+  isRefreshing?: boolean
+  refreshing?: boolean
+  onRefresh?: () => void
+}) {
+  return (
+    <NdjcPullRefreshContainer
+      isRefreshing={isRefreshing}
+      refreshing={refreshing}
+      onRefresh={onRefresh}
+      showIndicator={false}
+      showHint
+    >
+      {children}
+    </NdjcPullRefreshContainer>
+  )
+}
 
+export function NdjcCustomerPullRefreshContainer({
+  children,
+  isRefreshing = false,
+  refreshing,
+  onRefresh
+}: {
+  children: React.ReactNode
+  isRefreshing?: boolean
+  refreshing?: boolean
+  onRefresh?: () => void
+}) {
+  return (
+    <NdjcPullRefreshContainer
+      isRefreshing={isRefreshing}
+      refreshing={refreshing}
+      onRefresh={onRefresh}
+      showIndicator={false}
+      showHint
+    >
+      {children}
+    </NdjcPullRefreshContainer>
+  )
+}
 function withUsd(value: number | string | null | undefined): string {
   const numericValue = typeof value === 'number' ? value : Number(value || 0)
   return priceText(numericValue)
@@ -9001,13 +10976,21 @@ type NdjcProductCardUi = {
   dishId: string
   title: string
   price: string
+  originalPriceText: string | null
+  discountPriceText: string | null
   imageUrl: string | null
+  isRecommended: boolean
 }
 
 type NdjcParsedQuoteUi = {
   quotedMessageId: string | null
   quotedText: string | null
 }
+
+const NDJC_QUOTE_START_UI = '⟪Q⟫'
+const NDJC_QUOTE_END_UI = '⟪/Q⟫'
+const NDJC_PRODUCT_START_UI = '⟪P⟫'
+const NDJC_PRODUCT_END_UI = '⟪/P⟫'
 
 function findBetween(text: string, start: string, end: string): string | null {
   const startIndex = text.indexOf(start)
@@ -9021,27 +11004,127 @@ function findBetween(text: string, start: string, end: string): string | null {
 }
 
 function parseNdjcProductBlock(block: string): NdjcProductCardUi | null {
-  const dishId = findBetween(block, 'dishId=', ';') || findBetween(block, 'dishId:', '\n') || ''
-  const title = findBetween(block, 'title=', ';') || findBetween(block, 'title:', '\n') || 'Shared item'
-  const price = findBetween(block, 'price=', ';') || findBetween(block, 'price:', '\n') || ''
-  const imageUrl = findBetween(block, 'imageUrl=', ';') || findBetween(block, 'imageUrl:', '\n')
+  const normalized = String(block || '').trim()
+  if (!normalized) return null
+
+  const unicodeProductBlock = normalized.includes(NDJC_PRODUCT_START_UI)
+    ? findBetween(normalized, NDJC_PRODUCT_START_UI, NDJC_PRODUCT_END_UI)
+    : null
+
+  const legacyProductBlock = normalized.includes('[product]')
+    ? findBetween(normalized, '[product]', '[/product]')
+    : null
+
+  const explicitProductBlock = unicodeProductBlock != null
+    ? unicodeProductBlock
+    : legacyProductBlock != null
+      ? legacyProductBlock
+      : normalized
+
+  const productLine = explicitProductBlock
+    .trim()
+    .split(/\r?\n/)
+    .find(item => item.trim()) || ''
+
+  const pipeParts = productLine.split('|')
+  const hasPipeProductShape = pipeParts.length >= 2 && (
+    Boolean(String(pipeParts[0] || '').trim()) ||
+    Boolean(String(pipeParts[1] || '').trim())
+  )
+
+  if (unicodeProductBlock != null || legacyProductBlock != null || hasPipeProductShape) {
+    if (!hasPipeProductShape) return null
+
+    const dishId = String(pipeParts[0] || '').trim()
+    const title = String(pipeParts[1] || '').trim()
+    const price = String(pipeParts[2] || '').trim()
+    const imageUrl = String(pipeParts[3] || '').trim() || null
+    const isRecommended = String(pipeParts[4] || '').trim() === '1'
+    const originalPriceText = String(pipeParts[5] || '').trim() || price || null
+    const discountPriceText = String(pipeParts[6] || '').trim() || null
+
+    if (!dishId && !title) return null
+
+    return {
+      dishId,
+      title: title || 'Shared item',
+      price,
+      originalPriceText,
+      discountPriceText,
+      imageUrl,
+      isRecommended
+    }
+  }
+
+  const hasLegacyFieldShape =
+    normalized.includes('dishId=') ||
+    normalized.includes('dishId:') ||
+    normalized.includes('title=') ||
+    normalized.includes('title:') ||
+    normalized.includes('price=') ||
+    normalized.includes('price:') ||
+    normalized.includes('imageUrl=') ||
+    normalized.includes('imageUrl:')
+
+  if (!hasLegacyFieldShape) return null
+
+  const dishId = findBetween(normalized, 'dishId=', ';') || findBetween(normalized, 'dishId:', '\n') || ''
+  const title = findBetween(normalized, 'title=', ';') || findBetween(normalized, 'title:', '\n') || ''
+  const price = findBetween(normalized, 'price=', ';') || findBetween(normalized, 'price:', '\n') || ''
+  const imageUrl = findBetween(normalized, 'imageUrl=', ';') || findBetween(normalized, 'imageUrl:', '\n')
 
   if (!dishId && !title.trim()) return null
-  return { dishId, title, price, imageUrl }
+
+  return {
+    dishId,
+    title: title.trim() || 'Shared item',
+    price,
+    originalPriceText: price || null,
+    discountPriceText: null,
+    imageUrl,
+    isRecommended: false
+  }
 }
 
 function parseNdjcQuotePayloadUi(text: string): NdjcParsedQuoteUi {
+  const source = String(text || '')
+
+  if (source.startsWith(NDJC_QUOTE_START_UI)) {
+    const endIndex = source.indexOf(NDJC_QUOTE_END_UI)
+
+    if (endIndex > NDJC_QUOTE_START_UI.length) {
+      const quoteRaw = source.slice(NDJC_QUOTE_START_UI.length, endIndex).trim()
+      const firstNewLine = quoteRaw.indexOf('\n')
+      const quotedMessageId = firstNewLine > 0
+        ? quoteRaw.slice(0, firstNewLine).trim() || null
+        : null
+      const quotedText = firstNewLine > 0
+        ? quoteRaw.slice(firstNewLine + 1).replace(/^[\n ]+/, '').trim() || null
+        : quoteRaw.trim() || null
+
+      return {
+        quotedMessageId,
+        quotedText
+      }
+    }
+  }
+
   return {
-    quotedMessageId: findBetween(text, '[quote:', ']'),
-    quotedText: findBetween(text, '[quoteText]', '[/quoteText]')
+    quotedMessageId: findBetween(source, '[quote:', ']'),
+    quotedText: findBetween(source, '[quoteText]', '[/quoteText]')
   }
 }
 
 function parseNdjcChatPayloadUi(text: string): NdjcParsedChatPayloadUi {
-  const productBlock = findBetween(text, '[product]', '[/product]')
-  const quoteBlock = findBetween(text, '[quote]', '[/quote]')
-  const imageUrls = Array.from(text.matchAll(/https?:\/\/\S+?\.(?:png|jpe?g|webp|gif)/gi)).map(match => match[0])
-  const body = text
+  const source = String(text || '')
+  const productBlock = findBetween(source, NDJC_PRODUCT_START_UI, NDJC_PRODUCT_END_UI)
+    || findBetween(source, '[product]', '[/product]')
+  const quoteBlock = findBetween(source, NDJC_QUOTE_START_UI, NDJC_QUOTE_END_UI)
+    || findBetween(source, '[quote]', '[/quote]')
+  const imageUrls = Array.from(source.matchAll(/https?:\/\/\S+?\.(?:png|jpe?g|webp|gif)/gi)).map(match => match[0])
+  const body = source
+    .replace(/⟪P⟫[\s\S]*?⟪\/P⟫/g, '')
+    .replace(/⟪Q⟫[\s\S]*?⟪\/Q⟫/g, '')
     .replace(/\[product\][\s\S]*?\[\/product\]/g, '')
     .replace(/\[quote\][\s\S]*?\[\/quote\]/g, '')
     .trim()
@@ -9058,6 +11141,100 @@ function fallbackFindQuotedMessageId(messages: ShowcaseChatMessage[], text: stri
   if (!quotedText) return null
 
   return messages.find(message => message.body.includes(quotedText))?.id || null
+}
+
+function chatProductShareFromParsedProduct(product: NdjcProductCardUi): ShowcaseChatProductShare {
+  return {
+    dishId: product.dishId,
+    title: product.title,
+    price: product.price,
+    originalPriceText: product.originalPriceText,
+    discountPriceText: product.discountPriceText,
+    imageUrl: product.imageUrl,
+    isRecommended: product.isRecommended
+  }
+}
+
+async function copyTextToClipboard(text: string): Promise<boolean> {
+  const cleanText = text.trim()
+  if (!cleanText) return false
+
+  if (typeof document !== 'undefined') {
+    const previousActiveElement = document.activeElement instanceof HTMLElement
+      ? document.activeElement
+      : null
+
+    const textarea = document.createElement('textarea')
+    textarea.value = cleanText
+    textarea.setAttribute('readonly', 'true')
+    textarea.style.position = 'fixed'
+    textarea.style.left = '0'
+    textarea.style.top = '0'
+    textarea.style.width = '1px'
+    textarea.style.height = '1px'
+    textarea.style.opacity = '0'
+    textarea.style.pointerEvents = 'none'
+    textarea.style.zIndex = '-1'
+
+    document.body.appendChild(textarea)
+
+    try {
+      textarea.focus({ preventScroll: true })
+    } catch {
+      textarea.focus()
+    }
+
+    textarea.select()
+    textarea.setSelectionRange(0, textarea.value.length)
+
+    try {
+      const copied = document.execCommand('copy')
+      document.body.removeChild(textarea)
+
+      if (previousActiveElement) {
+        try {
+          previousActiveElement.focus({ preventScroll: true })
+        } catch {
+          previousActiveElement.focus()
+        }
+      }
+
+      if (copied) return true
+    } catch {
+      document.body.removeChild(textarea)
+
+      if (previousActiveElement) {
+        try {
+          previousActiveElement.focus({ preventScroll: true })
+        } catch {
+          previousActiveElement.focus()
+        }
+      }
+    }
+  }
+
+  try {
+    if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(cleanText)
+      return true
+    }
+  } catch {
+    return false
+  }
+
+  return false
+}
+
+function quotePreviewTextFromMessage(message: ShowcaseChatMessage): string {
+  const directPreview = String(message.quotePreviewText || '').trim()
+  if (directPreview) return directPreview
+
+  if (message.body.trim()) return message.body.trim()
+  if (message.product) return message.product.title || 'Shared item'
+  if (message.appointment) return appointmentShareSummaryText(message.appointment)
+  if (message.imageUrls.length) return 'Photo'
+
+  return 'Quoted message'
 }
 
 function resetDragState() {
@@ -9113,10 +11290,12 @@ function alignLastBubbleToFooterLine() {
 
 export function DishListCard({
   dish,
-  onOpen
+  onOpen,
+  priorityImage = false
 }: {
   dish: ShowcaseHomeDish
   onOpen: (id: string) => void
+  priorityImage?: boolean
 }) {
   const originalPrice = Number(dish.originalPrice)
   const discountPrice = dish.discountPrice
@@ -9131,11 +11310,13 @@ export function DishListCard({
   return (
     <NdjcHomeStyleMediaCard
       title={dish.title}
-      imageUrl={dish.imagePreviewUrl}
+      imageUrl={selectDishImageUrl(dish, 'home')}
+      imageBlurDataUrl={selectShowcaseImageBlurDataUrl(dish.imageVariants)}
       primaryText={primaryText}
       secondaryText={secondaryText}
       badgeText={dish.isRecommended ? APK_SHOWCASE_ITEM_UI.homeBadgeText : null}
       onClick={() => onOpen(dish.id)}
+      priorityImage={priorityImage}
 trailingOverlay={
   dish.isFavorite ? (
     <svg
@@ -9433,6 +11614,31 @@ function AppointmentHistoryDatePickerSheet({
           gap: 8
         }}
       >
+<section
+  className="ndjc-appointment-history-date-picker-month-actions"
+  style={{
+    width: '100%',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12
+  }}
+>
+  <NdjcPillButton
+    selected={false}
+    onClick={() => moveMonth(-1)}
+  >
+    ◀ Prev
+  </NdjcPillButton>
+
+  <NdjcPillButton
+    selected={false}
+    onClick={() => moveMonth(1)}
+  >
+    Next ▶
+  </NdjcPillButton>
+</section>
+
         <h3
           style={{
             width: '100%',
@@ -10939,7 +13145,89 @@ function HomeSortNavEqualRow({
     </SortRow>
   )
 }
+function useNdjcHorizontalDragScroll() {
+  const scrollRef = React.useRef<HTMLDivElement | null>(null)
+  const dragRef = React.useRef({
+    pointerId: -1,
+    startX: 0,
+    startY: 0,
+    startScrollLeft: 0,
+    dragging: false,
+    movedEnoughToSuppressClick: false,
+    suppressClickUntil: 0
+  })
 
+  function onPointerDown(event: React.PointerEvent<HTMLDivElement>): void {
+    if (event.pointerType === 'mouse' && event.button !== 0) return
+
+    const element = scrollRef.current
+    if (!element) return
+
+    dragRef.current = {
+      pointerId: event.pointerId,
+      startX: event.clientX,
+      startY: event.clientY,
+      startScrollLeft: element.scrollLeft,
+      dragging: false,
+      movedEnoughToSuppressClick: false,
+      suppressClickUntil: dragRef.current.suppressClickUntil
+    }
+  }
+
+  function onPointerMove(event: React.PointerEvent<HTMLDivElement>): void {
+    const element = scrollRef.current
+    const state = dragRef.current
+
+    if (!element || state.pointerId !== event.pointerId) return
+
+    const deltaX = event.clientX - state.startX
+    const deltaY = event.clientY - state.startY
+    const absX = Math.abs(deltaX)
+    const absY = Math.abs(deltaY)
+
+    if (!state.dragging && absX < 8) return
+    if (!state.dragging && absY > absX) return
+
+    state.dragging = true
+    element.scrollLeft = state.startScrollLeft - deltaX
+
+    if (absX >= 14 && absX > absY + 4) {
+      state.movedEnoughToSuppressClick = true
+      state.suppressClickUntil = Date.now() + 180
+      event.preventDefault()
+    }
+  }
+
+  function onPointerEnd(event: React.PointerEvent<HTMLDivElement>): void {
+    const state = dragRef.current
+
+    if (state.pointerId !== event.pointerId) return
+
+    dragRef.current = {
+      pointerId: -1,
+      startX: 0,
+      startY: 0,
+      startScrollLeft: 0,
+      dragging: false,
+      movedEnoughToSuppressClick: false,
+      suppressClickUntil: state.movedEnoughToSuppressClick ? Date.now() + 180 : 0
+    }
+  }
+
+  function shouldSuppressClick(): boolean {
+    return Date.now() < dragRef.current.suppressClickUntil
+  }
+
+  return {
+    scrollRef,
+    onPointerDown,
+    onPointerMove,
+    onPointerUp: onPointerEnd,
+    onPointerCancel: onPointerEnd,
+    onPointerLeave: onPointerEnd,
+    shouldSuppressClick
+  }
+}
 function CategoryChipsRow({
   selectedCategory,
   manualCategories,
@@ -10955,6 +13243,7 @@ function CategoryChipsRow({
 }) {
   const [expanded, setExpanded] = React.useState(false)
   const [morePressed, setMorePressed] = React.useState(false)
+  const horizontalScroll = useNdjcHorizontalDragScroll()
   const maxVisibleCategories = 6
   const shouldShowMore = manualCategories.length > maxVisibleCategories
   const visibleCategories = shouldShowMore ? manualCategories.slice(0, maxVisibleCategories) : manualCategories
@@ -10965,116 +13254,187 @@ function CategoryChipsRow({
       className="ndjc-category-chips-block"
       style={{
         width: '100%',
-        display: 'grid',
-        gap: APK_FILTER_UI.expandedCategoryGap
+        minWidth: 0,
+        maxWidth: '100%',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: APK_FILTER_UI.expandedCategoryGap,
+        overflow: 'visible',
+        boxSizing: 'border-box'
       }}
     >
       <div
         className="ndjc-category-chips-row"
         style={{
           width: '100%',
+          minWidth: 0,
+          maxWidth: '100%',
+          padding: useOuterHorizontalPadding ? `0 ${APK_FILTER_UI.pagePaddingX}px` : 0,
           display: 'flex',
-          alignItems: 'center'
+          alignItems: 'center',
+          overflow: 'hidden',
+          boxSizing: 'border-box'
         }}
       >
         <div
+          ref={horizontalScroll.scrollRef}
           className="ndjc-category-chips-scroll"
           style={{
             flex: '1 1 auto',
-            padding: useOuterHorizontalPadding ? `0 ${APK_FILTER_UI.pagePaddingX}px` : 0,
-            boxSizing: 'border-box',
-            ...apkFilterLazyRowStyle
+            minWidth: 0,
+            maxWidth: '100%',
+            height: APK_FILTER_UI.chipHeight + 4,
+            minHeight: APK_FILTER_UI.chipHeight + 4,
+            display: 'block',
+            overflowX: 'auto',
+            overflowY: 'hidden',
+            scrollbarWidth: 'none',
+            msOverflowStyle: 'none',
+            WebkitOverflowScrolling: 'touch',
+            touchAction: 'pan-y',
+            overscrollBehaviorX: 'contain',
+            padding: '2px 0',
+            boxSizing: 'border-box'
           }}
           role="list"
           aria-label="Categories"
+          onPointerDown={horizontalScroll.onPointerDown}
+          onPointerMove={horizontalScroll.onPointerMove}
+          onPointerUp={horizontalScroll.onPointerUp}
+          onPointerCancel={horizontalScroll.onPointerCancel}
+          onPointerLeave={horizontalScroll.onPointerLeave}
         >
-          {showAllChip ? (
-            <button
-              type="button"
-              className={cx('ndjc-filter-chip', selectedCategory == null && 'is-selected')}
-              style={apkFilterChipStyle(selectedCategory == null)}
-              onClick={() => {
-                onCategorySelected(null)
-                setExpanded(false)
-              }}
-              aria-pressed={selectedCategory == null}
-            >
-              <span>All</span>
-            </button>
-          ) : null}
-
-          {visibleCategories.map(category => {
-            const selected = selectedCategory === category
-
-            return (
-              <button
-                key={category}
-                type="button"
-                className={cx('ndjc-filter-chip', selected && 'is-selected')}
-                style={apkFilterChipStyle(selected)}
-                onClick={() => {
-                  onCategorySelected(category)
-                  setExpanded(false)
-                }}
-                aria-pressed={selected}
-              >
-                <span>{category}</span>
-              </button>
-            )
-          })}
-
-          {shouldShowMore ? (
-            <button
-              type="button"
-              className="ndjc-category-more-chip"
-              style={{
-                width: APK_FILTER_UI.chipHeight,
-                minWidth: APK_FILTER_UI.chipHeight,
-                height: APK_FILTER_UI.chipHeight,
-                border: `${APK_FILTER_UI.chipBorderWidth}px solid ${APK_FILTER_UI.chipBorderColor}`,
-                borderRadius: APK_FILTER_UI.moreChipRadius,
-                padding: 0,
-                display: 'inline-grid',
-                flex: '0 0 auto',
-                placeItems: 'center',
-                color: APK_FILTER_UI.chipTextColor,
-                background: APK_FILTER_UI.chipUnselectedBg,
-                boxShadow: 'none',
-                fontSize: 18,
-                lineHeight: 1,
-                cursor: 'pointer',
-                transform: morePressed ? `scale(${APK_FILTER_UI.chipPressedScale})` : 'scale(1)',
-                transition: 'transform 120ms ease, background 120ms ease',
-                WebkitTapHighlightColor: 'transparent',
-                touchAction: 'manipulation'
-              }}
-              onPointerDown={() => setMorePressed(true)}
-              onPointerUp={() => setMorePressed(false)}
-              onPointerCancel={() => setMorePressed(false)}
-              onPointerLeave={() => setMorePressed(false)}
-              onClick={() => setExpanded(value => !value)}
-              aria-expanded={expanded}
-              aria-label={expanded ? 'Collapse categories' : 'Expand categories'}
-            >
-              <svg
-                width="24"
-                height="24"
-                viewBox="0 0 24 24"
-                aria-hidden="true"
-                focusable="false"
+          <div
+            style={{
+              width: 'max-content',
+              minWidth: 'max-content',
+              height: APK_FILTER_UI.chipHeight,
+              minHeight: APK_FILTER_UI.chipHeight,
+              display: 'flex',
+              alignItems: 'center',
+              gap: APK_FILTER_UI.chipGap
+            }}
+          >
+            {showAllChip ? (
+              <span
                 style={{
-                  display: 'block',
-                  transform: expanded ? 'rotate(180deg)' : 'rotate(0deg)',
-                  transition: 'transform 120ms ease'
+                  flex: '0 0 auto',
+                  height: APK_FILTER_UI.chipHeight,
+                  minHeight: APK_FILTER_UI.chipHeight,
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  whiteSpace: 'nowrap'
                 }}
               >
-                <path
-                  fill="currentColor"
-                  d="M7.41 8.59 12 13.17l4.59-4.58L18 10l-6 6-6-6z"
-                />
-              </svg>
-            </button>
-          ) : null}
+                <NdjcPillButton
+                  selected={selectedCategory == null}
+onClick={() => {
+  if (horizontalScroll.shouldSuppressClick()) return
+  onCategorySelected(null)
+  setExpanded(false)
+}}
+                >
+                  All
+                </NdjcPillButton>
+              </span>
+            ) : null}
+
+            {visibleCategories.map(category => {
+              const selected = selectedCategory === category
+
+              return (
+                <span
+                  key={category}
+                  style={{
+                    flex: '0 0 auto',
+                    height: APK_FILTER_UI.chipHeight,
+                    minHeight: APK_FILTER_UI.chipHeight,
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    whiteSpace: 'nowrap'
+                  }}
+                >
+                  <NdjcPillButton
+                    selected={selected}
+onClick={() => {
+  if (horizontalScroll.shouldSuppressClick()) return
+  onCategorySelected(category)
+  setExpanded(false)
+}}
+                  >
+                    {category}
+                  </NdjcPillButton>
+                </span>
+              )
+            })}
+
+            {shouldShowMore ? (
+              <span
+                style={{
+                  flex: '0 0 auto',
+                  height: APK_FILTER_UI.chipHeight,
+                  minHeight: APK_FILTER_UI.chipHeight,
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  whiteSpace: 'nowrap'
+                }}
+              >
+                <button
+                  type="button"
+                  className="ndjc-category-more-chip"
+                  style={{
+                    width: APK_FILTER_UI.chipHeight,
+                    minWidth: APK_FILTER_UI.chipHeight,
+                    height: APK_FILTER_UI.chipHeight,
+                    border: `${APK_FILTER_UI.chipBorderWidth}px solid ${APK_FILTER_UI.chipBorderColor}`,
+                    borderRadius: APK_FILTER_UI.moreChipRadius,
+                    padding: 0,
+                    display: 'inline-grid',
+                    flex: '0 0 auto',
+                    placeItems: 'center',
+                    color: APK_FILTER_UI.chipTextColor,
+                    background: APK_FILTER_UI.chipUnselectedBg,
+                    boxShadow: 'none',
+                    fontSize: 18,
+                    lineHeight: 1,
+                    cursor: 'pointer',
+                    transform: morePressed ? `scale(${APK_FILTER_UI.chipPressedScale})` : 'scale(1)',
+                    transition: 'transform 120ms ease, background 120ms ease',
+                    WebkitTapHighlightColor: 'transparent',
+                    touchAction: 'manipulation'
+                  }}
+                  onPointerDown={() => setMorePressed(true)}
+                  onPointerUp={() => setMorePressed(false)}
+                  onPointerCancel={() => setMorePressed(false)}
+                  onPointerLeave={() => setMorePressed(false)}
+onClick={() => {
+  if (horizontalScroll.shouldSuppressClick()) return
+  setExpanded(value => !value)
+}}
+                  aria-expanded={expanded}
+                  aria-label={expanded ? 'Collapse categories' : 'Expand categories'}
+                >
+                  <svg
+                    width="24"
+                    height="24"
+                    viewBox="0 0 24 24"
+                    aria-hidden="true"
+                    focusable="false"
+                    style={{
+                      display: 'block',
+                      transform: expanded ? 'rotate(180deg)' : 'rotate(0deg)',
+                      transition: 'transform 120ms ease'
+                    }}
+                  >
+                    <path
+                      fill="currentColor"
+                      d="M7.41 8.59 12 13.17l4.59-4.58L18 10l-6 6-6-6z"
+                    />
+                  </svg>
+                </button>
+              </span>
+            ) : null}
+          </div>
         </div>
       </div>
 
@@ -11083,10 +13443,14 @@ function CategoryChipsRow({
           className="ndjc-category-chips-expanded"
           style={{
             width: '100%',
+            minWidth: 0,
+            maxWidth: '100%',
             padding: useOuterHorizontalPadding ? `0 ${APK_FILTER_UI.pagePaddingX}px` : 0,
             display: 'flex',
             flexWrap: 'wrap',
             gap: APK_FILTER_UI.chipGap,
+            overflow: 'visible',
+paddingBottom: 2,
             boxSizing: 'border-box'
           }}
           role="list"
@@ -11096,19 +13460,16 @@ function CategoryChipsRow({
             const selected = selectedCategory === category
 
             return (
-              <button
+              <NdjcPillButton
                 key={category}
-                type="button"
-                className={cx('ndjc-filter-chip', selected && 'is-selected')}
-                style={apkFilterChipStyle(selected)}
+                selected={selected}
                 onClick={() => {
                   onCategorySelected(category)
                   setExpanded(false)
                 }}
-                aria-pressed={selected}
               >
-                <span>{category}</span>
-              </button>
+                {category}
+              </NdjcPillButton>
             )
           })}
         </div>
@@ -11579,10 +13940,23 @@ export function ShowcaseHome({
 }) {
   const rows: ShowcaseHomeDish[][] = []
   const [snackbarVisible, setSnackbarVisible] = React.useState(false)
+  const [homeDraftRecommendedOnly, setHomeDraftRecommendedOnly] = React.useState(state.filterRecommendedOnly)
+  const [homeDraftOnSaleOnly, setHomeDraftOnSaleOnly] = React.useState(state.filterOnSaleOnly)
+  const [homeDraftPriceMin, setHomeDraftPriceMin] = React.useState(state.priceMinDraft)
+  const [homeDraftPriceMax, setHomeDraftPriceMax] = React.useState(state.priceMaxDraft)
 
   React.useEffect(() => {
     setSnackbarVisible(Boolean(state.statusMessage?.trim()))
   }, [state.statusMessage])
+
+  React.useEffect(() => {
+    if (!state.showFilterMenu) {
+      setHomeDraftRecommendedOnly(state.filterRecommendedOnly)
+      setHomeDraftOnSaleOnly(state.filterOnSaleOnly)
+      setHomeDraftPriceMin(state.priceMinDraft)
+      setHomeDraftPriceMax(state.priceMaxDraft)
+    }
+  }, [state.showFilterMenu, state.filterRecommendedOnly, state.filterOnSaleOnly, state.priceMinDraft, state.priceMaxDraft])
 
   for (let index = 0; index < state.dishes.length; index += 2) {
     rows.push(state.dishes.slice(index, index + 2))
@@ -11597,7 +13971,7 @@ export function ShowcaseHome({
         />
       }
     >
-      <NdjcPullRefreshContainer
+      <NdjcCustomerPullRefreshContainer
         refreshing={state.isLoading}
         onRefresh={actions.onRefresh}
       >
@@ -11650,7 +14024,13 @@ export function ShowcaseHome({
                 appliedMinPrice={state.appliedMinPrice}
                 appliedMaxPrice={state.appliedMaxPrice}
                 showFilterMenu={state.showFilterMenu}
-                onFilterClick={() => actions.onShowFilterMenuChange(true)}
+                onFilterClick={() => {
+                  setHomeDraftRecommendedOnly(state.filterRecommendedOnly)
+                  setHomeDraftOnSaleOnly(state.filterOnSaleOnly)
+                  setHomeDraftPriceMin(state.priceMinDraft)
+                  setHomeDraftPriceMax(state.priceMaxDraft)
+                  actions.onShowFilterMenuChange(true)
+                }}
               />
             </section>
 
@@ -11670,32 +14050,43 @@ export function ShowcaseHome({
             title="Filter"
             clearText="Clear"
             applyText="Apply"
-            priceMinDraft={state.priceMinDraft}
-            onPriceMinDraftChange={actions.onPriceMinDraftChange}
-            priceMaxDraft={state.priceMaxDraft}
-            onPriceMaxDraftChange={actions.onPriceMaxDraftChange}
+            priceMinDraft={homeDraftPriceMin}
+            onPriceMinDraftChange={setHomeDraftPriceMin}
+            priceMaxDraft={homeDraftPriceMax}
+            onPriceMaxDraftChange={setHomeDraftPriceMax}
             showPriceFields
-            onClose={() => actions.onShowFilterMenuChange(false)}
-            onClear={() => {
-              actions.onClearSortAndFilters()
-              actions.onClearPriceRange()
+            onClose={() => {
+              setHomeDraftRecommendedOnly(state.filterRecommendedOnly)
+              setHomeDraftOnSaleOnly(state.filterOnSaleOnly)
+              setHomeDraftPriceMin(state.priceMinDraft)
+              setHomeDraftPriceMax(state.priceMaxDraft)
               actions.onShowFilterMenuChange(false)
             }}
+            onClear={() => {
+              setHomeDraftRecommendedOnly(false)
+              setHomeDraftOnSaleOnly(false)
+              setHomeDraftPriceMin('')
+              setHomeDraftPriceMax('')
+            }}
             onApply={() => {
-              actions.onApplyPriceRange()
-              actions.onShowFilterMenuChange(false)
+              actions.onApplyHomeFilters({
+                recommendedOnly: homeDraftRecommendedOnly,
+                onSaleOnly: homeDraftOnSaleOnly,
+                minPriceDraft: homeDraftPriceMin,
+                maxPriceDraft: homeDraftPriceMax
+              })
             }}
           >
             <NdjcToggleRow
               label="Pick"
-              checked={state.filterRecommendedOnly}
-              onCheckedChange={actions.onFilterRecommendedOnlyChange}
+              checked={homeDraftRecommendedOnly}
+              onCheckedChange={setHomeDraftRecommendedOnly}
             />
 
             <NdjcToggleRow
               label="On sale"
-              checked={state.filterOnSaleOnly}
-              onCheckedChange={actions.onFilterOnSaleOnlyChange}
+              checked={homeDraftOnSaleOnly}
+              onCheckedChange={setHomeDraftOnSaleOnly}
             />
           </NdjcFilterBottomSheet>
 
@@ -11706,6 +14097,11 @@ export function ShowcaseHome({
               alignContent: rows.length ? 'start' : 'stretch',
               gridTemplateRows: rows.length ? undefined : 'minmax(0, 1fr)'
             }}
+            onScroll={event => ndjcHandleLoadMoreScroll(
+              event,
+              state.pagination,
+              actions.onLoadMore
+            )}
           >
             {rows.length ? (
               <>
@@ -11718,12 +14114,14 @@ export function ShowcaseHome({
                     <DishListCard
                       dish={row[0]}
                       onOpen={actions.onDishSelected}
+                      priorityImage={rowIndex === 0}
                     />
 
                     {row[1] ? (
                       <DishListCard
                         dish={row[1]}
                         onOpen={actions.onDishSelected}
+                        priorityImage={rowIndex === 0}
                       />
                     ) : (
                       <div className="ndjc-apk-dish-card-placeholder" style={apkHomeGridPlaceholderStyle} />
@@ -11731,7 +14129,13 @@ export function ShowcaseHome({
                   </div>
                 ))}
 
-                <NdjcNoMoreListFooter text="No more items" />
+                <NdjcPaginationFooter
+                  pagination={state.pagination}
+                  idleText="Load more"
+                  loadingText="Loading more..."
+                  endText="No more items"
+                  onLoadMore={actions.onLoadMore}
+                />
               </>
             ) : (
               <NdjcInlineEmptyState
@@ -11744,7 +14148,7 @@ export function ShowcaseHome({
           </section>
         </section>
 
-      </NdjcPullRefreshContainer>
+      </NdjcCustomerPullRefreshContainer>
     </NdjcUnifiedBackground>
   )
 }
@@ -12026,9 +14430,7 @@ export function DetailScreen({
           <section className="ndjc-apk-detail-header-row" style={apkDetailHeaderRowStyle}>
             {state.isRecommended ? (
               <span style={apkDetailPickBadgeStyle}>
-                <span style={apkDetailPickBadgeIconStyle} aria-hidden="true">
-                  ★
-                </span>
+                <ApkPickBadgeIcon />
                 <span style={apkDetailPickBadgeTextStyle}>
                   Pick
                 </span>
@@ -12248,6 +14650,7 @@ export function LoginScreen({
               onChange={actions.onUsernameDraftChange}
               label="Email"
               singleLine
+              autoComplete="username"
             />
 
             <div style={{ height: 12, flexShrink: 0 }} />
@@ -12258,6 +14661,7 @@ export function LoginScreen({
               label="Password"
               type="password"
               singleLine
+              autoComplete="new-password"
             />
 
             {state.loginError ? (
@@ -12326,9 +14730,12 @@ export function ShowcaseStoreProfileView({
   state: ShowcaseStoreProfileUiState
   actions: ShowcaseStoreProfileActions
 }) {
+  const selectedStoreCoverUrl = selectStoreCoverUrl(state) || state.coverUrl
+  const selectedStoreLogoUrl = selectStoreLogoUrl(state) || state.logoUrl
+
   const covers = Array.from(
     new Set(
-      state.coverUrl
+      selectedStoreCoverUrl
         .split('\n')
         .map(item => item.trim())
         .filter(Boolean)
@@ -12507,10 +14914,14 @@ export function ShowcaseStoreProfileView({
 />
       }
     >
-      <section
-        className="ndjc-apk-store-profile"
-        style={{
-          position: 'relative',
+      <NdjcCustomerPullRefreshContainer
+        refreshing={state.isRefreshing}
+        onRefresh={actions.onRefresh}
+      >
+        <section
+          className="ndjc-apk-store-profile"
+          style={{
+            position: 'relative',
           width: '100%',
           height: '100%',
           minHeight: 0,
@@ -12705,7 +15116,7 @@ export function ShowcaseStoreProfileView({
                 >
                   <UniversalStoreBrandHeader
                     coverUrl=""
-                    logoUrl={state.logoUrl || ''}
+                    logoUrl={selectedStoreLogoUrl || ''}
                     title={state.title || ''}
                     subtitle={state.subtitle || ''}
                     businessStatus={state.businessStatus || ''}
@@ -12766,7 +15177,8 @@ export function ShowcaseStoreProfileView({
             onSave={actions.onSavePreviewImage}
           />
         ) : null}
-      </section>
+        </section>
+      </NdjcCustomerPullRefreshContainer>
     </NdjcUnifiedBackground>
   )
 }
@@ -12819,7 +15231,19 @@ function FavoriteCard({
               {item.originalPriceText}
             </span>
           </span>
-        ) : null
+        ) : (
+          <span className="ndjc-catalog-price-row" style={apkCatalogPriceRowStyle}>
+            <b style={apkCatalogPriceStyle}>
+              {item.priceText}
+            </b>
+          </span>
+        )
+      }
+      middle={
+        <NdjcItemStatusBadgeRow
+          recommended={item.isRecommended}
+          hidden={false}
+        />
       }
     />
   )
@@ -12835,6 +15259,19 @@ export function ShowcaseFavoritesScreen({
   const hasSelection = state.selectedIds.length > 0
   const headerRef = React.useRef<HTMLElement | null>(null)
   const [headerHeight, setHeaderHeight] = React.useState(0)
+  const [favoritesDraftRecommendedOnly, setFavoritesDraftRecommendedOnly] = React.useState(state.filterRecommendedOnly)
+  const [favoritesDraftOnSaleOnly, setFavoritesDraftOnSaleOnly] = React.useState(state.filterOnSaleOnly)
+  const [favoritesDraftPriceMin, setFavoritesDraftPriceMin] = React.useState(state.priceMinDraft)
+  const [favoritesDraftPriceMax, setFavoritesDraftPriceMax] = React.useState(state.priceMaxDraft)
+
+  React.useEffect(() => {
+    if (!state.showFilterMenu) {
+      setFavoritesDraftRecommendedOnly(state.filterRecommendedOnly)
+      setFavoritesDraftOnSaleOnly(state.filterOnSaleOnly)
+      setFavoritesDraftPriceMin(state.priceMinDraft)
+      setFavoritesDraftPriceMax(state.priceMaxDraft)
+    }
+  }, [state.showFilterMenu, state.filterRecommendedOnly, state.filterOnSaleOnly, state.priceMinDraft, state.priceMaxDraft])
 
   React.useEffect(() => {
     const target = headerRef.current
@@ -13034,7 +15471,13 @@ export function ShowcaseFavoritesScreen({
                 <SortNavEqualItem
                   text="Filter"
                   selected={filterActive}
-                  onClick={() => actions.onShowFilterMenuChange(true)}
+                  onClick={() => {
+                    setFavoritesDraftRecommendedOnly(state.filterRecommendedOnly)
+                    setFavoritesDraftOnSaleOnly(state.filterOnSaleOnly)
+                    setFavoritesDraftPriceMin(state.priceMinDraft)
+                    setFavoritesDraftPriceMax(state.priceMaxDraft)
+                    actions.onShowFilterMenuChange(true)
+                  }}
                 />
               </SortRow>
 
@@ -13091,55 +15534,48 @@ export function ShowcaseFavoritesScreen({
         <NdjcFilterBottomSheet
           open={state.showFilterMenu}
           title="Filter"
-          onClose={() => actions.onShowFilterMenuChange(false)}
-          onClear={() => {
-            actions.onClearSortAndFilters()
-            actions.onClearPriceRange()
+          clearText="Clear"
+          applyText="Apply"
+          priceMinDraft={favoritesDraftPriceMin}
+          onPriceMinDraftChange={setFavoritesDraftPriceMin}
+          priceMaxDraft={favoritesDraftPriceMax}
+          onPriceMaxDraftChange={setFavoritesDraftPriceMax}
+          showPriceFields
+          onClose={() => {
+            setFavoritesDraftRecommendedOnly(state.filterRecommendedOnly)
+            setFavoritesDraftOnSaleOnly(state.filterOnSaleOnly)
+            setFavoritesDraftPriceMin(state.priceMinDraft)
+            setFavoritesDraftPriceMax(state.priceMaxDraft)
             actions.onShowFilterMenuChange(false)
           }}
+          onClear={() => {
+            setFavoritesDraftRecommendedOnly(false)
+            setFavoritesDraftOnSaleOnly(false)
+            setFavoritesDraftPriceMin('')
+            setFavoritesDraftPriceMax('')
+          }}
           onApply={() => {
-            actions.onApplyPriceRange()
-            actions.onShowFilterMenuChange(false)
+            actions.onFilterRecommendedOnlyChange(favoritesDraftRecommendedOnly)
+            actions.onFilterOnSaleOnlyChange(favoritesDraftOnSaleOnly)
+            actions.onPriceMinDraftChange(favoritesDraftPriceMin)
+            actions.onPriceMaxDraftChange(favoritesDraftPriceMax)
+            window.setTimeout(() => {
+              actions.onApplyPriceRange()
+              actions.onShowFilterMenuChange(false)
+            }, 0)
           }}
         >
           <NdjcToggleRow
             label="Pick"
-            checked={state.filterRecommendedOnly}
-            onCheckedChange={actions.onFilterRecommendedOnlyChange}
+            checked={favoritesDraftRecommendedOnly}
+            onCheckedChange={setFavoritesDraftRecommendedOnly}
           />
 
           <NdjcToggleRow
             label="On sale"
-            checked={state.filterOnSaleOnly}
-            onCheckedChange={actions.onFilterOnSaleOnlyChange}
+            checked={favoritesDraftOnSaleOnly}
+            onCheckedChange={setFavoritesDraftOnSaleOnly}
           />
-
-          <section
-            style={{
-              width: '100%',
-              display: 'grid',
-              gridTemplateColumns: '1fr 1fr',
-              gap: 10
-            }}
-          >
-            <NdjcTextField
-              label="Min price"
-              value={state.priceMinDraft}
-              onChange={actions.onPriceMinDraftChange}
-              placeholder="0"
-              type="number"
-              inputMode="decimal"
-            />
-
-            <NdjcTextField
-              label="Max price"
-              value={state.priceMaxDraft}
-              onChange={actions.onPriceMaxDraftChange}
-              placeholder="999"
-              type="number"
-              inputMode="decimal"
-            />
-          </section>
         </NdjcFilterBottomSheet>
 
         <NdjcSnackbarHost message={state.statusMessage} />
@@ -13183,80 +15619,9 @@ function AppointmentFilterRow({
   optionText?: (value: string) => string
   onSelected: (value: string) => void
 }) {
-  const scrollRef = React.useRef<HTMLDivElement | null>(null)
-  const dragStateRef = React.useRef({
-    active: false,
-    startX: 0,
-    startScrollLeft: 0,
-    moved: false,
-    suppressClick: false
-  })
+  const horizontalScroll = useNdjcHorizontalDragScroll()
 
   if (!options.length) return null
-
-  function handlePointerDown(event: React.PointerEvent<HTMLDivElement>): void {
-    if (event.pointerType === 'mouse' && event.button !== 0) return
-
-    const target = scrollRef.current
-    if (!target) return
-
-    dragStateRef.current = {
-      active: true,
-      startX: event.clientX,
-      startScrollLeft: target.scrollLeft,
-      moved: false,
-      suppressClick: false
-    }
-  }
-
-  function handlePointerMove(event: React.PointerEvent<HTMLDivElement>): void {
-    const target = scrollRef.current
-    const dragState = dragStateRef.current
-
-    if (!target || !dragState.active) return
-
-    const deltaX = event.clientX - dragState.startX
-
-    if (Math.abs(deltaX) > 5) {
-      dragState.moved = true
-      dragState.suppressClick = true
-      target.scrollLeft = dragState.startScrollLeft - deltaX
-    }
-  }
-
-  function handlePointerUp(): void {
-    const dragState = dragStateRef.current
-
-    dragState.active = false
-
-    if (dragState.moved) {
-      window.setTimeout(() => {
-        dragStateRef.current = {
-          active: false,
-          startX: 0,
-          startScrollLeft: 0,
-          moved: false,
-          suppressClick: false
-        }
-      }, 120)
-      return
-    }
-
-    dragStateRef.current = {
-      active: false,
-      startX: 0,
-      startScrollLeft: 0,
-      moved: false,
-      suppressClick: false
-    }
-  }
-
-  function handleClickCapture(event: React.MouseEvent<HTMLDivElement>): void {
-    if (!dragStateRef.current.suppressClick) return
-
-    event.preventDefault()
-    event.stopPropagation()
-  }
 
   return (
     <section
@@ -13264,6 +15629,7 @@ function AppointmentFilterRow({
       style={{
         width: '100%',
         maxWidth: '100%',
+        minHeight: APK_CORE_UI.pillHeight + 4,
         display: 'flex',
         alignItems: 'center',
         gap: 6,
@@ -13290,34 +15656,38 @@ function AppointmentFilterRow({
       </span>
 
       <div
-        ref={scrollRef}
+        ref={horizontalScroll.scrollRef}
         className="ndjc-appointment-filter-options"
         style={{
           flex: '1 1 auto',
           minWidth: 0,
           maxWidth: '100%',
+          height: APK_CORE_UI.pillHeight + 4,
+          minHeight: APK_CORE_UI.pillHeight + 4,
+          display: 'block',
           overflowX: 'auto',
           overflowY: 'hidden',
           WebkitOverflowScrolling: 'touch',
           scrollbarWidth: 'none',
           msOverflowStyle: 'none',
-          touchAction: 'pan-x',
+          touchAction: 'pan-y',
           overscrollBehaviorX: 'contain',
-          cursor: 'grab',
-          userSelect: 'none'
+          boxSizing: 'border-box',
+          padding: '2px 0'
         }}
         role="list"
-        onPointerDown={handlePointerDown}
-        onPointerMove={handlePointerMove}
-        onPointerUp={handlePointerUp}
-        onPointerCancel={handlePointerUp}
-        onPointerLeave={handlePointerUp}
-        onClickCapture={handleClickCapture}
+        onPointerDown={horizontalScroll.onPointerDown}
+        onPointerMove={horizontalScroll.onPointerMove}
+        onPointerUp={horizontalScroll.onPointerUp}
+        onPointerCancel={horizontalScroll.onPointerCancel}
+        onPointerLeave={horizontalScroll.onPointerLeave}
       >
         <div
           style={{
             width: 'max-content',
             minWidth: 'max-content',
+            height: APK_CORE_UI.pillHeight,
+            minHeight: APK_CORE_UI.pillHeight,
             display: 'flex',
             alignItems: 'center',
             gap: 6
@@ -13332,16 +15702,22 @@ function AppointmentFilterRow({
                 key={option}
                 style={{
                   flex: '0 0 auto',
+                  height: APK_CORE_UI.pillHeight,
+                  minHeight: APK_CORE_UI.pillHeight,
                   display: 'inline-flex',
+                  alignItems: 'center',
                   whiteSpace: 'nowrap'
                 }}
               >
-                <NdjcPillButton
-                  selected={isSelected}
-                  onClick={() => onSelected(option)}
-                >
-                  {text}
-                </NdjcPillButton>
+<NdjcPillButton
+  selected={isSelected}
+  onClick={() => {
+    if (horizontalScroll.shouldSuppressClick()) return
+    onSelected(option)
+  }}
+>
+  {text}
+</NdjcPillButton>
               </span>
             )
           })}
@@ -13354,7 +15730,11 @@ function AppointmentCatalogItemCard({
   title,
   imageUrl,
   priceTextValue,
+  originalPriceTextValue,
+  discountPriceTextValue,
   categoryText,
+  isRecommended = false,
+  showRecommendedBadge = false,
   itemAvailable = true,
   allowClickWhenUnavailable = false,
   onOpen,
@@ -13364,7 +15744,11 @@ function AppointmentCatalogItemCard({
   title: string
   imageUrl: string | null
   priceTextValue?: string | null
+  originalPriceTextValue?: string | null
+  discountPriceTextValue?: string | null
   categoryText?: string | null
+  isRecommended?: boolean
+  showRecommendedBadge?: boolean
   itemAvailable?: boolean
   allowClickWhenUnavailable?: boolean
   onOpen?: () => void
@@ -13377,9 +15761,19 @@ function AppointmentCatalogItemCard({
       imageUrl={imageUrl}
       subtitle={categoryText || undefined}
       price={priceTextValue || undefined}
+      originalPrice={originalPriceTextValue || undefined}
+      discountPrice={discountPriceTextValue || undefined}
       available={itemAvailable}
       allowClickWhenUnavailable={allowClickWhenUnavailable}
       onOpen={onOpen}
+      middle={
+        showRecommendedBadge ? (
+          <NdjcItemStatusBadgeRow
+            recommended={isRecommended}
+            hidden={false}
+          />
+        ) : null
+      }
       bottom={bottom}
       trailing={trailing}
     />
@@ -13407,6 +15801,7 @@ function AppointmentBookingProductSection({
           imageUrl={product.imageUrl}
           priceTextValue={product.priceText}
           categoryText={null}
+          isRecommended={product.isRecommended}
           itemAvailable={enabled}
           allowClickWhenUnavailable={false}
           onOpen={() => onOpenProductDetail(product.dishId)}
@@ -13497,31 +15892,72 @@ function AppointmentCalendarMonthDayButton({
   active: boolean
   onClick: () => void
 }) {
+  const daySize = APK_APPOINTMENT_UI.calendarDayHeight
+
   return (
-    <button
-      type="button"
+    <span
       className={cx('ndjc-appointment-calendar-month-day-button', active && 'is-selected')}
       style={{
         width: '100%',
-        height: APK_APPOINTMENT_UI.calendarDayHeight,
-        border: active ? 0 : `1px solid ${APK_APPOINTMENT_UI.border10}`,
-        borderRadius: 999,
-        padding: 0,
-        display: 'grid',
-        placeItems: 'center',
-        color: active ? APK_APPOINTMENT_UI.white : APK_APPOINTMENT_UI.black75,
-        background: active ? APK_APPOINTMENT_UI.brand : 'transparent',
-        boxShadow: 'none',
-        fontSize: APK_APPOINTMENT_UI.labelMediumSize,
-        lineHeight: APK_APPOINTMENT_UI.labelMediumLineHeight,
-        fontWeight: APK_APPOINTMENT_UI.labelMediumWeight,
-        cursor: 'pointer'
+        height: daySize,
+        minHeight: daySize,
+        display: 'inline-flex',
+        alignItems: 'center',
+        justifyContent: 'center'
       }}
-      onClick={onClick}
-      aria-pressed={active}
     >
-      {text}
-    </button>
+      <button
+        type="button"
+        className={cx('ndjc-appointment-calendar-month-day-inner-button', active && 'is-selected')}
+        style={{
+          width: daySize,
+          height: daySize,
+          minWidth: daySize,
+          maxWidth: daySize,
+          padding: 0,
+          border: `${active ? 0 : APK_CORE_UI.pillBorderWidth}px solid ${APK_CORE_UI.border}`,
+          borderRadius: 999,
+          display: 'inline-flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          color: active ? APK_CORE_UI.white : APK_CORE_UI.black,
+          background: active ? APK_CORE_UI.brand : APK_CORE_UI.chipUnselectedBg,
+          boxShadow: 'none',
+          fontSize: APK_CORE_UI.pillFontSize,
+          lineHeight: 1,
+          fontWeight: 500,
+          whiteSpace: 'nowrap',
+          overflow: 'hidden',
+          textOverflow: 'ellipsis',
+          cursor: 'pointer',
+          boxSizing: 'border-box',
+          WebkitTapHighlightColor: 'transparent',
+          touchAction: 'manipulation',
+          userSelect: 'none',
+          ['--ndjc-pill-pressed-scale' as string]: String(APK_FILTER_UI.chipPressedScale)
+        } as React.CSSProperties}
+        onClick={onClick}
+        aria-pressed={active}
+      >
+        <span
+          style={{
+            width: '100%',
+            height: '100%',
+            minWidth: 0,
+            display: 'inline-flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            lineHeight: 1,
+            transform: 'translateY(1px)',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap'
+          }}
+        >
+          {text}
+        </span>
+      </button>
+    </span>
   )
 }
 
@@ -13671,11 +16107,14 @@ function AppointmentSubmitConfirmLine({
 }) {
   return (
     <NdjcPrimaryActionButton
-      disabled={!enabled || !canSubmit}
+      disabled={!enabled || !canSubmit || isSubmitting}
       isLoading={isSubmitting}
-      onClick={onSubmit}
+      onClick={() => {
+        if (isSubmitting) return
+        onSubmit()
+      }}
     >
-      {isSubmitting ? 'Submitting...' : 'Submit request'}
+      Submit request
     </NdjcPrimaryActionButton>
   )
 }
@@ -13717,12 +16156,14 @@ function AppointmentDetailsBottomSheet({
   item,
   onClose,
   onOpenProduct,
-  adminActions
+  adminActions,
+  statusSubmittingId = null
 }: {
   item: ShowcaseAppointmentCard | null
   onClose: () => void
   onOpenProduct?: (dishId: string) => void
   adminActions?: Pick<ShowcaseAdminAppointmentsActions, 'onPending' | 'onConfirm' | 'onComplete' | 'onCancel' | 'onNoShow' | 'onContactCustomer'>
+  statusSubmittingId?: string | null
 }) {
   const [draftStatus, setDraftStatus] = React.useState(item?.statusLabel || 'Pending')
 
@@ -13733,6 +16174,7 @@ function AppointmentDetailsBottomSheet({
   if (!item) return null
 
   const canOpenProduct = Boolean(item.itemAvailable && item.sourceDishId && onOpenProduct)
+  const statusSubmitting = Boolean(adminActions && statusSubmittingId === item.id)
 
   return (
     <NdjcFilterBottomSheet
@@ -13753,7 +16195,11 @@ function AppointmentDetailsBottomSheet({
         title={item.serviceTitle || 'General appointment'}
         imageUrl={item.imageUrl}
         priceTextValue={item.priceText}
+        originalPriceTextValue={item.originalPriceText}
+        discountPriceTextValue={item.discountPriceText}
         categoryText={null}
+        isRecommended={item.isRecommended}
+        showRecommendedBadge
         itemAvailable={item.itemAvailable && Boolean(item.sourceDishId)}
         allowClickWhenUnavailable={false}
         onOpen={
@@ -13805,7 +16251,11 @@ function AppointmentDetailsBottomSheet({
               <NdjcPillButton
                 key={status}
                 selected={draftStatus === status}
-                onClick={() => setDraftStatus(status)}
+                disabled={statusSubmitting}
+                onClick={() => {
+                  if (statusSubmitting) return
+                  setDraftStatus(status)
+                }}
               >
                 {status}
               </NdjcPillButton>
@@ -13813,13 +16263,22 @@ function AppointmentDetailsBottomSheet({
           </section>
 
           <NdjcPrimaryActionButton
+            disabled={statusSubmitting}
+            isLoading={statusSubmitting}
             onClick={() => {
-              if (draftStatus === 'Pending') adminActions.onPending(item.id)
-              if (draftStatus === 'Confirmed') adminActions.onConfirm(item.id)
-              if (draftStatus === 'Cancelled') adminActions.onCancel(item.id)
-              if (draftStatus === 'Completed') adminActions.onComplete(item.id)
-              if (draftStatus === 'No-show') adminActions.onNoShow(item.id)
-              onClose()
+              if (statusSubmitting) return
+
+              let actionResult: void | Promise<void> | null = null
+
+              if (draftStatus === 'Pending') actionResult = adminActions.onPending(item.id)
+              if (draftStatus === 'Confirmed') actionResult = adminActions.onConfirm(item.id)
+              if (draftStatus === 'Cancelled') actionResult = adminActions.onCancel(item.id)
+              if (draftStatus === 'Completed') actionResult = adminActions.onComplete(item.id)
+              if (draftStatus === 'No-show') actionResult = adminActions.onNoShow(item.id)
+
+              void Promise.resolve(actionResult).finally(() => {
+                onClose()
+              })
             }}
           >
             Save status
@@ -13863,7 +16322,11 @@ function CustomerBookingDetailsBottomSheet({
         title={item.serviceTitle || 'General appointment'}
         imageUrl={item.imageUrl}
         priceTextValue={item.priceText}
+        originalPriceTextValue={item.originalPriceText}
+        discountPriceTextValue={item.discountPriceText}
         categoryText={null}
+        isRecommended={item.isRecommended}
+        showRecommendedBadge
         itemAvailable={item.itemAvailable && Boolean(sourceDishId)}
         allowClickWhenUnavailable={false}
         onOpen={canOpenProduct
@@ -13913,11 +16376,13 @@ function CustomerBookingDetailsBottomSheet({
 
 function AppointmentCard({
   item,
-  onOpenDetails
+  onOpenDetails,
+  onContactMerchant
 }: {
   item: ShowcaseAppointmentCard
   onOpenProduct?: (dishId: string) => void
   onOpenDetails?: (item: ShowcaseAppointmentCard) => void
+  onContactMerchant?: (id: string) => void
 }) {
   const linkedItemAvailable = Boolean(item.itemAvailable && item.sourceDishId)
 
@@ -13927,6 +16392,7 @@ function AppointmentCard({
       imageUrl={item.imageUrl}
       priceTextValue={null}
       categoryText={null}
+      isRecommended={item.isRecommended}
       itemAvailable={linkedItemAvailable}
       allowClickWhenUnavailable
       onOpen={() => onOpenDetails?.(item)}
@@ -13948,12 +16414,39 @@ function AppointmentCard({
 
           <div style={{ height: 4 }} aria-hidden="true" />
 
-          <NdjcPillButton selected onClick={() => {}}>
+          <NdjcPillBadge selected>
             {item.statusLabel}
-          </NdjcPillButton>
+          </NdjcPillBadge>
         </>
       }
-      trailing={null}
+      trailing={
+        onContactMerchant && linkedItemAvailable ? (
+          <button
+            type="button"
+            aria-label="Chat merchant"
+            title="Chat merchant"
+            style={{
+              width: 40,
+              height: 40,
+              border: 0,
+              borderRadius: 999,
+              padding: 0,
+              display: 'grid',
+              placeItems: 'center',
+              color: APK_APPOINTMENT_UI.brand,
+              background: 'transparent',
+              boxShadow: 'none',
+              cursor: 'pointer'
+            }}
+            onClick={event => {
+              event.stopPropagation()
+              onContactMerchant(item.id)
+            }}
+          >
+            <NdjcChatBubbleIcon filled />
+          </button>
+        ) : null
+      }
     />
   )
 }
@@ -14015,7 +16508,7 @@ return (
           overflow: 'hidden'
         }}
       >
-        <NdjcPullRefreshContainer
+        <NdjcCustomerPullRefreshContainer
           isRefreshing={state.isRefreshing}
           onRefresh={actions.onRefresh}
         >
@@ -14038,6 +16531,11 @@ return (
               WebkitOverflowScrolling: 'touch',
               boxSizing: 'border-box'
             }}
+            onScroll={event => ndjcHandleLoadMoreScroll(
+              event,
+              state.pagination,
+              actions.onLoadMore
+            )}
           >
             {state.items.length ? (
               <>
@@ -14047,10 +16545,17 @@ return (
                     item={item}
                     onOpenProduct={actions.onOpenAppointmentProductDetail}
                     onOpenDetails={setDetailsItem}
+                    onContactMerchant={actions.onContactMerchant}
                   />
                 ))}
 
-                <NdjcNoMoreListFooter text="No more bookings" />
+                <NdjcPaginationFooter
+                  pagination={state.pagination}
+                  idleText="Load more"
+                  loadingText="Loading more..."
+                  endText="No more bookings"
+                  onLoadMore={actions.onLoadMore}
+                />
               </>
             ) : (
               <NdjcInlineEmptyState
@@ -14061,7 +16566,7 @@ return (
               />
             )}
           </section>
-        </NdjcPullRefreshContainer>
+        </NdjcCustomerPullRefreshContainer>
 
         <NdjcTopScrollFadeMask
           className="ndjc-bookings-header-scroll-mask"
@@ -14186,7 +16691,7 @@ function AnnouncementDraftCard({
     >
       <NdjcHomeStyleMediaCard
         title=""
-        imageUrl={item.coverUrl}
+        imageUrl={selectAnnouncementCoverUrl(item, 'announcementCard')}
         primaryText=""
         secondaryText={null}
         badgeText={null}
@@ -14319,6 +16824,24 @@ function AnnouncementDraftCard({
   )
 }
 
+function findNearestVerticalScrollParent(element: HTMLElement | null): HTMLElement | null {
+  let current = element?.parentElement ?? null
+
+  while (current) {
+    const style = window.getComputedStyle(current)
+    const overflowY = style.overflowY
+    const canScrollY = overflowY === 'auto' || overflowY === 'scroll' || overflowY === 'overlay'
+
+    if (canScrollY && current.scrollHeight > current.clientHeight) {
+      return current
+    }
+
+    current = current.parentElement
+  }
+
+  return null
+}
+
 function AnnouncementFeedCard({
   card,
   forceExpand,
@@ -14333,8 +16856,10 @@ function AnnouncementFeedCard({
   onOpenImagePreview: (url: string) => void
 }) {
   const [expanded, setExpanded] = React.useState(Boolean(forceExpand))
+  const cardRef = React.useRef<HTMLElement | null>(null)
+  const restoreScrollFrameRef = React.useRef<number | null>(null)
   const hasBody = card.bodyText.trim().length > 0
-  const cleanCoverUrl = card.coverUrl?.trim() || ''
+  const cleanCoverUrl = selectAnnouncementCoverUrl(card, 'announcementFeed') || ''
 
   React.useEffect(() => {
     if (forceExpand) {
@@ -14342,93 +16867,131 @@ function AnnouncementFeedCard({
     }
   }, [forceExpand])
 
-  return (
-    <NdjcWhiteCard
-      className={cx('ndjc-announcement-feed-card', forceExpand && 'is-focused')}
-      style={{
-        ...apkAnnouncementFeedCardStyle,
-        outline: '0 solid transparent',
-        transition: 'none'
-      }}
-    >
-      {cleanCoverUrl ? (
-        <button
-          type="button"
-          className="ndjc-announcement-cover-button"
-          style={apkAnnouncementFeedImageButtonStyle}
-          onClick={() => onOpenImagePreview(cleanCoverUrl)}
-        >
-          <NdjcShimmerImage
-            src={cleanCoverUrl}
-            alt="Announcement cover"
-            className="ndjc-announcement-cover-image"
-            placeholderCornerRadius={APK_ANNOUNCEMENT_UI.feedImageRadius}
-            contentScale="cover"
-          />
-        </button>
-      ) : (
-        <button
-          type="button"
-          className="ndjc-announcement-cover-placeholder"
-          style={apkAnnouncementFeedPlaceholderStyle}
-          onClick={onOpenAnnouncement}
-        >
-          <span>No cover image</span>
-        </button>
-      )}
+  React.useEffect(() => {
+    return () => {
+      if (restoreScrollFrameRef.current != null) {
+        window.cancelAnimationFrame(restoreScrollFrameRef.current)
+        restoreScrollFrameRef.current = null
+      }
+    }
+  }, [])
 
-      <section
-        className="ndjc-announcement-card-body"
+  function toggleExpandedText(): void {
+    const nextExpanded = !expanded
+    const cardElement = cardRef.current
+    const scrollParent = findNearestVerticalScrollParent(cardElement)
+
+    const previousScrollTop = scrollParent?.scrollTop ?? 0
+    const previousCardTop = cardElement?.getBoundingClientRect().top ?? 0
+
+    setExpanded(nextExpanded)
+
+    if (nextExpanded) {
+      onExpandAnnouncement()
+    }
+
+    if (restoreScrollFrameRef.current != null) {
+      window.cancelAnimationFrame(restoreScrollFrameRef.current)
+      restoreScrollFrameRef.current = null
+    }
+
+    restoreScrollFrameRef.current = window.requestAnimationFrame(() => {
+      restoreScrollFrameRef.current = null
+
+      if (!scrollParent || !cardElement) return
+
+      const nextCardTop = cardElement.getBoundingClientRect().top
+      const cardTopDelta = nextCardTop - previousCardTop
+
+      scrollParent.scrollTop = previousScrollTop + cardTopDelta
+    })
+  }
+
+  return (
+    <section ref={cardRef}>
+      <NdjcWhiteCard
+        className={cx('ndjc-announcement-feed-card', forceExpand && 'is-focused')}
         style={{
-          ...apkAnnouncementFeedInnerStyle,
-          transition: 'height 160ms ease'
+          ...apkAnnouncementFeedCardStyle,
+          outline: '0 solid transparent',
+          transition: 'none'
         }}
       >
-        <div className="ndjc-announcement-divider" style={apkAnnouncementFeedDividerStyle} />
+        {cleanCoverUrl ? (
+          <button
+            type="button"
+            className="ndjc-announcement-cover-button"
+            style={apkAnnouncementFeedImageButtonStyle}
+            onClick={() => onOpenImagePreview(cleanCoverUrl)}
+          >
+            <NdjcShimmerImage
+              src={cleanCoverUrl}
+              alt="Announcement cover"
+              className="ndjc-announcement-cover-image"
+              placeholderCornerRadius={APK_ANNOUNCEMENT_UI.feedImageRadius}
+              contentScale="cover"
+            />
+          </button>
+        ) : (
+          <button
+            type="button"
+            className="ndjc-announcement-cover-placeholder"
+            style={apkAnnouncementFeedPlaceholderStyle}
+            onClick={onOpenAnnouncement}
+          >
+            <span>No cover image</span>
+          </button>
+        )}
 
-        <div className="ndjc-announcement-meta-row" style={apkAnnouncementMetaRowStyle}>
-          <span style={apkAnnouncementMetaTextStyle}>
-            {card.viewCount} views
-          </span>
+        <section
+          className="ndjc-announcement-card-body"
+          style={{
+            ...apkAnnouncementFeedInnerStyle,
+            transition: 'height 160ms ease'
+          }}
+        >
+          <div className="ndjc-announcement-divider" style={apkAnnouncementFeedDividerStyle} />
 
-          <span style={{ flex: '1 1 auto' }} aria-hidden="true" />
+          <div className="ndjc-announcement-meta-row" style={apkAnnouncementMetaRowStyle}>
+            <span style={apkAnnouncementMetaTextStyle}>
+              {card.viewCount} views
+            </span>
+
+            <span style={{ flex: '1 1 auto' }} aria-hidden="true" />
+
+            {hasBody ? (
+              <button
+                type="button"
+                style={apkAnnouncementExpandButtonStyle}
+                onPointerDown={event => {
+                  event.preventDefault()
+                }}
+                onClick={toggleExpandedText}
+                aria-label={expanded ? 'Collapse announcement' : 'Expand announcement'}
+              >
+                <NdjcAnnouncementExpandIcon expanded={expanded} />
+              </button>
+            ) : null}
+          </div>
 
           {hasBody ? (
-            <button
-              type="button"
-              style={apkAnnouncementExpandButtonStyle}
-              onClick={() => {
-                const nextExpanded = !expanded
-                setExpanded(nextExpanded)
-
-                if (nextExpanded) {
-                  onExpandAnnouncement()
-                }
-              }}
-              aria-label={expanded ? 'Collapse announcement' : 'Expand announcement'}
+            <section
+              className={cx('ndjc-announcement-body-text', expanded && 'is-expanded')}
+              style={apkAnnouncementExpandedBodyOuterStyle(expanded)}
+              aria-hidden={!expanded}
             >
-              <NdjcAnnouncementExpandIcon expanded={expanded} />
-            </button>
-          ) : null}
-        </div>
-
-        {hasBody ? (
-          <section
-            className={cx('ndjc-announcement-body-text', expanded && 'is-expanded')}
-            style={apkAnnouncementExpandedBodyOuterStyle(expanded)}
-            aria-hidden={!expanded}
-          >
-            <section style={apkAnnouncementExpandedBodyInnerStyle}>
-              <section style={apkAnnouncementExpandedBodyStyle}>
-                <p style={apkAnnouncementBodyTextStyle}>
-                  {card.bodyText}
-                </p>
+              <section style={apkAnnouncementExpandedBodyInnerStyle}>
+                <section style={apkAnnouncementExpandedBodyStyle}>
+                  <p style={apkAnnouncementBodyTextStyle}>
+                    {card.bodyText}
+                  </p>
+                </section>
               </section>
             </section>
-          </section>
-        ) : null}
-      </section>
-    </NdjcWhiteCard>
+          ) : null}
+        </section>
+      </NdjcWhiteCard>
+    </section>
   )
 }
 
@@ -14596,6 +17159,11 @@ export function ShowcaseAnnouncementsScreen({
         contentTrailingSpacerHeight={40}
         verticalItemSpacing={10}
         fillContentWhenEmpty={state.items.length === 0 && !state.isLoading}
+        onContentScroll={event => ndjcHandleLoadMoreScroll(
+          event,
+          state.pagination,
+          actions.onLoadMore
+        )}
       >
         {state.items.length === 0 && !state.isLoading ? (
           <NdjcInlineEmptyState
@@ -14638,7 +17206,13 @@ export function ShowcaseAnnouncementsScreen({
               </section>
             ))}
 
-            <NdjcNoMoreListFooter text="No more updates" />
+            <NdjcPaginationFooter
+              pagination={state.pagination}
+              idleText="Load more"
+              loadingText="Loading more..."
+              endText="No more updates"
+              onLoadMore={actions.onLoadMore}
+            />
           </>
         )}
 
@@ -14674,7 +17248,11 @@ function NdjcConversationPageScaffold({
   wrapWithUnifiedBackground = true,
   fillContentWhenEmpty = false,
   contentScrollKey,
-  contentTrailingSpacerHeight = 0
+  contentAutoScrollToBottom = true,
+  contentForceScrollToBottomSignal = 0,
+  contentPreserveScrollAnchorKey = null,
+  contentTrailingSpacerHeight = 0,
+  onContentScroll
 }: {
   title: string
   subtitle?: string | null
@@ -14694,52 +17272,244 @@ function NdjcConversationPageScaffold({
   wrapWithUnifiedBackground?: boolean
   fillContentWhenEmpty?: boolean
   contentScrollKey?: string | number | null
+  contentAutoScrollToBottom?: boolean
+  contentForceScrollToBottomSignal?: string | number | null
+  contentPreserveScrollAnchorKey?: string | number | null
   contentTrailingSpacerHeight?: number
+  onContentScroll?: (event: React.UIEvent<HTMLElement>) => void
 }) {
   const bodyRef = React.useRef<HTMLElement | null>(null)
+  const preserveScrollAnchorRef = React.useRef<{
+    key: string | number | null
+    scrollHeight: number
+    scrollTop: number
+  } | null>(null)
+  const isChatThreadScreen = typeof className === 'string' && className.includes('ndjc-chat-thread-screen')
 
-  React.useLayoutEffect(() => {
-    if (contentScrollKey == null) return
+  function animateScrollBodyToBottom(
+    body: HTMLElement,
+    durationMs = 260
+  ): () => void {
+    let cancelled = false
+    let frameId: number | null = null
 
-    const body = bodyRef.current
-    if (!body) return
+    const startTop = body.scrollTop
+    const targetTop = Math.max(0, body.scrollHeight - body.clientHeight)
+    const distance = targetTop - startTop
 
-    const scrollToBottom = () => {
-      body.scrollTop = body.scrollHeight
+    if (Math.abs(distance) <= 1) {
+      body.scrollTop = targetTop
+      return () => {
+        cancelled = true
+      }
     }
 
-    scrollToBottom()
+    const startTime = window.performance.now()
 
-    const frameId = window.requestAnimationFrame(() => {
-      scrollToBottom()
+    const easeOutCubic = (value: number) => {
+      return 1 - Math.pow(1 - value, 3)
+    }
 
-      window.requestAnimationFrame(scrollToBottom)
-    })
+    const step = (now: number) => {
+      if (cancelled) return
 
-    const timeoutId = window.setTimeout(scrollToBottom, 80)
+      const progress = Math.min(1, Math.max(0, (now - startTime) / durationMs))
+      const eased = easeOutCubic(progress)
+      body.scrollTop = startTop + distance * eased
+
+      if (progress < 1) {
+        frameId = window.requestAnimationFrame(step)
+        return
+      }
+
+      body.scrollTop = Math.max(0, body.scrollHeight - body.clientHeight)
+    }
+
+    frameId = window.requestAnimationFrame(step)
 
     return () => {
-      window.cancelAnimationFrame(frameId)
-      window.clearTimeout(timeoutId)
+      cancelled = true
+
+      if (frameId != null) {
+        window.cancelAnimationFrame(frameId)
+      }
     }
-  }, [contentScrollKey])
-  const content = (
-    <section
-      className={cx('ndjc-conversation-page-scaffold', className)}
-      style={{
-        width: '100%',
-        height: '100%',
-        minHeight: 0,
-        display: 'grid',
-        gridTemplateRows: `${showTopBar ? 'auto ' : ''}minmax(0, 1fr) auto`,
-        background: APK_CHAT_UI.pageBg,
-        overflow: 'hidden'
-      }}
-    >
+  }
+
+React.useLayoutEffect(() => {
+  const body = bodyRef.current
+  if (!body || contentPreserveScrollAnchorKey == null) return
+
+  const previous = preserveScrollAnchorRef.current
+  const nextScrollHeight = body.scrollHeight
+
+  if (
+    previous &&
+    previous.key !== contentPreserveScrollAnchorKey &&
+    previous.scrollTop <= 120
+  ) {
+    const heightDelta = nextScrollHeight - previous.scrollHeight
+
+    if (heightDelta > 0) {
+      body.scrollTop = previous.scrollTop + heightDelta
+    }
+  }
+
+  preserveScrollAnchorRef.current = {
+    key: contentPreserveScrollAnchorKey,
+    scrollHeight: body.scrollHeight,
+    scrollTop: body.scrollTop
+  }
+}, [contentPreserveScrollAnchorKey, children])
+
+React.useLayoutEffect(() => {
+  if (contentScrollKey == null || !contentAutoScrollToBottom) return
+
+  const body = bodyRef.current
+  if (!body) return
+
+  let cancelled = false
+  let activeCancelScroll: (() => void) | null = null
+  let firstTimeoutId: number | null = null
+  let secondTimeoutId: number | null = null
+
+  const scrollToBottom = (durationMs = 220) => {
+    if (cancelled) return
+
+    if (activeCancelScroll) {
+      activeCancelScroll()
+      activeCancelScroll = null
+    }
+
+    activeCancelScroll = animateScrollBodyToBottom(body, durationMs)
+  }
+
+  const scheduleScrollToBottom = () => {
+    scrollToBottom(220)
+
+    if (firstTimeoutId == null) {
+      firstTimeoutId = window.setTimeout(() => {
+        firstTimeoutId = null
+        scrollToBottom(180)
+      }, 80)
+    }
+
+    if (secondTimeoutId == null) {
+      secondTimeoutId = window.setTimeout(() => {
+        secondTimeoutId = null
+        scrollToBottom(160)
+      }, 180)
+    }
+  }
+
+  scheduleScrollToBottom()
+
+  window.addEventListener('ndjc:keyboard-viewport-change', scheduleScrollToBottom)
+
+  return () => {
+    cancelled = true
+
+    if (activeCancelScroll) {
+      activeCancelScroll()
+      activeCancelScroll = null
+    }
+
+    if (firstTimeoutId != null) {
+      window.clearTimeout(firstTimeoutId)
+    }
+
+    if (secondTimeoutId != null) {
+      window.clearTimeout(secondTimeoutId)
+    }
+
+    window.removeEventListener('ndjc:keyboard-viewport-change', scheduleScrollToBottom)
+  }
+}, [contentScrollKey, contentAutoScrollToBottom])
+
+React.useLayoutEffect(() => {
+  if (!contentForceScrollToBottomSignal) return
+
+  const body = bodyRef.current
+  if (!body) return
+
+  let cancelled = false
+  let activeCancelScroll: (() => void) | null = null
+  let firstTimeoutId: number | null = null
+  let secondTimeoutId: number | null = null
+  let thirdTimeoutId: number | null = null
+
+  const scrollToBottom = (durationMs = 300) => {
+    if (cancelled) return
+
+    if (activeCancelScroll) {
+      activeCancelScroll()
+      activeCancelScroll = null
+    }
+
+    activeCancelScroll = animateScrollBodyToBottom(body, durationMs)
+  }
+
+  scrollToBottom(300)
+
+  firstTimeoutId = window.setTimeout(() => {
+    firstTimeoutId = null
+    scrollToBottom(240)
+  }, 90)
+
+  secondTimeoutId = window.setTimeout(() => {
+    secondTimeoutId = null
+    scrollToBottom(200)
+  }, 210)
+
+  thirdTimeoutId = window.setTimeout(() => {
+    thirdTimeoutId = null
+    body.scrollTop = Math.max(0, body.scrollHeight - body.clientHeight)
+  }, 380)
+
+  return () => {
+    cancelled = true
+
+    if (activeCancelScroll) {
+      activeCancelScroll()
+      activeCancelScroll = null
+    }
+
+    if (firstTimeoutId != null) {
+      window.clearTimeout(firstTimeoutId)
+    }
+
+    if (secondTimeoutId != null) {
+      window.clearTimeout(secondTimeoutId)
+    }
+
+    if (thirdTimeoutId != null) {
+      window.clearTimeout(thirdTimeoutId)
+    }
+  }
+}, [contentForceScrollToBottomSignal])
+
+const content = (
+  <section
+    className={cx('ndjc-conversation-page-scaffold', className)}
+    style={{
+      width: '100%',
+      height: isChatThreadScreen ? 'var(--ndjc-stable-viewport-height, 100dvh)' : '100%',
+      minHeight: 0,
+      maxHeight: isChatThreadScreen ? 'var(--ndjc-stable-viewport-height, 100dvh)' : undefined,
+      display: 'grid',
+      gridTemplateRows: `${showTopBar ? 'auto ' : ''}minmax(0, 1fr) auto`,
+      background: APK_CHAT_UI.pageBg,
+      overflow: 'hidden',
+      boxSizing: 'border-box'
+    }}
+  >
+      {isChatThreadScreen ? <NdjcChatKeyboardDebugPanel /> : null}
+
       {showTopBar ? (
         <section
           className="ndjc-conversation-top-surface"
           style={{
+            position: 'relative',
             width: '100%',
             paddingTop: 'env(safe-area-inset-top)',
             background: APK_CHAT_UI.pageBg,
@@ -14841,6 +17611,7 @@ function NdjcConversationPageScaffold({
       <section
         ref={bodyRef}
         className="ndjc-conversation-body"
+        onScroll={onContentScroll}
         style={{
           minHeight: 0,
           padding: `0 ${contentPaddingX}px`,
@@ -14973,6 +17744,8 @@ function NdjcProductCardBubble({
   const cleanImageUrl = product.imageUrl?.trim() || null
   const cleanTitle = product.title?.trim() || 'Selected item'
   const cleanPrice = product.price?.trim() || ''
+  const cleanOriginalPrice = product.originalPriceText?.trim() || null
+  const cleanDiscountPrice = product.discountPriceText?.trim() || null
 
   return (
     <section
@@ -14984,9 +17757,17 @@ function NdjcProductCardBubble({
           title={cleanTitle}
           imageUrl={cleanImageUrl}
           price={cleanPrice}
+          originalPrice={cleanOriginalPrice}
+          discountPrice={cleanDiscountPrice}
           available={available}
           allowClickWhenUnavailable={false}
           onOpen={() => onOpen(product.dishId)}
+          middle={
+            <NdjcItemStatusBadgeRow
+              recommended={product.isRecommended}
+              hidden={false}
+            />
+          }
         />
       </section>
     </section>
@@ -15034,14 +17815,250 @@ function ChatProductBubble({
     </section>
   )
 }
+function chatAppointmentShareToCard(appointment: ShowcaseChatAppointmentShare): ShowcaseAppointmentCard {
+  return {
+    id: appointment.appointmentId,
+    customerName: appointment.customerName || 'Customer',
+    customerContact: appointment.customerContact || '',
+    serviceTitle: appointment.title || 'General appointment',
+    preferredDate: appointment.preferredDate,
+    preferredTime: appointment.preferredTime,
+    note: appointment.note || '',
+    statusLabel: appointment.statusLabel || 'Pending',
+    createdAtText: appointment.createdAtText || '',
+    imageUrl: appointment.imageUrl,
+    sourceDishId: appointment.sourceDishId,
+    priceText: appointment.priceText,
+    originalPriceText: appointment.originalPriceText,
+    discountPriceText: appointment.discountPriceText,
+    categoryText: appointment.categoryText,
+    isRecommended: false,
+    itemAvailable: appointment.itemAvailable
+  }
+}
 
+function appointmentShareSummaryText(appointment: ShowcaseChatAppointmentShare): string {
+  const title = appointment.title?.trim() || 'General appointment'
+  const timeText = appointmentListTimeText(appointment.preferredDate, appointment.preferredTime)
+
+  return timeText ? `${title} · ${timeText}` : title
+}
+
+function NdjcAppointmentCardBubble({
+  appointment,
+  onOpen
+}: {
+  appointment: ShowcaseChatAppointmentShare
+  onOpen: (appointment: ShowcaseChatAppointmentShare) => void
+}) {
+  const cleanImageUrl = appointment.imageUrl?.trim() || null
+  const cleanTitle = appointment.title?.trim() || 'General appointment'
+  const cleanStatus = appointment.statusLabel?.trim() || 'Pending'
+
+  return (
+    <section
+      className="ndjc-appointment-card-bubble"
+      style={apkProductBubbleStyle}
+    >
+      <section style={apkChatProductCardShellStyle}>
+        <AppointmentCatalogItemCard
+          title={cleanTitle}
+          imageUrl={cleanImageUrl}
+          priceTextValue={appointment.priceText}
+          originalPriceTextValue={appointment.originalPriceText}
+          discountPriceTextValue={appointment.discountPriceText}
+          categoryText={null}
+          itemAvailable={true}
+          allowClickWhenUnavailable
+          onOpen={() => onOpen(appointment)}
+          bottom={
+            <>
+              <span
+                style={{
+                  color: APK_APPOINTMENT_UI.black75,
+                  fontSize: APK_APPOINTMENT_UI.bodyMediumSize,
+                  lineHeight: APK_APPOINTMENT_UI.bodyMediumLineHeight,
+                  fontWeight: 500,
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  whiteSpace: 'nowrap'
+                }}
+              >
+                {appointmentListTimeText(appointment.preferredDate, appointment.preferredTime)}
+              </span>
+
+              <div style={{ height: 4 }} aria-hidden="true" />
+
+              <NdjcPillBadge selected>
+                {cleanStatus}
+              </NdjcPillBadge>
+            </>
+          }
+        />
+      </section>
+    </section>
+  )
+}
+
+function ChatAppointmentBubble({
+  appointment,
+  outgoing,
+  selected,
+  focused,
+  matched,
+  onOpen
+}: {
+  appointment: ShowcaseChatAppointmentShare
+  outgoing?: boolean
+  selected?: boolean
+  focused?: boolean
+  matched?: boolean
+  onOpen: (appointment: ShowcaseChatAppointmentShare) => void
+}) {
+  return (
+    <section
+      className={cx(
+        'ndjc-chat-appointment-bubble-frame',
+        outgoing && 'is-outgoing',
+        selected && 'is-selected',
+        focused && 'is-focused',
+        matched && 'is-matched'
+      )}
+      style={apkChatRichBubbleFrameStyle({
+        outgoing,
+        selected,
+        focused,
+        matched
+      })}
+    >
+      <NdjcAppointmentCardBubble
+        appointment={appointment}
+        onOpen={onOpen}
+      />
+    </section>
+  )
+}
+
+function NdjcPendingAppointmentBar({
+  appointment,
+  onOpen,
+  onSend,
+  onClear
+}: {
+  appointment: ShowcaseChatAppointmentShare
+  onOpen: (appointment: ShowcaseChatAppointmentShare) => void
+  onSend: () => void
+  onClear: () => void
+}) {
+  const cleanImageUrl = appointment.imageUrl?.trim() || null
+  const cleanTitle = appointment.title?.trim() || 'General appointment'
+  const cleanStatus = appointment.statusLabel?.trim() || 'Pending'
+
+  return (
+    <section className="ndjc-pending-appointment-bar" style={apkPendingProductBarStyle}>
+      <span style={apkPendingProductSideBarStyle} aria-hidden="true" />
+
+      <section
+        style={apkPendingProductPreviewCardStyle}
+      >
+        <AppointmentCatalogItemCard
+          title={cleanTitle}
+          imageUrl={cleanImageUrl}
+          priceTextValue={null}
+          categoryText={null}
+          itemAvailable={appointment.itemAvailable && Boolean(appointment.sourceDishId)}
+          allowClickWhenUnavailable
+          onOpen={() => onOpen(appointment)}
+          bottom={
+            <>
+              <span
+                style={{
+                  color: APK_APPOINTMENT_UI.black75,
+                  fontSize: APK_APPOINTMENT_UI.bodyMediumSize,
+                  lineHeight: APK_APPOINTMENT_UI.bodyMediumLineHeight,
+                  fontWeight: 500,
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  whiteSpace: 'nowrap'
+                }}
+              >
+                {appointmentListTimeText(appointment.preferredDate, appointment.preferredTime)}
+              </span>
+
+              <div style={{ height: 4 }} aria-hidden="true" />
+
+              <NdjcPillBadge selected>
+                {cleanStatus}
+              </NdjcPillBadge>
+            </>
+          }
+        />
+      </section>
+
+      <section
+        className="ndjc-pending-appointment-actions"
+        style={apkPendingProductActionColumnStyle}
+      >
+        <button
+          type="button"
+          style={apkPendingProductIconButtonStyle('close')}
+          onClick={onClear}
+          aria-label="Cancel"
+        >
+          <svg
+            viewBox="0 0 24 24"
+            aria-hidden="true"
+            focusable="false"
+            style={{
+              width: 24,
+              height: 24,
+              display: 'block'
+            }}
+          >
+            <path
+              d="M18.3 5.71 12 12l6.3 6.29-1.41 1.41L10.59 13.41 4.29 19.7 2.88 18.29 9.17 12 2.88 5.71 4.29 4.3l6.3 6.29 6.3-6.29Z"
+              fill="currentColor"
+            />
+          </svg>
+        </button>
+
+        <button
+          type="button"
+          style={apkPendingProductIconButtonStyle('send')}
+          onClick={onSend}
+          aria-label="Send"
+        >
+          <svg
+            viewBox="0 0 24 24"
+            aria-hidden="true"
+            focusable="false"
+            style={{
+              width: 24,
+              height: 24,
+              display: 'block'
+            }}
+          >
+            <path
+              d="M2.01 21 23 12 2.01 3 2 10l15 2-15 2Z"
+              fill="currentColor"
+            />
+          </svg>
+        </button>
+      </section>
+    </section>
+  )
+}
 function NdjcChatSingleImageBubble({
   url,
+  blurDataUrl,
   outgoing,
+  shouldSuppressClick,
   onOpen
 }: {
   url: string
+  blurDataUrl?: string | null
   outgoing?: boolean
+  shouldSuppressClick?: () => boolean
   onOpen: (url: string) => void
 }) {
   return (
@@ -15053,13 +18070,28 @@ function NdjcChatSingleImageBubble({
         width: APK_CHAT_UI.singleImageWidth,
         height: APK_CHAT_UI.singleImageHeight
       }}
-      onClick={() => onOpen(url)}
+      onClick={event => {
+        if (shouldSuppressClick?.()) {
+          event.preventDefault()
+          event.stopPropagation()
+          return
+        }
+
+        onOpen(url)
+      }}
     >
       <NdjcShimmerImage
         src={url}
         alt="Chat image"
         placeholderCornerRadius={APK_CHAT_UI.imageRadius}
         contentScale="cover"
+        loading="lazy"
+        fetchPriority="low"
+        decoding="async"
+        imageWidth={APK_CHAT_UI.singleImageWidth}
+        imageHeight={APK_CHAT_UI.singleImageHeight}
+        sizes="min(72vw, 260px)"
+        blurDataUrl={blurDataUrl}
       />
     </button>
   )
@@ -15095,16 +18127,23 @@ function NdjcChatImageBubbleUi({
 
 function NdjcChatImagesGridUi({
   urls,
+  previewUrls,
+  blurDataUrls,
   outgoing,
   previewPool,
+  shouldSuppressClick,
   onOpen
 }: {
   urls: string[]
+  previewUrls?: string[]
+  blurDataUrls?: Array<string | null | undefined>
   outgoing?: boolean
   previewPool: string[]
+  shouldSuppressClick?: () => boolean
   onOpen: (url: string, pool: string[]) => void
 }) {
   const cleanUrls = urls.map(url => url.trim()).filter(Boolean)
+  const cleanPreviewUrls = (previewUrls || []).map(url => url.trim()).filter(Boolean)
   const cleanPreviewPool = previewPool.map(url => url.trim()).filter(Boolean)
   if (!cleanUrls.length) return null
 
@@ -15132,8 +18171,14 @@ function NdjcChatImagesGridUi({
         >
           <NdjcChatSingleImageBubble
             url={url}
+            blurDataUrl={blurDataUrls?.[index] || null}
             outgoing={outgoing}
-            onOpen={() => onOpen(url, cleanPreviewPool.length ? cleanPreviewPool : cleanUrls)}
+            shouldSuppressClick={shouldSuppressClick}
+            onOpen={() => {
+              const previewUrl = cleanPreviewUrls[index] || url
+              const pool = cleanPreviewPool.length ? cleanPreviewPool : cleanPreviewUrls.length ? cleanPreviewUrls : cleanUrls
+              onOpen(previewUrl, pool)
+            }}
           />
         </div>
       ))}
@@ -15141,64 +18186,96 @@ function NdjcChatImagesGridUi({
   )
 }
 
-function NdjcQuotedProductBar({
+function NdjcComposerTextQuoteBar({
   text,
   onClick,
   onCancel
 }: {
   text: string
   onClick?: () => void
-  onCancel?: () => void
+  onCancel: () => void
 }) {
+  const cleanText = text.trim()
+  if (!cleanText) return null
+
   return (
-    <section className="ndjc-quoted-product-bar" style={apkQuotedProductBarStyle}>
-      <button
-        type="button"
+    <section
+      className="ndjc-composer-text-quote-bar"
+      style={{
+        width: '100%',
+        paddingBottom: 10,
+        boxSizing: 'border-box'
+      }}
+    >
+      <section
         style={{
+          width: '100%',
           minWidth: 0,
-          border: 0,
-          padding: 0,
+          padding: `8px 6px 8px ${APK_CHAT_UI.quotedBarPaddingX + APK_CHAT_UI.quoteRailWidth + APK_CHAT_UI.quoteRailGap}px`,
           display: 'grid',
-          gap: 2,
-          textAlign: 'left',
-          background: 'transparent',
-          cursor: onClick ? 'pointer' : 'default'
+          gridTemplateColumns: 'minmax(0, 1fr) 32px',
+          alignItems: 'stretch',
+          color: APK_CHAT_UI.black,
+          backgroundColor: APK_CHAT_UI.white,
+          backgroundImage: `linear-gradient(to right, ${APK_CHAT_UI.brand} 0px, ${APK_CHAT_UI.brand} ${APK_CHAT_UI.quoteRailWidth}px, transparent ${APK_CHAT_UI.quoteRailWidth}px, transparent 100%)`,
+          backgroundRepeat: 'no-repeat',
+          backgroundSize: `${APK_CHAT_UI.quoteRailWidth}px calc(100% - 16px)`,
+          backgroundPosition: `${APK_CHAT_UI.quotedBarPaddingX}px 8px`,
+          border: '1px solid rgba(0, 0, 0, 0.18)',
+          borderRadius: 12,
+          boxSizing: 'border-box'
         }}
-        onClick={onClick}
-        disabled={!onClick}
       >
-        <span
-          style={{
-            color: APK_CHAT_UI.black55,
-            fontSize: 11,
-            lineHeight: 1.2,
-            fontWeight: 500
-          }}
-        >
-          Replying to
-        </span>
-
-        <strong
-          style={{
-            color: APK_CHAT_UI.black,
-            fontSize: 13,
-            lineHeight: 1.25,
-            fontWeight: 600,
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
-            whiteSpace: 'nowrap'
-          }}
-        >
-          {text}
-        </strong>
-      </button>
-
-      {onCancel ? (
         <button
           type="button"
           style={{
-            width: 28,
-            height: 28,
+            minWidth: 0,
+            alignSelf: 'center',
+            border: 0,
+            padding: 0,
+            display: 'grid',
+            gap: 2,
+            textAlign: 'left',
+            background: 'transparent',
+            cursor: onClick ? 'pointer' : 'default'
+          }}
+          onClick={onClick}
+          disabled={!onClick}
+        >
+          <span
+            style={{
+              color: APK_CHAT_UI.black55,
+              fontSize: 11,
+              lineHeight: 1.2,
+              fontWeight: 500
+            }}
+          >
+            Replying to
+          </span>
+
+          <strong
+            style={{
+              color: APK_CHAT_UI.black85,
+              fontSize: 13,
+              lineHeight: 1.25,
+              fontWeight: 600,
+              minWidth: 0,
+              maxWidth: '100%',
+              whiteSpace: 'pre-wrap',
+              overflowWrap: 'anywhere',
+              wordBreak: 'break-word'
+            }}
+          >
+            {cleanText}
+          </strong>
+        </button>
+
+        <button
+          type="button"
+          style={{
+            width: 32,
+            height: 32,
+            alignSelf: 'center',
             border: 0,
             borderRadius: 999,
             color: APK_CHAT_UI.black55,
@@ -15207,11 +18284,90 @@ function NdjcQuotedProductBar({
             lineHeight: 1
           }}
           onClick={onCancel}
-          aria-label="Cancel quote"
+          aria-label="Cancel reply"
         >
           ×
         </button>
-      ) : null}
+      </section>
+    </section>
+  )
+}
+
+function NdjcComposerProductQuoteBar({
+  product,
+  available,
+  onClick,
+  onCancel
+}: {
+  product: ShowcaseChatProductShare
+  available: boolean
+  onClick: () => void
+  onCancel: () => void
+}) {
+  const cleanTitle = product.title?.trim() || 'Shared item'
+  const cleanPrice = product.price?.trim() || ''
+  const cleanOriginalPrice = product.originalPriceText?.trim() || null
+  const cleanDiscountPrice = product.discountPriceText?.trim() || null
+  const cleanImageUrl = product.imageUrl?.trim() || null
+
+  return (
+    <section
+      className="ndjc-composer-product-quote-bar"
+      style={{
+        width: '100%',
+        padding: '10px',
+        display: 'grid',
+        gridTemplateColumns: 'minmax(0, 1fr) 36px',
+        gap: 8,
+        alignItems: 'center',
+        color: APK_CHAT_UI.black,
+        background: APK_CHAT_UI.softSurface,
+        borderRadius: 16,
+        boxSizing: 'border-box'
+      }}
+    >
+      <section
+        style={{
+          minWidth: 0,
+          borderRadius: 14,
+          overflow: 'hidden'
+        }}
+      >
+        <NdjcLinkedCatalogItemCard
+          title={cleanTitle}
+          imageUrl={cleanImageUrl}
+          price={cleanPrice}
+          originalPrice={cleanOriginalPrice}
+          discountPrice={cleanDiscountPrice}
+          available={available}
+          allowClickWhenUnavailable={false}
+          onOpen={onClick}
+          middle={
+            <NdjcItemStatusBadgeRow
+              recommended={product.isRecommended}
+              hidden={false}
+            />
+          }
+        />
+      </section>
+
+      <button
+        type="button"
+        style={{
+          width: 36,
+          height: 36,
+          border: 0,
+          borderRadius: 999,
+          color: APK_CHAT_UI.black65,
+          background: 'transparent',
+          fontSize: 20,
+          lineHeight: 1
+        }}
+        onClick={onCancel}
+        aria-label="Cancel Quote"
+      >
+        ×
+      </button>
     </section>
   )
 }
@@ -15231,50 +18387,328 @@ function NdjcChatQuoteBlock({
       type="button"
       className="ndjc-chat-quote-block"
       style={{
-        ...apkChatQuoteBlockStyle(),
+        width: '100%',
+        maxWidth: '100%',
+        minWidth: 0,
         border: 0,
+        borderRadius: APK_CHAT_UI.quotedBarRadius,
+        padding: 0,
+        display: 'block',
         textAlign: 'left',
-        cursor: onClick ? 'pointer' : 'default'
+        color: APK_CHAT_UI.black,
+        background: APK_CHAT_UI.white,
+        cursor: onClick ? 'pointer' : 'default',
+        boxSizing: 'border-box'
       }}
       onClick={onClick}
       disabled={!onClick}
     >
-      <span style={apkChatQuoteBlockRailStyle} aria-hidden="true" />
-
       <span
         style={{
+          width: '100%',
           minWidth: 0,
-          display: 'grid',
-          gap: 2
+          border: '1px solid rgba(0, 0, 0, 0.18)',
+          borderRadius: APK_CHAT_UI.quotedBarRadius,
+          padding: `${APK_CHAT_UI.quotedBarPaddingY}px ${APK_CHAT_UI.quotedBarPaddingX}px ${APK_CHAT_UI.quotedBarPaddingY}px ${APK_CHAT_UI.quotedBarPaddingX + APK_CHAT_UI.quoteRailWidth + APK_CHAT_UI.quoteRailGap}px`,
+          display: 'flex',
+          alignItems: 'stretch',
+          color: APK_CHAT_UI.black,
+          backgroundColor: APK_CHAT_UI.white,
+          backgroundImage: `linear-gradient(to right, ${APK_CHAT_UI.brand} 0px, ${APK_CHAT_UI.brand} ${APK_CHAT_UI.quoteRailWidth}px, transparent ${APK_CHAT_UI.quoteRailWidth}px, transparent 100%)`,
+          backgroundRepeat: 'no-repeat',
+          backgroundSize: `${APK_CHAT_UI.quoteRailWidth}px calc(100% - ${APK_CHAT_UI.quotedBarPaddingY * 2}px)`,
+          backgroundPosition: `${APK_CHAT_UI.quotedBarPaddingX}px ${APK_CHAT_UI.quotedBarPaddingY}px`,
+          boxSizing: 'border-box'
         }}
       >
         <span
           style={{
-            color: APK_CHAT_UI.black55,
-            fontSize: APK_CHAT_UI.quoteLabelSize,
-            lineHeight: 1.2,
-            fontWeight: 500
+            flex: '1 1 auto',
+            minWidth: 0,
+            maxWidth: '100%',
+            display: 'grid',
+            gap: 2
           }}
         >
-          Replying to
-        </span>
+          <span
+            style={{
+              color: APK_CHAT_UI.black55,
+              fontSize: APK_CHAT_UI.quoteLabelSize,
+              lineHeight: 1.2,
+              fontWeight: 500
+            }}
+          >
+            Replying to
+          </span>
 
-        <strong
-          style={{
-            color: APK_CHAT_UI.black,
-            fontSize: APK_CHAT_UI.quoteTextSize,
-            lineHeight: 1.25,
-            fontWeight: 600,
-            display: '-webkit-box',
-            WebkitLineClamp: 2,
-            WebkitBoxOrient: 'vertical',
-            overflow: 'hidden'
-          }}
-        >
-          {cleanText.replace(/\n/g, ' ')}
-        </strong>
+          <strong
+            style={{
+              color: APK_CHAT_UI.black70,
+              fontSize: APK_CHAT_UI.quoteTextSize,
+              lineHeight: 1.25,
+              fontWeight: 600,
+              minWidth: 0,
+              maxWidth: '100%',
+              display: 'block',
+              whiteSpace: 'pre-wrap',
+              overflowWrap: 'anywhere',
+              wordBreak: 'break-word'
+            }}
+          >
+            {cleanText}
+          </strong>
+        </span>
       </span>
     </button>
+  )
+}
+
+function NdjcChatQuotedProductBlock({
+  product,
+  available,
+  onOpen
+}: {
+  product: ShowcaseChatProductShare
+  available: boolean
+  onOpen: (dishId: string) => void
+}) {
+  const cleanTitle = product.title?.trim() || 'Shared item'
+  const cleanPrice = product.price?.trim() || ''
+  const cleanOriginalPrice = product.originalPriceText?.trim() || null
+  const cleanDiscountPrice = product.discountPriceText?.trim() || null
+  const cleanImageUrl = product.imageUrl?.trim() || null
+
+  return (
+    <section
+      className="ndjc-chat-quoted-product-block"
+      style={{
+        width: '100%',
+        maxWidth: APK_CHAT_UI.productQuoteMaxWidth,
+        border: '1px solid rgba(0, 0, 0, 0.18)',
+        borderRadius: APK_CHAT_UI.productRadius,
+        padding: 2,
+        background: APK_CHAT_UI.white,
+        boxSizing: 'border-box',
+        overflow: 'hidden'
+      }}
+    >
+      <NdjcLinkedCatalogItemCard
+        title={cleanTitle}
+        imageUrl={cleanImageUrl}
+        price={cleanPrice}
+        originalPrice={cleanOriginalPrice}
+        discountPrice={cleanDiscountPrice}
+        available={available}
+        allowClickWhenUnavailable={false}
+        onOpen={() => {
+          if (available) {
+            onOpen(product.dishId)
+          }
+        }}
+        middle={
+          <NdjcItemStatusBadgeRow
+            recommended={product.isRecommended}
+            hidden={false}
+          />
+        }
+      />
+    </section>
+  )
+}
+
+function NdjcChatTextBubbleFrame({
+  children,
+  outgoing,
+  selected,
+  focused,
+  matched
+}: {
+  children: React.ReactNode
+  outgoing?: boolean
+  selected?: boolean
+  focused?: boolean
+  matched?: boolean
+}) {
+  return (
+    <div
+      className="ndjc-chat-text-bubble"
+      style={{
+        ...apkChatTextBubbleStyle(
+          outgoing,
+          selected,
+          focused,
+          matched
+        ),
+        width: 'fit-content',
+        minWidth: 0,
+        maxWidth: '100%',
+        display: 'grid',
+        gap: APK_CHAT_UI.richBubblePadding,
+        overflow: 'visible',
+        boxSizing: 'border-box',
+        justifySelf: outgoing ? 'end' : 'start'
+      }}
+    >
+      {children}
+    </div>
+  )
+}
+function NdjcChatBodyText({
+  body
+}: {
+  body: string
+}) {
+  const cleanBody = body.trim()
+  if (!cleanBody) return null
+
+  return (
+    <p
+      style={{
+        ...apkChatTextStyle,
+        width: 'auto',
+        minWidth: 0,
+        maxWidth: '100%',
+        boxSizing: 'border-box',
+        padding: `${APK_CHAT_UI.textBubblePaddingY}px ${APK_CHAT_UI.textBubblePaddingX}px`,
+        whiteSpace: 'pre-wrap',
+        overflowWrap: 'anywhere',
+        wordBreak: 'break-word'
+      }}
+    >
+      {cleanBody}
+    </p>
+  )
+}
+
+function NdjcChatPlainTextBubble({
+  body,
+  outgoing,
+  selected,
+  focused,
+  matched
+}: {
+  body: string
+  outgoing?: boolean
+  selected?: boolean
+  focused?: boolean
+  matched?: boolean
+}) {
+  const cleanBody = body.trim()
+  if (!cleanBody) return null
+
+  return (
+    <NdjcChatTextBubbleFrame
+      outgoing={outgoing}
+      selected={selected}
+      focused={focused}
+      matched={matched}
+    >
+      <NdjcChatBodyText body={cleanBody} />
+    </NdjcChatTextBubbleFrame>
+  )
+}
+
+function NdjcChatTextQuoteBubble({
+  body,
+  quoteText,
+  outgoing,
+  selected,
+  focused,
+  matched,
+  onJumpToQuote
+}: {
+  body: string
+  quoteText: string
+  outgoing?: boolean
+  selected?: boolean
+  focused?: boolean
+  matched?: boolean
+  onJumpToQuote: () => void
+}) {
+  const cleanBody = body.trim()
+  const cleanQuoteText = quoteText.trim()
+
+  if (!cleanBody && !cleanQuoteText) return null
+
+  return (
+    <NdjcChatTextBubbleFrame
+      outgoing={outgoing}
+      selected={selected}
+      focused={focused}
+      matched={matched}
+    >
+      <NdjcChatBodyText body={cleanBody} />
+
+      {cleanQuoteText ? (
+        <section
+          className="ndjc-chat-quote-width-shell"
+          style={{
+            width: '100%',
+            maxWidth: '100%',
+            minWidth: 0,
+            boxSizing: 'border-box'
+          }}
+        >
+          <NdjcChatQuoteBlock
+            text={cleanQuoteText}
+            onClick={onJumpToQuote}
+          />
+        </section>
+      ) : null}
+    </NdjcChatTextBubbleFrame>
+  )
+}
+
+function NdjcChatProductQuoteBubble({
+  body,
+  quoteProduct,
+  outgoing,
+  selected,
+  focused,
+  matched,
+  isProductAvailable,
+  onOpenProduct
+}: {
+  body: string
+  quoteProduct: ShowcaseChatProductShare
+  outgoing?: boolean
+  selected?: boolean
+  focused?: boolean
+  matched?: boolean
+  isProductAvailable?: (dishId: string) => boolean
+  onOpenProduct: (dishId: string) => void
+}) {
+  const cleanBody = body.trim()
+
+  return (
+    <NdjcChatTextBubbleFrame
+      outgoing={outgoing}
+      selected={selected}
+      focused={focused}
+      matched={matched}
+    >
+      <NdjcChatBodyText body={cleanBody} />
+
+<section
+  className="ndjc-chat-product-quote-shell"
+  style={{
+    width: '100%',
+    maxWidth: `min(100%, ${APK_CHAT_UI.productQuoteMaxWidth}px)`,
+    minWidth: 0,
+    boxSizing: 'border-box'
+  }}
+>
+        <NdjcChatQuotedProductBlock
+          product={quoteProduct}
+          available={
+            isProductAvailable
+              ? isProductAvailable(quoteProduct.dishId)
+              : true
+          }
+          onOpen={onOpenProduct}
+        />
+      </section>
+    </NdjcChatTextBubbleFrame>
   )
 }
 
@@ -15294,6 +18728,8 @@ function NdjcPendingProductBar({
   const cleanImageUrl = product.imageUrl?.trim() || null
   const cleanTitle = product.title?.trim() || 'Selected item'
   const cleanPrice = product.price?.trim() || ''
+  const cleanOriginalPrice = product.originalPriceText?.trim() || null
+  const cleanDiscountPrice = product.discountPriceText?.trim() || null
 
   return (
     <section className="ndjc-pending-product-bar" style={apkPendingProductBarStyle}>
@@ -15306,9 +18742,17 @@ function NdjcPendingProductBar({
           title={cleanTitle}
           imageUrl={cleanImageUrl}
           price={cleanPrice}
+          originalPrice={cleanOriginalPrice}
+          discountPrice={cleanDiscountPrice}
           available={available}
           allowClickWhenUnavailable={false}
           onOpen={() => onOpen(product.dishId)}
+          middle={
+            <NdjcItemStatusBadgeRow
+              recommended={product.isRecommended}
+              hidden={false}
+            />
+          }
         />
       </section>
 
@@ -15381,25 +18825,44 @@ function ChatMessageBubble({
   message,
   actions,
   quotePreviewText,
+  quoteProduct,
   imagePreviewPool,
   selectionMode,
   focused,
   matched,
   flashing,
-  onOpenImagePreview
+  menuOpen,
+  onOpenMenu,
+  onCloseMenu,
+  onOpenImagePreview,
+  onOpenAppointmentDetail
 }: {
   message: ShowcaseChatMessage
   actions: ShowcaseChatActions
   quotePreviewText: string
+  quoteProduct: ShowcaseChatProductShare | null
   imagePreviewPool: string[]
   selectionMode: boolean
   focused?: boolean
   matched?: boolean
   flashing?: boolean
+  menuOpen: boolean
+  onOpenMenu: () => void
+  onCloseMenu: () => void
   onOpenImagePreview: (url: string, pool: string[]) => void
+  onOpenAppointmentDetail: (appointment: ShowcaseChatAppointmentShare) => void
 }) {
-  const [menuOpen, setMenuOpen] = React.useState(false)
+  const articleRef = React.useRef<HTMLElement | null>(null)
   const longPressTimerRef = React.useRef<number | null>(null)
+  const longPressReleaseTimerRef = React.useRef<number | null>(null)
+  const pointerStartRef = React.useRef<{
+    pointerId: number
+    x: number
+    y: number
+  } | null>(null)
+  const suppressClickUntilRef = React.useRef(0)
+  const longPressTriggeredRef = React.useRef(false)
+  const [menuPlacement, setMenuPlacement] = React.useState<NdjcChatMessageMenuPlacement>('below')
 
   const unavailable = Boolean(
     actions.isProductAvailable &&
@@ -15408,6 +18871,65 @@ function ChatMessageBubble({
   )
 
   const isProductBubble = Boolean(message.product)
+  const isAppointmentBubble = Boolean(message.appointment)
+  const isImageOnlyBubble = Boolean(message.imageUrls.length && !message.body.trim() && !message.product && !message.appointment)
+
+  function shouldSuppressClick(): boolean {
+    return longPressTriggeredRef.current || Date.now() < suppressClickUntilRef.current
+  }
+
+  function suppressNextClick(): void {
+    suppressClickUntilRef.current = Date.now() + 760
+  }
+
+  function estimateMessageMenuHeight(): number {
+    const itemCount = isProductBubble || isAppointmentBubble || isImageOnlyBubble
+      ? 1
+      : message.body.trim()
+        ? 2
+        : 1
+
+    return (
+      APK_CHAT_UI.messageMenuPadding * 2 +
+      APK_CHAT_UI.messageMenuItemHeight * itemCount +
+      Math.max(0, itemCount - 1) * 2
+    )
+  }
+
+  function updateMessageMenuPlacement(): void {
+    const article = articleRef.current
+
+    if (!article || typeof window === 'undefined') {
+      setMenuPlacement('below')
+      return
+    }
+
+    const stack = article.querySelector('.ndjc-chat-message-stack')
+    const anchor = stack instanceof HTMLElement ? stack : article
+    const anchorRect = anchor.getBoundingClientRect()
+    const scrollBody = article.closest('.ndjc-conversation-body')
+    const boundaryRect = scrollBody instanceof HTMLElement
+      ? scrollBody.getBoundingClientRect()
+      : null
+
+    const boundaryTop = boundaryRect?.top ?? 0
+    const boundaryBottom = boundaryRect?.bottom ?? window.innerHeight
+    const menuHeight = estimateMessageMenuHeight()
+    const menuGap = 4
+    const safetyGap = 10
+    const availableBelow = boundaryBottom - anchorRect.bottom
+    const availableAbove = anchorRect.top - boundaryTop
+
+    if (
+      availableBelow < menuHeight + menuGap + safetyGap &&
+      availableAbove > availableBelow
+    ) {
+      setMenuPlacement('above')
+      return
+    }
+
+    setMenuPlacement('below')
+  }
 
   function clearLongPressTimer() {
     if (longPressTimerRef.current != null) {
@@ -15416,35 +18938,95 @@ function ChatMessageBubble({
     }
   }
 
+  function clearLongPressReleaseTimer() {
+    if (longPressReleaseTimerRef.current != null) {
+      window.clearTimeout(longPressReleaseTimerRef.current)
+      longPressReleaseTimerRef.current = null
+    }
+  }
+
   function openMessageMenu() {
     clearLongPressTimer()
-    setMenuOpen(true)
+    clearLongPressReleaseTimer()
+    longPressTriggeredRef.current = true
+    suppressNextClick()
+    updateMessageMenuPlacement()
+    onOpenMenu()
   }
 
   function closeMessageMenu() {
     clearLongPressTimer()
-    setMenuOpen(false)
+    onCloseMenu()
   }
 
-  function handlePointerDown() {
+  function handlePointerDown(event: React.PointerEvent<HTMLElement>) {
+    if (event.pointerType === 'mouse' && event.button !== 0) return
+
     clearLongPressTimer()
+    clearLongPressReleaseTimer()
+    longPressTriggeredRef.current = false
+
+    pointerStartRef.current = {
+      pointerId: event.pointerId,
+      x: event.clientX,
+      y: event.clientY
+    }
+
     longPressTimerRef.current = window.setTimeout(() => {
-      setMenuOpen(true)
+      openMessageMenu()
       longPressTimerRef.current = null
     }, 460)
   }
 
-  function handleCopy() {
-    if (message.product) {
-      actions.onUseProductCardAsPending(message.product)
-      closeMessageMenu()
+  function handlePointerMove(event: React.PointerEvent<HTMLElement>) {
+    const pointerStart = pointerStartRef.current
+    if (!pointerStart || pointerStart.pointerId !== event.pointerId) return
+
+    const deltaX = event.clientX - pointerStart.x
+    const deltaY = event.clientY - pointerStart.y
+    const distance = Math.sqrt((deltaX * deltaX) + (deltaY * deltaY))
+
+    if (distance > 10 && !longPressTriggeredRef.current) {
+      clearLongPressTimer()
+      pointerStartRef.current = null
+    }
+  }
+
+  function handlePointerEnd() {
+    clearLongPressTimer()
+    pointerStartRef.current = null
+
+    if (longPressTriggeredRef.current) {
+      suppressNextClick()
+      clearLongPressReleaseTimer()
+
+      longPressReleaseTimerRef.current = window.setTimeout(() => {
+        longPressTriggeredRef.current = false
+        longPressReleaseTimerRef.current = null
+      }, 780)
+    }
+  }
+
+  function handleClickCapture(event: React.MouseEvent<HTMLElement>) {
+    const target = event.target
+
+    if (
+      target instanceof Element &&
+      target.closest('[data-ndjc-chat-message-menu="true"]')
+    ) {
       return
     }
 
+    if (!shouldSuppressClick()) return
+
+    event.preventDefault()
+    event.stopPropagation()
+  }
+
+  async function handleCopy() {
     const text = message.body.trim()
-    if (text && typeof navigator !== 'undefined' && navigator.clipboard) {
-      void navigator.clipboard.writeText(text)
-    }
+
+    await copyTextToClipboard(text)
 
     closeMessageMenu()
   }
@@ -15454,28 +19036,129 @@ function ChatMessageBubble({
     closeMessageMenu()
   }
 
-  function handleSelect() {
-    if (selectionMode) {
-      actions.onExitSelection()
-    } else {
-      actions.onEnterSelection(message.id)
+  function handleSendAgain() {
+    if (message.product) {
+      actions.onUseProductCardAsPending(message.product)
+      closeMessageMenu()
+      return
+    }
+
+    if (message.appointment) {
+      actions.onUseAppointmentCardAsPending(message.appointment)
+      closeMessageMenu()
+      return
+    }
+
+    if (message.imageUrls.length) {
+      actions.onPickImages(message.imageUrls)
+      closeMessageMenu()
+      return
     }
 
     closeMessageMenu()
   }
 
-  function handleDelete() {
-    actions.onDeleteMessage(message.id)
-    closeMessageMenu()
-  }
-
   React.useEffect(() => {
-    return () => clearLongPressTimer()
+    return () => {
+      clearLongPressTimer()
+      clearLongPressReleaseTimer()
+    }
   }, [])
+
+  const hasQuotedTextBlock = Boolean(message.quotedMessageId && !quoteProduct)
+  const hasQuotedProductBlock = Boolean(message.quotedMessageId && quoteProduct)
+  const hasTextOrQuoteBubble = Boolean(message.body || hasQuotedTextBlock || hasQuotedProductBlock)
+  const isRichRetryBubble = Boolean(message.product || message.appointment)
+
+  const shouldShowRetryButton = Boolean(
+    message.outgoing &&
+    (message.failed || NDJC_CHAT_RETRY_BUTTON_PREVIEW)
+  )
+
+  const messageBubbleContent = (
+    <>
+      {message.product ? (
+        <ChatProductBubble
+          product={message.product}
+          available={!unavailable}
+          outgoing={message.outgoing}
+          selected={message.selected}
+          focused={focused}
+          matched={matched}
+          onOpen={actions.onOpenProductDetail}
+        />
+      ) : null}
+
+      {message.appointment ? (
+        <ChatAppointmentBubble
+          appointment={message.appointment}
+          outgoing={message.outgoing}
+          selected={message.selected}
+          focused={focused}
+          matched={matched}
+          onOpen={onOpenAppointmentDetail}
+        />
+      ) : null}
+
+      <NdjcChatImagesGridUi
+        urls={
+          selectShowcaseImageVariantList(message.imageVariants, 'chatThumb').length
+            ? selectShowcaseImageVariantList(message.imageVariants, 'chatThumb')
+            : selectChatImageUrls(message.imageUrls, 'chatThumb')
+        }
+        previewUrls={
+          selectShowcaseImageVariantList(message.imageVariants, 'chatPreview').length
+            ? selectShowcaseImageVariantList(message.imageVariants, 'chatPreview')
+            : selectChatImageUrls(message.imageUrls, 'chatPreview')
+        }
+        blurDataUrls={(message.imageVariants || []).map(item => selectShowcaseImageBlurDataUrl(item))}
+        outgoing={message.outgoing}
+        previewPool={imagePreviewPool}
+        shouldSuppressClick={shouldSuppressClick}
+        onOpen={onOpenImagePreview}
+      />
+
+      {hasTextOrQuoteBubble ? (
+        hasQuotedProductBlock && quoteProduct ? (
+          <NdjcChatProductQuoteBubble
+            body={message.body}
+            quoteProduct={quoteProduct}
+            outgoing={message.outgoing}
+            selected={message.selected}
+            focused={focused}
+            matched={matched}
+            isProductAvailable={actions.isProductAvailable}
+            onOpenProduct={actions.onOpenProductDetail}
+          />
+        ) : hasQuotedTextBlock ? (
+          <NdjcChatTextQuoteBubble
+            body={message.body}
+            quoteText={quotePreviewText || 'Quoted message'}
+            outgoing={message.outgoing}
+            selected={message.selected}
+            focused={focused}
+            matched={matched}
+            onJumpToQuote={() => actions.onJumpToMessage(message.quotedMessageId || '')}
+          />
+        ) : (
+          <NdjcChatPlainTextBubble
+            body={message.body}
+            outgoing={message.outgoing}
+            selected={message.selected}
+            focused={focused}
+            matched={matched}
+          />
+        )
+      ) : null}
+    </>
+  )
 
   return (
     <article
+      ref={articleRef}
       id={`chat-message-${message.id}`}
+      data-ndjc-chat-message-bubble="true"
+      data-ndjc-chat-message-id={message.id}
       className={cx(
         'ndjc-chat-message-row',
         message.outgoing && 'is-outgoing',
@@ -15495,80 +19178,115 @@ function ChatMessageBubble({
         openMessageMenu()
       }}
       onDoubleClick={openMessageMenu}
+      onClickCapture={handleClickCapture}
       onPointerDown={handlePointerDown}
-      onPointerUp={clearLongPressTimer}
-      onPointerCancel={clearLongPressTimer}
-      onPointerLeave={clearLongPressTimer}
+      onPointerMove={handlePointerMove}
+      onPointerUp={handlePointerEnd}
+      onPointerCancel={handlePointerEnd}
+      onPointerLeave={handlePointerEnd}
     >
       <div
         className="ndjc-chat-message-content-row"
         style={apkChatMessageContentRowStyle(message.outgoing)}
       >
-        {message.outgoing && message.failed ? (
-          <>
-            <button
-              type="button"
-              className="ndjc-chat-retry-button"
-              style={apkChatRetryButtonStyle()}
-              onClick={event => {
-                event.stopPropagation()
-                actions.onRetry(message.id)
-              }}
-              aria-label="Retry"
-            >
-              ↻
-            </button>
+        <div
+          className="ndjc-chat-message-stack"
+          style={apkChatMessageStackStyle(message.outgoing, message.failed)}
+        >
+          {shouldShowRetryButton ? (
+            isRichRetryBubble ? (
+              <div
+                className="ndjc-chat-rich-retry-bubble-host"
+                style={apkChatRichRetryBubbleHostStyle()}
+              >
+                <button
+                  type="button"
+                  className="ndjc-chat-retry-button"
+                  style={{
+                    ...apkChatRetryButtonStyle(),
+                    ...apkChatRichRetryButtonOverlayStyle()
+                  }}
+                  onClick={event => {
+                    event.preventDefault()
+                    event.stopPropagation()
 
-            <span
-              style={{
-                width: APK_CHAT_UI.retryButtonGap,
-                minWidth: APK_CHAT_UI.retryButtonGap
-              }}
-              aria-hidden="true"
-            />
-          </>
-        ) : null}
+                    if (message.failed) {
+                      actions.onRetry(message.id)
+                    }
+                  }}
+                  onPointerDown={event => {
+                    event.stopPropagation()
+                  }}
+                  aria-label={message.failed ? 'Retry failed message' : 'Retry button preview'}
+                  title={message.failed ? 'Retry' : 'Retry preview'}
+                >
+                  <svg
+                    viewBox="0 0 24 24"
+                    aria-hidden="true"
+                    focusable="false"
+                    style={apkChatRetryIconStyle}
+                  >
+                    <path
+                      d="M18.2 7.8A7.4 7.4 0 0 0 12.4 5C8.3 5 5 8.3 5 12.4C5 16.5 8.3 19.8 12.4 19.8C15.3 19.8 17.9 18.1 19.1 15.5C19.3 15 19.1 14.4 18.6 14.2C18.1 14 17.5 14.2 17.3 14.7C16.4 16.6 14.5 17.8 12.4 17.8C9.4 17.8 7 15.4 7 12.4C7 9.4 9.4 7 12.4 7C13.9 7 15.3 7.6 16.3 8.7H14.3C13.7 8.7 13.3 9.1 13.3 9.7C13.3 10.3 13.7 10.7 14.3 10.7H19.2C19.8 10.7 20.2 10.3 20.2 9.7V4.8C20.2 4.2 19.8 3.8 19.2 3.8C18.6 3.8 18.2 4.2 18.2 4.8V7.8Z"
+                      fill="currentColor"
+                    />
+                  </svg>
+                </button>
 
-        <div className="ndjc-chat-message-stack" style={apkChatMessageStackStyle(message.outgoing)}>
-          {message.quotedMessageId ? (
-            <NdjcChatQuoteBlock
-              text={quotePreviewText || 'Quoted message'}
-              onClick={() => actions.onJumpToMessage(message.quotedMessageId || '')}
-            />
-          ) : null}
+                {messageBubbleContent}
+              </div>
+            ) : (
+              <div className="ndjc-chat-failed-bubble-row" style={apkChatFailedBubbleRowStyle()}>
+                <button
+                  type="button"
+                  className="ndjc-chat-retry-button"
+                  style={apkChatRetryButtonStyle()}
+                  onClick={event => {
+                    event.preventDefault()
+                    event.stopPropagation()
 
-          {message.product ? (
-            <ChatProductBubble
-              product={message.product}
-              available={!unavailable}
-              outgoing={message.outgoing}
-              selected={message.selected}
-              focused={focused}
-              matched={matched}
-              onOpen={actions.onOpenProductDetail}
-            />
-          ) : null}
+                    if (message.failed) {
+                      actions.onRetry(message.id)
+                    }
+                  }}
+                  onPointerDown={event => {
+                    event.stopPropagation()
+                  }}
+                  aria-label={message.failed ? 'Retry failed message' : 'Retry button preview'}
+                  title={message.failed ? 'Retry' : 'Retry preview'}
+                >
+                  <svg
+                    viewBox="0 0 24 24"
+                    aria-hidden="true"
+                    focusable="false"
+                    style={apkChatRetryIconStyle}
+                  >
+                    <path
+                      d="M18.2 7.8A7.4 7.4 0 0 0 12.4 5C8.3 5 5 8.3 5 12.4C5 16.5 8.3 19.8 12.4 19.8C15.3 19.8 17.9 18.1 19.1 15.5C19.3 15 19.1 14.4 18.6 14.2C18.1 14 17.5 14.2 17.3 14.7C16.4 16.6 14.5 17.8 12.4 17.8C9.4 17.8 7 15.4 7 12.4C7 9.4 9.4 7 12.4 7C13.9 7 15.3 7.6 16.3 8.7H14.3C13.7 8.7 13.3 9.1 13.3 9.7C13.3 10.3 13.7 10.7 14.3 10.7H19.2C19.8 10.7 20.2 10.3 20.2 9.7V4.8C20.2 4.2 19.8 3.8 19.2 3.8C18.6 3.8 18.2 4.2 18.2 4.8V7.8Z"
+                      fill="currentColor"
+                    />
+                  </svg>
+                </button>
 
-          <NdjcChatImagesGridUi
-            urls={message.imageUrls}
-            outgoing={message.outgoing}
-            previewPool={imagePreviewPool}
-            onOpen={onOpenImagePreview}
-          />
+                <span
+                  style={{
+                    width: APK_CHAT_UI.retryButtonGap,
+                    minWidth: APK_CHAT_UI.retryButtonGap
+                  }}
+                  aria-hidden="true"
+                />
 
-          {message.body ? (
-            <div
-              className="ndjc-chat-text-bubble"
-              style={apkChatTextBubbleStyle(
-                message.outgoing,
-                message.selected,
-                focused,
-                matched
-              )}
-            >
-              <p style={apkChatTextStyle}>{message.body}</p>
-            </div>
-          ) : null}
+                <div
+                  className="ndjc-chat-bubble-only-stack"
+                  style={apkChatBubbleOnlyStackStyle(message.outgoing, false)}
+                >
+                  {messageBubbleContent}
+                </div>
+              </div>
+            )
+          ) : (
+            messageBubbleContent
+          )}
 
           {message.outgoing && message.statusText ? (
             <span className="ndjc-chat-message-status" style={apkChatTimeTextStyle}>
@@ -15578,51 +19296,77 @@ function ChatMessageBubble({
 
           {menuOpen ? (
             <section
+              data-ndjc-chat-message-menu="true"
               className="ndjc-chat-message-menu"
-              style={apkChatMessageMenuStyle(message.outgoing)}
+              style={apkChatMessageMenuStyle(message.outgoing, menuPlacement)}
               role="menu"
-              onPointerDown={event => event.stopPropagation()}
-              onClick={event => event.stopPropagation()}
+              onPointerDown={event => {
+                event.stopPropagation()
+              }}
+              onPointerUp={event => {
+                event.stopPropagation()
+              }}
+              onClick={event => {
+                event.preventDefault()
+                event.stopPropagation()
+              }}
             >
-              <button
-                type="button"
-                style={apkChatMessageMenuItemStyle(false)}
-                onClick={handleCopy}
-                role="menuitem"
-              >
-                Copy
-              </button>
-
-              {!isProductBubble ? (
+              {isProductBubble || isAppointmentBubble || isImageOnlyBubble ? (
                 <button
                   type="button"
                   style={apkChatMessageMenuItemStyle(false)}
-                  onClick={handleQuote}
+                  onPointerDown={event => {
+                    event.preventDefault()
+                    event.stopPropagation()
+                    handleSendAgain()
+                  }}
+                  onClick={event => {
+                    event.preventDefault()
+                    event.stopPropagation()
+                  }}
                   role="menuitem"
                 >
-                  Quote
+                  Send again
                 </button>
-              ) : null}
+              ) : (
+                <>
+                  {message.body.trim() ? (
+                    <button
+                      type="button"
+                      style={apkChatMessageMenuItemStyle(false)}
+                      onPointerDown={event => {
+                        event.preventDefault()
+                        event.stopPropagation()
+                        void handleCopy()
+                      }}
+                      onClick={event => {
+                        event.preventDefault()
+                        event.stopPropagation()
+                      }}
+                      role="menuitem"
+                    >
+                      Copy
+                    </button>
+                  ) : null}
 
-              <button
-                type="button"
-                style={apkChatMessageMenuItemStyle(false)}
-                onClick={handleSelect}
-                role="menuitem"
-              >
-                {selectionMode ? 'Exit selection' : 'Select'}
-              </button>
-
-              <button
-                type="button"
-                style={apkChatMessageMenuItemStyle(true)}
-                onClick={handleDelete}
-                role="menuitem"
-              >
-                Delete
-              </button>
-
-
+                  <button
+                    type="button"
+                    style={apkChatMessageMenuItemStyle(false)}
+                    onPointerDown={event => {
+                      event.preventDefault()
+                      event.stopPropagation()
+                      handleQuote()
+                    }}
+                    onClick={event => {
+                      event.preventDefault()
+                      event.stopPropagation()
+                    }}
+                    role="menuitem"
+                  >
+                    Quote
+                  </button>
+                </>
+              )}
             </section>
           ) : null}
         </div>
@@ -15685,9 +19429,10 @@ function MerchantChatThreadRow({
   onRequestRename: (threadId: string, title: string) => void
 }) {
   const [menuExpanded, setMenuExpanded] = React.useState(false)
+  const [pressed, setPressed] = React.useState(false)
   const longPressTimerRef = React.useRef<number | null>(null)
   const hasUnread = thread.unreadCount > 0
-  const previewText = thread.lastMessage || thread.subtitle || 'No messages yet'
+  const previewText = thread.lastMessage || 'No messages yet'
 
   function clearLongPressTimer(): void {
     if (longPressTimerRef.current == null) return
@@ -15746,15 +19491,34 @@ function MerchantChatThreadRow({
           gap: 4,
           color: APK_CHAT_UI.black,
           background: APK_CHAT_UI.white,
-          boxShadow: '0 1px 1px rgba(0, 0, 0, 0.08)',
+          boxShadow: pressed ? APK_SHELL_UI.backButtonPressedShadow : '0 1px 1px rgba(0, 0, 0, 0.08)',
           textAlign: 'left',
-          cursor: 'pointer'
+          cursor: 'pointer',
+          transform: pressed ? `scale(${APK_SHELL_UI.backButtonPressedScale})` : 'scale(1)',
+          transformOrigin: 'center center',
+          transition: `transform ${APK_SHELL_UI.backButtonPressedDurationMs}ms ease, box-shadow ${APK_SHELL_UI.backButtonPressedDurationMs}ms ease`,
+          WebkitTapHighlightColor: 'transparent',
+          touchAction: 'manipulation'
         }}
-        onPointerDown={startLongPressTimer}
-        onPointerUp={clearLongPressTimer}
-        onPointerCancel={clearLongPressTimer}
-        onPointerLeave={clearLongPressTimer}
+        onPointerDown={() => {
+          setPressed(true)
+          startLongPressTimer()
+        }}
+        onPointerUp={() => {
+          setPressed(false)
+          clearLongPressTimer()
+        }}
+        onPointerCancel={() => {
+          setPressed(false)
+          clearLongPressTimer()
+        }}
+        onPointerLeave={() => {
+          setPressed(false)
+          clearLongPressTimer()
+        }}
         onClick={() => {
+          setPressed(false)
+
           if (menuExpanded) {
             closeMenu()
             return
@@ -15954,19 +19718,6 @@ function MerchantChatThreadRow({
             >
               {thread.pinned ? 'Unpin' : 'Pin'}
             </button>
-
-            <button
-              type="button"
-              role="menuitem"
-              disabled={!hasUnread}
-              style={apkMerchantThreadMenuItemStyle(!hasUnread)}
-              onClick={() => {
-                closeMenu()
-                actions.onMarkRead(thread.conversationId)
-              }}
-            >
-              Mark as read
-            </button>
           </section>
         </>
       ) : null}
@@ -15976,19 +19727,23 @@ function MerchantChatThreadRow({
 
 export function ShowcaseMerchantChatListScreen({
   threads,
+  searchQuery,
   refreshing,
+  pagination,
   actions
 }: {
   threads: ShowcaseChatThreadSummaryUi[]
+  searchQuery: string
   refreshing: boolean
+  pagination: ShowcasePaginationUiState
   actions: ShowcaseMerchantChatListActions
 }) {
-  const [userQuery, setUserQuery] = React.useState('')
   const [renameDialogOpen, setRenameDialogOpen] = React.useState(false)
   const [renameThreadId, setRenameThreadId] = React.useState<string | null>(null)
   const [renameText, setRenameText] = React.useState('')
   const [pendingDeleteThreadId, setPendingDeleteThreadId] = React.useState<string | null>(null)
   const [pendingDeleteThreadTitle, setPendingDeleteThreadTitle] = React.useState('')
+  const [threadSubmittingAction, setThreadSubmittingAction] = React.useState<'rename' | 'delete' | null>(null)
   const headerRef = React.useRef<HTMLElement | null>(null)
   const [headerHeight, setHeaderHeight] = React.useState(0)
 
@@ -16015,6 +19770,8 @@ export function ShowcaseMerchantChatListScreen({
   }
 
   function closeRenameDialog(): void {
+    if (threadSubmittingAction) return
+
     setRenameDialogOpen(false)
     setRenameThreadId(null)
     setRenameText('')
@@ -16026,21 +19783,14 @@ export function ShowcaseMerchantChatListScreen({
   }
 
   function dismissDeleteThreadDialog(): void {
+    if (threadSubmittingAction) return
+
     setPendingDeleteThreadId(null)
     setPendingDeleteThreadTitle('')
   }
 
-  const visibleThreads = React.useMemo(() => {
-    const query = userQuery.trim().toLowerCase()
-
-    if (!query) return threads
-
-    return threads.filter(thread => {
-      return thread.title.toLowerCase().includes(query)
-    })
-  }, [threads, userQuery])
-
-  const queryIsBlank = userQuery.trim().length === 0
+  const visibleThreads = threads
+  const queryIsBlank = searchQuery.trim().length === 0
   const headerTopPadding = APK_PAGE_SHELL_UI.topCardOffset
   const listTopPadding = headerTopPadding + headerHeight + 8
 
@@ -16061,7 +19811,7 @@ export function ShowcaseMerchantChatListScreen({
           overflow: 'hidden'
         }}
       >
-        <NdjcPullRefreshContainer
+        <NdjcAdminPullRefreshContainer
           refreshing={refreshing}
           onRefresh={actions.onRefresh}
         >
@@ -16083,6 +19833,11 @@ export function ShowcaseMerchantChatListScreen({
               gap: 8,
               boxSizing: 'border-box'
             }}
+            onScroll={event => ndjcHandleLoadMoreScroll(
+              event,
+              pagination,
+              actions.onLoadMore
+            )}
           >
             {visibleThreads.length ? (
               <>
@@ -16096,7 +19851,13 @@ export function ShowcaseMerchantChatListScreen({
                   />
                 ))}
 
-                <NdjcNoMoreListFooter text="No more conversations" />
+                <NdjcPaginationFooter
+                  pagination={pagination}
+                  idleText="Load more"
+                  loadingText="Loading more..."
+                  endText="No more conversations"
+                  onLoadMore={actions.onLoadMore}
+                />
               </>
             ) : (
               <NdjcInlineEmptyState
@@ -16109,93 +19870,103 @@ export function ShowcaseMerchantChatListScreen({
               />
             )}
           </section>
-        </NdjcPullRefreshContainer>
 
-        <NdjcTopScrollFadeMask
-          className="ndjc-merchant-chat-header-scroll-mask"
-          solidRatio={0.58}
-          style={{
-            zIndex: 2
-          }}
-        />
-
-        <section
-          ref={headerRef}
-          className="ndjc-merchant-chat-header-wrap"
-          style={{
-            position: 'absolute',
-            zIndex: 3,
-            top: headerTopPadding,
-            left: APK_PAGE_SHELL_UI.screenPadding,
-            right: APK_PAGE_SHELL_UI.screenPadding,
-            width: `calc(100% - ${APK_PAGE_SHELL_UI.screenPadding * 2}px)`,
-            boxSizing: 'border-box'
-          }}
-        >
-          <NdjcWhiteCard
-            className="ndjc-merchant-chat-header-card"
+          <NdjcTopScrollFadeMask
+            className="ndjc-merchant-chat-header-scroll-mask"
+            solidRatio={0.58}
             style={{
-              width: '100%',
+              zIndex: 2
+            }}
+          />
+
+          <section
+            ref={headerRef}
+            className="ndjc-merchant-chat-header-wrap"
+            style={{
+              position: 'absolute',
+              zIndex: 3,
+              top: headerTopPadding,
+              left: APK_PAGE_SHELL_UI.screenPadding,
+              right: APK_PAGE_SHELL_UI.screenPadding,
+              width: `calc(100% - ${APK_PAGE_SHELL_UI.screenPadding * 2}px)`,
               boxSizing: 'border-box'
             }}
           >
-            <section
-              className="ndjc-merchant-chat-header-column"
+            <NdjcWhiteCard
+              className="ndjc-merchant-chat-header-card"
               style={{
                 width: '100%',
-                display: 'flex',
-                flexDirection: 'column',
-                gap: 10
+                boxSizing: 'border-box'
               }}
             >
-              <h1
+              <section
+                className="ndjc-merchant-chat-header-column"
                 style={{
-                  margin: 0,
-                  color: '#000000',
-                  fontSize: 24,
-                  lineHeight: 1.25,
-                  fontWeight: 600
+                  width: '100%',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: 10
                 }}
               >
-                Customer messages
-              </h1>
+                <h1
+                  style={{
+                    margin: 0,
+                    color: '#000000',
+                    fontSize: 24,
+                    lineHeight: 1.25,
+                    fontWeight: 600
+                  }}
+                >
+                  Customer messages
+                </h1>
 
-              <p
-                style={{
-                  margin: 0,
-                  color: 'rgba(0, 0, 0, 0.70)',
-                  fontSize: 12,
-                  lineHeight: 1.35,
-                  fontWeight: 400
-                }}
-              >
-                Manage conversations
-              </p>
+                <p
+                  style={{
+                    margin: 0,
+                    color: 'rgba(0, 0, 0, 0.70)',
+                    fontSize: 12,
+                    lineHeight: 1.35,
+                    fontWeight: 400
+                  }}
+                >
+                  Manage conversations
+                </p>
 
-              <NdjcTextField
-                value={userQuery}
-                onChange={setUserQuery}
-                label="Search customers"
-                singleLine
-              />
-            </section>
-          </NdjcWhiteCard>
-        </section>
+                <NdjcAdminPageProgressSlot active={refreshing} />
+
+                <NdjcTextField
+                  value={searchQuery}
+                  onChange={actions.onSearchQueryChange}
+                  label="Search customers"
+                  singleLine
+                />
+              </section>
+            </NdjcWhiteCard>
+          </section>
+        </NdjcAdminPullRefreshContainer>
 
         {renameDialogOpen ? (
           <NdjcBaseDialog
             title="Rename conversation"
             confirmText="Save"
             dismissText="Cancel"
-            confirmEnabled={renameText.trim().length > 0}
+            confirmEnabled={renameText.trim().length > 0 && !threadSubmittingAction}
+            confirmLoading={threadSubmittingAction === 'rename'}
             onConfirmClick={() => {
               const id = renameThreadId
 
-              if (id?.trim()) {
-                actions.onRenameThread(id, renameText)
-              }
+              if (!id?.trim() || threadSubmittingAction) return
 
-              closeRenameDialog()
+              setThreadSubmittingAction('rename')
+              void Promise.resolve(actions.onRenameThread(id, renameText))
+                .then(() => {
+                  setRenameDialogOpen(false)
+                  setRenameThreadId(null)
+                  setRenameText('')
+                })
+                .finally(() => {
+                  setThreadSubmittingAction(null)
+                })
             }}
             onDismissClick={closeRenameDialog}
             onDismissRequest={closeRenameDialog}
@@ -16217,14 +19988,22 @@ export function ShowcaseMerchantChatListScreen({
             confirmText="Delete"
             dismissText="Cancel"
             destructiveConfirm
+            confirmEnabled={!threadSubmittingAction}
+            confirmLoading={threadSubmittingAction === 'delete'}
             onConfirmClick={() => {
               const id = pendingDeleteThreadId
 
-              if (id.trim()) {
-                actions.onDeleteThread(id)
-              }
+              if (!id.trim() || threadSubmittingAction) return
 
-              dismissDeleteThreadDialog()
+              setThreadSubmittingAction('delete')
+              void Promise.resolve(actions.onDeleteThread(id))
+                .then(() => {
+                  setPendingDeleteThreadId(null)
+                  setPendingDeleteThreadTitle('')
+                })
+                .finally(() => {
+                  setThreadSubmittingAction(null)
+                })
             }}
             onDismissClick={dismissDeleteThreadDialog}
             onDismissRequest={dismissDeleteThreadDialog}
@@ -16243,6 +20022,7 @@ export function ShowcaseChatSearchResults({
   actions: ShowcaseChatActions
 }) {
   const results = state.searchResults
+  const [pressedSearchResultKey, setPressedSearchResultKey] = React.useState<string | null>(null)
 
   const hint = state.findQuery.trim()
     ? `${results.length} result${results.length === 1 ? '' : 's'}`
@@ -16270,6 +20050,11 @@ export function ShowcaseChatSearchResults({
           overflowX: 'hidden',
           WebkitOverflowScrolling: 'touch'
         }}
+        onScroll={event => ndjcHandleLoadMoreScroll(
+          event,
+          state.searchPagination,
+          actions.onLoadMoreSearchResults
+        )}
       >
         <NdjcTopScrollFadeMask
           className="ndjc-chat-search-results-scroll-mask"
@@ -16398,126 +20183,116 @@ export function ShowcaseChatSearchResults({
                   {hint}
                 </span>
               </section>
+            </section>
+          </section>
+        </NdjcWhiteCard>
 
-              {results.length ? (
-                <>
-                  <div style={{ height: 8, flexShrink: 0 }} />
+        {results.length ? (
+          <section
+            className="ndjc-chat-search-results-outside-list"
+            style={{
+              position: 'relative',
+              zIndex: 3,
+              width: '100%',
+              boxSizing: 'border-box',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 8,
+              marginTop: 8
+            }}
+          >
+            {results.map(result => {
+              const resultKey = `${result.conversationId}-${result.messageId || 'name'}-${result.createdAtText}`
+              const pressed = pressedSearchResultKey === resultKey
 
-                  <h2
+              return (
+                <section
+                  key={resultKey}
+                  className="ndjc-chat-search-result-row"
+                  style={{
+                    width: '100%',
+                    borderRadius: 14,
+                    background: '#FFFFFF',
+                    boxShadow: pressed ? APK_SHELL_UI.backButtonPressedShadow : '0 2px 8px rgba(0, 0, 0, 0.10)',
+                    overflow: 'hidden',
+                    transform: pressed ? `scale(${APK_SHELL_UI.backButtonPressedScale})` : 'scale(1)',
+                    transformOrigin: 'center center',
+                    transition: `transform ${APK_SHELL_UI.backButtonPressedDurationMs}ms ease, box-shadow ${APK_SHELL_UI.backButtonPressedDurationMs}ms ease`
+                  }}
+                >
+                  <button
+                    type="button"
                     style={{
-                      margin: 0,
+                      width: '100%',
+                      border: 0,
+                      padding: '10px 12px',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'stretch',
                       color: '#000000',
-                      fontSize: 14,
-                      lineHeight: 1.35,
-                      fontWeight: 600
+                      background: 'transparent',
+                      boxShadow: 'none',
+                      textAlign: 'left',
+                      cursor: 'pointer',
+                      WebkitTapHighlightColor: 'transparent',
+                      touchAction: 'manipulation'
+                    }}
+                    onPointerDown={() => {
+                      setPressedSearchResultKey(resultKey)
+                    }}
+                    onPointerUp={() => {
+                      setPressedSearchResultKey(null)
+                    }}
+                    onPointerCancel={() => {
+                      setPressedSearchResultKey(null)
+                    }}
+                    onPointerLeave={() => {
+                      setPressedSearchResultKey(null)
+                    }}
+                    onClick={() => {
+                      setPressedSearchResultKey(null)
+                      actions.onOpenThreadFromSearch(result.conversationId, result.messageId)
                     }}
                   >
-                    Results
-                  </h2>
-
                   <section
-                    className="ndjc-chat-search-result-list"
                     style={{
                       width: '100%',
                       display: 'flex',
-                      flexDirection: 'column',
-                      gap: 8
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      gap: 10
                     }}
                   >
-                    {results.map(result => (
-                      <section
-                        key={`${result.conversationId}-${result.messageId || 'name'}-${result.createdAtText}`}
-                        className="ndjc-chat-search-result-row"
-                        style={{
-                          width: '100%',
-                          borderRadius: 14,
-                          background: '#FFFFFF',
-                          boxShadow: '0 2px 8px rgba(0, 0, 0, 0.10)',
-                          overflow: 'hidden'
-                        }}
-                      >
-                        <button
-                          type="button"
-                          style={{
-                            width: '100%',
-                            border: 0,
-                            padding: '10px 12px',
-                            display: 'flex',
-                            flexDirection: 'column',
-                            alignItems: 'stretch',
-                            color: '#000000',
-                            background: 'transparent',
-                            boxShadow: 'none',
-                            textAlign: 'left',
-                            cursor: 'pointer'
-                          }}
-                          onClick={() => actions.onOpenThreadFromSearch(result.conversationId, result.messageId)}
-                        >
-                          <section
-                            style={{
-                              width: '100%',
-                              display: 'flex',
-                              justifyContent: 'space-between',
-                              alignItems: 'center',
-                              gap: 10
-                            }}
-                          >
-                            <span
-                              style={{
-                                minWidth: 0,
-                                color: 'rgba(0, 0, 0, 0.62)',
-                                fontSize: 12,
-                                lineHeight: 1.35,
-                                fontWeight: 400,
-                                overflow: 'hidden',
-                                textOverflow: 'ellipsis',
-                                whiteSpace: 'nowrap'
-                              }}
-                            >
-                              {result.senderLabel}
-                            </span>
+                    <span
+                      style={{
+                        minWidth: 0,
+                        color: 'rgba(0, 0, 0, 0.62)',
+                        fontSize: 12,
+                        lineHeight: 1.35,
+                        fontWeight: 400,
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        whiteSpace: 'nowrap'
+                      }}
+                    >
+                      {result.senderLabel}
+                    </span>
 
-                            <span
-                              style={{
-                                flexShrink: 0,
-                                color: 'rgba(0, 0, 0, 0.62)',
-                                fontSize: 12,
-                                lineHeight: 1.35,
-                                fontWeight: 400,
-                                whiteSpace: 'nowrap'
-                              }}
-                            >
-                              {result.createdAtText}
-                            </span>
-                          </section>
-
-                          <div style={{ height: 6, flexShrink: 0 }} />
-
-                          <p
-                            style={{
-                              margin: 0,
-                              color: 'rgba(0, 0, 0, 0.62)',
-                              fontSize: 14,
-                              lineHeight: 1.45,
-                              fontWeight: 400,
-                              display: '-webkit-box',
-                              WebkitLineClamp: 2,
-                              WebkitBoxOrient: 'vertical',
-                              overflow: 'hidden'
-                            }}
-                          >
-                            {highlightQueryText(result.snippet, state.findQuery)}
-                          </p>
-                        </button>
-                      </section>
-                    ))}
+                    <span
+                      style={{
+                        flexShrink: 0,
+                        color: 'rgba(0, 0, 0, 0.62)',
+                        fontSize: 12,
+                        lineHeight: 1.35,
+                        fontWeight: 400,
+                        whiteSpace: 'nowrap'
+                      }}
+                    >
+                      {result.createdAtText}
+                    </span>
                   </section>
-                </>
-              ) : null}
 
-              {state.findQuery.trim() && !results.length ? (
-                <>
-                  <div style={{ height: 10, flexShrink: 0 }} />
+                  <div style={{ height: 6, flexShrink: 0 }} />
 
                   <p
                     style={{
@@ -16525,16 +20300,62 @@ export function ShowcaseChatSearchResults({
                       color: 'rgba(0, 0, 0, 0.62)',
                       fontSize: 14,
                       lineHeight: 1.45,
-                      fontWeight: 400
+                      fontWeight: 400,
+                      display: '-webkit-box',
+                      WebkitLineClamp: 2,
+                      WebkitBoxOrient: 'vertical',
+                      overflow: 'hidden'
                     }}
                   >
-                    No results found
+                    {highlightQueryText(result.snippet, state.findQuery)}
                   </p>
-                </>
-              ) : null}
-            </section>
+                  </button>
+                </section>
+              )
+            })}
           </section>
-        </NdjcWhiteCard>
+        ) : null}
+
+        {state.findQuery.trim() && !results.length && !state.searchPagination.isLoadingMore ? (
+          <section
+            className="ndjc-chat-search-results-empty-wrap"
+            style={{
+              position: 'relative',
+              zIndex: 3,
+              width: '100%',
+              boxSizing: 'border-box',
+              marginTop: 8
+            }}
+          >
+            <NdjcInlineEmptyState
+              title="No results found"
+              message="Try a different keyword."
+              verticalPadding={32}
+            />
+          </section>
+        ) : null}
+
+        {state.findQuery.trim() || results.length ? (
+          <section
+            className="ndjc-chat-search-results-pagination-wrap"
+            style={{
+              position: 'relative',
+              zIndex: 3,
+              width: '100%',
+              boxSizing: 'border-box',
+              marginTop: 8,
+              paddingBottom: 12
+            }}
+          >
+            <NdjcPaginationFooter
+              pagination={state.searchPagination}
+              idleText="Load more"
+              loadingText="Loading more..."
+              endText={results.length > 0 ? 'No more results' : ''}
+              onLoadMore={actions.onLoadMoreSearchResults}
+            />
+          </section>
+        ) : null}
       </section>
     </NdjcUnifiedBackground>
   )
@@ -16582,6 +20403,9 @@ export function ShowcaseChatThread({
   } | null>(null)
   const photoLibraryInputRef = React.useRef<HTMLInputElement | null>(null)
   const cameraInputRef = React.useRef<HTMLInputElement | null>(null)
+  const plusMenuButtonRef = React.useRef<HTMLButtonElement | null>(null)
+  const plusMenuPanelRef = React.useRef<HTMLElement | null>(null)
+  const chatComposerTextareaRef = React.useRef<HTMLTextAreaElement | null>(null)
   const draftImageRowRef = React.useRef<HTMLElement | null>(null)
   const draftImageRowPointerRef = React.useRef<{
     pointerId: number
@@ -16591,6 +20415,12 @@ export function ShowcaseChatThread({
   } | null>(null)
   const draftImageClickSuppressUntilRef = React.useRef(0)
   const [activeFlashMessageId, setActiveFlashMessageId] = React.useState<string | null>(null)
+  const [appointmentDetailsItem, setAppointmentDetailsItem] = React.useState<ShowcaseAppointmentCard | null>(null)
+  const [activeMessageMenuId, setActiveMessageMenuId] = React.useState<string | null>(null)
+
+  const closeAppointmentDetailsSheet = React.useCallback(() => {
+    setAppointmentDetailsItem(null)
+  }, [])
 
   const previewDraftImages = React.useMemo(() => {
     return Array.from(new Set(
@@ -16603,14 +20433,71 @@ export function ShowcaseChatThread({
   const canSend = !state.isSending && Boolean(
     state.draft.trim() ||
     previewDraftImages.length ||
-    state.pendingProduct
+    state.pendingProduct ||
+    state.pendingAppointment
   )
 
+  const resizeChatComposerTextarea = React.useCallback((textarea: HTMLTextAreaElement) => {
+    const minHeight = APK_CHAT_UI.inputMinHeight - APK_CHAT_UI.inputPaddingY * 2
+    const maxHeight = APK_CHAT_UI.inputMaxHeight - APK_CHAT_UI.inputPaddingY * 2
+
+    textarea.style.height = 'auto'
+
+    const nextHeight = Math.max(
+      minHeight,
+      Math.min(textarea.scrollHeight, maxHeight)
+    )
+
+    textarea.style.height = `${nextHeight}px`
+    textarea.style.overflowY = textarea.scrollHeight > maxHeight ? 'auto' : 'hidden'
+  }, [])
+
+  React.useLayoutEffect(() => {
+    const textarea = chatComposerTextareaRef.current
+    if (!textarea) return
+
+    resizeChatComposerTextarea(textarea)
+  }, [resizeChatComposerTextarea, state.draft])
+
+  React.useEffect(() => {
+    if (!plusMenuExpanded) return
+    if (typeof document === 'undefined') return
+
+    const handlePointerDown = (event: PointerEvent) => {
+      const target = event.target instanceof Node ? event.target : null
+      if (!target) return
+
+      const button = plusMenuButtonRef.current
+      const panel = plusMenuPanelRef.current
+
+      if (button?.contains(target)) return
+      if (panel?.contains(target)) return
+
+      setPlusMenuExpanded(false)
+    }
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setPlusMenuExpanded(false)
+      }
+    }
+
+    document.addEventListener('pointerdown', handlePointerDown, true)
+    document.addEventListener('keydown', handleKeyDown, true)
+
+    return () => {
+      document.removeEventListener('pointerdown', handlePointerDown, true)
+      document.removeEventListener('keydown', handleKeyDown, true)
+    }
+  }, [plusMenuExpanded])
+
   function openPhotoLibrary(): void {
+    setPlusMenuExpanded(false)
     photoLibraryInputRef.current?.click()
   }
 
   function openCameraCapture(): void {
+    setPlusMenuExpanded(false)
     cameraInputRef.current?.click()
   }
 
@@ -16697,19 +20584,11 @@ export function ShowcaseChatThread({
   }
 
   function minuteKey(value: string) {
-    const text = value.trim()
-    if (!text) return ''
-    const datePart = text.length >= 10 ? text.slice(0, 10) : ''
-    const clockPart = text.includes(' ') ? text.substring(text.indexOf(' ') + 1) : text
-    return datePart && clockPart ? `${datePart}|${clockPart}` : text
+    return value.trim().replace(/\s+/g, ' ')
   }
 
   function timeHeaderText(value: string) {
-    const text = value.trim()
-    if (!text) return ''
-    const datePart = text.length >= 10 ? text.slice(0, 10) : ''
-    const clockPart = text.includes(' ') ? text.substring(text.indexOf(' ') + 1) : text
-    return datePart ? `${datePart}  ${clockPart}` : clockPart
+    return value.trim().replace(/\s+/g, ' ')
   }
 
   const messageById = React.useMemo(() => {
@@ -16722,10 +20601,10 @@ export function ShowcaseChatThread({
 
   const allThreadImageUrls = React.useMemo(() => {
     return Array.from(new Set(
-      state.messages
-        .flatMap(message => message.imageUrls)
-        .map(url => url.trim())
-        .filter(Boolean)
+      state.messages.flatMap(message => {
+        const variantUrls = selectShowcaseImageVariantList(message.imageVariants, 'chatPreview')
+        return variantUrls.length ? variantUrls : selectChatImageUrls(message.imageUrls, 'chatPreview')
+      })
     ))
   }, [state.messages])
 
@@ -16747,13 +20626,62 @@ export function ShowcaseChatThread({
     })
   }
 
+  function openAppointmentShareDetails(appointment: ShowcaseChatAppointmentShare): void {
+    setAppointmentDetailsItem(chatAppointmentShareToCard(appointment))
+  }
+
+  const [chatIsNearBottom, setChatIsNearBottom] = React.useState(true)
+
   const chatScrollKey = [
     state.messages[state.messages.length - 1]?.id || 'empty',
-    state.messages.length,
     previewDraftImages.length,
     state.pendingProduct?.dishId || 'no-product',
+    state.pendingAppointment?.appointmentId || 'no-appointment',
     state.quotedMessageId || 'no-quote'
   ].join('|')
+
+  const chatPreserveScrollAnchorKey = [
+    state.messages[0]?.id || 'empty',
+    state.messages.length
+  ].join('|')
+
+  const chatHasPendingMessageJump = Boolean(
+    state.scrollToMessageId?.trim() &&
+    state.scrollToMessageSignal
+  )
+
+  const chatShouldBlockAutoScrollToBottom = Boolean(
+    state.windowMode === 'aroundMessage' ||
+    chatHasPendingMessageJump
+  )
+
+  const chatShouldAutoScrollToBottom = Boolean(
+    chatIsNearBottom &&
+    !chatShouldBlockAutoScrollToBottom
+  )
+
+  function handleChatContentScroll(event: React.UIEvent<HTMLElement>): void {
+    const element = event.currentTarget
+    const distanceFromBottom = element.scrollHeight - element.scrollTop - element.clientHeight
+    const isNearBottom = distanceFromBottom <= 120
+
+    setChatIsNearBottom(isNearBottom)
+
+    ndjcHandleLoadOlderScroll(
+      event,
+      state.pagination,
+      actions.onLoadOlderMessages
+    )
+
+    if (
+      state.windowMode === 'aroundMessage' &&
+      state.hasNewerMessages &&
+      !state.isLoadingNewerMessages &&
+      isNearBottom
+    ) {
+      void Promise.resolve(actions.onLoadNewerMessages())
+    }
+  }
 
   React.useLayoutEffect(() => {
     const targetId = state.scrollToMessageId?.trim()
@@ -16769,7 +20697,7 @@ export function ShowcaseChatThread({
       if (!target) return
 
       target.scrollIntoView({
-        behavior: 'smooth',
+        behavior: 'auto',
         block: 'center',
         inline: 'nearest'
       })
@@ -16808,17 +20736,80 @@ export function ShowcaseChatThread({
     }
   }, [state.flashMessageId, state.flashSignal])
 
+  React.useEffect(() => {
+    if (!activeMessageMenuId) return
+
+    function handleDocumentPointerDown(event: PointerEvent): void {
+      const target = event.target instanceof HTMLElement ? event.target : null
+      if (!target) return
+
+      if (target.closest('[data-ndjc-chat-message-menu="true"]')) return
+
+      setActiveMessageMenuId(null)
+    }
+
+    document.addEventListener('pointerdown', handleDocumentPointerDown, true)
+
+    return () => {
+      document.removeEventListener('pointerdown', handleDocumentPointerDown, true)
+    }
+  }, [activeMessageMenuId])
+
+  React.useEffect(() => {
+    setActiveMessageMenuId(null)
+  }, [
+    state.messages.length,
+    state.selectionMode,
+    state.focusedMessageId,
+    state.findQuery,
+    state.scrollToMessageId
+  ])
+
+  function quoteProductFor(message: ShowcaseChatMessage): ShowcaseChatProductShare | null {
+    const directQuotePreview = String(message.quotePreviewText || '').trim()
+    const parsedQuoteProduct = directQuotePreview
+      ? parseNdjcProductBlock(directQuotePreview)
+      : null
+
+    if (parsedQuoteProduct) {
+      return chatProductShareFromParsedProduct(parsedQuoteProduct)
+    }
+
+    const quotedId = message.quotedMessageId?.trim()
+    if (!quotedId) return null
+
+    const quotedMessage = messageById.get(quotedId)
+    if (!quotedMessage?.product) return null
+
+    return quotedMessage.product
+  }
+
   function quotePreviewFor(message: ShowcaseChatMessage): string {
+    const directQuotePreview = String(message.quotePreviewText || '').trim()
+    const directQuoteProduct = directQuotePreview
+      ? parseNdjcProductBlock(directQuotePreview)
+      : null
+
+    if (directQuoteProduct) return directQuoteProduct.title || 'Shared item'
+    if (directQuotePreview) return directQuotePreview
+
     const quotedId = message.quotedMessageId?.trim()
     if (!quotedId) return ''
 
     const quotedMessage = messageById.get(quotedId)
     if (!quotedMessage) return ''
 
-    if (quotedMessage.body.trim()) return quotedMessage.body.trim()
-    if (quotedMessage.product) return quotedMessage.product.title || 'Shared item'
-    if (quotedMessage.imageUrls.length) return 'Photo'
-    return 'Quoted message'
+    return quotePreviewTextFromMessage(quotedMessage)
+  }
+
+  function composerQuoteProduct(): ShowcaseChatProductShare | null {
+    const quotedId = state.quotedMessageId?.trim()
+    if (!quotedId) return null
+
+    const quotedMessage = messageById.get(quotedId)
+    if (!quotedMessage?.product) return null
+
+    return quotedMessage.product
   }
 
   function composerQuotePreviewText(): string {
@@ -16828,14 +20819,12 @@ export function ShowcaseChatThread({
     const quotedMessage = messageById.get(quotedId)
     if (!quotedMessage) return 'Selected message'
 
-    if (quotedMessage.body.trim()) return quotedMessage.body.trim()
-    if (quotedMessage.product) return quotedMessage.product.title || 'Shared item'
-    if (quotedMessage.imageUrls.length) return 'Photo'
-    return 'Quoted message'
+    return quotePreviewTextFromMessage(quotedMessage)
   }
 
   return (
     <NdjcUnifiedBackground
+      className="ndjc-chat-keyboard-shell"
       topNav={{
         onBack: actions.onBack,
         onHome: actions.onBackToHome
@@ -16855,7 +20844,11 @@ export function ShowcaseChatThread({
         contentPaddingX={APK_CHAT_UI.bodyPaddingX}
         verticalItemSpacing={APK_CHAT_UI.messageRowGap}
         contentScrollKey={chatScrollKey}
+        contentAutoScrollToBottom={chatShouldAutoScrollToBottom}
+        contentForceScrollToBottomSignal={state.scrollToBottomSignal}
+        contentPreserveScrollAnchorKey={chatPreserveScrollAnchorKey}
         contentTrailingSpacerHeight={APK_CHAT_UI.chatBubbleToDividerGap}
+        onContentScroll={handleChatContentScroll}
         topBarActions={
           state.selectionMode ? (
             <>
@@ -16955,11 +20948,29 @@ export function ShowcaseChatThread({
           ) : (
             <>
               {state.quotedMessageId ? (
-                <NdjcQuotedProductBar
-                  text={composerQuotePreviewText()}
-                  onCancel={actions.onCancelQuote}
-                  onClick={() => actions.onJumpToMessage(state.quotedMessageId || '')}
-                />
+                composerQuoteProduct() ? (
+                  <NdjcComposerProductQuoteBar
+                    product={composerQuoteProduct() as ShowcaseChatProductShare}
+                    available={
+                      actions.isProductAvailable
+                        ? actions.isProductAvailable((composerQuoteProduct() as ShowcaseChatProductShare).dishId)
+                        : true
+                    }
+                    onCancel={actions.onCancelQuote}
+                    onClick={() => {
+                      const product = composerQuoteProduct()
+                      if (product) {
+                        actions.onOpenProductDetail(product.dishId)
+                      }
+                    }}
+                  />
+                ) : (
+                  <NdjcComposerTextQuoteBar
+                    text={composerQuotePreviewText()}
+                    onCancel={actions.onCancelQuote}
+                    onClick={() => actions.onJumpToMessage(state.quotedMessageId || '')}
+                  />
+                )
               ) : null}
 
               {previewDraftImages.length ? (
@@ -17106,6 +21117,15 @@ export function ShowcaseChatThread({
                 />
               ) : null}
 
+              {state.pendingAppointment ? (
+                <NdjcPendingAppointmentBar
+                  appointment={state.pendingAppointment}
+                  onOpen={openAppointmentShareDetails}
+                  onSend={actions.onSendPendingAppointment}
+                  onClear={actions.onClearPendingAppointment}
+                />
+              ) : null}
+
               <section
                 className="ndjc-chat-composer-row"
                 style={{
@@ -17113,9 +21133,9 @@ export function ShowcaseChatThread({
                   width: '100%',
                   minWidth: 0,
                   display: 'grid',
-                  gridTemplateColumns: `${APK_CHAT_UI.attachButtonSize}px minmax(0, 1fr) max-content`,
+                  gridTemplateColumns: `${APK_CHAT_UI.attachButtonSize}px minmax(0, 1fr) ${APK_CHAT_UI.toolButtonWidth}px`,
                   gap: 8,
-                  alignItems: 'center',
+                  alignItems: 'end',
                   boxSizing: 'border-box'
                 }}
               >
@@ -17138,6 +21158,7 @@ export function ShowcaseChatThread({
                 />
 
                 <button
+                  ref={plusMenuButtonRef}
                   type="button"
                   style={{
                     width: APK_CHAT_UI.attachButtonSize,
@@ -17153,6 +21174,7 @@ export function ShowcaseChatThread({
                     lineHeight: 1
                   }}
                   onClick={() => setPlusMenuExpanded(value => !value)}
+                  aria-expanded={plusMenuExpanded}
                   aria-label="Attachments"
                 >
                   <svg
@@ -17174,6 +21196,7 @@ export function ShowcaseChatThread({
 
                 {plusMenuExpanded ? (
                   <section
+                    ref={plusMenuPanelRef}
                     className="ndjc-chat-plus-menu"
                     style={apkChatPlusMenuStyle}
                   >
@@ -17240,11 +21263,15 @@ export function ShowcaseChatThread({
                   style={apkChatInputShellStyle}
                 >
                   <textarea
+                    ref={chatComposerTextareaRef}
                     className="ndjc-chat-input"
                     style={apkChatTextareaStyle}
                     value={state.draft}
                     placeholder={state.inputPlaceholder || 'Message'}
-                    onChange={event => actions.onDraftChange(event.currentTarget.value)}
+                    onChange={event => {
+                      resizeChatComposerTextarea(event.currentTarget)
+                      actions.onDraftChange(event.currentTarget.value)
+                    }}
                     rows={1}
                   />
                 </span>
@@ -17252,25 +21279,33 @@ export function ShowcaseChatThread({
                 <button
                   type="button"
                   style={{
+                    width: APK_CHAT_UI.toolButtonWidth,
+                    minWidth: APK_CHAT_UI.toolButtonWidth,
+                    maxWidth: APK_CHAT_UI.toolButtonWidth,
                     height: APK_CHAT_UI.toolButtonHeight,
                     minHeight: APK_CHAT_UI.toolButtonHeight,
                     maxHeight: APK_CHAT_UI.toolButtonHeight,
                     border: 0,
                     borderRadius: APK_CHAT_UI.toolButtonRadius,
-                    padding: '0 16px',
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
+                    padding: 0,
+                    margin: 0,
+                    display: 'grid',
+                    placeItems: 'center',
                     color: '#ffffff',
                     background: APK_FILTER_UI.chipSelectedBg,
                     boxShadow: canSend ? '0 2px 6px rgba(0, 0, 0, 0.10)' : 'none',
                     fontSize: 14,
                     lineHeight: 1,
                     fontWeight: 600,
+                    fontFamily: 'inherit',
+                    textAlign: 'center',
                     whiteSpace: 'nowrap',
-                    transform: 'translateY(-1.5px)',
                     opacity: canSend ? 1 : 0.58,
-                    cursor: canSend ? 'pointer' : 'not-allowed'
+                    cursor: canSend ? 'pointer' : 'not-allowed',
+                    overflow: 'hidden',
+                    boxSizing: 'border-box',
+                    appearance: 'none',
+                    WebkitAppearance: 'none'
                   }}
                   disabled={!canSend}
                   onClick={() => {
@@ -17278,7 +21313,22 @@ export function ShowcaseChatThread({
                     actions.onSend()
                   }}
                 >
-                  {state.isSending ? 'Loading' : 'Send'}
+                  {state.isSending ? (
+                    <NdjcSpinner size={16} stroke={2} tone="light" />
+                  ) : (
+                    <span
+                      style={{
+                        width: '100%',
+                        height: '100%',
+                        display: 'grid',
+                        placeItems: 'center',
+                        lineHeight: 1,
+                        textAlign: 'center'
+                      }}
+                    >
+                      Send
+                    </span>
+                  )}
                 </button>
               </section>
             </>
@@ -17315,6 +21365,14 @@ export function ShowcaseChatThread({
 
       <ChatFindBar state={state} actions={actions} />
 
+      <NdjcPaginationFooter
+        pagination={state.pagination}
+        idleText="Load earlier messages"
+        loadingText="Loading earlier messages..."
+        endText=""
+        onLoadMore={actions.onLoadOlderMessages}
+      />
+
       {state.messages.length ? (
         state.messages.map((message, index) => {
           const currentKey = minuteKey(message.createdAtText)
@@ -17331,16 +21389,34 @@ export function ShowcaseChatThread({
                 message={message}
                 actions={actions}
                 quotePreviewText={quotePreviewFor(message)}
+                quoteProduct={quoteProductFor(message)}
                 imagePreviewPool={allThreadImageUrls}
                 selectionMode={state.selectionMode}
                 focused={state.focusedMessageId === message.id}
                 matched={state.findResultIds.includes(message.id)}
                 flashing={activeFlashMessageId === message.id}
+                menuOpen={activeMessageMenuId === message.id}
+                onOpenMenu={() => setActiveMessageMenuId(message.id)}
+                onCloseMenu={() => setActiveMessageMenuId(current => current === message.id ? null : current)}
                 onOpenImagePreview={openChatImagePreview}
+                onOpenAppointmentDetail={openAppointmentShareDetails}
               />
             </React.Fragment>
           )
         })
+      ) : null}
+
+      {state.windowMode === 'aroundMessage' ? (
+        <NdjcPaginationFooter
+          pagination={{
+            hasMore: state.hasNewerMessages,
+            isLoadingMore: state.isLoadingNewerMessages
+          }}
+          idleText="Load newer messages"
+          loadingText="Loading newer messages..."
+          endText=""
+          onLoadMore={actions.onLoadNewerMessages}
+        />
       ) : null}
 
       <NdjcSnackbarHost message={state.statusMessage?.trim() ? state.statusMessage : null} />
@@ -17353,6 +21429,12 @@ export function ShowcaseChatThread({
           onSave={actions.onSavePreviewImage}
         />
       ) : null}
+
+      <CustomerBookingDetailsBottomSheet
+        item={appointmentDetailsItem}
+        onClose={closeAppointmentDetailsSheet}
+        onOpenProduct={actions.onOpenProductDetail}
+      />
     </NdjcConversationPageScaffold>
   </NdjcUnifiedBackground>
   )
@@ -17384,14 +21466,25 @@ export function ShowcaseAppointmentsScreen({
         <NdjcBaseDialog
           title="Confirm booking request"
           dismissText="Edit"
-          confirmText={state.isSubmitting ? 'Submitting...' : 'Confirm booking request'}
+          confirmText="Confirm booking request"
           confirmEnabled={state.canSubmit && !state.isSubmitting}
+          confirmLoading={state.isSubmitting}
           destructiveConfirm={false}
-          onDismissRequest={() => setShowSubmitConfirmDialog(false)}
-          onDismissClick={() => setShowSubmitConfirmDialog(false)}
-          onConfirmClick={() => {
+          onDismissRequest={() => {
+            if (state.isSubmitting) return
             setShowSubmitConfirmDialog(false)
-            actions.onSubmit()
+          }}
+          onDismissClick={() => {
+            if (state.isSubmitting) return
+            setShowSubmitConfirmDialog(false)
+          }}
+          onConfirmClick={() => {
+            if (state.isSubmitting) return
+
+            void Promise.resolve(actions.onSubmit())
+              .then(() => {
+                setShowSubmitConfirmDialog(false)
+              })
           }}
           textContent={
             <section
@@ -17669,7 +21762,7 @@ export function ShowcaseAdmin({
         onHome: actions.onBackToHome
       }}
     >
-      <NdjcPullRefreshContainer
+      <NdjcAdminPullRefreshContainer
         isRefreshing={state.syncOverviewState === 'Syncing'}
         onRefresh={actions.onRefresh}
       >
@@ -17702,29 +21795,51 @@ export function ShowcaseAdmin({
                 gap: APK_ADMIN_UI.cardGap
               }}
             >
-              <AdminTitleText>
-                Admin
-              </AdminTitleText>
+              <section
+                className="ndjc-admin-title-sync-block"
+                style={{
+                  width: '100%',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: 4,
+                  flexShrink: 0
+                }}
+              >
+                <AdminTitleText>
+                  Admin
+                </AdminTitleText>
 
-              {state.syncNoticeLabel ? (
-                <AdminSyncNoticeText>
-                  {state.syncNoticeLabel}
-                </AdminSyncNoticeText>
-              ) : null}
+                <NdjcAdminPageProgressSlot active={state.syncOverviewState === 'Syncing'} />
 
-              {state.cloudStatus ? (
-                <>
-                  <AdminSpacer height={APK_ADMIN_UI.spacer8} />
+{state.syncOverviewState !== 'Syncing' && state.syncNoticeLabel ? (
+  <AdminSyncNoticeText>
+    {state.syncNoticeLabel}
+  </AdminSyncNoticeText>
+) : (
+  <div style={{ height: 0, flexShrink: 0 }} aria-hidden="true" />
+)}
+              </section>
 
-                  <section
-                    className="ndjc-apk-admin-section ndjc-apk-admin-cloud-section"
-                    style={{
-                      width: '100%',
-                      display: 'flex',
-                      flexDirection: 'column',
-                      gap: APK_ADMIN_UI.cloudInnerGap
-                    }}
-                  >
+{state.cloudStatus ? (
+  <>
+    <div
+      style={{
+        height: 0,
+        marginTop: -16,
+        flexShrink: 0
+      }}
+      aria-hidden="true"
+    />
+
+    <section
+      className="ndjc-apk-admin-section ndjc-apk-admin-cloud-section"
+      style={{
+        width: '100%',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: APK_ADMIN_UI.cloudInnerGap
+      }}
+    >
                     <AdminCloudTitleText>
                       Cloud
                     </AdminCloudTitleText>
@@ -17866,7 +21981,7 @@ export function ShowcaseAdmin({
             </>
           ) : null}
         </section>
-      </NdjcPullRefreshContainer>
+      </NdjcAdminPullRefreshContainer>
     </NdjcUnifiedBackground>
   )
 }
@@ -17880,8 +21995,23 @@ export function ShowcaseAdminItems({
 }) {
   const [showItemsFilterSheet, setShowItemsFilterSheet] = React.useState(false)
   const [showDeleteSelectedConfirm, setShowDeleteSelectedConfirm] = React.useState(false)
+  const [itemsDraftRecommended, setItemsDraftRecommended] = React.useState(state.filterRecommended)
+  const [itemsDraftHiddenOnly, setItemsDraftHiddenOnly] = React.useState(state.filterHiddenOnly)
+  const [itemsDraftDiscountOnly, setItemsDraftDiscountOnly] = React.useState(state.filterDiscountOnly)
+  const [itemsDraftPriceMin, setItemsDraftPriceMin] = React.useState(state.priceMinDraft)
+  const [itemsDraftPriceMax, setItemsDraftPriceMax] = React.useState(state.priceMaxDraft)
   const headerRef = React.useRef<HTMLElement | null>(null)
   const [headerHeight, setHeaderHeight] = React.useState(0)
+
+  React.useEffect(() => {
+    if (!showItemsFilterSheet) {
+      setItemsDraftRecommended(state.filterRecommended)
+      setItemsDraftHiddenOnly(state.filterHiddenOnly)
+      setItemsDraftDiscountOnly(state.filterDiscountOnly)
+      setItemsDraftPriceMin(state.priceMinDraft)
+      setItemsDraftPriceMax(state.priceMaxDraft)
+    }
+  }, [showItemsFilterSheet, state.filterRecommended, state.filterHiddenOnly, state.filterDiscountOnly, state.priceMinDraft, state.priceMaxDraft])
 
   React.useEffect(() => {
     const element = headerRef.current
@@ -17953,10 +22083,14 @@ export function ShowcaseAdminItems({
           overflow: 'hidden'
         }}
       >
-        <section
-          className="ndjc-apk-admin-items-list-layer"
-          style={{
-            position: 'absolute',
+        <NdjcAdminPullRefreshContainer
+          refreshing={state.isLoading}
+          onRefresh={actions.onRefresh}
+        >
+          <section
+            className="ndjc-apk-admin-items-list-layer"
+            style={{
+              position: 'absolute',
             inset: 0,
             overflowY: 'auto',
             padding: `${listTopPadding}px ${APK_PAGE_SHELL_UI.screenPadding}px ${APK_PAGE_SHELL_UI.noBottomBarReserve}px`,
@@ -17965,6 +22099,11 @@ export function ShowcaseAdminItems({
             flexDirection: 'column',
             gap: APK_SHOWCASE_ITEM_UI.adminItemsListGap
           }}
+          onScroll={event => ndjcHandleLoadMoreScroll(
+            event,
+            state.itemsPagination,
+            actions.onLoadMoreItems
+          )}
         >
           {state.dishes.length ? (
             <>
@@ -17977,7 +22116,13 @@ export function ShowcaseAdminItems({
                 />
               ))}
 
-              <NdjcNoMoreListFooter text="No more items" />
+              <NdjcPaginationFooter
+                pagination={state.itemsPagination}
+                idleText="Load more"
+                loadingText="Loading more..."
+                endText="No more items"
+                onLoadMore={actions.onLoadMoreItems}
+              />
             </>
           ) : (
             <NdjcInlineEmptyState
@@ -18064,56 +22209,13 @@ export function ShowcaseAdminItems({
               </p>
             </section>
 
-            {state.isLoading ? (
-              <div
-                className="ndjc-apk-linear-progress"
-                style={{
-                  width: '100%',
-                  height: 4,
-                  borderRadius: 999,
-                  overflow: 'hidden',
-                  background: 'rgba(38, 198, 164, 0.18)'
-                }}
-              >
-                <div
-                  style={{
-                    width: '45%',
-                    height: '100%',
-                    borderRadius: 999,
-                    background: APK_SHELL_UI.green
-                  }}
-                />
-              </div>
-            ) : null}
+            <NdjcAdminPageProgressSlot active={state.isLoading} />
 
             <NdjcTextField
               value={state.itemsSearchQuery}
               onChange={actions.onItemsSearchQueryChange}
               label="Search items"
               singleLine
-              trailingIcon={state.itemsSearchQuery.trim() ? (
-                <button
-                  type="button"
-                  onClick={actions.onClearItemsSearchQuery}
-                  aria-label="Clear search"
-                  style={{
-                    width: 28,
-                    height: 28,
-                    border: 0,
-                    borderRadius: 999,
-                    display: 'grid',
-                    placeItems: 'center',
-                    color: '#000000',
-                    background: 'transparent',
-                    boxShadow: 'none',
-                    cursor: 'pointer',
-                    fontSize: 18,
-                    lineHeight: 1
-                  }}
-                >
-                  ×
-                </button>
-              ) : null}
             />
 
             <SortRow columns={4}>
@@ -18138,7 +22240,14 @@ export function ShowcaseAdminItems({
               <SortNavEqualItem
                 text="Filter"
                 selected={filterActive}
-                onClick={() => setShowItemsFilterSheet(true)}
+                onClick={() => {
+                  setItemsDraftRecommended(state.filterRecommended)
+                  setItemsDraftHiddenOnly(state.filterHiddenOnly)
+                  setItemsDraftDiscountOnly(state.filterDiscountOnly)
+                  setItemsDraftPriceMin(state.priceMinDraft)
+                  setItemsDraftPriceMax(state.priceMaxDraft)
+                  setShowItemsFilterSheet(true)
+                }}
               />
             </SortRow>
 
@@ -18187,49 +22296,59 @@ export function ShowcaseAdminItems({
             </section>
           </section>
         </NdjcWhiteCard>
+        </NdjcAdminPullRefreshContainer>
       </section>
 
       <NdjcFilterBottomSheet
         open={showItemsFilterSheet}
         title="Filter"
-        priceMinDraft={state.priceMinDraft}
-        onPriceMinDraftChange={actions.onPriceMinDraftChange}
-        priceMaxDraft={state.priceMaxDraft}
-        onPriceMaxDraftChange={actions.onPriceMaxDraftChange}
+        priceMinDraft={itemsDraftPriceMin}
+        onPriceMinDraftChange={setItemsDraftPriceMin}
+        priceMaxDraft={itemsDraftPriceMax}
+        onPriceMaxDraftChange={setItemsDraftPriceMax}
         showPriceFields
         onClose={() => {
-          actions.onApplyPriceRange()
+          setItemsDraftRecommended(state.filterRecommended)
+          setItemsDraftHiddenOnly(state.filterHiddenOnly)
+          setItemsDraftDiscountOnly(state.filterDiscountOnly)
+          setItemsDraftPriceMin(state.priceMinDraft)
+          setItemsDraftPriceMax(state.priceMaxDraft)
           setShowItemsFilterSheet(false)
         }}
         onClear={() => {
-          actions.onItemsSortModeChange('Default')
-          actions.onItemsFilterRecommendedChange(false)
-          actions.onItemsFilterHiddenOnlyChange(false)
-          actions.onItemsFilterDiscountOnlyChange(false)
-          actions.onClearPriceRange()
-          setShowItemsFilterSheet(false)
+          setItemsDraftRecommended(false)
+          setItemsDraftHiddenOnly(false)
+          setItemsDraftDiscountOnly(false)
+          setItemsDraftPriceMin('')
+          setItemsDraftPriceMax('')
         }}
         onApply={() => {
-          actions.onApplyPriceRange()
+          actions.onApplyItemsFilters({
+            recommendedOnly: itemsDraftRecommended,
+            hiddenOnly: itemsDraftHiddenOnly,
+            discountOnly: itemsDraftDiscountOnly,
+            minPriceDraft: itemsDraftPriceMin,
+            maxPriceDraft: itemsDraftPriceMax
+          })
           setShowItemsFilterSheet(false)
         }}
       >
         <NdjcToggleRow
           label="Pick"
-          checked={state.filterRecommended}
-          onChange={actions.onItemsFilterRecommendedChange}
+          checked={itemsDraftRecommended}
+          onChange={setItemsDraftRecommended}
         />
 
         <NdjcToggleRow
           label="Hidden"
-          checked={state.filterHiddenOnly}
-          onChange={actions.onItemsFilterHiddenOnlyChange}
+          checked={itemsDraftHiddenOnly}
+          onChange={setItemsDraftHiddenOnly}
         />
 
         <NdjcToggleRow
-          label="Discount"
-          checked={state.filterDiscountOnly}
-          onChange={actions.onItemsFilterDiscountOnlyChange}
+          label="On sale"
+          checked={itemsDraftDiscountOnly}
+          onChange={setItemsDraftDiscountOnly}
         />
       </NdjcFilterBottomSheet>
 
@@ -18280,6 +22399,8 @@ export function ShowcaseAdminCategories({
   const titleToHint = 4
   const hintToContent = 10
   const rowGap = 10
+  const categorySubmittingAction = state.categorySubmittingAction
+  const categorySubmitting = Boolean(categorySubmittingAction)
 
   function closeRenameDialog(): void {
     setShowRenameDialog(false)
@@ -18305,10 +22426,14 @@ export function ShowcaseAdminCategories({
           overflow: 'hidden'
         }}
       >
-        <section
-          className="ndjc-apk-admin-categories-scroll-column"
-          style={{
-            width: '100%',
+        <NdjcAdminPullRefreshContainer
+          refreshing={state.isLoading}
+          onRefresh={actions.onRefresh}
+        >
+          <section
+            className="ndjc-apk-admin-categories-scroll-column"
+            style={{
+              width: '100%',
             height: '100%',
             minHeight: 0,
             overflowY: 'auto',
@@ -18345,31 +22470,9 @@ export function ShowcaseAdminCategories({
                 Categories
               </h1>
 
-              {state.isLoading ? (
-                <>
-                  <div style={{ height: 8, flexShrink: 0 }} />
+              <div style={{ height: 6, flexShrink: 0 }} />
 
-                  <div
-                    className="ndjc-apk-linear-progress"
-                    style={{
-                      width: '100%',
-                      height: 4,
-                      borderRadius: 999,
-                      overflow: 'hidden',
-                      background: 'rgba(38, 198, 164, 0.18)'
-                    }}
-                  >
-                    <div
-                      style={{
-                        width: '45%',
-                        height: '100%',
-                        borderRadius: 999,
-                        background: APK_SHELL_UI.green
-                      }}
-                    />
-                  </div>
-                </>
-              ) : null}
+              <NdjcAdminPageProgressSlot active={state.isLoading} />
 
               <div style={{ height: sectionGap, flexShrink: 0 }} />
 
@@ -18422,8 +22525,10 @@ export function ShowcaseAdminCategories({
                 <span aria-hidden="true" />
 
                 <NdjcPrimaryActionButton
-                  disabled={!newCategory.trim()}
+                  disabled={!newCategory.trim() || categorySubmitting}
+                  isLoading={categorySubmittingAction === 'add'}
                   onClick={() => {
+                    if (categorySubmitting) return
                     actions.onAddCategory(newCategory)
                     setNewCategory('')
                   }}
@@ -18474,8 +22579,10 @@ export function ShowcaseAdminCategories({
                 }}
               >
                 <NdjcPrimaryActionButton
-                  disabled={!selectedCategoryName}
+                  disabled={!selectedCategoryName || categorySubmitting}
+                  isLoading={categorySubmittingAction === 'rename'}
                   onClick={() => {
+                    if (categorySubmitting) return
                     const name = selectedCategoryName
                     if (!name) return
                     setRenameFrom(name)
@@ -18487,8 +22594,10 @@ export function ShowcaseAdminCategories({
                 </NdjcPrimaryActionButton>
 
                 <NdjcPrimaryActionButton
-                  disabled={!selectedCategoryName}
+                  disabled={!selectedCategoryName || categorySubmitting}
+                  isLoading={categorySubmittingAction === 'delete'}
                   onClick={() => {
+                    if (categorySubmitting) return
                     const name = selectedCategoryName
                     if (!name) return
                     actions.onRequestDeleteCategory(name)
@@ -18541,7 +22650,9 @@ export function ShowcaseAdminCategories({
                   <NdjcPillButton
                     key={category}
                     selected={selectedCategoryName === category}
+                    disabled={categorySubmitting}
                     onClick={() => {
+                      if (categorySubmitting) return
                       setSelectedCategoryName(category)
                     }}
                   >
@@ -18551,7 +22662,8 @@ export function ShowcaseAdminCategories({
               </section>
             </section>
           </NdjcWhiteCard>
-        </section>
+          </section>
+        </NdjcAdminPullRefreshContainer>
 
         <NdjcSnackbarHost message={state.statusMessage} />
       </section>
@@ -18561,13 +22673,21 @@ export function ShowcaseAdminCategories({
           title="Edit category"
           confirmText="Save"
           dismissText="Cancel"
-          confirmEnabled={renameTo.trim().length > 0}
+          confirmEnabled={renameTo.trim().length > 0 && !categorySubmitting}
+          confirmLoading={categorySubmittingAction === 'rename'}
           onConfirmClick={() => {
+            if (categorySubmitting) return
             actions.onRenameCategory(renameFrom, renameTo)
             closeRenameDialog()
           }}
-          onDismissClick={closeRenameDialog}
-          onDismissRequest={closeRenameDialog}
+          onDismissClick={() => {
+            if (categorySubmitting) return
+            closeRenameDialog()
+          }}
+          onDismissRequest={() => {
+            if (categorySubmitting) return
+            closeRenameDialog()
+          }}
           textContent={
             <NdjcTextField
               value={renameTo}
@@ -18586,9 +22706,20 @@ export function ShowcaseAdminCategories({
           confirmText="Delete"
           dismissText="Cancel"
           destructiveConfirm
-          onConfirmClick={actions.onConfirmPendingDeleteCategory}
-          onDismissClick={actions.onDismissCategoryDeleteDialogs}
-          onDismissRequest={actions.onDismissCategoryDeleteDialogs}
+          confirmEnabled={!categorySubmitting}
+          confirmLoading={categorySubmittingAction === 'delete'}
+          onConfirmClick={() => {
+            if (categorySubmitting) return
+            actions.onConfirmPendingDeleteCategory()
+          }}
+          onDismissClick={() => {
+            if (categorySubmitting) return
+            actions.onDismissCategoryDeleteDialogs()
+          }}
+          onDismissRequest={() => {
+            if (categorySubmitting) return
+            actions.onDismissCategoryDeleteDialogs()
+          }}
         />
       ) : null}
 
@@ -18641,7 +22772,7 @@ export function ShowcaseEditDish({
   }
 
   const descriptionMax = 200
-  const descriptionText = state.descriptionEn
+  const descriptionText = state.description
   const descriptionLength = Math.min(descriptionText.length, descriptionMax)
 
   function requestExit(target: 'back' | 'home'): void {
@@ -18865,7 +22996,7 @@ export function ShowcaseEditDish({
             >
               <EditItemFieldBlock ref={nameFieldRef}>
                 <NdjcTextField
-                  value={state.nameZh}
+                  value={state.name}
                   onChange={actions.onNameChange}
                   label="Name *"
                   placeholder="Item name"
@@ -19178,11 +23309,6 @@ export function ShowcaseEditDish({
           destructiveConfirm={false}
         />
       ) : null}
-
-      <NdjcBlockingProgressOverlay
-        visible={state.isBlocking}
-        text="Applying changes"
-      />
     </NdjcUnifiedBackground>
   )
 }
@@ -19499,6 +23625,10 @@ export function ShowcaseStoreProfileEdit({
             >
               Update your public store information shown to customers.
             </p>
+
+            <div style={{ height: 8, flexShrink: 0 }} />
+
+            <NdjcAdminPageProgressSlot active={state.isSaving} />
 
             <div style={{ height: 12, flexShrink: 0 }} />
 
@@ -19951,6 +24081,10 @@ export function ShowcaseChangePassword({
               Update your credentials for this account.
             </p>
 
+            <div style={{ height: 8, flexShrink: 0 }} />
+
+            <NdjcAdminPageProgressSlot active={state.isSaving} />
+
             <div style={{ height: 16, flexShrink: 0 }} />
 
             <NdjcTextField
@@ -20053,7 +24187,7 @@ export function ShowcaseChangePassword({
               isLoading={state.isSaving}
               onClick={actions.onSubmit}
             >
-              {state.isSaving ? 'Updating...' : 'Update password'}
+              Update password
             </NdjcPrimaryActionButton>
 
             <div style={{ height: 16, flexShrink: 0 }} />
@@ -20078,17 +24212,23 @@ export function ShowcaseChangePassword({
 
 export function ShowcaseMerchantChatList({
   threads,
+  searchQuery,
   refreshing,
+  pagination,
   actions
 }: {
   threads: ShowcaseChatThreadSummaryUi[]
+  searchQuery: string
   refreshing: boolean
+  pagination: ShowcasePaginationUiState
   actions: ShowcaseMerchantChatListActions
 }) {
   return (
     <ShowcaseMerchantChatListScreen
       threads={threads}
+      searchQuery={searchQuery}
       refreshing={refreshing}
+      pagination={pagination}
       actions={actions}
     />
   )
@@ -20146,6 +24286,11 @@ export function ShowcaseChatMedia({
           overflowX: 'hidden',
           WebkitOverflowScrolling: 'touch'
         }}
+        onScroll={event => ndjcHandleLoadMoreScroll(
+          event,
+          state.mediaPagination,
+          actions.onLoadMoreMediaItems
+        )}
       >
         <NdjcWhiteCard
           className="ndjc-chat-media-gallery-card"
@@ -20313,13 +24458,21 @@ export function ShowcaseChatMedia({
                   </section>
                 ))}
               </section>
-            ) : (
+            ) : !state.mediaPagination.isLoadingMore ? (
               <NdjcInlineEmptyState
                 title="No photos yet"
                 message="Photos shared here will appear automatically."
                 verticalPadding={40}
               />
-            )}
+            ) : null}
+
+            <NdjcPaginationFooter
+              pagination={state.mediaPagination}
+              idleText="Load more"
+              loadingText="Loading more..."
+              endText={mediaItems.length > 0 ? 'No more photos' : ''}
+              onLoadMore={actions.onLoadMoreMediaItems}
+            />
           </section>
         </NdjcWhiteCard>
       </section>
@@ -20347,8 +24500,62 @@ export function ShowcaseAdminAppointmentManager({
   const [showBookingSettingsSheet, setShowBookingSettingsSheet] = React.useState(false)
   const [editingAvailableTimeTarget, setEditingAvailableTimeTarget] = React.useState<'start' | 'end' | null>(null)
   const [showHistoryDatePicker, setShowHistoryDatePicker] = React.useState(false)
+  const [bookingSettingsDraft, setBookingSettingsDraft] = React.useState(() => ({
+    enabled: state.enabled,
+    bookingWindowDays: state.bookingWindowDays,
+    availableHoursText: state.availableHoursText,
+    slotIntervalMinutes: state.slotIntervalMinutes,
+    closedDays: state.closedDays,
+    minimumNotice: state.minimumNotice
+  }))
   const headerRef = React.useRef<HTMLElement | null>(null)
   const [headerHeight, setHeaderHeight] = React.useState(0)
+
+  function resetBookingSettingsDraftFromState(): void {
+    setBookingSettingsDraft({
+      enabled: state.enabled,
+      bookingWindowDays: state.bookingWindowDays,
+      availableHoursText: state.availableHoursText,
+      slotIntervalMinutes: state.slotIntervalMinutes,
+      closedDays: state.closedDays,
+      minimumNotice: state.minimumNotice
+    })
+  }
+
+  function openBookingSettingsSheet(): void {
+    if (state.settingsSubmitting) return
+    setBookingSettingsDraft({
+      enabled: state.enabled,
+      bookingWindowDays: state.bookingWindowDays,
+      availableHoursText: state.availableHoursText,
+      slotIntervalMinutes: state.slotIntervalMinutes,
+      closedDays: state.closedDays,
+      minimumNotice: state.minimumNotice
+    })
+    setShowBookingSettingsSheet(true)
+  }
+
+  function updateBookingSettingsDraft(
+    patch: Partial<typeof bookingSettingsDraft>
+  ): void {
+    setBookingSettingsDraft(current => ({
+      ...current,
+      ...patch
+    }))
+  }
+
+  function toggleBookingClosedDayDraft(day: string): void {
+    setBookingSettingsDraft(current => {
+      const nextClosedDays = current.closedDays.includes(day)
+        ? current.closedDays.filter(item => item !== day)
+        : [...current.closedDays, day]
+
+      return {
+        ...current,
+        closedDays: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].filter(item => nextClosedDays.includes(item))
+      }
+    })
+  }
 
   React.useEffect(() => {
     const target = headerRef.current
@@ -20385,6 +24592,19 @@ export function ShowcaseAdminAppointmentManager({
     state.serviceFilterOptions.join(',')
   ])
 
+  React.useEffect(() => {
+    if (showBookingSettingsSheet) return
+    resetBookingSettingsDraftFromState()
+  }, [
+    showBookingSettingsSheet,
+    state.enabled,
+    state.bookingWindowDays,
+    state.availableHoursText,
+    state.slotIntervalMinutes,
+    state.minimumNotice,
+    state.closedDays.join(',')
+  ])
+
   const headerTopPadding = APK_PAGE_SHELL_UI.topCardOffset
   const listTopPadding = headerTopPadding + headerHeight + 10
   const bookingSettingsSummary = [
@@ -20394,7 +24614,7 @@ export function ShowcaseAdminAppointmentManager({
     state.minimumNotice,
     state.closedDays.length ? `Closed ${state.closedDays.join(', ')}` : ''
   ].filter(Boolean).join(' · ')
-  const [availableHoursStart, availableHoursEnd] = splitAppointmentAvailableHours(state.availableHoursText)
+  const [availableHoursStart, availableHoursEnd] = splitAppointmentAvailableHours(bookingSettingsDraft.availableHoursText)
 
   return (
     <NdjcUnifiedBackground
@@ -20413,7 +24633,7 @@ export function ShowcaseAdminAppointmentManager({
           overflow: 'hidden'
         }}
       >
-        <NdjcPullRefreshContainer
+        <NdjcAdminPullRefreshContainer
           isRefreshing={state.isRefreshing}
           onRefresh={actions.onRefresh}
         >
@@ -20435,11 +24655,21 @@ export function ShowcaseAdminAppointmentManager({
               flexDirection: 'column',
               gap: 10
             }}
+            onScroll={event => ndjcHandleLoadMoreScroll(
+              event,
+              state.pagination,
+              actions.onLoadMore
+            )}
           >
             {state.items.length ? (
               <>
                 {state.items.map(item => {
-                  const linkedItemAvailable = Boolean(item.itemAvailable && item.sourceDishId)
+                  const linkedItemAvailable = Boolean(
+  item.itemAvailable &&
+  item.sourceDishId &&
+  item.imageUrl &&
+  item.priceText
+)
 
                   return (
                     <AppointmentCatalogItemCard
@@ -20448,6 +24678,7 @@ export function ShowcaseAdminAppointmentManager({
                       imageUrl={item.imageUrl}
                       priceTextValue={null}
                       categoryText={null}
+                      isRecommended={item.isRecommended}
                       itemAvailable={linkedItemAvailable}
                       allowClickWhenUnavailable
                       onOpen={() => setDetailsItem(item)}
@@ -20469,42 +24700,50 @@ export function ShowcaseAdminAppointmentManager({
 
                           <div style={{ height: 4 }} aria-hidden="true" />
 
-                          <NdjcPillButton selected onClick={() => {}}>
+                          <NdjcPillBadge selected>
                             {item.statusLabel}
-                          </NdjcPillButton>
+                          </NdjcPillBadge>
                         </>
                       }
                       trailing={
-                        <button
-                          type="button"
-                          aria-label="Chat customer"
-                          title="Chat customer"
-                          style={{
-                            width: 40,
-                            height: 40,
-                            border: 0,
-                            borderRadius: 999,
-                            padding: 0,
-                            display: 'grid',
-                            placeItems: 'center',
-                            color: APK_APPOINTMENT_UI.brand,
-                            background: 'transparent',
-                            boxShadow: 'none',
-                            cursor: 'pointer'
-                          }}
-                          onClick={event => {
-                            event.stopPropagation()
-                            actions.onContactCustomer(item.id)
-                          }}
-                        >
-                          <NdjcChatBubbleIcon filled />
-                        </button>
+                        linkedItemAvailable ? (
+                          <button
+                            type="button"
+                            aria-label="Chat customer"
+                            title="Chat customer"
+                            style={{
+                              width: 40,
+                              height: 40,
+                              border: 0,
+                              borderRadius: 999,
+                              padding: 0,
+                              display: 'grid',
+                              placeItems: 'center',
+                              color: APK_APPOINTMENT_UI.brand,
+                              background: 'transparent',
+                              boxShadow: 'none',
+                              cursor: 'pointer'
+                            }}
+                            onClick={event => {
+                              event.stopPropagation()
+                              actions.onContactCustomer(item.id)
+                            }}
+                          >
+                            <NdjcChatBubbleIcon filled />
+                          </button>
+                        ) : null
                       }
                     />
                   )
                 })}
 
-                <NdjcNoMoreListFooter text="No more appointments" />
+                <NdjcPaginationFooter
+                  pagination={state.pagination}
+                  idleText="Load more"
+                  loadingText="Loading more..."
+                  endText="No more appointments"
+                  onLoadMore={actions.onLoadMore}
+                />
               </>
             ) : (
               <NdjcInlineEmptyState
@@ -20562,10 +24801,15 @@ export function ShowcaseAdminAppointmentManager({
                   Appointments
                 </h1>
 
+                <NdjcAdminPageProgressSlot active={state.isRefreshing} />
+
                 <NdjcToggleRow
                   label="Appointment booking"
                   checked={state.enabled}
-                  onChange={actions.onEnabledChange}
+                  enabled={!state.settingsSubmitting}
+                  onChange={() => {
+                    openBookingSettingsSheet()
+                  }}
                 />
 
                 <section
@@ -20581,7 +24825,7 @@ export function ShowcaseAdminAppointmentManager({
                     background: '#F7F7FB',
                     cursor: 'pointer'
                   }}
-                  onClick={() => setShowBookingSettingsSheet(true)}
+                  onClick={openBookingSettingsSheet}
                 >
                   <section
                     style={{
@@ -20622,16 +24866,12 @@ export function ShowcaseAdminAppointmentManager({
                     </span>
                   </section>
 
-<button
-  type="button"
-  style={apkFilterChipStyle(false)}
-  onClick={event => {
-    event.stopPropagation()
-    setShowBookingSettingsSheet(true)
-  }}
+<NdjcPillButton
+  disabled={state.settingsSubmitting}
+  onClick={openBookingSettingsSheet}
 >
   Edit
-</button>
+</NdjcPillButton>
                 </section>
 
                 <section
@@ -20715,7 +24955,7 @@ export function ShowcaseAdminAppointmentManager({
               </section>
             </NdjcWhiteCard>
           </section>
-        </NdjcPullRefreshContainer>
+        </NdjcAdminPullRefreshContainer>
 
         <NdjcSnackbarHost
           message={state.statusMessage?.toLowerCase() === 'no data.'
@@ -20728,6 +24968,7 @@ export function ShowcaseAdminAppointmentManager({
           onClose={() => setDetailsItem(null)}
           onOpenProduct={actions.onOpenAppointmentProductDetail}
           adminActions={actions}
+          statusSubmittingId={state.statusSubmittingId}
         />
 
         <AppointmentHistoryDatePickerSheet
@@ -20747,18 +24988,30 @@ export function ShowcaseAdminAppointmentManager({
           applyText="Save settings"
           showPriceFields={false}
           showHeaderAction={false}
-          onClose={() => setShowBookingSettingsSheet(false)}
-          onApply={() => setShowBookingSettingsSheet(false)}
-          onClear={() => {
-            actions.onBookingWindowDaysChange(7)
-            actions.onAvailableHoursTextChange('09:00 - 18:00')
-            actions.onSlotIntervalMinutesChange(30)
-            ;['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].forEach(day => {
-              if (state.closedDays.includes(day)) {
-                actions.onClosedDayToggle(day)
-              }
+          applyLoading={state.settingsSubmitting}
+          onClose={() => {
+            if (state.settingsSubmitting) return
+            setShowBookingSettingsSheet(false)
+            resetBookingSettingsDraftFromState()
+          }}
+          onApply={() => {
+            if (state.settingsSubmitting) return
+
+            void Promise.resolve(actions.onSettingsSave(bookingSettingsDraft)).then(() => {
+              setShowBookingSettingsSheet(false)
             })
-            actions.onMinimumNoticeChange('No notice')
+          }}
+          onClear={() => {
+            if (state.settingsSubmitting) return
+
+            setBookingSettingsDraft(current => ({
+              ...current,
+              bookingWindowDays: 7,
+              availableHoursText: '09:00 - 18:00',
+              slotIntervalMinutes: 30,
+              closedDays: [],
+              minimumNotice: 'No notice'
+            }))
           }}
         >
           <h3
@@ -20784,8 +25037,14 @@ export function ShowcaseAdminAppointmentManager({
             {[1, 2, 3, 4, 5, 6, 7].map(days => (
               <NdjcControlPillButton
                 key={days}
-                active={state.bookingWindowDays === days}
-                onClick={() => actions.onBookingWindowDaysChange(days)}
+                active={bookingSettingsDraft.bookingWindowDays === days}
+                disabled={state.settingsSubmitting}
+                onClick={() => {
+                  if (state.settingsSubmitting) return
+                  updateBookingSettingsDraft({
+                    bookingWindowDays: days
+                  })
+                }}
               >
                 {days === 1 ? '1 day' : `${days} days`}
               </NdjcControlPillButton>
@@ -20814,6 +25073,7 @@ export function ShowcaseAdminAppointmentManager({
           >
             <button
               type="button"
+              disabled={state.settingsSubmitting}
               style={{
                 width: '100%',
                 border: 0,
@@ -20828,7 +25088,10 @@ export function ShowcaseAdminAppointmentManager({
                 boxShadow: 'none',
                 cursor: 'pointer'
               }}
-              onClick={() => setEditingAvailableTimeTarget('start')}
+              onClick={() => {
+                if (state.settingsSubmitting) return
+                setEditingAvailableTimeTarget('start')
+              }}
             >
               <span
                 style={{
@@ -20855,6 +25118,7 @@ export function ShowcaseAdminAppointmentManager({
 
             <button
               type="button"
+              disabled={state.settingsSubmitting}
               style={{
                 width: '100%',
                 border: 0,
@@ -20869,7 +25133,10 @@ export function ShowcaseAdminAppointmentManager({
                 boxShadow: 'none',
                 cursor: 'pointer'
               }}
-              onClick={() => setEditingAvailableTimeTarget('end')}
+              onClick={() => {
+                if (state.settingsSubmitting) return
+                setEditingAvailableTimeTarget('end')
+              }}
             >
               <span
                 style={{
@@ -20918,8 +25185,14 @@ export function ShowcaseAdminAppointmentManager({
             {[30, 60].map(minutes => (
               <NdjcControlPillButton
                 key={minutes}
-                active={state.slotIntervalMinutes === minutes}
-                onClick={() => actions.onSlotIntervalMinutesChange(minutes)}
+                active={bookingSettingsDraft.slotIntervalMinutes === minutes}
+                disabled={state.settingsSubmitting}
+                onClick={() => {
+                  if (state.settingsSubmitting) return
+                  updateBookingSettingsDraft({
+                    slotIntervalMinutes: minutes
+                  })
+                }}
               >
                 {minutes} min
               </NdjcControlPillButton>
@@ -20949,8 +25222,12 @@ export function ShowcaseAdminAppointmentManager({
             {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map(day => (
               <NdjcControlPillButton
                 key={day}
-                active={state.closedDays.includes(day)}
-                onClick={() => actions.onClosedDayToggle(day)}
+                active={bookingSettingsDraft.closedDays.includes(day)}
+                disabled={state.settingsSubmitting}
+                onClick={() => {
+                  if (state.settingsSubmitting) return
+                  toggleBookingClosedDayDraft(day)
+                }}
               >
                 {day}
               </NdjcControlPillButton>
@@ -20989,8 +25266,14 @@ export function ShowcaseAdminAppointmentManager({
             ].map(notice => (
               <NdjcControlPillButton
                 key={notice}
-                active={state.minimumNotice === notice}
-                onClick={() => actions.onMinimumNoticeChange(notice)}
+                active={bookingSettingsDraft.minimumNotice === notice}
+                disabled={state.settingsSubmitting}
+                onClick={() => {
+                  if (state.settingsSubmitting) return
+                  updateBookingSettingsDraft({
+                    minimumNotice: notice
+                  })
+                }}
               >
                 {notice}
               </NdjcControlPillButton>
@@ -21027,7 +25310,10 @@ export function ShowcaseAdminAppointmentManager({
                 <NdjcControlPillButton
                   key={time}
                   active={active}
+                  disabled={state.settingsSubmitting}
                   onClick={() => {
+                    if (state.settingsSubmitting) return
+
                     const nextStart = editingAvailableTimeTarget === 'start'
                       ? time
                       : availableHoursStart
@@ -21035,7 +25321,9 @@ export function ShowcaseAdminAppointmentManager({
                       ? time
                       : availableHoursEnd
 
-                    actions.onAvailableHoursTextChange(`${nextStart} - ${nextEnd}`)
+                    updateBookingSettingsDraft({
+                      availableHoursText: `${nextStart} - ${nextEnd}`
+                    })
                     setEditingAvailableTimeTarget(null)
                   }}
                 >
@@ -21194,6 +25482,11 @@ export function ShowcaseAdminAnnouncementEdit({
             columnGap: 10,
             rowGap: 10
           }}
+          onScroll={event => ndjcHandleLoadMoreScroll(
+            event,
+            state.pagination,
+            actions.onLoadMore
+          )}
         >
           {state.draftItems.length || state.isSubmitting ? (
             <>
@@ -21210,11 +25503,17 @@ export function ShowcaseAdminAnnouncementEdit({
 
               <div
                 style={{
-                  gridColumn: '1 / -1',
-                  height: 10
+                  gridColumn: '1 / -1'
                 }}
-                aria-hidden="true"
-              />
+              >
+                <NdjcPaginationFooter
+                  pagination={state.pagination}
+                  idleText="Load more"
+                  loadingText="Loading more..."
+                  endText="No more drafts"
+                  onLoadMore={actions.onLoadMore}
+                />
+              </div>
             </>
           ) : (
             <section
@@ -21319,6 +25618,8 @@ export function ShowcaseAdminAnnouncementEdit({
                 </NdjcPrimaryActionButton>
               </section>
 
+              <NdjcAdminPageProgressSlot active={state.isSubmitting || state.isBlockingInput} />
+
               {state.composerExpanded ? (
                 <section
                   className="ndjc-admin-announcement-composer-inline"
@@ -21420,24 +25721,34 @@ export function ShowcaseAdminAnnouncementEdit({
                 }}
               >
                 <NdjcPrimaryActionButton
-                  disabled={!state.canDeleteSelected}
-                  onClick={() => setShowDeleteDraftConfirm(true)}
+                  disabled={!state.canDeleteSelected || state.isSubmitting}
+                  isLoading={state.submittingAction === 'delete'}
+                  onClick={() => {
+                    if (state.isSubmitting) return
+                    setShowDeleteDraftConfirm(true)
+                  }}
                 >
                   {deleteText}
                 </NdjcPrimaryActionButton>
 
                 <NdjcPrimaryActionButton
-                  disabled={!state.canSaveDraft}
-                  isLoading={state.isSubmitting}
-                  onClick={actions.onSaveDraft}
+                  disabled={!state.canSaveDraft || state.isSubmitting}
+                  isLoading={state.submittingAction === 'save'}
+                  onClick={() => {
+                    if (state.isSubmitting) return
+                    actions.onSaveDraft()
+                  }}
                 >
                   Save draft
                 </NdjcPrimaryActionButton>
 
                 <NdjcPrimaryActionButton
-                  disabled={!state.canPublish}
-                  isLoading={state.isSubmitting}
-                  onClick={() => setShowPublishConfirm(true)}
+                  disabled={!state.canPublish || state.isSubmitting}
+                  isLoading={state.submittingAction === 'publish'}
+                  onClick={() => {
+                    if (state.isSubmitting) return
+                    setShowPublishConfirm(true)
+                  }}
                 >
                   Publish
                 </NdjcPrimaryActionButton>
@@ -21538,12 +25849,24 @@ export function ShowcaseAdminAnnouncementEdit({
             confirmText="Delete"
             dismissText="Cancel"
             destructiveConfirm
+            confirmEnabled={!state.isSubmitting}
+            confirmLoading={state.submittingAction === 'delete'}
             onConfirmClick={() => {
-              actions.onDeleteSelected()
+              if (state.isSubmitting) return
+
+              void Promise.resolve(actions.onDeleteSelected())
+                .then(() => {
+                  setShowDeleteDraftConfirm(false)
+                })
+            }}
+            onDismissClick={() => {
+              if (state.isSubmitting) return
               setShowDeleteDraftConfirm(false)
             }}
-            onDismissClick={() => setShowDeleteDraftConfirm(false)}
-            onDismissRequest={() => setShowDeleteDraftConfirm(false)}
+            onDismissRequest={() => {
+              if (state.isSubmitting) return
+              setShowDeleteDraftConfirm(false)
+            }}
           />
         ) : null}
 
@@ -21553,19 +25876,27 @@ export function ShowcaseAdminAnnouncementEdit({
             message="This will publish the current announcement immediately."
             confirmText="Publish"
             dismissText="Cancel"
+            confirmEnabled={!state.isSubmitting}
+            confirmLoading={state.submittingAction === 'publish'}
             onConfirmClick={() => {
-              actions.onPushNow()
+              if (state.isSubmitting) return
+
+              void Promise.resolve(actions.onPushNow())
+                .then(() => {
+                  setShowPublishConfirm(false)
+                })
+            }}
+            onDismissClick={() => {
+              if (state.isSubmitting) return
               setShowPublishConfirm(false)
             }}
-            onDismissClick={() => setShowPublishConfirm(false)}
-            onDismissRequest={() => setShowPublishConfirm(false)}
+            onDismissRequest={() => {
+              if (state.isSubmitting) return
+              setShowPublishConfirm(false)
+            }}
           />
         ) : null}
 
-        <NdjcBlockingProgressOverlay
-          visible={state.isBlockingInput}
-          text="Submitting announcement…"
-        />
       </section>
     </NdjcUnifiedBackground>
   )

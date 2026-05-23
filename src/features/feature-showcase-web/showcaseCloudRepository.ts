@@ -1,7 +1,8 @@
-import type { DemoDish } from './showcaseModels'
+import type { DemoDish, ShowcaseImageVariants } from './showcaseModels'
 import {
   SHOWCASE_BUCKETS,
   SHOWCASE_EDGE_FUNCTIONS,
+  SHOWCASE_PAGE_SIZE,
   SHOWCASE_TABLES,
   authUrl as buildShowcaseAuthUrl,
   functionUrl as buildShowcaseFunctionUrl,
@@ -12,6 +13,18 @@ import {
   storageObjectUrl as buildShowcaseStorageObjectUrl,
   storagePublicObjectUrl as buildShowcaseStoragePublicObjectUrl
 } from './showcaseCloudConfig'
+import {
+  getFreshShowcaseAccessToken,
+  refreshShowcaseAuthSession,
+  requireFreshShowcaseAccessToken,
+  signInShowcaseAuthWithPassword,
+  signOutShowcaseAuth
+} from './showcaseAuthSessionManager'
+import {
+  buildI18nValue,
+  jsonRecord,
+  pickI18nText
+} from './showcaseI18n'
 
 export type ShowcaseRepositoryHttpResult = {
   code: number
@@ -47,10 +60,8 @@ export type CloudCategory = {
 
 export type CloudDish = {
   id: string | null
-  nameEn: string
-  nameZh: string
-  descriptionEn: string | null
-  descriptionZh: string | null
+  name: string
+  description: string | null
   categoryId: string | null
   categoryName: string | null
   price: number
@@ -60,10 +71,15 @@ export type CloudDish = {
   hidden: boolean
   imageUrl: string | null
   imageUrls: string[]
+  imageVariants?: ShowcaseImageVariants | null
   tags: string[]
   externalLink: string | null
   updatedAt: number | null
   clickCount: number
+}
+
+export type CloudDishFilterRow = {
+  tags: string[]
 }
 
 export type CloudStoreProfile = {
@@ -78,6 +94,8 @@ export type CloudStoreProfile = {
   servicesJson: string
   coverUrl: string
   logoUrl: string
+  coverImageVariants?: ShowcaseImageVariants | null
+  logoImageVariants?: ShowcaseImageVariants | null
   businessStatus: string
   updatedAt: number | null
 }
@@ -86,6 +104,7 @@ export type CloudAnnouncement = {
   id: string
   storeId: string
   coverUrl: string | null
+  coverImageVariants?: ShowcaseImageVariants | null
   body: string
   status: string
   updatedAt: number | null
@@ -116,8 +135,18 @@ export type CloudAppointmentRequest = {
   preferredTime: string
   note: string
   sourceDishId: string | null
+  sourcePriceSnapshot: string | null
+  sourceImageUrlSnapshot: string | null
+  sourceCategorySnapshot: string | null
+  sourceRecommendedSnapshot: boolean
   status: string
   createdAt: number | null
+}
+
+export type CloudAppointmentFilterRow = {
+  preferredDate: string
+  serviceTitle: string
+  status: string
 }
 
 export type MerchantAuthSession = {
@@ -126,10 +155,6 @@ export type MerchantAuthSession = {
   authUserId: string
   loginName: string
   expiresAt: number
-}
-
-export type MerchantSessionCallbacks = {
-  onRefreshed?: (session: MerchantAuthSession) => void
 }
 
 export type MerchantStoreMembership = {
@@ -220,6 +245,7 @@ export type ChatMessage = {
   quotedMessageId: string | null
   createdAt: number | null
   readAt: number | null
+  localStatus?: 'sending' | 'sent' | 'failed' | string | null
 }
 
 export type ChatThreadSummary = {
@@ -484,6 +510,68 @@ function parseStringArray(value: unknown): string[] {
   return []
 }
 
+function parseCloudImageVariants(value: unknown): ShowcaseImageVariants | null {
+  let raw: unknown = value
+
+  if (typeof raw === 'string') {
+    const trimmed = raw.trim()
+    if (!trimmed) return null
+
+    try {
+      raw = JSON.parse(trimmed)
+    } catch {
+      return null
+    }
+  }
+
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null
+
+  const record = raw as Record<string, unknown>
+  const variants: ShowcaseImageVariants = {
+    originalUrl: jsonNullableString(record, 'originalUrl') || jsonNullableString(record, 'original_url'),
+    largeUrl: jsonNullableString(record, 'largeUrl') || jsonNullableString(record, 'large_url'),
+    mediumUrl: jsonNullableString(record, 'mediumUrl') || jsonNullableString(record, 'medium_url'),
+    thumbUrl: jsonNullableString(record, 'thumbUrl') || jsonNullableString(record, 'thumb_url'),
+    blurDataUrl: jsonNullableString(record, 'blurDataUrl') || jsonNullableString(record, 'blur_data_url')
+  }
+
+  if (
+    !variants.originalUrl &&
+    !variants.largeUrl &&
+    !variants.mediumUrl &&
+    !variants.thumbUrl &&
+    !variants.blurDataUrl
+  ) {
+    return null
+  }
+
+  return variants
+}
+
+function isCloudImageVariantSchemaError(body: string | null | undefined): boolean {
+  const text = String(body || '').toLowerCase()
+
+  return text.includes('image_variants') ||
+    text.includes('cover_image_variants') ||
+    text.includes('logo_image_variants') ||
+    text.includes("could not find the 'image_variants' column") ||
+    text.includes("could not find the 'cover_image_variants' column") ||
+    text.includes("could not find the 'logo_image_variants' column") ||
+    text.includes('column image_variants does not exist') ||
+    text.includes('column cover_image_variants does not exist') ||
+    text.includes('column logo_image_variants does not exist')
+}
+
+function stripCloudImageVariantColumns<T extends Record<string, ShowcaseRepositoryJson>>(payload: T): T {
+  const next = { ...payload }
+
+  delete next.image_variants
+  delete next.cover_image_variants
+  delete next.logo_image_variants
+
+  return next as T
+}
+
 function parseIsoMillis(value: unknown): number | null {
   if (typeof value === 'number' && Number.isFinite(value)) return value
 
@@ -598,17 +686,6 @@ function decodeJwtPayload(token: string): Record<string, unknown> | null {
   }
 }
 
-function isJwtExpiredByPayload(token: string, skewMillis = 30_000): boolean {
-  const payload = decodeJwtPayload(token)
-  if (!payload) return false
-
-  const exp = jsonNullableNumber(payload, 'exp')
-  if (exp == null) return false
-
-  const expiresAt = exp * 1000
-  return expiresAt <= nowMillis() + skewMillis
-}
-
 function tokenExpiresAt(token: string): number {
   const payload = decodeJwtPayload(token)
   if (!payload) return nowSeconds() + 60 * 60
@@ -629,8 +706,6 @@ export class ShowcaseCloudRepository {
   private readonly edgeFunctions: RepositoryEdgeFunctionNames
 
   private merchantSession: MerchantAuthSession | null = null
-  private merchantSessionCallbacks: MerchantSessionCallbacks = {}
-  private merchantRefreshPromise: Promise<boolean> | null = null
 
   lastUpsertCode: number | null = null
   lastUpsertBody: string | null = null
@@ -644,6 +719,9 @@ export class ShowcaseCloudRepository {
   lastMerchantAuthCode: number | null = null
   lastMerchantAuthBody: string | null = null
 
+  lastMerchantBindingCode: number | null = null
+  lastMerchantBindingBody: string | null = null
+
   lastDeleteCode: number | null = null
   lastDeleteBody: string | null = null
 
@@ -652,6 +730,11 @@ export class ShowcaseCloudRepository {
 
   lastStoreImageUploadCode: number | null = null
   lastStoreImageUploadBody: string | null = null
+
+  lastReadFailureAt = 0
+  lastReadFailureLabel: string | null = null
+  lastReadFailureMessage: string | null = null
+  lastReadFailureUrl: string | null = null
 
   constructor(config: RepositoryConfigInput = {}) {
     this.supabaseUrl = resolveSupabaseUrl(config.supabaseUrl)
@@ -675,6 +758,17 @@ export class ShowcaseCloudRepository {
     }
   }
 
+  private markReadFailure(input: {
+    label: string
+    message: string
+    url?: string | null
+  }): void {
+    this.lastReadFailureAt = Date.now()
+    this.lastReadFailureLabel = input.label
+    this.lastReadFailureMessage = input.message
+    this.lastReadFailureUrl = input.url || null
+  }
+
   get currentMerchantSession(): MerchantAuthSession | null {
     return this.merchantSession
   }
@@ -683,21 +777,8 @@ export class ShowcaseCloudRepository {
     this.merchantSession = session
   }
 
-  setMerchantSessionCallbacks(callbacks: MerchantSessionCallbacks): void {
-    this.merchantSessionCallbacks = callbacks
-  }
-
   clearMerchantSession(): void {
     this.merchantSession = null
-  }
-
-  async refreshCurrentMerchantSessionForManager(session: MerchantAuthSession): Promise<MerchantAuthSession | null> {
-    this.setMerchantSession(session)
-
-    const ok = await this.refreshMerchantSessionIfNeeded(true)
-    if (!ok) return null
-
-    return this.currentMerchantSession
   }
 
   private requireApiKey(): string {
@@ -907,9 +988,19 @@ export class ShowcaseCloudRepository {
         headers: response.headers
       }
     } catch (error) {
+      const message = error instanceof Error ? error.message : String(error || 'Network error')
+
+      if ((options.method || 'GET') === 'GET') {
+        this.markReadFailure({
+          label: 'request',
+          message,
+          url
+        })
+      }
+
       return {
         code: 0,
-        body: error instanceof Error ? error.message : String(error || 'Network error'),
+        body: message,
         headers: new Headers()
       }
     }
@@ -1005,25 +1096,20 @@ export class ShowcaseCloudRepository {
     scopeStoreId?: string | null,
     scopeClientId?: string | null
   ): Promise<[number, string | null]> {
-    const session = this.merchantSession
+    let accessToken: string
 
-    if (!session?.accessToken) {
-      return [0, 'Merchant session missing']
-    }
-
-    await this.refreshMerchantSessionIfNeeded(false)
-
-    const activeSession = this.merchantSession
-
-    if (!activeSession?.accessToken) {
-      return [0, 'Merchant session missing']
+    try {
+      accessToken = await requireFreshShowcaseAccessToken()
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Merchant session missing'
+      return [0, message]
     }
 
     const first = await this.request(url, {
       method: 'PUT',
       body: bytes,
       contentType,
-      authorization: `Bearer ${activeSession.accessToken}`,
+      authorization: `Bearer ${accessToken}`,
       scopeStoreId,
       scopeClientId,
       extraHeaders: {
@@ -1031,13 +1117,20 @@ export class ShowcaseCloudRepository {
       }
     })
 
-    if (!this.shouldRetryWithMerchantRefresh(first.code, first.body)) {
+    if (!this.isJwtExpiredBody(first.code, first.body)) {
       return [first.code, first.body]
     }
 
-    const refreshed = await this.refreshMerchantSessionIfNeeded(true)
+    let retryAccessToken = ''
 
-    if (!refreshed || !this.merchantSession?.accessToken) {
+    try {
+      const refreshed = await refreshShowcaseAuthSession()
+      retryAccessToken = refreshed?.accessToken || ''
+    } catch {
+      return [first.code, first.body]
+    }
+
+    if (!retryAccessToken || retryAccessToken === accessToken) {
       return [first.code, first.body]
     }
 
@@ -1045,7 +1138,7 @@ export class ShowcaseCloudRepository {
       method: 'PUT',
       body: bytes,
       contentType,
-      authorization: `Bearer ${this.merchantSession.accessToken}`,
+      authorization: `Bearer ${retryAccessToken}`,
       scopeStoreId,
       scopeClientId,
       extraHeaders: {
@@ -1056,113 +1149,42 @@ export class ShowcaseCloudRepository {
     return [second.code, second.body]
   }
 
-  private async openAuthConnection(
-    path: string,
-    body: ShowcaseRepositoryJson,
-    authorization: string | null = null
-  ): Promise<[number, string | null]> {
-    const result = await this.request(this.authUrl(path), {
-      method: 'POST',
-      body,
-      authorization,
-      extraHeaders: {
-        'X-Client-Info': 'ndjc-pwa-showcase'
-      }
-    })
-
-    return [result.code, result.body]
-  }
-
   private isJwtExpiredBody(code: number | null | undefined, body: string | null | undefined): boolean {
     const c = code || 0
     const text = String(body || '').trim().toLowerCase()
 
-    if (c === 401 || c === 403) return true
-
-    return (
+    const tokenExpired = (
       text.includes('jwt expired') ||
       text.includes('"exp" claim timestamp check failed') ||
-      text.includes('unauthorized') ||
+      text.includes('exp claim timestamp check failed') ||
+      text.includes('access token expired') ||
+      text.includes('token expired') ||
       text.includes('invalid jwt') ||
-      text.includes('jwt') && text.includes('expired')
+      (text.includes('jwt') && text.includes('expired'))
+    )
+
+    if (tokenExpired) {
+      return true
+    }
+
+    if (c !== 401) {
+      return false
+    }
+
+    return (
+      text.includes('unauthorized') ||
+      text.includes('not authenticated') ||
+      text.includes('authentication') ||
+      text.includes('bearer') ||
+      text.includes('jwt') ||
+      text.includes('access token') ||
+      text.includes('auth token') ||
+      text.includes('session')
     )
   }
 
   isMerchantAuthExpired(code: number | null | undefined, body: string | null | undefined): boolean {
     return this.isJwtExpiredBody(code, body)
-  }
-
-  private shouldRetryWithMerchantRefresh(code: number, body: string | null): boolean {
-    if (!this.merchantSession?.refreshToken) return false
-    if (this.isJwtExpiredBody(code, body)) return true
-
-    const accessToken = this.merchantSession.accessToken
-    return Boolean(accessToken && isJwtExpiredByPayload(accessToken))
-  }
-
-  private async refreshMerchantSessionIfNeeded(force = false): Promise<boolean> {
-    const session = this.merchantSession
-    if (!session?.refreshToken) return false
-
-    if (!force && session.accessToken && !isJwtExpiredByPayload(session.accessToken) && session.expiresAt > nowSeconds() + 120) {
-      return true
-    }
-
-    if (this.merchantRefreshPromise) {
-      return this.merchantRefreshPromise
-    }
-
-    this.merchantRefreshPromise = this.refreshMerchantSessionLocked(session)
-
-    try {
-      return await this.merchantRefreshPromise
-    } finally {
-      this.merchantRefreshPromise = null
-    }
-  }
-
-  private async refreshMerchantSessionLocked(session: MerchantAuthSession): Promise<boolean> {
-    const [code, body] = await this.openAuthConnection(
-      '/token?grant_type=refresh_token',
-      {
-        refresh_token: session.refreshToken
-      },
-      `Bearer ${this.supabaseAnonKey}`
-    )
-
-    this.lastMerchantAuthCode = code
-    this.lastMerchantAuthBody = body
-
-    if (code < 200 || code > 299 || !body) {
-      return false
-    }
-
-    const parsed = safeParseJsonObject(body)
-    if (!parsed) {
-      return false
-    }
-
-    const accessToken = jsonString(parsed, 'access_token')
-    const refreshToken = jsonNullableString(parsed, 'refresh_token') || session.refreshToken
-    const user = parsed.user && typeof parsed.user === 'object' ? parsed.user as Record<string, unknown> : null
-    const authUserId = user ? jsonString(user, 'id', session.authUserId) : session.authUserId
-
-    if (!accessToken || !authUserId) {
-      return false
-    }
-
-    const nextSession: MerchantAuthSession = {
-      accessToken,
-      refreshToken,
-      authUserId,
-      loginName: session.loginName,
-      expiresAt: tokenExpiresAt(accessToken)
-    }
-
-    this.merchantSession = nextSession
-    this.merchantSessionCallbacks.onRefreshed?.(nextSession)
-
-    return true
   }
 
   private async httpAuthRequest(
@@ -1173,34 +1195,38 @@ export class ShowcaseCloudRepository {
     scopeStoreId?: string | null,
     scopeClientId?: string | null
   ): Promise<[number, string | null]> {
-    const session = this.merchantSession
+    let accessToken: string
 
-    if (!session?.accessToken) {
-      return [0, 'Merchant session missing']
-    }
-
-    await this.refreshMerchantSessionIfNeeded(false)
-
-    const activeSession = this.merchantSession
-    if (!activeSession?.accessToken) {
-      return [0, 'Merchant session missing']
+    try {
+      accessToken = await requireFreshShowcaseAccessToken()
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Merchant session missing'
+      return [0, message]
     }
 
     const first = await this.request(url, {
       method,
       body,
       prefer,
-      authorization: `Bearer ${activeSession.accessToken}`,
+      authorization: `Bearer ${accessToken}`,
       scopeStoreId,
       scopeClientId
     })
 
-    if (!this.shouldRetryWithMerchantRefresh(first.code, first.body)) {
+    if (!this.isJwtExpiredBody(first.code, first.body)) {
       return [first.code, first.body]
     }
 
-    const refreshed = await this.refreshMerchantSessionIfNeeded(true)
-    if (!refreshed || !this.merchantSession?.accessToken) {
+    let retryAccessToken = ''
+
+    try {
+      const refreshed = await refreshShowcaseAuthSession()
+      retryAccessToken = refreshed?.accessToken || ''
+    } catch {
+      return [first.code, first.body]
+    }
+
+    if (!retryAccessToken || retryAccessToken === accessToken) {
       return [first.code, first.body]
     }
 
@@ -1208,7 +1234,7 @@ export class ShowcaseCloudRepository {
       method,
       body,
       prefer,
-      authorization: `Bearer ${this.merchantSession.accessToken}`,
+      authorization: `Bearer ${retryAccessToken}`,
       scopeStoreId,
       scopeClientId
     })
@@ -1260,7 +1286,12 @@ export class ShowcaseCloudRepository {
     try {
       return await block()
     } catch (error) {
+      const message = error instanceof Error ? error.message : String(error || 'Cloud read failed.')
       console.warn(`[ShowcaseCloudRepository] ${label} failed`, error)
+      this.markReadFailure({
+        label,
+        message
+      })
       return fallback
     }
   }
@@ -1313,67 +1344,63 @@ export class ShowcaseCloudRepository {
     return buildCategoryWriteErrorMessage(actionLabel, code, body)
   }
 
-  private parseCategory(raw: Record<string, unknown>): CloudCategory {
-    const nameZh = jsonNullableString(raw, 'name_zh')
-    const nameEn = jsonNullableString(raw, 'name_en')
-    const legacyName = jsonNullableString(raw, 'name')
-    const name = firstNonBlankJsonString(
-      {
-        nameZh,
-        nameEn,
-        legacyName
-      },
-      ['nameZh', 'nameEn', 'legacyName']
-    )
+private parseCategory(raw: Record<string, unknown>): CloudCategory {
+  const fallbackName = jsonString(raw, 'name')
+  const nameI18n = jsonRecord(raw, 'name_i18n')
+  const name = pickI18nText(nameI18n, fallbackName)
 
-    return {
-      id: jsonString(raw, 'id'),
-      name: name || '',
-      sortOrder: jsonNullableNumber(raw, 'sort_order')
-    }
+  return {
+    id: jsonString(raw, 'id'),
+    name: name || '',
+    sortOrder: jsonNullableNumber(raw, 'sort_order')
   }
+}
 
-  private parseDish(raw: Record<string, unknown>, images: string[] = []): CloudDish {
-    const id = jsonNullableString(raw, 'id')
-    const nameEn = jsonString(raw, 'name_en', jsonString(raw, 'title', ''))
-    const nameZh = jsonString(raw, 'name_zh', nameEn)
-    const originalPrice = jsonNumber(raw, 'original_price', jsonNumber(raw, 'price', 0))
-    const imageUrl = jsonNullableString(raw, 'image_url')
-    const imageUrlsFromJson = parseStringArray(raw.image_urls)
-    const mergedImages = [
-      ...images,
-      ...imageUrlsFromJson,
-      ...(imageUrl ? [imageUrl] : [])
-    ]
-      .map(item => String(item || '').trim())
-      .filter(Boolean)
+private parseDish(raw: Record<string, unknown>, images: string[] = []): CloudDish {
+  const id = jsonNullableString(raw, 'id')
+  const nameFallback = jsonString(raw, 'name', jsonString(raw, 'title', ''))
+  const nameI18n = jsonRecord(raw, 'name_i18n')
+  const displayName = pickI18nText(nameI18n, nameFallback || 'Untitled item')
+  const descriptionFallback = jsonNullableString(raw, 'description') || ''
+  const descriptionI18n = jsonRecord(raw, 'description_i18n')
+  const displayDescription = pickI18nText(descriptionI18n, descriptionFallback)
+  const originalPrice = jsonNumber(raw, 'original_price', jsonNumber(raw, 'price', 0))
+  const imageUrl = jsonNullableString(raw, 'image_url')
+  const imageVariants = parseCloudImageVariants(raw.image_variants)
+  const imageUrlsFromJson = parseStringArray(raw.image_urls)
+  const mergedImages = [
+    ...images,
+    ...imageUrlsFromJson,
+    ...(imageUrl ? [imageUrl] : [])
+  ]
+    .map(item => String(item || '').trim())
+    .filter(Boolean)
 
-    return {
-      id,
-      nameEn,
-      nameZh,
-      descriptionEn: jsonNullableString(raw, 'description_en') || jsonNullableString(raw, 'description'),
-      descriptionZh: jsonNullableString(raw, 'description_zh'),
-      categoryId: jsonNullableString(raw, 'category_id'),
-      categoryName: firstNonBlankJsonString(raw, [
-        'category_name',
-        'category',
-        'category_text',
-        'category_label'
-      ]),
-      price: originalPrice,
-      discountPrice: jsonNullableNumber(raw, 'discount_price'),
-      recommended: jsonBoolean(raw, 'recommended', jsonBoolean(raw, 'is_recommended', false)),
-      soldOut: jsonBoolean(raw, 'sold_out', jsonBoolean(raw, 'is_sold_out', false)),
-      hidden: jsonBoolean(raw, 'hidden', jsonBoolean(raw, 'is_hidden', false)),
-      imageUrl: mergedImages[0] || null,
-      imageUrls: Array.from(new Set(mergedImages)),
-      tags: parseStringArray(raw.tags),
-      externalLink: jsonNullableString(raw, 'external_link'),
-      updatedAt: this.parseIsoMillis(raw.updated_at),
-      clickCount: jsonNumber(raw, 'click_count', 0)
-    }
+  return {
+    id,
+    name: displayName,
+    description: displayDescription,
+    categoryId: jsonNullableString(raw, 'category_id'),
+    categoryName: firstNonBlankJsonString(raw, [
+      'category_name',
+      'category',
+      'category_text',
+      'category_label'
+    ]),
+    price: originalPrice,
+    discountPrice: jsonNullableNumber(raw, 'discount_price'),
+    recommended: jsonBoolean(raw, 'recommended', jsonBoolean(raw, 'is_recommended', false)),
+    soldOut: jsonBoolean(raw, 'sold_out', jsonBoolean(raw, 'is_sold_out', false)),
+    hidden: jsonBoolean(raw, 'hidden', jsonBoolean(raw, 'is_hidden', false)),
+    imageUrl: mergedImages[0] || null,
+    imageUrls: Array.from(new Set(mergedImages)),
+    imageVariants,
+    tags: parseStringArray(raw.tags),
+    externalLink: jsonNullableString(raw, 'external_link'),
+    updatedAt: this.parseIsoMillis(raw.updated_at),
+    clickCount: jsonNumber(raw, 'click_count', 0)
   }
+}
 
   private cloudDishToDemoDish(dish: CloudDish, categoriesById: Map<string, CloudCategory> = new Map()): DemoDish {
     const categoryFromId = dish.categoryId ? categoriesById.get(dish.categoryId)?.name || null : null
@@ -1387,10 +1414,9 @@ export class ShowcaseCloudRepository {
 
     return {
       id: dish.id || `dish_${Date.now()}`,
-      title: dish.nameEn || dish.nameZh || 'Untitled item',
-      nameZh: dish.nameZh || dish.nameEn || 'Untitled item',
-      nameEn: dish.nameEn || dish.nameZh || 'Untitled item',
-      descriptionEn: dish.descriptionEn || '',
+      title: dish.name || 'Untitled item',
+      name: dish.name || 'Untitled item',
+      description: dish.description || '',
       category,
       originalPrice: dish.price,
       discountPrice: dish.discountPrice,
@@ -1398,6 +1424,7 @@ export class ShowcaseCloudRepository {
       isSoldOut: dish.soldOut,
       isHidden: dish.hidden,
       imageUrls: dish.imageUrls,
+      imageVariants: dish.imageVariants ?? null,
       tags: dish.tags,
       clickCount: dish.clickCount,
       updatedAt: dish.updatedAt || Date.now(),
@@ -1406,84 +1433,120 @@ export class ShowcaseCloudRepository {
     }
   }
 
-  private demoDishToCloudPayload(storeId: string, dish: DemoDish, categoryId: string | null): Record<string, ShowcaseRepositoryJson> {
-    return {
-      id: dish.id,
-      store_id: storeId,
-      name_en: dish.nameEn || dish.title || '',
-      name_zh: dish.nameZh || dish.nameEn || dish.title || '',
-      description_en: dish.descriptionEn || '',
-      description_zh: '',
-      category_id: categoryId,
-      price: Number(dish.originalPrice || 0),
-      discount_price: dish.discountPrice == null ? null : Number(dish.discountPrice || 0),
-      recommended: Boolean(dish.isRecommended),
-      sold_out: Boolean(dish.isSoldOut),
-      hidden: Boolean(dish.isHidden),
-      tags: dish.tags || [],
-      click_count: Number(dish.clickCount || 0),
-      updated_at: Number(dish.updatedAt || Date.now())
-    }
+private demoDishToCloudPayload(storeId: string, dish: DemoDish, categoryId: string | null): Record<string, ShowcaseRepositoryJson> {
+  const name = String(dish.name || dish.title || 'Untitled item').trim()
+  const description = String(dish.description || '').trim()
+
+  return {
+    id: dish.id,
+    store_id: storeId,
+    name,
+    name_i18n: buildI18nValue({
+      default: name
+    }),
+    description,
+    description_i18n: buildI18nValue({
+      default: description
+    }),
+    category_id: categoryId,
+    price: Number(dish.originalPrice || 0),
+    discount_price: dish.discountPrice == null ? null : Number(dish.discountPrice || 0),
+    recommended: Boolean(dish.isRecommended),
+    sold_out: Boolean(dish.isSoldOut),
+    hidden: Boolean(dish.isHidden),
+    image_variants: dish.imageVariants || null,
+    tags: dish.tags || [],
+    click_count: Number(dish.clickCount || 0),
+    updated_at: Number(dish.updatedAt || Date.now())
   }
+}
 
-  private parseStoreProfile(raw: Record<string, unknown>, storeIdFallback: string): CloudStoreProfile {
-    return {
-      storeId: jsonString(raw, 'store_id', storeIdFallback),
-      title: jsonString(raw, 'title', jsonString(raw, 'display_name', 'Showcase Store')),
-      subtitle: jsonString(raw, 'subtitle', jsonString(raw, 'tagline', '')),
-      description: jsonString(raw, 'description'),
-      address: jsonString(raw, 'address'),
-      hours: jsonString(raw, 'hours', jsonString(raw, 'business_hours', '')),
-      mapUrl: jsonString(raw, 'map_url'),
-      extraContactsJson: typeof raw.extra_contacts_json === 'string'
-        ? raw.extra_contacts_json
-        : JSON.stringify(raw.extra_contacts || []),
-      servicesJson: typeof raw.services_json === 'string'
-        ? raw.services_json
-        : JSON.stringify(raw.services || []),
-      coverUrl: jsonString(raw, 'cover_url'),
-      logoUrl: jsonString(raw, 'logo_url'),
-      businessStatus: jsonString(raw, 'business_status'),
-      updatedAt: this.parseIsoMillis(raw.updated_at)
-    }
+private parseStoreProfile(raw: Record<string, unknown>, storeIdFallback: string): CloudStoreProfile {
+  const titleFallback = jsonString(raw, 'title', jsonString(raw, 'display_name', 'Showcase Store'))
+  const subtitleFallback = jsonString(raw, 'subtitle', jsonString(raw, 'tagline', ''))
+  const descriptionFallback = jsonString(raw, 'description')
+  const addressFallback = jsonString(raw, 'address')
+  const hoursFallback = jsonString(raw, 'hours', jsonString(raw, 'business_hours', ''))
+  const businessStatusFallback = jsonString(raw, 'business_status')
+
+  return {
+    storeId: jsonString(raw, 'store_id', storeIdFallback),
+    title: pickI18nText(jsonRecord(raw, 'title_i18n'), titleFallback),
+    subtitle: pickI18nText(jsonRecord(raw, 'subtitle_i18n'), subtitleFallback),
+    description: pickI18nText(jsonRecord(raw, 'description_i18n'), descriptionFallback),
+    address: pickI18nText(jsonRecord(raw, 'address_i18n'), addressFallback),
+    hours: pickI18nText(jsonRecord(raw, 'hours_i18n'), hoursFallback),
+    mapUrl: jsonString(raw, 'map_url'),
+    extraContactsJson: typeof raw.extra_contacts_json === 'string'
+      ? raw.extra_contacts_json
+      : JSON.stringify(raw.extra_contacts || []),
+    servicesJson: typeof raw.services_json === 'string'
+      ? raw.services_json
+      : JSON.stringify(raw.services || []),
+    coverUrl: jsonString(raw, 'cover_url'),
+    logoUrl: jsonString(raw, 'logo_url'),
+    coverImageVariants: parseCloudImageVariants(raw.cover_image_variants),
+    logoImageVariants: parseCloudImageVariants(raw.logo_image_variants),
+    businessStatus: pickI18nText(jsonRecord(raw, 'business_status_i18n'), businessStatusFallback),
+    updatedAt: this.parseIsoMillis(raw.updated_at)
   }
+}
 
-  private storeProfilePayload(profile: CloudStoreProfile): Record<string, ShowcaseRepositoryJson> {
-    return {
-      store_id: profile.storeId,
-      title: profile.title,
-      subtitle: profile.subtitle,
-      description: profile.description,
-      address: profile.address,
-      hours: profile.hours,
-      map_url: profile.mapUrl,
-      extra_contacts_json: profile.extraContactsJson || '[]',
-      services_json: profile.servicesJson || '[]',
-      cover_url: profile.coverUrl,
-      logo_url: profile.logoUrl,
-      business_status: profile.businessStatus,
-      updated_at: new Date().toISOString()
-    }
+private storeProfilePayload(profile: CloudStoreProfile): Record<string, ShowcaseRepositoryJson> {
+  return {
+    store_id: profile.storeId,
+    title: profile.title,
+    title_i18n: buildI18nValue({
+      default: profile.title
+    }),
+    subtitle: profile.subtitle,
+    subtitle_i18n: buildI18nValue({
+      default: profile.subtitle
+    }),
+    description: profile.description,
+    description_i18n: buildI18nValue({
+      default: profile.description
+    }),
+    address: profile.address,
+    address_i18n: buildI18nValue({
+      default: profile.address
+    }),
+    hours: profile.hours,
+    hours_i18n: buildI18nValue({
+      default: profile.hours
+    }),
+    map_url: profile.mapUrl,
+    extra_contacts_json: profile.extraContactsJson || '[]',
+    services_json: profile.servicesJson || '[]',
+    cover_url: profile.coverUrl,
+    logo_url: profile.logoUrl,
+    cover_image_variants: profile.coverImageVariants || null,
+    logo_image_variants: profile.logoImageVariants || null,
+    business_status: profile.businessStatus,
+    business_status_i18n: buildI18nValue({
+      default: profile.businessStatus
+    }),
+    updated_at: new Date().toISOString()
   }
+}
+async fetchCategories(storeIdInput?: string | null): Promise<CloudCategory[]> {
+  const storeId = this.requireStoreId(storeIdInput)
+  const query = [
+    'select=id,store_id,name,name_i18n,sort_order',
+    `store_id=${this.encodeEq(storeId)}`,
+    'order=sort_order.asc.nullslast,name.asc.nullslast'
+  ].join('&')
 
-  async fetchCategories(storeIdInput?: string | null): Promise<CloudCategory[]> {
-    const storeId = this.requireStoreId(storeIdInput)
-    const query = [
-      'select=id,store_id,name,name_zh,name_en,sort_order',
-      `store_id=${this.encodeEq(storeId)}`,
-      'order=sort_order.asc.nullslast,name_zh.asc.nullslast,name_en.asc.nullslast,name.asc.nullslast'
-    ].join('&')
+  const url = this.buildSelectUrl(this.categoriesTable(), query)
 
-    const url = this.buildSelectUrl(this.categoriesTable(), query)
-
-    return this.executeOnce('fetchCategories', async () => {
-      const [code, body] = await this.httpGet(url, storeId)
-      if (code < 200 || code > 299) return []
-      return this.parseObjectArray(body)
-        .map(item => this.parseCategory(item))
-        .filter(item => item.id && item.name.trim())
-    }, [])
-  }
+  return this.executeOnce('fetchCategories', async () => {
+    const [code, body] = await this.httpGet(url, storeId)
+    if (code < 200 || code > 299) return []
+    return this.parseObjectArray(body)
+      .map(item => this.parseCategory(item))
+      .filter(item => item.id && item.name.trim())
+  }, [])
+}
 
   async fetchCategoryMap(storeIdInput?: string | null): Promise<Map<string, CloudCategory>> {
     const categories = await this.fetchCategories(storeIdInput)
@@ -1552,7 +1615,8 @@ export class ShowcaseCloudRepository {
       return {
         ...item,
         imageUrl: mergedImages[0] || null,
-        imageUrls: mergedImages
+        imageUrls: mergedImages,
+        imageVariants: item.imageVariants ?? null
       }
     })
   }
@@ -1577,23 +1641,23 @@ export class ShowcaseCloudRepository {
     })
   }
 
-  async fetchDishes(storeIdInput?: string | null): Promise<DemoDish[]> {
-    const storeId = this.requireStoreId(storeIdInput)
-    const categoriesById = await this.fetchCategoryMap(storeId)
-    const query = [
-      'select=*',
-      `store_id=${this.encodeEq(storeId)}`,
-      'order=updated_at.desc.nullslast,name_en.asc'
-    ].join('&')
+async fetchDishes(storeIdInput?: string | null): Promise<DemoDish[]> {
+  const storeId = this.requireStoreId(storeIdInput)
+  const categoriesById = await this.fetchCategoryMap(storeId)
+  const query = [
+    'select=*',
+    `store_id=${this.encodeEq(storeId)}`,
+    'order=updated_at.desc.nullslast,name.asc'
+  ].join('&')
 
-    const url = this.buildSelectUrl(this.dishesTable(), query)
+  const url = this.buildSelectUrl(this.dishesTable(), query)
 
-    return this.executeOnce('fetchDishes', async () => {
-      const [code, body] = await this.httpGet(url, storeId)
-      if (code < 200 || code > 299) return []
-      return this.parseDishesArray(storeId, body, categoriesById)
-    }, [])
-  }
+  return this.executeOnce('fetchDishes', async () => {
+    const [code, body] = await this.httpGet(url, storeId)
+    if (code < 200 || code > 299) return []
+    return this.parseDishesArray(storeId, body, categoriesById)
+  }, [])
+}
 
   async fetchDishesPaged(input: {
     storeId?: string | null
@@ -1601,21 +1665,54 @@ export class ShowcaseCloudRepository {
     offset?: number
   } = {}): Promise<DemoDish[]> {
     const storeId = this.requireStoreId(input.storeId)
-    const limit = Math.max(1, Math.min(Number(input.limit || 50), 200))
+    const limit = Math.max(1, Math.min(Number(input.limit || SHOWCASE_PAGE_SIZE.homeDishes), 200))
     const offset = Math.max(0, Number(input.offset || 0))
     const categoriesById = await this.fetchCategoryMap(storeId)
 
-    const query = [
-      'select=*',
-      `store_id=${this.encodeEq(storeId)}`,
-      'order=updated_at.desc.nullslast,name_en.asc',
-      `limit=${limit}`,
-      `offset=${offset}`
-    ].join('&')
+const query = [
+  'select=*',
+  `store_id=${this.encodeEq(storeId)}`,
+  'order=updated_at.desc.nullslast,name.asc',
+  `limit=${limit}`,
+  `offset=${offset}`
+].join('&')
 
     const url = this.buildSelectUrl(this.dishesTable(), query)
 
     return this.executeOnce('fetchDishesPaged', async () => {
+      const [code, body] = await this.httpGet(url, storeId)
+      if (code < 200 || code > 299) return []
+      return this.parseDishesArray(storeId, body, categoriesById)
+    }, [])
+  }
+
+  async fetchDishesByIds(
+    storeIdInput: string | null | undefined,
+    dishIdsInput: string[]
+  ): Promise<DemoDish[]> {
+    const storeId = this.requireStoreId(storeIdInput)
+    const ids = Array.from(
+      new Set(
+        dishIdsInput
+          .map(id => String(id || '').trim())
+          .filter(Boolean)
+      )
+    )
+
+    if (!ids.length) return []
+
+    const categoriesById = await this.fetchCategoryMap(storeId)
+    const inValue = `in.(${ids.map(id => `"${id.replace(/"/g, '\\"')}"`).join(',')})`
+    const query = [
+      'select=*',
+      `store_id=${this.encodeEq(storeId)}`,
+      `id=${encodeURIComponent(inValue)}`,
+      'order=updated_at.desc.nullslast,name.asc'
+    ].join('&')
+
+    const url = this.buildSelectUrl(this.dishesTable(), query)
+
+    return this.executeOnce('fetchDishesByIds', async () => {
       const [code, body] = await this.httpGet(url, storeId)
       if (code < 200 || code > 299) return []
       return this.parseDishesArray(storeId, body, categoriesById)
@@ -1629,16 +1726,15 @@ export class ShowcaseCloudRepository {
   }): Promise<DemoDish[]> {
     const storeId = this.requireStoreId(input.storeId)
     const search = String(input.query || '').trim()
-    if (!search) return this.fetchDishesPaged({ storeId, limit: input.limit || 50 })
+    if (!search) return this.fetchDishesPaged({ storeId, limit: input.limit || SHOWCASE_PAGE_SIZE.homeDishes })
 
     const categoriesById = await this.fetchCategoryMap(storeId)
-    const limit = Math.max(1, Math.min(Number(input.limit || 50), 200))
+    const limit = Math.max(1, Math.min(Number(input.limit || SHOWCASE_PAGE_SIZE.homeDishes), 200))
 
-    const orQuery = [
-      `name_en.ilike.*${search}*`,
-      `name_zh.ilike.*${search}*`,
-      `description_en.ilike.*${search}*`
-    ].join(',')
+const orQuery = [
+  `name.ilike.*${search}*`,
+  `description.ilike.*${search}*`
+].join(',')
 
     const query = [
       'select=*',
@@ -1654,6 +1750,229 @@ export class ShowcaseCloudRepository {
       const [code, body] = await this.httpGet(url, storeId)
       if (code < 200 || code > 299) return []
       return this.parseDishesArray(storeId, body, categoriesById)
+    }, [])
+  }
+
+  async fetchDishesFilteredPage(input: {
+    storeId?: string | null
+    categoryName?: string | null
+    searchQuery?: string | null
+    selectedTags?: string[]
+    recommendedOnly?: boolean
+    onSaleOnly?: boolean
+    minPrice?: number | null
+    maxPrice?: number | null
+    hiddenOnly?: boolean
+    includeHidden?: boolean
+    sortMode?: string | null
+    limit?: number
+    offset?: number
+  } = {}): Promise<DemoDish[]> {
+    const storeId = this.requireStoreId(input.storeId)
+    const categoriesById = await this.fetchCategoryMap(storeId)
+    const categoryName = String(input.categoryName || '').trim()
+    const searchQuery = String(input.searchQuery || '').trim()
+    const selectedTags = Array.from(
+      new Set(
+        (input.selectedTags || [])
+          .map(tag => String(tag || '').trim())
+          .filter(Boolean)
+      )
+    )
+    const minPrice = input.minPrice == null ? null : Number(input.minPrice)
+    const maxPrice = input.maxPrice == null ? null : Number(input.maxPrice)
+    const limit = Math.max(1, Math.min(Number(input.limit || SHOWCASE_PAGE_SIZE.homeDishes), 200))
+    const offset = Math.max(0, Number(input.offset || 0))
+    const categoryId = categoryName
+      ? Array.from(categoriesById.values()).find(item => item.name.trim().toLowerCase() === categoryName.toLowerCase())?.id || null
+      : null
+
+    const sortMode = String(input.sortMode || '').trim()
+    const shouldUseMerchantAuth = Boolean(input.includeHidden || input.hiddenOnly)
+    const needsEffectivePricePass = Boolean(
+      input.onSaleOnly ||
+      minPrice != null ||
+      maxPrice != null ||
+      sortMode === 'PriceAsc' ||
+      sortMode === 'PriceDesc'
+    )
+
+    const searchOrQuery = searchQuery
+      ? [
+          `name.ilike.*${searchQuery}*`
+        ].join(',')
+      : ''
+
+    const baseQueryParts = [
+      'select=*',
+      `store_id=${this.encodeEq(storeId)}`,
+      input.includeHidden ? '' : `hidden=${this.encodeEq('false')}`,
+      input.hiddenOnly ? `hidden=${this.encodeEq('true')}` : '',
+      categoryId ? `category_id=${this.encodeEq(categoryId)}` : '',
+      input.recommendedOnly ? `recommended=${this.encodeEq('true')}` : '',
+      selectedTags.length ? `tags=cs.${this.urlEncode(JSON.stringify(selectedTags))}` : '',
+      searchOrQuery ? `or=(${encodeURIComponent(searchOrQuery)})` : ''
+    ].filter(Boolean)
+
+    return this.executeOnce('fetchDishesFilteredPage', async () => {
+      if (!needsEffectivePricePass) {
+        const query = [
+          ...baseQueryParts,
+          'order=updated_at.desc.nullslast,name.asc',
+          `limit=${limit}`,
+          `offset=${offset}`
+        ].join('&')
+
+        const url = this.buildSelectUrl(this.dishesTable(), query)
+        const [code, body] = shouldUseMerchantAuth
+          ? await this.httpAuthGet(url, storeId)
+          : await this.httpGet(url, storeId)
+
+        if (code < 200 || code > 299) return []
+
+        return this.parseDishesArray(storeId, body, categoriesById)
+      }
+
+      const pageSize = 200
+      const maxRows = 5000
+      const rawRows: Record<string, unknown>[] = []
+      let rawOffset = 0
+
+      while (rawOffset < maxRows) {
+        const query = [
+          ...baseQueryParts,
+          'order=updated_at.desc.nullslast,name.asc',
+          `limit=${pageSize}`,
+          `offset=${rawOffset}`
+        ].join('&')
+
+        const url = this.buildSelectUrl(this.dishesTable(), query)
+        const [code, body] = shouldUseMerchantAuth
+          ? await this.httpAuthGet(url, storeId)
+          : await this.httpGet(url, storeId)
+
+        if (code < 200 || code > 299) break
+
+        const rows = this.parseObjectArray(body)
+        rawRows.push(...rows)
+
+        if (rows.length < pageSize) break
+
+        rawOffset += rows.length
+      }
+
+      const effectivePriceOf = (row: Record<string, unknown>): number => {
+        const originalPrice = jsonNumber(row, 'original_price', jsonNumber(row, 'price', 0))
+        const discountPrice = jsonNullableNumber(row, 'discount_price')
+        const hasValidDiscount = discountPrice != null &&
+          Number.isFinite(discountPrice) &&
+          discountPrice > 0 &&
+          originalPrice > 0 &&
+          discountPrice < originalPrice
+
+        return hasValidDiscount ? discountPrice : originalPrice
+      }
+
+      const hasRealDiscount = (row: Record<string, unknown>): boolean => {
+        const originalPrice = jsonNumber(row, 'original_price', jsonNumber(row, 'price', 0))
+        const discountPrice = jsonNullableNumber(row, 'discount_price')
+
+        return discountPrice != null &&
+          Number.isFinite(discountPrice) &&
+          discountPrice > 0 &&
+          originalPrice > 0 &&
+          discountPrice < originalPrice
+      }
+
+      const filteredRows = rawRows.filter(row => {
+        const effectivePrice = effectivePriceOf(row)
+
+        if (input.onSaleOnly && !hasRealDiscount(row)) return false
+        if (minPrice != null && Number.isFinite(minPrice) && effectivePrice < minPrice) return false
+        if (maxPrice != null && Number.isFinite(maxPrice) && effectivePrice > maxPrice) return false
+
+        return true
+      })
+
+      const sortedRows = filteredRows.slice().sort((left, right) => {
+        const leftRow: Record<string, unknown> = (left && typeof left === 'object') ? left : {}
+        const rightRow: Record<string, unknown> = (right && typeof right === 'object') ? right : {}
+        const leftUpdatedAt = String(leftRow['updated_at'] || '')
+        const rightUpdatedAt = String(rightRow['updated_at'] || '')
+
+        if (sortMode === 'PriceAsc') {
+          const priceDiff = effectivePriceOf(leftRow) - effectivePriceOf(rightRow)
+          if (priceDiff !== 0) return priceDiff
+        }
+
+        if (sortMode === 'PriceDesc') {
+          const priceDiff = effectivePriceOf(rightRow) - effectivePriceOf(leftRow)
+          if (priceDiff !== 0) return priceDiff
+        }
+
+        const leftUpdatedAtMillis = this.parseIsoMillis(leftUpdatedAt) ?? 0
+        const rightUpdatedAtMillis = this.parseIsoMillis(rightUpdatedAt) ?? 0
+        const updatedDiff = rightUpdatedAtMillis - leftUpdatedAtMillis
+
+        if (updatedDiff !== 0) return updatedDiff
+
+        return jsonString(leftRow, 'name').localeCompare(jsonString(rightRow, 'name'))
+      })
+
+      const pageRows = sortedRows.slice(offset, offset + limit)
+      const pageBody = JSON.stringify(pageRows)
+
+      return this.parseDishesArray(storeId, pageBody, categoriesById)
+    }, [])
+  }
+
+  async fetchDishFilterRows(input: {
+    storeId?: string | null
+    includeHidden?: boolean
+    hiddenOnly?: boolean
+    limit?: number
+  } = {}): Promise<CloudDishFilterRow[]> {
+    const storeId = this.requireStoreId(input.storeId)
+    const pageSize = Math.max(1, Math.min(Number(input.limit || 500), 1000))
+    const maxRows = 5000
+    const shouldUseMerchantAuth = Boolean(input.includeHidden || input.hiddenOnly)
+
+    return this.executeOnce('fetchDishFilterRows', async () => {
+      const result: CloudDishFilterRow[] = []
+      let offset = 0
+
+      while (offset < maxRows) {
+        const query = [
+          'select=tags',
+          `store_id=${this.encodeEq(storeId)}`,
+          input.includeHidden ? '' : `hidden=${this.encodeEq('false')}`,
+          input.hiddenOnly ? `hidden=${this.encodeEq('true')}` : '',
+          'order=updated_at.desc.nullslast,name.asc',
+          `limit=${pageSize}`,
+          `offset=${offset}`
+        ].filter(Boolean).join('&')
+
+        const url = this.buildSelectUrl(this.dishesTable(), query)
+        const [code, body] = shouldUseMerchantAuth
+          ? await this.httpAuthGet(url, storeId)
+          : await this.httpGet(url, storeId)
+
+        if (code < 200 || code > 299) break
+
+        const rows = this.parseObjectArray(body)
+
+        rows.forEach(row => {
+          result.push({
+            tags: parseStringArray(row.tags)
+          })
+        })
+
+        if (rows.length < pageSize) break
+
+        offset += rows.length
+      }
+
+      return result
     }, [])
   }
 
@@ -1687,83 +2006,85 @@ export class ShowcaseCloudRepository {
     }, false)
   }
 
-  async ensureCategoryExists(storeIdInput: string | null | undefined, nameInput: string): Promise<CategoryWriteResult> {
-    const storeId = this.requireStoreId(storeIdInput)
-    const name = String(nameInput || '').trim()
+async ensureCategoryExists(storeIdInput: string | null | undefined, nameInput: string): Promise<CategoryWriteResult> {
+  const storeId = this.requireStoreId(storeIdInput)
+  const name = String(nameInput || '').trim()
 
-    if (!name) {
-      return {
-        ok: false,
-        errorMessage: 'Add category failed. Category name is blank.',
-        errorCode: 0,
-        errorBody: null
-      }
-    }
-
-    const existingId = await this.getCategoryIdByName(storeId, name)
-    if (existingId) {
-      return {
-        ok: true,
-        errorMessage: null,
-        errorCode: 200,
-        errorBody: null
-      }
-    }
-
-    const categories = await this.fetchCategories(storeId)
-    const payload: Record<string, ShowcaseRepositoryJson> = {
-      id: createUuidLikeId(),
-      store_id: storeId,
-      name,
-      name_zh: name,
-      name_en: name,
-      sort_order: categories.length + 1
-    }
-
-    const url = this.restUrl(this.categoriesTable())
-    const [code, body] = await this.httpAuthPost(url, payload, 'return=representation', storeId)
-    const ok = code >= 200 && code <= 299
-
+  if (!name) {
     return {
-      ok,
-      errorMessage: ok ? null : this.buildCategoryWriteErrorMessage('Add category', code, body),
-      errorCode: code,
-      errorBody: body
+      ok: false,
+      errorMessage: 'Add category failed. Category name is blank.',
+      errorCode: 0,
+      errorBody: null
     }
   }
-  async resolveOrCreateCategoryId(storeIdInput: string | null | undefined, categoryNameInput: string | null | undefined): Promise<string | null> {
-    const storeId = this.requireStoreId(storeIdInput)
-    const categoryName = String(categoryNameInput || '').trim()
-    if (!categoryName) return null
 
-    const lowerCategoryName = categoryName.toLowerCase()
-    const existing = await this.fetchCategories(storeId)
-    const matched = existing.find(item => item.name.trim().toLowerCase() === lowerCategoryName)
-    if (matched) return matched.id
-
-    const payload: Record<string, ShowcaseRepositoryJson> = {
-      id: createUuidLikeId(),
-      store_id: storeId,
-      name: categoryName,
-      name_zh: categoryName,
-      name_en: categoryName,
-      sort_order: existing.length + 1
+  const existingId = await this.getCategoryIdByName(storeId, name)
+  if (existingId) {
+    return {
+      ok: true,
+      errorMessage: null,
+      errorCode: 200,
+      errorBody: null
     }
-
-    const url = this.restUrl(`${this.categoriesTable()}?select=id,store_id,name_zh,name_en,sort_order`)
-    const [code, body] = await this.httpAuthPost(url, payload, 'return=representation', storeId)
-
-    if (code < 200 || code > 299) {
-      this.lastUpsertCode = code
-      this.lastUpsertBody = body
-      return null
-    }
-
-    const row = this.parseFirstObject(body)
-    if (!row) return null
-
-    return jsonString(row, 'id') || null
   }
+
+  const categories = await this.fetchCategories(storeId)
+  const payload: Record<string, ShowcaseRepositoryJson> = {
+    id: createUuidLikeId(),
+    store_id: storeId,
+    name,
+    name_i18n: buildI18nValue({
+      default: name
+    }),
+    sort_order: categories.length + 1
+  }
+
+  const url = this.restUrl(this.categoriesTable())
+  const [code, body] = await this.httpAuthPost(url, payload, 'return=representation', storeId)
+  const ok = code >= 200 && code <= 299
+
+  return {
+    ok,
+    errorMessage: ok ? null : this.buildCategoryWriteErrorMessage('Add category', code, body),
+    errorCode: code,
+    errorBody: body
+  }
+}
+async resolveOrCreateCategoryId(storeIdInput: string | null | undefined, categoryNameInput: string | null | undefined): Promise<string | null> {
+  const storeId = this.requireStoreId(storeIdInput)
+  const categoryName = String(categoryNameInput || '').trim()
+  if (!categoryName) return null
+
+  const lowerCategoryName = categoryName.toLowerCase()
+  const existing = await this.fetchCategories(storeId)
+  const matched = existing.find(item => item.name.trim().toLowerCase() === lowerCategoryName)
+  if (matched) return matched.id
+
+  const payload: Record<string, ShowcaseRepositoryJson> = {
+    id: createUuidLikeId(),
+    store_id: storeId,
+    name: categoryName,
+    name_i18n: buildI18nValue({
+      default: categoryName
+    }),
+    sort_order: existing.length + 1
+  }
+
+  const url = this.restUrl(`${this.categoriesTable()}?select=id,store_id,name,name_i18n,sort_order`)
+  const [code, body] = await this.httpAuthPost(url, payload, 'return=representation', storeId)
+
+  if (code < 200 || code > 299) {
+    this.lastUpsertCode = code
+    this.lastUpsertBody = body
+    return null
+  }
+
+  const row = this.parseFirstObject(body)
+  if (!row) return null
+
+  return jsonString(row, 'id') || null
+}
 
   async replaceDishImages(input: {
     storeId: string
@@ -1841,7 +2162,15 @@ export class ShowcaseCloudRepository {
     const payload = this.demoDishToCloudPayload(storeId, dish, categoryId)
     const url = this.restUrl(this.dishesTable())
 
-    const [code, body] = await this.httpAuthPost(url, payload, 'resolution=merge-duplicates,return=representation', storeId)
+    let [code, body] = await this.httpAuthPost(url, payload, 'resolution=merge-duplicates,return=representation', storeId)
+
+    if ((code < 200 || code > 299) && isCloudImageVariantSchemaError(body)) {
+      const legacyPayload = stripCloudImageVariantColumns(payload)
+      const legacyResult = await this.httpAuthPost(url, legacyPayload, 'resolution=merge-duplicates,return=representation', storeId)
+
+      code = legacyResult[0]
+      body = legacyResult[1]
+    }
 
     this.lastUpsertCode = code
     this.lastUpsertBody = body
@@ -1860,10 +2189,8 @@ export class ShowcaseCloudRepository {
   async upsertDishSchemeA(input: {
     storeId?: string | null
     dishId?: string | null
-    nameEn: string
-    nameZh?: string | null
-    descriptionEn?: string | null
-    descriptionZh?: string | null
+    name: string
+    description?: string | null
     categoryName?: string | null
     originalPrice: number
     discountPrice?: number | null
@@ -1878,13 +2205,20 @@ export class ShowcaseCloudRepository {
     const dishId = String(input.dishId || '').trim() || createUuidLikeId()
     const categoryId = await this.resolveOrCreateCategoryId(storeId, input.categoryName || null)
 
+    const name = String(input.name || 'Untitled item').trim()
+    const description = String(input.description || '').trim()
+
     const payload: Record<string, ShowcaseRepositoryJson> = {
       id: dishId,
       store_id: storeId,
-      name_en: input.nameEn || '',
-      name_zh: input.nameZh || input.nameEn || '',
-      description_en: input.descriptionEn || '',
-      description_zh: input.descriptionZh || '',
+      name,
+      name_i18n: buildI18nValue({
+        default: name
+      }),
+      description,
+      description_i18n: buildI18nValue({
+        default: description
+      }),
       category_id: categoryId,
       price: Number(input.originalPrice || 0),
       discount_price: input.discountPrice == null ? null : Number(input.discountPrice || 0),
@@ -1969,43 +2303,44 @@ export class ShowcaseCloudRepository {
     }
   }
 
-  async renameCategoryById(input: {
-    storeId: string
-    categoryId: string
-    newName: string
-  }): Promise<CategoryWriteResult> {
-    const storeId = this.requireStoreId(input.storeId)
-    const categoryId = String(input.categoryId || '').trim()
-    const newName = String(input.newName || '').trim()
+async renameCategoryById(input: {
+  storeId: string
+  categoryId: string
+  newName: string
+}): Promise<CategoryWriteResult> {
+  const storeId = this.requireStoreId(input.storeId)
+  const categoryId = String(input.categoryId || '').trim()
+  const newName = String(input.newName || '').trim()
 
-    if (!storeId || !categoryId || !newName) {
-      return {
-        ok: false,
-        errorMessage: 'Category store id, id, and name are required.',
-        errorCode: 0,
-        errorBody: null
-      }
-    }
-
-    const url = this.restUrl(
-      `${this.categoriesTable()}?id=${this.encodeEq(categoryId)}&store_id=${this.encodeEq(storeId)}`
-    )
-
-    const [code, body] = await this.httpAuthPatch(url, {
-      name: newName,
-      name_zh: newName,
-      name_en: newName
-    }, 'return=representation')
-
-    const ok = code >= 200 && code <= 299
-
+  if (!storeId || !categoryId || !newName) {
     return {
-      ok,
-      errorMessage: ok ? null : this.buildCategoryWriteErrorMessage('Rename category', code, body),
-      errorCode: code,
-      errorBody: body
+      ok: false,
+      errorMessage: 'Category store id, id, and name are required.',
+      errorCode: 0,
+      errorBody: null
     }
   }
+
+  const url = this.restUrl(
+    `${this.categoriesTable()}?id=${this.encodeEq(categoryId)}&store_id=${this.encodeEq(storeId)}`
+  )
+
+  const [code, body] = await this.httpAuthPatch(url, {
+    name: newName,
+    name_i18n: buildI18nValue({
+      default: newName
+    })
+  }, 'return=representation', storeId)
+
+  const ok = code >= 200 && code <= 299
+
+  return {
+    ok,
+    errorMessage: ok ? null : this.buildCategoryWriteErrorMessage('Rename category', code, body),
+    errorCode: code,
+    errorBody: body
+  }
+}
 
   async setCategorySortOrder(input: {
     storeId: string
@@ -2171,6 +2506,51 @@ export class ShowcaseCloudRepository {
       }
     }
 
+    if ((code < 200 || code > 299) && isCloudImageVariantSchemaError(body)) {
+      const legacyPayload = stripCloudImageVariantColumns(payload)
+
+      if (exists) {
+        const patchUrl = this.restUrl(`${table}?store_id=${this.encodeEq(storeId)}`)
+        const legacyResult = await this.httpAuthPatch(
+          patchUrl,
+          legacyPayload,
+          'return=representation',
+          storeId
+        )
+
+        code = legacyResult[0]
+        body = legacyResult[1]
+      } else {
+        const postUrl = this.restUrl(table)
+        const legacyResult = await this.httpAuthPost(
+          postUrl,
+          legacyPayload,
+          'return=representation',
+          storeId
+        )
+
+        code = legacyResult[0]
+        body = legacyResult[1]
+
+        if (
+          code === 409 ||
+          body?.includes('duplicate key value violates unique constraint') ||
+          body?.includes('uq_store_profiles_store_id')
+        ) {
+          const patchUrl = this.restUrl(`${table}?store_id=${this.encodeEq(storeId)}`)
+          const retryResult = await this.httpAuthPatch(
+            patchUrl,
+            legacyPayload,
+            'return=representation',
+            storeId
+          )
+
+          code = retryResult[0]
+          body = retryResult[1]
+        }
+      }
+    }
+
     this.lastUpsertCode = code
     this.lastUpsertBody = body
 
@@ -2216,6 +2596,10 @@ export class ShowcaseCloudRepository {
       preferredTime: jsonString(raw, 'preferred_time'),
       note: jsonString(raw, 'note'),
       sourceDishId: jsonNullableString(raw, 'source_dish_id'),
+      sourcePriceSnapshot: jsonNullableString(raw, 'source_price_snapshot'),
+      sourceImageUrlSnapshot: jsonNullableString(raw, 'source_image_url_snapshot'),
+      sourceCategorySnapshot: jsonNullableString(raw, 'source_category_snapshot'),
+      sourceRecommendedSnapshot: Boolean(raw.source_recommended_snapshot),
       status: jsonString(raw, 'status', 'Pending'),
       createdAt: this.parseIsoMillis(raw.created_at)
     }
@@ -2231,6 +2615,10 @@ export class ShowcaseCloudRepository {
     preferredTime: string
     note?: string | null
     sourceDishId?: string | null
+    sourcePriceSnapshot?: string | null
+    sourceImageUrlSnapshot?: string | null
+    sourceCategorySnapshot?: string | null
+    sourceRecommendedSnapshot?: boolean | null
     status?: string | null
   }): Record<string, ShowcaseRepositoryJson> {
     return {
@@ -2243,6 +2631,10 @@ export class ShowcaseCloudRepository {
       preferred_time: String(input.preferredTime || ''),
       note: String(input.note || ''),
       source_dish_id: input.sourceDishId ? String(input.sourceDishId) : null,
+      source_price_snapshot: input.sourcePriceSnapshot ? String(input.sourcePriceSnapshot) : null,
+      source_image_url_snapshot: input.sourceImageUrlSnapshot ? String(input.sourceImageUrlSnapshot) : null,
+      source_category_snapshot: input.sourceCategorySnapshot ? String(input.sourceCategorySnapshot) : null,
+      source_recommended_snapshot: Boolean(input.sourceRecommendedSnapshot),
       status: String(input.status || 'pending').trim().toLowerCase()
     }
   }
@@ -2299,6 +2691,10 @@ export class ShowcaseCloudRepository {
     preferredTime: string
     note?: string | null
     sourceDishId?: string | null
+    sourcePriceSnapshot?: string | null
+    sourceImageUrlSnapshot?: string | null
+    sourceCategorySnapshot?: string | null
+    sourceRecommendedSnapshot?: boolean | null
   }): Promise<CloudAppointmentRequest | null> {
     const storeId = this.requireStoreId(input.storeId)
     const clientId = String(input.clientId || '').trim()
@@ -2315,6 +2711,10 @@ export class ShowcaseCloudRepository {
       preferredTime: input.preferredTime,
       note: input.note || '',
       sourceDishId: input.sourceDishId || null,
+      sourcePriceSnapshot: input.sourcePriceSnapshot || null,
+      sourceImageUrlSnapshot: input.sourceImageUrlSnapshot || null,
+      sourceCategorySnapshot: input.sourceCategorySnapshot || null,
+      sourceRecommendedSnapshot: Boolean(input.sourceRecommendedSnapshot),
       status: 'pending'
     })
 
@@ -2343,18 +2743,39 @@ export class ShowcaseCloudRepository {
     clientId?: string | null
     status?: string | null
     merchant?: boolean
+    preferredDate?: string | null
+    preferredDateGte?: string | null
+    preferredDateLt?: string | null
+    serviceTitle?: string | null
+    limit?: number
+    offset?: number
   } = {}): Promise<CloudAppointmentRequest[]> {
     const storeId = this.requireStoreId(input.storeId)
     const clientId = String(input.clientId || '').trim()
     const status = String(input.status || '').trim()
     const merchant = Boolean(input.merchant)
+    const preferredDate = String(input.preferredDate || '').trim()
+    const preferredDateGte = String(input.preferredDateGte || '').trim()
+    const preferredDateLt = String(input.preferredDateLt || '').trim()
+    const serviceTitle = String(input.serviceTitle || '').trim()
+    const defaultLimit = merchant
+      ? SHOWCASE_PAGE_SIZE.merchantAppointments
+      : SHOWCASE_PAGE_SIZE.clientAppointments
+    const limit = Math.max(1, Math.min(Number(input.limit || defaultLimit), 200))
+    const offset = Math.max(0, Number(input.offset || 0))
 
     const query = [
-      'select=id,store_id,client_id,customer_name,customer_contact,service_title,preferred_date,preferred_time,note,source_dish_id,status,created_at',
+      'select=id,store_id,client_id,customer_name,customer_contact,service_title,preferred_date,preferred_time,note,source_dish_id,source_price_snapshot,source_image_url_snapshot,source_category_snapshot,source_recommended_snapshot,status,created_at',
       `store_id=${this.encodeEq(storeId)}`,
       clientId ? `client_id=${this.encodeEq(clientId)}` : '',
       status ? `status=${this.encodeEq(status)}` : '',
-      'order=created_at.desc'
+      preferredDate ? `preferred_date=${this.encodeEq(preferredDate)}` : '',
+      preferredDateGte ? `preferred_date=gte.${this.urlEncode(preferredDateGte)}` : '',
+      preferredDateLt ? `preferred_date=lt.${this.urlEncode(preferredDateLt)}` : '',
+      serviceTitle ? `service_title=${this.encodeEq(serviceTitle)}` : '',
+      'order=created_at.desc',
+      `limit=${limit}`,
+      `offset=${offset}`
     ].filter(Boolean).join('&')
 
     const url = this.buildSelectUrl(this.appointmentRequestsTable(), query)
@@ -2370,10 +2791,68 @@ export class ShowcaseCloudRepository {
     }, [])
   }
 
+  async fetchAppointmentFilterRows(input: {
+    storeId?: string | null
+    clientId?: string | null
+    merchant?: boolean
+    limit?: number
+  } = {}): Promise<CloudAppointmentFilterRow[]> {
+    const storeId = this.requireStoreId(input.storeId)
+    const clientId = String(input.clientId || '').trim()
+    const merchant = Boolean(input.merchant)
+
+    if (!merchant && !clientId) return []
+
+    const pageSize = Math.max(1, Math.min(Number(input.limit || 500), 1000))
+    const maxRows = 5000
+
+    return this.executeOnce(merchant ? 'fetchAppointmentFilterRowsForMerchant' : 'fetchAppointmentFilterRowsForClient', async () => {
+      const result: CloudAppointmentFilterRow[] = []
+      let offset = 0
+
+      while (offset < maxRows) {
+        const query = [
+          'select=preferred_date,service_title,status',
+          `store_id=${this.encodeEq(storeId)}`,
+          !merchant && clientId ? `client_id=${this.encodeEq(clientId)}` : '',
+          'order=created_at.desc',
+          `limit=${pageSize}`,
+          `offset=${offset}`
+        ].filter(Boolean).join('&')
+
+        const url = this.buildSelectUrl(this.appointmentRequestsTable(), query)
+
+        const [code, body] = merchant
+          ? await this.httpAuthGet(url, storeId)
+          : await this.httpGet(url, storeId, clientId)
+
+        if (code < 200 || code > 299) break
+
+        const rows = this.parseObjectArray(body)
+
+        rows.forEach(row => {
+          result.push({
+            preferredDate: jsonString(row, 'preferred_date'),
+            serviceTitle: jsonString(row, 'service_title'),
+            status: jsonString(row, 'status', 'pending')
+          })
+        })
+
+        if (rows.length < pageSize) break
+
+        offset += rows.length
+      }
+
+      return result
+    }, [])
+  }
+
   async fetchAppointmentRequestsForMerchant(storeIdInput?: string | null): Promise<CloudAppointmentRequest[]> {
     return this.fetchAppointmentRequests({
       storeId: storeIdInput,
-      merchant: true
+      merchant: true,
+      limit: SHOWCASE_PAGE_SIZE.merchantAppointments,
+      offset: 0
     })
   }
 
@@ -2387,7 +2866,9 @@ export class ShowcaseCloudRepository {
     return this.fetchAppointmentRequests({
       storeId: storeIdInput,
       clientId,
-      merchant: false
+      merchant: false,
+      limit: SHOWCASE_PAGE_SIZE.clientAppointments,
+      offset: 0
     })
   }
 
@@ -2418,66 +2899,105 @@ async updateAppointmentStatus(input: {
   return code >= 200 && code <= 299
 }
 
-  private parseAnnouncement(raw: Record<string, unknown>, storeIdFallback: string): CloudAnnouncement {
-    return {
-      id: jsonString(raw, 'id'),
-      storeId: jsonString(raw, 'store_id', storeIdFallback),
-      coverUrl: jsonNullableString(raw, 'cover_url'),
-      body: jsonString(raw, 'body'),
-      status: jsonString(raw, 'status', 'draft'),
-      updatedAt: this.parseIsoMillis(raw.updated_at),
-      createdAt: this.parseIsoMillis(raw.created_at),
-      viewCount: jsonNumber(raw, 'view_count', 0)
-    }
+private parseAnnouncement(raw: Record<string, unknown>, storeIdFallback: string): CloudAnnouncement {
+  const bodyFallback = jsonString(raw, 'body')
+  const bodyI18n = jsonRecord(raw, 'body_i18n')
+  const body = pickI18nText(bodyI18n, bodyFallback)
+
+  return {
+    id: jsonString(raw, 'id'),
+    storeId: jsonString(raw, 'store_id', storeIdFallback),
+    coverUrl: jsonNullableString(raw, 'cover_url'),
+    coverImageVariants: parseCloudImageVariants(raw.cover_image_variants),
+    body,
+    status: jsonString(raw, 'status', 'draft'),
+    updatedAt: this.parseIsoMillis(raw.updated_at),
+    createdAt: this.parseIsoMillis(raw.created_at),
+    viewCount: jsonNumber(raw, 'view_count', 0)
+  }
+}
+
+private announcementPayload(input: {
+  id?: string | null
+  storeId: string
+  coverUrl?: string | null
+  coverImageVariants?: ShowcaseImageVariants | null
+  body: string
+  status: string
+  updatedAt?: number | null
+  viewCount?: number | null
+}): Record<string, ShowcaseRepositoryJson> {
+  const body = String(input.body || '').trim()
+
+  const payload: Record<string, ShowcaseRepositoryJson> = {
+    store_id: input.storeId,
+    cover_url: input.coverUrl || null,
+    cover_image_variants: input.coverImageVariants || null,
+    title: null,
+    title_i18n: buildI18nValue({}),
+    body,
+    body_i18n: buildI18nValue({
+      default: body
+    }),
+    status: input.status,
+    view_count: Number(input.viewCount || 0),
+    updated_at: formatIsoUtcMillis(input.updatedAt) || new Date().toISOString()
   }
 
-  private announcementPayload(input: {
-    id?: string | null
-    storeId: string
-    coverUrl?: string | null
-    body: string
-    status: string
-    updatedAt?: number | null
-    viewCount?: number | null
-  }): Record<string, ShowcaseRepositoryJson> {
-    const payload: Record<string, ShowcaseRepositoryJson> = {
-      store_id: input.storeId,
-      cover_url: input.coverUrl || null,
-      body: input.body,
-      status: input.status,
-      view_count: Number(input.viewCount || 0),
-      updated_at: formatIsoUtcMillis(input.updatedAt) || new Date().toISOString()
-    }
-
-    if (input.id) {
-      payload.id = input.id
-    }
-
-    return payload
+  if (input.id) {
+    payload.id = input.id
   }
+
+  return payload
+}
 
   async fetchAnnouncements(input: {
     storeId?: string | null
     includeDrafts?: boolean
     limit?: number
+    offset?: number
   } = {}): Promise<CloudAnnouncement[]> {
     const storeId = this.requireStoreId(input.storeId)
-    const limit = Math.max(1, Math.min(Number(input.limit || 100), 300))
+    const defaultLimit = input.includeDrafts
+      ? SHOWCASE_PAGE_SIZE.adminAnnouncements
+      : SHOWCASE_PAGE_SIZE.publicAnnouncements
+    const limit = Math.max(1, Math.min(Number(input.limit || defaultLimit), 300))
+    const offset = Math.max(0, Number(input.offset || 0))
 
-    const query = [
-      'select=id,store_id,cover_url,body,status,updated_at,created_at,view_count',
-      `store_id=${this.encodeEq(storeId)}`,
-      input.includeDrafts ? '' : `status=${encodeURIComponent('eq.published')}`,
-      'order=updated_at.desc',
-      `limit=${limit}`
-    ].filter(Boolean).join('&')
+const query = [
+  'select=id,store_id,cover_url,cover_image_variants,title,title_i18n,body,body_i18n,status,updated_at,created_at,view_count',
+  `store_id=${this.encodeEq(storeId)}`,
+  input.includeDrafts ? '' : `status=${encodeURIComponent('eq.published')}`,
+  'order=updated_at.desc',
+  `limit=${limit}`,
+  `offset=${offset}`
+].filter(Boolean).join('&')
+
+const legacyQuery = [
+  'select=id,store_id,cover_url,title,title_i18n,body,body_i18n,status,updated_at,created_at,view_count',
+  `store_id=${this.encodeEq(storeId)}`,
+  input.includeDrafts ? '' : `status=${encodeURIComponent('eq.published')}`,
+  'order=updated_at.desc',
+  `limit=${limit}`,
+  `offset=${offset}`
+].filter(Boolean).join('&')
 
     const url = this.buildSelectUrl(this.announcementsTable(), query)
+    const legacyUrl = this.buildSelectUrl(this.announcementsTable(), legacyQuery)
 
     return this.executeOnce('fetchAnnouncements', async () => {
-      const [code, body] = input.includeDrafts
+      let [code, body] = input.includeDrafts
         ? await this.httpAuthGet(url, storeId)
         : await this.httpGet(url, storeId)
+
+      if ((code < 200 || code > 299) && isCloudImageVariantSchemaError(body)) {
+        const legacyResult = input.includeDrafts
+          ? await this.httpAuthGet(legacyUrl, storeId)
+          : await this.httpGet(legacyUrl, storeId)
+
+        code = legacyResult[0]
+        body = legacyResult[1]
+      }
 
       if (code < 200 || code > 299) return []
 
@@ -2489,6 +3009,7 @@ async updateAppointmentStatus(input: {
     id?: string | null
     storeId?: string | null
     coverUrl?: string | null
+    coverImageVariants?: ShowcaseImageVariants | null
     body: string
     status: string
     updatedAt?: number | null
@@ -2499,6 +3020,7 @@ async updateAppointmentStatus(input: {
       id: input.id || null,
       storeId,
       coverUrl: input.coverUrl || null,
+      coverImageVariants: input.coverImageVariants || null,
       body: input.body,
       status: input.status,
       updatedAt: input.updatedAt || null,
@@ -2511,12 +3033,29 @@ async updateAppointmentStatus(input: {
     }
 
     const url = this.restUrl(`${this.announcementsTable()}?on_conflict=id&select=*`)
-    const [code, body] = await this.httpAuthPost(
+    let [code, body] = await this.httpAuthPost(
       url,
       rawPayload,
       'resolution=merge-duplicates,return=representation',
       storeId
     )
+
+    if ((code < 200 || code > 299) && isCloudImageVariantSchemaError(body)) {
+      const legacyRows = [stripCloudImageVariantColumns(payload)]
+      const legacyPayload: Record<string, ShowcaseRepositoryJson> = {
+        __raw_array__: JSON.stringify(legacyRows)
+      }
+
+      const legacyResult = await this.httpAuthPost(
+        url,
+        legacyPayload,
+        'resolution=merge-duplicates,return=representation',
+        storeId
+      )
+
+      code = legacyResult[0]
+      body = legacyResult[1]
+    }
 
     this.lastAnnouncementUpsertCode = code
     this.lastAnnouncementUpsertBody = body
@@ -3163,6 +3702,7 @@ async updateAppointmentStatus(input: {
 
     return this.dispatchPush({
       type: 'chat',
+      push_type: 'chat',
       audience: targetAudience || null,
       target_audience: targetAudience || null,
       store_id: storeId,
@@ -3171,7 +3711,8 @@ async updateAppointmentStatus(input: {
       body: input.body,
       sender_role: input.senderRole,
       open_as: openAs || null,
-      target_client_id: input.targetClientId || null
+      target_client_id: input.targetClientId || null,
+      sender_client_id: input.senderClientId || null
     }, {
       storeId,
       actor,
@@ -3261,26 +3802,6 @@ async updateAppointmentStatus(input: {
     })
   }
 
-  private parseMerchantSession(body: string | null, loginName: string): MerchantAuthSession | null {
-    const parsed = safeParseJsonObject(body)
-    if (!parsed) return null
-
-    const accessToken = jsonString(parsed, 'access_token')
-    const refreshToken = jsonNullableString(parsed, 'refresh_token')
-    const user = parsed.user && typeof parsed.user === 'object' ? parsed.user as Record<string, unknown> : null
-    const authUserId = user ? jsonString(user, 'id') : ''
-
-    if (!accessToken || !authUserId) return null
-
-    return {
-      accessToken,
-      refreshToken,
-      authUserId,
-      loginName,
-      expiresAt: tokenExpiresAt(accessToken)
-    }
-  }
-
   async signInMerchant(input: {
     loginName: string
     password: string
@@ -3290,33 +3811,62 @@ async updateAppointmentStatus(input: {
 
     if (!loginName || !password) return null
 
-    const [code, body] = await this.openAuthConnection('/token?grant_type=password', {
-      email: loginName,
-      password
-    }, `Bearer ${this.supabaseAnonKey}`)
+    try {
+      const snapshot = await signInShowcaseAuthWithPassword({
+        email: loginName,
+        password
+      })
 
-    this.lastMerchantAuthCode = code
-    this.lastMerchantAuthBody = body
+      this.lastMerchantAuthCode = 200
+      this.lastMerchantAuthBody = JSON.stringify({
+        auth_user_id: snapshot.authUserId,
+        email: snapshot.email,
+        expires_at: snapshot.expiresAt
+      })
 
-    if (code < 200 || code > 299) return null
+      const session: MerchantAuthSession = {
+        accessToken: snapshot.accessToken,
+        refreshToken: null,
+        authUserId: snapshot.authUserId,
+        loginName: snapshot.email || loginName,
+        expiresAt: snapshot.expiresAt || tokenExpiresAt(snapshot.accessToken)
+      }
 
-    const session = this.parseMerchantSession(body, loginName)
-    this.merchantSession = session
+      this.merchantSession = session
 
-    return session
+      return session
+    } catch (error) {
+      const status = typeof (error as { status?: unknown })?.status === 'number'
+        ? (error as { status: number }).status
+        : 0
+      const code = typeof (error as { code?: unknown })?.code === 'string'
+        ? String((error as { code: string }).code)
+        : ''
+      const name = typeof (error as { name?: unknown })?.name === 'string'
+        ? String((error as { name: string }).name)
+        : ''
+      const message = error instanceof Error ? error.message : 'Invalid account or password.'
+
+      this.lastMerchantAuthCode = status
+      this.lastMerchantAuthBody = JSON.stringify({
+        error: message,
+        code: code || name || 'auth_sign_in_failed',
+        status
+      })
+      this.merchantSession = null
+
+      return null
+    }
   }
 
   async signOutMerchant(): Promise<void> {
-    const session = this.merchantSession
     this.merchantSession = null
 
-    if (!session?.accessToken) return
-
-    await this.request(this.authUrl('/logout'), {
-      method: 'POST',
-      authorization: `Bearer ${session.accessToken}`,
-      body: {}
-    })
+    try {
+      await signOutShowcaseAuth()
+    } catch {
+      return
+    }
   }
 
   async fetchMerchantStoreMemberships(authUserIdInput?: string | null): Promise<MerchantStoreMembership[]> {
@@ -3374,7 +3924,16 @@ async updateAppointmentStatus(input: {
     const storeId = String(storeIdInput || '').trim()
     const authUserId = String(authUserIdInput || '').trim()
 
-    if (!storeId || !authUserId) return null
+    this.lastMerchantBindingCode = null
+    this.lastMerchantBindingBody = null
+
+    if (!storeId || !authUserId) {
+      this.lastMerchantBindingCode = 0
+      this.lastMerchantBindingBody = JSON.stringify({
+        error: 'Missing store id or auth user id.'
+      })
+      return null
+    }
 
     const query = [
       'select=store_id,auth_user_id,login_name',
@@ -3387,10 +3946,20 @@ async updateAppointmentStatus(input: {
 
     return this.executeOnce('fetchMerchantBindingForStoreAndAuthUser', async () => {
       const [code, body] = await this.httpAuthGet(url, storeId)
+
+      this.lastMerchantBindingCode = code
+      this.lastMerchantBindingBody = body
+
       if (code < 200 || code > 299) return null
 
       const row = this.parseFirstObject(body)
-      if (!row) return null
+      if (!row) {
+        this.lastMerchantBindingCode = 404
+        this.lastMerchantBindingBody = JSON.stringify({
+          error: 'Merchant account is not bound to current store.'
+        })
+        return null
+      }
 
       return {
         storeId: jsonString(row, 'store_id'),
@@ -3404,40 +3973,124 @@ async updateAppointmentStatus(input: {
     newPassword: string
   }): Promise<boolean> {
     const newPassword = String(input.newPassword || '').trim()
-    if (!newPassword || !this.merchantSession?.accessToken) return false
+    if (!newPassword) return false
 
-    const result = await this.request(this.authUrl('/user'), {
+    let accessToken: string
+
+    try {
+      accessToken = await requireFreshShowcaseAccessToken()
+    } catch {
+      return false
+    }
+
+    const first = await this.request(this.authUrl('/user'), {
       method: 'PUT',
-      authorization: `Bearer ${this.merchantSession.accessToken}`,
+      authorization: `Bearer ${accessToken}`,
       body: {
         password: newPassword
       }
     })
 
-    this.lastMerchantAuthCode = result.code
-    this.lastMerchantAuthBody = result.body
+    this.lastMerchantAuthCode = first.code
+    this.lastMerchantAuthBody = first.body
 
-    return result.code >= 200 && result.code <= 299
+    if (first.code >= 200 && first.code <= 299) {
+      return true
+    }
+
+    if (!this.isJwtExpiredBody(first.code, first.body)) {
+      return false
+    }
+
+    let retryAccessToken = ''
+
+    try {
+      const refreshed = await refreshShowcaseAuthSession()
+      retryAccessToken = refreshed?.accessToken || ''
+    } catch {
+      return false
+    }
+
+    if (!retryAccessToken || retryAccessToken === accessToken) {
+      return false
+    }
+
+    const second = await this.request(this.authUrl('/user'), {
+      method: 'PUT',
+      authorization: `Bearer ${retryAccessToken}`,
+      body: {
+        password: newPassword
+      }
+    })
+
+    this.lastMerchantAuthCode = second.code
+    this.lastMerchantAuthBody = second.body
+
+    return second.code >= 200 && second.code <= 299
   }
 
   async updateMerchantLoginName(input: {
     newLoginName: string
   }): Promise<boolean> {
     const newLoginName = String(input.newLoginName || '').trim()
-    if (!newLoginName || !this.merchantSession?.accessToken) return false
+    if (!newLoginName) return false
 
-    const result = await this.request(this.authUrl('/user'), {
+    let accessToken: string
+
+    try {
+      accessToken = await requireFreshShowcaseAccessToken()
+    } catch {
+      return false
+    }
+
+    const first = await this.request(this.authUrl('/user'), {
       method: 'PUT',
-      authorization: `Bearer ${this.merchantSession.accessToken}`,
+      authorization: `Bearer ${accessToken}`,
       body: {
         email: newLoginName
       }
     })
 
-    this.lastMerchantAuthCode = result.code
-    this.lastMerchantAuthBody = result.body
+    this.lastMerchantAuthCode = first.code
+    this.lastMerchantAuthBody = first.body
 
-    if (result.code >= 200 && result.code <= 299 && this.merchantSession) {
+    if (first.code >= 200 && first.code <= 299 && this.merchantSession) {
+      this.merchantSession = {
+        ...this.merchantSession,
+        loginName: newLoginName
+      }
+      return true
+    }
+
+    if (!this.isJwtExpiredBody(first.code, first.body)) {
+      return false
+    }
+
+    let retryAccessToken = ''
+
+    try {
+      const refreshed = await refreshShowcaseAuthSession()
+      retryAccessToken = refreshed?.accessToken || ''
+    } catch {
+      return false
+    }
+
+    if (!retryAccessToken || retryAccessToken === accessToken) {
+      return false
+    }
+
+    const second = await this.request(this.authUrl('/user'), {
+      method: 'PUT',
+      authorization: `Bearer ${retryAccessToken}`,
+      body: {
+        email: newLoginName
+      }
+    })
+
+    this.lastMerchantAuthCode = second.code
+    this.lastMerchantAuthBody = second.body
+
+    if (second.code >= 200 && second.code <= 299 && this.merchantSession) {
       this.merchantSession = {
         ...this.merchantSession,
         loginName: newLoginName
@@ -3470,11 +4123,18 @@ async updateAppointmentStatus(input: {
     const url = this.buildSelectUrl(this.storesTable(), query)
 
     return this.executeOnce('fetchStoreServiceStatus', async () => {
-      const [code, body] = this.merchantSession?.accessToken
+      const accessToken = await getFreshShowcaseAccessToken()
+      const [code, body] = accessToken
         ? await this.httpAuthGet(url, storeId)
         : await this.httpGet(url, storeId)
 
-      if (code < 200 || code > 299) return null
+      if (code < 200 || code > 299) {
+        if (this.isMerchantAuthExpired(code, body)) {
+          throw new Error(`Merchant auth expired while fetching store service status: ${body || code}`)
+        }
+
+        return null
+      }
 
       const row = this.parseFirstObject(body)
       if (!row) return null

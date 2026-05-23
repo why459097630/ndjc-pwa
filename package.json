@@ -10,11 +10,14 @@
     "validate": "node scripts/validate-template.mjs"
   },
   "dependencies": {
+    "@supabase/supabase-js": "^2.105.4",
     "@types/node": "latest",
     "@types/react": "latest",
     "@types/react-dom": "latest",
     "firebase": "^12.13.0",
-    "next": "latest",
+    "next": "^16.2.6",
+    "postcss": "^8.5.15",
+    "protobufjs": "^8.4.2",
     "react": "latest",
     "react-dom": "latest",
     "typescript": "latest"

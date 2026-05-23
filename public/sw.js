@@ -1,7 +1,179 @@
 const NDJC_DEV_KILL_SERVICE_WORKER = false
+const NDJC_SW_VERSION = 'ndjc-pwa-v4'
+const NDJC_STATIC_CACHE = `${NDJC_SW_VERSION}-static`
+const NDJC_NAVIGATION_CACHE = `${NDJC_SW_VERSION}-navigation`
+const NDJC_CACHE_PREFIX = 'ndjc-pwa-'
+const NDJC_OFFLINE_URL = '/offline.html'
+
+const NDJC_APP_SHELL_URLS = [
+  NDJC_OFFLINE_URL,
+  '/manifest.webmanifest',
+  '/icons/icon-192.png',
+  '/icons/icon-512.png',
+  '/icons/maskable-192.png',
+  '/icons/maskable-512.png',
+  '/icons/apple-touch-icon.png'
+]
+
+function ndjcIsSameOriginUrl(url) {
+  return url.origin === self.location.origin
+}
+
+function ndjcIsApiLikeRequest(url) {
+  const pathname = url.pathname || ''
+
+  return (
+    pathname.startsWith('/api/') ||
+    pathname.startsWith('/auth/') ||
+    pathname.startsWith('/rest/') ||
+    pathname.startsWith('/storage/') ||
+    pathname.includes('/auth/v1/') ||
+    pathname.includes('/rest/v1/') ||
+    pathname.includes('/storage/v1/') ||
+    url.hostname.endsWith('.supabase.co')
+  )
+}
+
+function ndjcIsHtmlNavigationRequest(request) {
+  return request.mode === 'navigate'
+}
+
+function ndjcIsStoreManifestRequest(url) {
+  const pathname = url.pathname || ''
+
+  return pathname.startsWith('/pwa/') && pathname.endsWith('/manifest.webmanifest')
+}
+
+function ndjcIsStaticAssetRequest(url) {
+  const pathname = url.pathname || ''
+
+  return (
+    pathname.startsWith('/_next/static/') ||
+    pathname.startsWith('/icons/') ||
+    pathname === '/manifest.webmanifest' ||
+    ndjcIsStoreManifestRequest(url) ||
+    pathname === NDJC_OFFLINE_URL ||
+    pathname === '/favicon.ico'
+  )
+}
+
+function ndjcIsCacheableStaticResponse(response) {
+  if (!response || response.status !== 200) {
+    return false
+  }
+
+  const responseType = response.type || ''
+
+  return responseType === 'basic' || responseType === 'cors'
+}
+
+function ndjcIsCacheableNavigationResponse(response) {
+  if (!response || response.status !== 200) {
+    return false
+  }
+
+  const responseType = response.type || ''
+  const contentType = response.headers ? response.headers.get('content-type') || '' : ''
+
+  return (
+    (responseType === 'basic' || responseType === 'cors') &&
+    contentType.toLowerCase().includes('text/html')
+  )
+}
+
+async function ndjcStaleWhileRevalidate(request) {
+  const cache = await caches.open(NDJC_STATIC_CACHE)
+  const cachedResponse = await cache.match(request)
+
+  const networkPromise = fetch(request)
+    .then(response => {
+      if (ndjcIsCacheableStaticResponse(response)) {
+        cache.put(request, response.clone())
+      }
+
+      return response
+    })
+    .catch(error => {
+      if (cachedResponse) {
+        return cachedResponse
+      }
+
+      throw error
+    })
+
+  return cachedResponse || networkPromise
+}
+
+async function ndjcNetworkFirstStoreManifest(request) {
+  const cache = await caches.open(NDJC_STATIC_CACHE)
+
+  try {
+    const networkResponse = await fetch(request)
+
+    if (ndjcIsCacheableStaticResponse(networkResponse)) {
+      await cache.put(request, networkResponse.clone())
+    }
+
+    return networkResponse
+  } catch (error) {
+    const cachedResponse = await cache.match(request)
+
+    if (cachedResponse) {
+      return cachedResponse
+    }
+
+    throw error
+  }
+}
+
+async function ndjcNetworkFirstNavigation(request) {
+  const navigationCache = await caches.open(NDJC_NAVIGATION_CACHE)
+
+  try {
+    const networkResponse = await fetch(request)
+
+    if (ndjcIsCacheableNavigationResponse(networkResponse)) {
+      await navigationCache.put(request, networkResponse.clone())
+    }
+
+    return networkResponse
+  } catch (error) {
+    const cachedPage = await navigationCache.match(request)
+
+    if (cachedPage) {
+      return cachedPage
+    }
+
+    const staticCache = await caches.open(NDJC_STATIC_CACHE)
+    const offlinePage = await staticCache.match(NDJC_OFFLINE_URL)
+
+    if (offlinePage) {
+      return offlinePage
+    }
+
+    return new Response(
+      '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Offline</title></head><body><main style="font-family:Arial,sans-serif;padding:24px"><h1>Offline</h1><p>The app shell is not available yet. Connect to the internet and open the app once.</p></main></body></html>',
+      {
+        status: 503,
+        headers: {
+          'Content-Type': 'text/html; charset=utf-8',
+          'Cache-Control': 'no-store'
+        }
+      }
+    )
+  }
+}
 
 self.addEventListener('install', event => {
-  self.skipWaiting()
+  if (NDJC_DEV_KILL_SERVICE_WORKER) {
+    self.skipWaiting()
+    return
+  }
+
+  event.waitUntil(
+    caches.open(NDJC_STATIC_CACHE)
+      .then(cache => cache.addAll(NDJC_APP_SHELL_URLS))
+  )
 })
 
 self.addEventListener('activate', event => {
@@ -23,7 +195,11 @@ self.addEventListener('activate', event => {
 
   event.waitUntil(
     caches.keys()
-      .then(keys => Promise.all(keys.map(key => caches.delete(key))))
+      .then(keys => Promise.all(
+        keys
+          .filter(key => key.startsWith(NDJC_CACHE_PREFIX) && !key.startsWith(NDJC_SW_VERSION))
+          .map(key => caches.delete(key))
+      ))
       .then(() => self.clients.claim())
   )
 })
@@ -32,6 +208,44 @@ self.addEventListener('fetch', event => {
   if (NDJC_DEV_KILL_SERVICE_WORKER) {
     return
   }
+
+  const request = event.request
+
+  if (!request || request.method !== 'GET') {
+    return
+  }
+
+  let url
+
+  try {
+    url = new URL(request.url)
+  } catch (error) {
+    return
+  }
+
+  if (!ndjcIsSameOriginUrl(url)) {
+    return
+  }
+
+  if (ndjcIsApiLikeRequest(url)) {
+    return
+  }
+
+  if (ndjcIsHtmlNavigationRequest(request)) {
+    event.respondWith(ndjcNetworkFirstNavigation(request))
+    return
+  }
+
+  if (ndjcIsStoreManifestRequest(url)) {
+    event.respondWith(ndjcNetworkFirstStoreManifest(request))
+    return
+  }
+
+  if (!ndjcIsStaticAssetRequest(url)) {
+    return
+  }
+
+  event.respondWith(ndjcStaleWhileRevalidate(request))
 })
 
 const NDJC_CHAT_VISIBILITY_GRACE_MS = 8000
@@ -50,8 +264,10 @@ function ndjcRememberChatVisibility(clientId, payload) {
   if (!key) return
 
   const visible = Boolean(payload && payload.visible)
-  const conversationId = ndjcNormalizeText(payload && payload.conversation_id)
+  const conversationId = ndjcNormalizeText(payload && (payload.conversation_id || payload.conversationId))
   const screen = ndjcNormalizeText(payload && payload.screen)
+  const appClientId = ndjcNormalizeText(payload && (payload.client_id || payload.clientId))
+  const chatRole = ndjcNormalizeText(payload && (payload.chat_role || payload.chatRole))
   const updatedAt = ndjcNowMs()
 
   if (!visible || !conversationId) {
@@ -61,6 +277,8 @@ function ndjcRememberChatVisibility(clientId, payload) {
 
   ndjcVisibleChatClients.set(key, {
     conversation_id: conversationId,
+    client_id: appClientId,
+    chat_role: chatRole,
     screen,
     updated_at: updatedAt
   })
@@ -81,7 +299,7 @@ function ndjcPruneChatVisibility() {
 
 function ndjcIsChatPushPayload(payload) {
   const type = ndjcNormalizeText(payload && (payload.type || payload.push_type || payload.pushType)).toLowerCase()
-  return type === 'chat'
+  return type === 'chat' || type === 'chat_message' || type === 'message'
 }
 
 function ndjcPayloadConversationId(payload) {
@@ -101,16 +319,22 @@ function ndjcShouldSuppressVisibleChatNotification(payload) {
   ndjcPruneChatVisibility()
 
   const now = ndjcNowMs()
+  const senderClientId = ndjcNormalizeText(payload && (payload.sender_client_id || payload.senderClientId))
 
   for (const value of ndjcVisibleChatClients.values()) {
     const visibleConversationId = ndjcNormalizeText(value && value.conversation_id)
+    const visibleClientId = ndjcNormalizeText(value && value.client_id)
     const updatedAt = Number(value && value.updated_at ? value.updated_at : 0)
 
-    if (
-      visibleConversationId === conversationId &&
-      updatedAt > 0 &&
-      now - updatedAt <= NDJC_CHAT_VISIBILITY_GRACE_MS
-    ) {
+    if (!updatedAt || now - updatedAt > NDJC_CHAT_VISIBILITY_GRACE_MS) {
+      continue
+    }
+
+    if (visibleConversationId === conversationId) {
+      return true
+    }
+
+    if (senderClientId && visibleClientId && senderClientId === visibleClientId) {
       return true
     }
   }
@@ -123,6 +347,12 @@ function ndjcBuildChatPushMessage(payload, title, body) {
     type: 'NDJC_CHAT_PUSH_RECEIVED',
     push_type: 'chat',
     conversation_id: ndjcPayloadConversationId(payload),
+    conversationId: ndjcPayloadConversationId(payload),
+    sender_role: ndjcNormalizeText(payload && (payload.sender_role || payload.senderRole)),
+    sender_client_id: ndjcNormalizeText(payload && (payload.sender_client_id || payload.senderClientId)),
+    target_client_id: ndjcNormalizeText(payload && (payload.target_client_id || payload.targetClientId)),
+    target_audience: ndjcNormalizeText(payload && (payload.target_audience || payload.targetAudience || payload.audience)),
+    open_as: ndjcNormalizeText(payload && (payload.open_as || payload.openAs)),
     title: String(title || ''),
     body: String(body || ''),
     payload
@@ -145,7 +375,16 @@ async function ndjcBroadcastToWindowClients(message) {
 self.addEventListener('message', event => {
   const payload = event.data || {}
 
-  if (!payload || payload.type !== 'NDJC_CHAT_VISIBILITY') {
+  if (!payload) {
+    return
+  }
+
+  if (payload.type === 'NDJC_SKIP_WAITING') {
+    self.skipWaiting()
+    return
+  }
+
+  if (payload.type !== 'NDJC_CHAT_VISIBILITY') {
     return
   }
 
@@ -207,9 +446,32 @@ self.addEventListener('push', event => {
   delete notificationPayload.icon
   delete notificationPayload.badge
 
+  const notificationTag = String(
+    notificationPayload.conversation_id ||
+    notificationPayload.conversationId ||
+    notificationPayload.appointment_id ||
+    notificationPayload.appointmentId ||
+    notificationPayload.announcement_id ||
+    notificationPayload.announcementId ||
+    notificationPayload.push_type ||
+    notificationPayload.type ||
+    'ndjc-notification'
+  )
+
   const options = {
     body,
-    data: notificationPayload
+    icon: '/icons/icon-192.png',
+    badge: '/icons/maskable-192.png',
+    tag: notificationTag,
+    renotify: false,
+    requireInteraction: false,
+    data: notificationPayload,
+    actions: [
+      {
+        action: 'open',
+        title: 'Open'
+      }
+    ]
   }
 
   console.log('[NDJC_SW_PUSH_RECEIVED]', {
@@ -234,7 +496,11 @@ self.addEventListener('push', event => {
         return ndjcBroadcastToWindowClients(chatPushMessage).then(count => {
           console.log('[NDJC_SW_BROADCAST_CHAT_PUSH_TO_CLIENTS]', {
             count,
-            conversation_id: chatPushMessage.conversation_id
+            conversation_id: chatPushMessage.conversation_id,
+            sender_role: chatPushMessage.sender_role,
+            sender_client_id: chatPushMessage.sender_client_id,
+            target_client_id: chatPushMessage.target_client_id,
+            target_audience: chatPushMessage.target_audience
           })
 
           return count
@@ -243,6 +509,7 @@ self.addEventListener('push', event => {
       .then(() => {
         if (shouldSuppressVisibleChatNotification) {
           console.log('[NDJC_SW_SUPPRESS_VISIBLE_CHAT_NOTIFICATION]', {
+            reason: 'visible_chat_conversation',
             conversation_id: ndjcPayloadConversationId(notificationPayload),
             payload: notificationPayload
           })
@@ -299,6 +566,11 @@ function appendPushPayloadToRoute(routeInput, payloadInput) {
 
 self.addEventListener('notificationclick', event => {
   event.notification.close()
+
+  if (event.action && event.action !== 'open') {
+    return
+  }
+
   const payload = event.notification.data || {}
   const route = payload.route ? payload.route : '/'
   const routeWithPayload = appendPushPayloadToRoute(route, payload)

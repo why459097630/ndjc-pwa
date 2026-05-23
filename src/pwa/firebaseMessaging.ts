@@ -243,12 +243,6 @@ export async function getNdjcFirebaseMessagingToken(): Promise<string | null> {
     return null
   }
 
-  console.log('[NDJC_PUSH] Firebase messaging token resolved.', {
-    tokenPrefix: token.slice(0, 24),
-    tokenLength: token.length,
-    serviceWorkerScope: serviceWorkerRegistration.scope
-  })
-
   return token
 }
 
@@ -378,16 +372,11 @@ export async function runNdjcFirebaseMessagingDiagnostics(): Promise<NdjcFirebas
 
     diagnostics.token = token || null
     diagnostics.tokenLength = token ? token.length : 0
-    diagnostics.tokenPrefix = token ? token.slice(0, 24) : null
+    diagnostics.tokenPrefix = null
 
     if (!token) {
       diagnostics.error = 'Firebase getToken returned empty token.'
       console.warn('[NDJC_PUSH_DIAG] empty token')
-    } else {
-      console.log('[NDJC_PUSH_DIAG] token resolved', {
-        tokenPrefix: diagnostics.tokenPrefix,
-        tokenLength: diagnostics.tokenLength
-      })
     }
 
     console.log('[NDJC_PUSH_DIAG] final', diagnostics)

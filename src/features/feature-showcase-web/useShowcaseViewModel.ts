@@ -37,17 +37,27 @@ import {
   type CachedPublishedAnnouncement,
   type DemoDish,
   type ShowcaseFavoriteSnapshot,
+  type ShowcaseImageVariants,
   type SyncState
 } from './showcaseModels'
+import {
+  createRemoteOnlyShowcaseImageVariants,
+  selectDishImageUrl,
+  selectImageVariantUrl,
+  selectStoreCoverUrl,
+  selectStoreLogoUrl
+} from './showcaseImageVariants'
 import {
   createShowcaseCloudRepository,
   type ChatConversation,
   type ChatMessage,
   type ChatThreadSummary,
   type CloudAnnouncement,
+  type CloudAppointmentFilterRow,
   type CloudAppointmentRequest,
   type CloudAppointmentSettings,
   type CloudCategory,
+  type CloudDishFilterRow,
   type CloudStoreProfile,
   type CloudStoreServiceStatus,
   type MerchantAuthSession,
@@ -55,16 +65,24 @@ import {
   type ShowcaseCloudRepository
 } from './showcaseCloudRepository'
 import {
+  SHOWCASE_PAGE_SIZE
+} from './showcaseCloudConfig'
+import {
+  pruneAnnouncementLocalMarksByValidIds,
+  pruneBookingStatusSeenByValidIds,
+  runShowcaseLocalCacheMaintenance
+} from './showcaseLocalCacheMaintenance'
+import {
   clearPersistedMerchantSession,
-  ensureValidMerchantAccessToken,
   persistCurrentMerchantSession,
-  readMerchantSession as readMerchantSessionFromManager,
-  readRememberMe as readRememberMeFromManager,
+  readLastMerchantLoginName,
+  readMerchantSession as readMerchantSessionFromPreferences,
+  readRememberMe as readRememberMeFromPreferences,
   restoreMerchantSessionFromStorage,
   updateMerchantLoginName as updateMerchantLoginNameInSession,
-  writeMerchantSession as writeMerchantSessionToManager,
-  writeRememberMe as writeRememberMeToManager
-} from './showcaseMerchantSessionManager'
+  writeMerchantSession as writeMerchantSessionToPreferences,
+  writeRememberMe as writeRememberMeToPreferences
+} from './showcaseMerchantAuthPreferences'
 import {
   bindMerchantSessionToRepository,
   clearMerchantSession as clearStoreMerchantSession,
@@ -74,6 +92,14 @@ import {
   updateMerchantLoginName as updateMerchantLoginNameInStoreSession
 } from './showcaseStoreSession'
 import { createShowcaseCloudRepositoryConfig } from './showcaseCloudConfig'
+import {
+  getFreshShowcaseAuthSession,
+  onShowcaseAuthStateChange,
+  refreshShowcaseAuthSession
+} from './showcaseAuthSessionManager'
+import {
+  formatShowcaseDateTime
+} from './showcaseDateTime'
 import {
   markConversationRecentlySeen as markRuntimeConversationRecentlySeen,
   markConversationVisible as markRuntimeConversationVisible,
@@ -91,11 +117,13 @@ import {
 import {
   applyChatDraftImagePicked,
   applyChatDraftImagesPicked,
+  applyPendingAppointmentForChat,
   applyPendingProductForChat,
   buildChatDraftClearPlan,
   buildChatDraftImageUploadPlan,
   buildChatMessageSendPlan,
   buildChatSendOperationResult,
+  buildPendingAppointmentShareSendPlan,
   buildPendingProductShareSendPlan,
   buildProductSharePayloadForClipboard,
   cancelQuote as cancelQuoteInDomain,
@@ -124,7 +152,6 @@ import {
   buildMerchantThreadAliasOperationResult,
   buildMerchantThreadDeleteResetPlan,
   buildMerchantThreadPinOperationResult,
-  buildMerchantThreadReadOperationResult,
   buildMerchantThreadsWithLocalMeta as buildMerchantThreadsWithLocalMetaInDomain,
   buildMerchantThreadsFromCloudSummaries,
   chatThreadSummaryToUi as chatThreadSummaryToUiFromDomain,
@@ -161,6 +188,7 @@ import type {
   ShowcaseAdminAppointmentsActions,
   ShowcaseAdminAppointmentsUiState,
   ShowcaseAdminUiState,
+  ShowcaseAppointmentSettingsSaveInput,
   ShowcaseAnnouncementCard,
   ShowcaseAnnouncementEditActions,
   ShowcaseAnnouncementEditUiState,
@@ -175,6 +203,7 @@ import type {
   ShowcaseChangePasswordActions,
   ShowcaseChangePasswordUiState,
   ShowcaseChatActions,
+  ShowcaseChatAppointmentShare,
   ShowcaseChatMediaActions,
   ShowcaseChatMediaItemUi,
   ShowcaseChatMessage,
@@ -182,6 +211,7 @@ import type {
   ShowcaseChatSearchResultUi,
   ShowcaseChatThreadSummaryUi,
   ShowcaseChatUiState,
+  ShowcaseChatWindowMode,
   ShowcaseCloudStatusUi,
   ShowcaseCustomerBookingsActions,
   ShowcaseCustomerBookingsUiState,
@@ -200,6 +230,7 @@ import type {
   ShowcaseLoginActions,
   ShowcaseLoginUiState,
   ShowcaseMerchantChatListActions,
+  ShowcaseOfflineStatusUi,
   ShowcaseRetryOp,
   ShowcaseScreen,
   ShowcaseScreenName,
@@ -263,6 +294,7 @@ type ChatSearchResult = {
   senderLabel: string
   snippet: string
   createdAtText: string
+  createdAtMs: number
   matchedInName: boolean
 }
 
@@ -271,9 +303,51 @@ type ChatMediaItem = {
   messageId: string
   url: string
   createdAtText: string
+  createdAtMs: number
 }
 
 type ChatMode = 'Client' | 'Merchant'
+
+const CHAT_LATEST_WINDOW_MAX_MESSAGES = 180
+const CHAT_AROUND_MESSAGE_WINDOW_MAX_MESSAGES = 240
+
+type ChatMessageWindowRuntimeState = {
+  mode: ShowcaseChatWindowMode
+  anchorMessageId: string | null
+  hasOlder: boolean
+  hasNewer: boolean
+  isLoadingOlder: boolean
+  isLoadingNewer: boolean
+  oldestTimeMs: number | null
+  newestTimeMs: number | null
+}
+
+type ShowcasePaginationRuntimeState = {
+  nextOffset: number
+  hasMore: boolean
+  isLoadingMore: boolean
+}
+
+type AppointmentCloudQueryFilters = {
+  preferredDate?: string | null
+  preferredDateGte?: string | null
+  preferredDateLt?: string | null
+  status?: string | null
+  serviceTitle?: string | null
+}
+
+type DishCloudQueryFilters = {
+  categoryName?: string | null
+  searchQuery?: string | null
+  selectedTags?: string[]
+  recommendedOnly?: boolean
+  onSaleOnly?: boolean
+  minPrice?: number | null
+  maxPrice?: number | null
+  hiddenOnly?: boolean
+  includeHidden?: boolean
+  sortMode?: ShowcaseHomeSortMode
+}
 
 type DraftExtraContact = {
   id: string
@@ -284,6 +358,7 @@ type DraftExtraContact = {
 type DraftAnnouncement = {
   id: string
   coverUrl: string | null
+  coverImageVariants: ShowcaseImageVariants | null
   body: string
   status: 'draft' | 'published'
   createdAt: number
@@ -309,6 +384,7 @@ type LocalChatDraftStore = {
   draft: string
   draftImageUrls: string[]
   pendingProduct: ShowcaseChatProductShare | null
+  pendingAppointment: ShowcaseChatAppointmentShare | null
   quotedMessageId: string | null
 }
 
@@ -350,6 +426,8 @@ function postChatVisibilityToServiceWorker(input: {
   visible: boolean
   conversationId: string | null | undefined
   screen: ShowcaseScreenName | string
+  clientId?: string | null
+  chatRole?: string | null
 }): void {
   if (!isBrowser()) return
 
@@ -360,7 +438,12 @@ function postChatVisibilityToServiceWorker(input: {
     type: 'NDJC_CHAT_VISIBILITY',
     visible: input.visible,
     conversation_id: String(input.conversationId || '').trim(),
-    screen: String(input.screen || '')
+    conversationId: String(input.conversationId || '').trim(),
+    screen: String(input.screen || ''),
+    client_id: String(input.clientId || '').trim(),
+    clientId: String(input.clientId || '').trim(),
+    chat_role: String(input.chatRole || '').trim(),
+    chatRole: String(input.chatRole || '').trim()
   })
 }
 
@@ -488,6 +571,10 @@ function loadAppointmentsFromStorage(storeId: string): CloudAppointmentRequest[]
         preferredTime: String(item.preferredTime || ''),
         note: String(item.note || ''),
         sourceDishId: item.sourceDishId ? String(item.sourceDishId) : null,
+        sourcePriceSnapshot: item.sourcePriceSnapshot ? String(item.sourcePriceSnapshot) : null,
+        sourceImageUrlSnapshot: item.sourceImageUrlSnapshot ? String(item.sourceImageUrlSnapshot) : null,
+        sourceCategorySnapshot: item.sourceCategorySnapshot ? String(item.sourceCategorySnapshot) : null,
+        sourceRecommendedSnapshot: Boolean(item.sourceRecommendedSnapshot),
         status: String(item.status || 'pending'),
         createdAt: typeof item.createdAt === 'number' ? item.createdAt : null
       }
@@ -555,19 +642,19 @@ function readClientId(): string {
 }
 
 function readRememberMe(): boolean {
-  return readRememberMeFromManager()
+  return readRememberMeFromPreferences()
 }
 
 function writeRememberMe(value: boolean): void {
-  writeRememberMeToManager(value)
+  writeRememberMeToPreferences(value)
 }
 
 function readMerchantSession(): MerchantAuthSession | null {
-  return readMerchantSessionFromManager()
+  return readMerchantSessionFromPreferences()
 }
 
 function writeMerchantSession(session: MerchantAuthSession | null): void {
-  writeMerchantSessionToManager(session)
+  writeMerchantSessionToPreferences(session)
 }
 
 function readFavoriteIds(storeId: string): string[] {
@@ -663,6 +750,38 @@ function persistPublishedAnnouncementsLocally(storeId: string, items: CloudAnnou
   savePublishedAnnouncementsToStorage(storeId, items.map(toCachedPublishedAnnouncement))
 }
 
+function pruneAnnouncementMarksWhenCompletePageLoaded(
+  storeId: string,
+  items: CloudAnnouncement[],
+  latestLength: number,
+  pageSize: number
+): void {
+  if (latestLength >= pageSize) return
+
+  pruneAnnouncementLocalMarksByValidIds(
+    storeId,
+    items
+      .filter(item => item.status === 'published')
+      .map(item => item.id)
+  )
+}
+
+function pruneBookingSeenWhenCompletePageLoaded(
+  storeId: string,
+  clientId: string,
+  items: CloudAppointmentRequest[],
+  latestLength: number,
+  pageSize: number
+): void {
+  if (latestLength >= pageSize) return
+
+  pruneBookingStatusSeenByValidIds(
+    storeId,
+    clientId,
+    items.map(item => item.id)
+  )
+}
+
 function loadItemEditorDraftLocally(
   storeId: string,
   mode: 'new' | 'edit' | 'any' = 'any'
@@ -721,6 +840,7 @@ function loadAdminAnnouncementEditorDraftLocally(storeId: string): DraftAnnounce
   return {
     id: draft.editingId || '',
     coverUrl: draft.coverUrl ?? null,
+    coverImageVariants: null,
     body: draft.body,
     status: 'draft',
     createdAt: draft.updatedAt ?? Date.now(),
@@ -879,17 +999,37 @@ function prepareChatCameraCapture(storeId: string): string {
 const PRODUCT_IMAGE_LONG_EDGE = 1600
 const PRODUCT_IMAGE_JPEG_QUALITY = 0.88
 
+const PRODUCT_IMAGE_MEDIUM_LONG_EDGE = 800
+const PRODUCT_IMAGE_THUMB_LONG_EDGE = 400
+const PRODUCT_IMAGE_BLUR_LONG_EDGE = 32
+
 const CHAT_IMAGE_LONG_EDGE = 1080
 const CHAT_IMAGE_JPEG_QUALITY = 0.84
+
+const CHAT_IMAGE_MEDIUM_LONG_EDGE = 800
+const CHAT_IMAGE_THUMB_LONG_EDGE = 400
+const CHAT_IMAGE_BLUR_LONG_EDGE = 32
 
 const ANNOUNCEMENT_IMAGE_LONG_EDGE = 1280
 const ANNOUNCEMENT_IMAGE_JPEG_QUALITY = 0.86
 
+const ANNOUNCEMENT_IMAGE_MEDIUM_LONG_EDGE = 800
+const ANNOUNCEMENT_IMAGE_THUMB_LONG_EDGE = 400
+const ANNOUNCEMENT_IMAGE_BLUR_LONG_EDGE = 32
+
 const STORE_COVER_IMAGE_LONG_EDGE = 1280
 const STORE_COVER_IMAGE_JPEG_QUALITY = 0.86
 
+const STORE_COVER_IMAGE_MEDIUM_LONG_EDGE = 900
+const STORE_COVER_IMAGE_THUMB_LONG_EDGE = 480
+const STORE_COVER_IMAGE_BLUR_LONG_EDGE = 32
+
 const STORE_LOGO_IMAGE_LONG_EDGE = 512
 const STORE_LOGO_IMAGE_JPEG_QUALITY = 0.9
+
+const STORE_LOGO_IMAGE_MEDIUM_LONG_EDGE = 512
+const STORE_LOGO_IMAGE_THUMB_LONG_EDGE = 256
+const STORE_LOGO_IMAGE_BLUR_LONG_EDGE = 32
 
 function normalizeImageContentType(value: string | null | undefined): string {
   const clean = String(value || '').trim().toLowerCase()
@@ -1004,6 +1144,194 @@ async function compressImage(file: File | Blob, maxLongEdge = PRODUCT_IMAGE_LONG
   }
 }
 
+type ShowcaseImageVariantName = 'original' | 'large' | 'medium' | 'thumb' | 'blur'
+
+type ShowcaseImageVariantSpec = {
+  name: ShowcaseImageVariantName
+  maxLongEdge: number
+  jpegQuality: number
+}
+
+type UploadedShowcaseImage = {
+  url: string
+  variants: ShowcaseImageVariants | null
+}
+
+function createRemoteOnlyImageVariants(urlInput: string | null | undefined): ShowcaseImageVariants | null {
+  const url = String(urlInput || '').trim()
+
+  if (!url) return null
+
+  return {
+    originalUrl: url,
+    largeUrl: url,
+    mediumUrl: url,
+    thumbUrl: url,
+    blurDataUrl: null
+  }
+}
+
+function buildImageVariantSpecs(bucket: 'dish' | 'store' | 'announcement' | 'chat', pathPrefix: string): ShowcaseImageVariantSpec[] {
+  const scope = pathPrefix.trim().toLowerCase()
+
+  if (bucket === 'dish') {
+    return [
+      {
+        name: 'original',
+        maxLongEdge: PRODUCT_IMAGE_LONG_EDGE,
+        jpegQuality: PRODUCT_IMAGE_JPEG_QUALITY
+      },
+      {
+        name: 'large',
+        maxLongEdge: PRODUCT_IMAGE_LONG_EDGE,
+        jpegQuality: PRODUCT_IMAGE_JPEG_QUALITY
+      },
+      {
+        name: 'medium',
+        maxLongEdge: PRODUCT_IMAGE_MEDIUM_LONG_EDGE,
+        jpegQuality: 0.84
+      },
+      {
+        name: 'thumb',
+        maxLongEdge: PRODUCT_IMAGE_THUMB_LONG_EDGE,
+        jpegQuality: 0.78
+      },
+      {
+        name: 'blur',
+        maxLongEdge: PRODUCT_IMAGE_BLUR_LONG_EDGE,
+        jpegQuality: 0.48
+      }
+    ]
+  }
+
+  if (bucket === 'chat') {
+    return [
+      {
+        name: 'original',
+        maxLongEdge: CHAT_IMAGE_LONG_EDGE,
+        jpegQuality: CHAT_IMAGE_JPEG_QUALITY
+      },
+      {
+        name: 'large',
+        maxLongEdge: CHAT_IMAGE_LONG_EDGE,
+        jpegQuality: CHAT_IMAGE_JPEG_QUALITY
+      },
+      {
+        name: 'medium',
+        maxLongEdge: CHAT_IMAGE_MEDIUM_LONG_EDGE,
+        jpegQuality: 0.82
+      },
+      {
+        name: 'thumb',
+        maxLongEdge: CHAT_IMAGE_THUMB_LONG_EDGE,
+        jpegQuality: 0.76
+      },
+      {
+        name: 'blur',
+        maxLongEdge: CHAT_IMAGE_BLUR_LONG_EDGE,
+        jpegQuality: 0.48
+      }
+    ]
+  }
+
+  if (bucket === 'announcement') {
+    return [
+      {
+        name: 'original',
+        maxLongEdge: ANNOUNCEMENT_IMAGE_LONG_EDGE,
+        jpegQuality: ANNOUNCEMENT_IMAGE_JPEG_QUALITY
+      },
+      {
+        name: 'large',
+        maxLongEdge: ANNOUNCEMENT_IMAGE_LONG_EDGE,
+        jpegQuality: ANNOUNCEMENT_IMAGE_JPEG_QUALITY
+      },
+      {
+        name: 'medium',
+        maxLongEdge: ANNOUNCEMENT_IMAGE_MEDIUM_LONG_EDGE,
+        jpegQuality: 0.82
+      },
+      {
+        name: 'thumb',
+        maxLongEdge: ANNOUNCEMENT_IMAGE_THUMB_LONG_EDGE,
+        jpegQuality: 0.76
+      },
+      {
+        name: 'blur',
+        maxLongEdge: ANNOUNCEMENT_IMAGE_BLUR_LONG_EDGE,
+        jpegQuality: 0.48
+      }
+    ]
+  }
+
+  if (bucket === 'store' && scope === 'logo') {
+    return [
+      {
+        name: 'original',
+        maxLongEdge: STORE_LOGO_IMAGE_LONG_EDGE,
+        jpegQuality: STORE_LOGO_IMAGE_JPEG_QUALITY
+      },
+      {
+        name: 'large',
+        maxLongEdge: STORE_LOGO_IMAGE_LONG_EDGE,
+        jpegQuality: STORE_LOGO_IMAGE_JPEG_QUALITY
+      },
+      {
+        name: 'medium',
+        maxLongEdge: STORE_LOGO_IMAGE_MEDIUM_LONG_EDGE,
+        jpegQuality: 0.88
+      },
+      {
+        name: 'thumb',
+        maxLongEdge: STORE_LOGO_IMAGE_THUMB_LONG_EDGE,
+        jpegQuality: 0.82
+      },
+      {
+        name: 'blur',
+        maxLongEdge: STORE_LOGO_IMAGE_BLUR_LONG_EDGE,
+        jpegQuality: 0.48
+      }
+    ]
+  }
+
+  return [
+    {
+      name: 'original',
+      maxLongEdge: STORE_COVER_IMAGE_LONG_EDGE,
+      jpegQuality: STORE_COVER_IMAGE_JPEG_QUALITY
+    },
+    {
+      name: 'large',
+      maxLongEdge: STORE_COVER_IMAGE_LONG_EDGE,
+      jpegQuality: STORE_COVER_IMAGE_JPEG_QUALITY
+    },
+    {
+      name: 'medium',
+      maxLongEdge: STORE_COVER_IMAGE_MEDIUM_LONG_EDGE,
+      jpegQuality: 0.82
+    },
+    {
+      name: 'thumb',
+      maxLongEdge: STORE_COVER_IMAGE_THUMB_LONG_EDGE,
+      jpegQuality: 0.76
+    },
+    {
+      name: 'blur',
+      maxLongEdge: STORE_COVER_IMAGE_BLUR_LONG_EDGE,
+      jpegQuality: 0.48
+    }
+  ]
+}
+
+function buildImageVariantFileName(inputFileName: string | null | undefined, variantName: ShowcaseImageVariantName): string {
+  const cleanFileName = String(inputFileName || '').trim()
+  const baseName = cleanFileName
+    ? cleanFileName.replace(/\.[a-zA-Z0-9]+$/, '')
+    : createId('image')
+
+  return `${baseName}-${variantName}.jpg`
+}
+
 async function blobToDataImageUrl(blob: Blob): Promise<string | null> {
   if (!isBrowser()) return null
 
@@ -1061,7 +1389,91 @@ function formatUsd(value: number | null | undefined): string {
   if (!Number.isFinite(price) || price <= 0) return '$0'
   return `$${Number.isInteger(price) ? String(price) : price.toFixed(2).replace(/\.?0+$/, '')}`
 }
+type ShowcaseDishPriceTextSnapshot = {
+  priceText: string
+  originalPriceText: string | null
+  discountPriceText: string | null
+}
 
+function buildDishPriceTextSnapshot(dish: DemoDish): ShowcaseDishPriceTextSnapshot {
+  const originalPrice = Number(dish.originalPrice)
+  const discountPrice = Number(dish.discountPrice)
+  const hasValidOriginal = Number.isFinite(originalPrice) && originalPrice > 0
+  const hasValidDiscount = Number.isFinite(discountPrice) && discountPrice > 0 && hasValidOriginal && discountPrice < originalPrice
+
+  const originalPriceText = hasValidOriginal ? formatUsd(originalPrice) : formatUsd(getDishPrice(dish))
+  const discountPriceText = hasValidDiscount ? formatUsd(discountPrice) : null
+
+  return {
+    priceText: discountPriceText || originalPriceText,
+    originalPriceText,
+    discountPriceText
+  }
+}
+
+function buildChatProductShareFromDish(dish: DemoDish): ShowcaseChatProductShare {
+  const priceSnapshot = buildDishPriceTextSnapshot(dish)
+
+  return {
+    dishId: dish.id,
+    title: getDishTitle(dish),
+    price: priceSnapshot.priceText,
+    originalPriceText: priceSnapshot.originalPriceText,
+    discountPriceText: priceSnapshot.discountPriceText,
+    imageUrl: selectDishImageUrl(dish, 'list'),
+    imageVariants: dish.imageVariants ?? null,
+    isRecommended: Boolean(dish.isRecommended)
+  }
+}
+
+function encodeAppointmentPriceSnapshotFromDish(dish: DemoDish): string {
+  const priceSnapshot = buildDishPriceTextSnapshot(dish)
+
+  return JSON.stringify({
+    priceText: priceSnapshot.priceText,
+    originalPriceText: priceSnapshot.originalPriceText,
+    discountPriceText: priceSnapshot.discountPriceText
+  })
+}
+
+function decodeAppointmentPriceSnapshot(value: string | null | undefined): ShowcaseDishPriceTextSnapshot {
+  const raw = String(value || '').trim()
+
+  if (!raw) {
+    return {
+      priceText: '',
+      originalPriceText: null,
+      discountPriceText: null
+    }
+  }
+
+  if (raw.startsWith('{')) {
+    try {
+      const parsed = JSON.parse(raw) as Partial<ShowcaseDishPriceTextSnapshot>
+      const priceText = String(parsed.priceText || '').trim()
+      const originalPriceText = String(parsed.originalPriceText || '').trim() || priceText || null
+      const discountPriceText = String(parsed.discountPriceText || '').trim() || null
+
+      return {
+        priceText,
+        originalPriceText,
+        discountPriceText
+      }
+    } catch {
+      return {
+        priceText: raw,
+        originalPriceText: raw,
+        discountPriceText: null
+      }
+    }
+  }
+
+  return {
+    priceText: raw,
+    originalPriceText: raw,
+    discountPriceText: null
+  }
+}
 function formatPlainNumber(value: number | null | undefined): string {
   const price = Number(value || 0)
   if (!Number.isFinite(price) || price <= 0) return ''
@@ -1069,44 +1481,33 @@ function formatPlainNumber(value: number | null | undefined): string {
 }
 
 function formatDateTimeText(value: number | null | undefined): string {
-  if (!value || !Number.isFinite(value)) return ''
-
-  try {
-    const date = new Date(value)
-    const datePart = date.toLocaleDateString('en-US', {
-      month: 'short',
-      day: '2-digit'
-    })
-    const timePart = date.toLocaleTimeString('en-US', {
-      hour: 'numeric',
-      minute: '2-digit',
-      hour12: true
-    })
-
-    return `${datePart}, ${date.getFullYear()}, ${timePart}`
-  } catch {
-    return ''
-  }
+  return formatShowcaseDateTime(value)
 }
 
 function formatChatCreatedAtText(value: number | null | undefined): string {
-  if (!value || !Number.isFinite(value)) return ''
+  return formatShowcaseDateTime(value)
+}
 
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return ''
+function getChatMessageWindowBounds(messages: ChatMessage[]): {
+  oldestTimeMs: number | null
+  newestTimeMs: number | null
+} {
+  const times = messages
+    .map(message => Number(message.createdAt || 0))
+    .filter(value => Number.isFinite(value) && value > 0)
+    .sort((left, right) => left - right)
 
-  const datePart = [
-    date.getFullYear(),
-    String(date.getMonth() + 1).padStart(2, '0'),
-    String(date.getDate()).padStart(2, '0')
-  ].join('-')
+  if (times.length === 0) {
+    return {
+      oldestTimeMs: null,
+      newestTimeMs: null
+    }
+  }
 
-  const hour24 = date.getHours()
-  const minute = String(date.getMinutes()).padStart(2, '0')
-  const ampm = hour24 < 12 ? 'AM' : 'PM'
-  const hour12 = hour24 === 0 ? 12 : hour24 > 12 ? hour24 - 12 : hour24
-
-  return `${datePart} ${ampm} ${hour12}:${minute}`
+  return {
+    oldestTimeMs: times[0],
+    newestTimeMs: times[times.length - 1]
+  }
 }
 
 function formatDateLabel(value: string | number | null | undefined): string {
@@ -1267,6 +1668,61 @@ function appointmentsStatusToCloud(valueInput: string): string {
   return 'pending'
 }
 
+function appointmentCloudStatusFilterFromUi(valueInput: string): string | null {
+  const value = String(valueInput || '').trim()
+
+  if (!value || value === 'All') return null
+
+  return appointmentsStatusToCloud(value)
+}
+
+function appointmentCloudServiceFilterFromUi(valueInput: string): string | null {
+  const value = String(valueInput || '').trim()
+
+  if (!value || value === 'All') return null
+
+  return value
+}
+
+function appointmentCloudDateFiltersFromUi(
+  dateFilterInput: string,
+  historyDateInput: string | null | undefined = null
+): Pick<AppointmentCloudQueryFilters, 'preferredDate' | 'preferredDateGte' | 'preferredDateLt'> {
+  const historyDate = String(historyDateInput || '').trim()
+  const dateFilter = historyDate || String(dateFilterInput || '').trim() || 'All'
+  const today = appointmentLocalDateKey(new Date())
+
+  if (dateFilter === 'History') {
+    return {
+      preferredDate: null,
+      preferredDateGte: null,
+      preferredDateLt: today
+    }
+  }
+
+  if (dateFilter === 'All') {
+    return {
+      preferredDate: null,
+      preferredDateGte: today,
+      preferredDateLt: null
+    }
+  }
+
+  if (/^\d{4}-\d{2}-\d{2}$/.test(dateFilter)) {
+    return {
+      preferredDate: dateFilter,
+      preferredDateGte: null,
+      preferredDateLt: null
+    }
+  }
+
+  return {
+    preferredDate: null,
+    preferredDateGte: today,
+    preferredDateLt: null
+  }
+}
+
 function appointmentStatusPushTitle(valueInput: string): string {
   const status = appointmentsStatusFromCloud(valueInput)
 
@@ -1285,6 +1741,11 @@ function cloudAppointmentToUi(item: CloudAppointmentRequest, dish: DemoDish | nu
     ? Boolean(dish && !dish.isSoldOut && !dish.isHidden)
     : true
 
+  const dishPriceSnapshot = dish ? buildDishPriceTextSnapshot(dish) : null
+  const storedPriceSnapshot = decodeAppointmentPriceSnapshot(item.sourcePriceSnapshot)
+  const snapshotImageUrl = String(item.sourceImageUrlSnapshot || '').trim()
+  const snapshotCategory = String(item.sourceCategorySnapshot || '').trim()
+
   return {
     id: item.id,
     customerName: item.customerName,
@@ -1295,10 +1756,14 @@ function cloudAppointmentToUi(item: CloudAppointmentRequest, dish: DemoDish | nu
     note: item.note,
     statusLabel: appointmentsStatusFromCloud(item.status),
     createdAtText: formatDateTimeText(item.createdAt) || 'Just now',
-    imageUrl: resolveDishImage(dish),
+    imageUrl: dish ? selectDishImageUrl(dish, 'list') || snapshotImageUrl || null : snapshotImageUrl || null,
+    imageVariants: dish?.imageVariants ?? createRemoteOnlyShowcaseImageVariants(snapshotImageUrl),
     sourceDishId: item.sourceDishId,
-    priceText: dish ? formatUsd(getDishPrice(dish)) : null,
-    categoryText: dish?.category || null,
+    priceText: dishPriceSnapshot?.priceText || storedPriceSnapshot.priceText || null,
+    originalPriceText: dishPriceSnapshot?.originalPriceText || storedPriceSnapshot.originalPriceText,
+    discountPriceText: dishPriceSnapshot?.discountPriceText || storedPriceSnapshot.discountPriceText,
+    categoryText: dish?.category || snapshotCategory || null,
+    isRecommended: dish ? Boolean(dish.isRecommended) : Boolean(item.sourceRecommendedSnapshot),
     itemAvailable
   }
 }
@@ -1310,12 +1775,49 @@ function appointmentToCard(item: CloudAppointmentRequest, dish: DemoDish | null 
 function chatMessageToUiMessage(message: ChatMessage, currentRole: 'merchant' | 'user', product: ShowcaseChatProductShare | null): ShowcaseChatMessage {
   const outgoing = message.senderRole === currentRole
   const parsedPayload = parseNdjcChatPayload(message.body)
+  const localStatus = String(message.localStatus || 'sent').trim().toLowerCase()
+  const isSending = localStatus === 'sending'
+  const isFailed = localStatus === 'failed'
+  const statusText = outgoing
+    ? isFailed
+      ? 'Failed to send'
+      : isSending
+        ? 'Sending...'
+        : message.readAt
+          ? 'Sent · Read'
+          : 'Sent · Unread'
+    : null
   const payloadProduct = parsedPayload.product
     ? {
         dishId: parsedPayload.product.dishId,
         title: parsedPayload.product.title,
         price: parsedPayload.product.price,
-        imageUrl: parsedPayload.product.imageUrl
+        originalPriceText: parsedPayload.product.originalPriceText,
+        discountPriceText: parsedPayload.product.discountPriceText,
+        imageUrl: parsedPayload.product.imageUrl,
+        imageVariants: parsedPayload.product.imageVariants ?? createRemoteOnlyShowcaseImageVariants(parsedPayload.product.imageUrl),
+        isRecommended: parsedPayload.product.isRecommended
+      }
+    : null
+  const payloadAppointment = parsedPayload.appointment
+    ? {
+        appointmentId: parsedPayload.appointment.appointmentId,
+        title: parsedPayload.appointment.title,
+        preferredDate: parsedPayload.appointment.preferredDate,
+        preferredTime: parsedPayload.appointment.preferredTime,
+        statusLabel: parsedPayload.appointment.statusLabel,
+        imageUrl: parsedPayload.appointment.imageUrl,
+        imageVariants: parsedPayload.appointment.imageVariants ?? createRemoteOnlyShowcaseImageVariants(parsedPayload.appointment.imageUrl),
+        customerName: parsedPayload.appointment.customerName,
+        customerContact: parsedPayload.appointment.customerContact,
+        note: parsedPayload.appointment.note,
+        sourceDishId: parsedPayload.appointment.sourceDishId,
+        priceText: parsedPayload.appointment.priceText,
+        originalPriceText: parsedPayload.appointment.originalPriceText,
+        discountPriceText: parsedPayload.appointment.discountPriceText,
+        categoryText: parsedPayload.appointment.categoryText,
+        itemAvailable: parsedPayload.appointment.itemAvailable,
+        createdAtText: parsedPayload.appointment.createdAtText
       }
     : null
 
@@ -1324,14 +1826,17 @@ function chatMessageToUiMessage(message: ChatMessage, currentRole: 'merchant' | 
     body: parsedPayload.body,
     createdAtText: formatChatCreatedAtText(message.createdAt) || '',
     outgoing,
-    statusText: outgoing ? (message.readAt ? 'Sent · Read' : 'Sent · Unread') : null,
+    statusText,
     imageUrls: Array.from(new Set([
       ...message.imageUrls,
       ...parsedPayload.imageUris
     ].map(url => String(url || '').trim()).filter(Boolean))),
+    imageVariants: parsedPayload.imageVariants,
     product: product || payloadProduct,
+    appointment: payloadAppointment,
     quotedMessageId: message.quotedMessageId || parsedPayload.quoteMessageId,
-    failed: false,
+    quotePreviewText: parsedPayload.quotePreview,
+    failed: isFailed,
     selected: false
   }
 }
@@ -1493,6 +1998,17 @@ function allTagsFromDishes(dishes: DemoDish[]): string[] {
   return deriveAllTags(dishes)
 }
 
+function dishFilterRowsToTags(rows: CloudDishFilterRow[]): string[] {
+  return Array.from(
+    new Set(
+      rows
+        .flatMap(item => item.tags || [])
+        .map(item => String(item || '').trim())
+        .filter(Boolean)
+    )
+  ).sort()
+}
+
 function mapFavoriteCard(dish: DemoDish): ShowcaseFavoriteCard {
   const discount = Number(dish.discountPrice)
   const hasValidDiscount = Number.isFinite(discount) && discount > 0
@@ -1507,7 +2023,9 @@ function mapFavoriteCard(dish: DemoDish): ShowcaseFavoriteCard {
     discountPriceText,
     priceText: discountPriceText || originalPriceText,
     imageUrl: resolveDishImage(dish),
-    itemAvailable: !dish.isSoldOut
+    isRecommended: Boolean(dish.isRecommended),
+    isHidden: Boolean(dish.isHidden),
+    itemAvailable: !dish.isSoldOut && !dish.isHidden
   }
 }
 
@@ -1679,76 +2197,13 @@ function buildDefaultConversationId(storeId: string, clientId: string): string {
   return `cloud:${storeId}:${clientId}`
 }
 
-function applyHomeFilters(input: {
+function decorateCloudHomeResults(input: {
   dishes: DemoDish[]
-  selectedCategory: string | null
-  selectedTags: string[]
-  searchQuery: string
-  filterRecommendedOnly: boolean
-  filterOnSaleOnly: boolean
-  appliedMinPrice: number | null
-  appliedMaxPrice: number | null
   favoriteIds: string[]
   sortMode: ShowcaseHomeSortMode
 }): DemoDish[] {
-  let next = input.dishes.filter(item => !item.isHidden)
-
-  const selectedCategory = String(input.selectedCategory || '').trim()
-  if (selectedCategory) {
-    next = next.filter(item => String(item.category || '').trim() === selectedCategory)
-  }
-
-  if (input.filterRecommendedOnly) {
-    next = next.filter(item => item.isRecommended)
-  }
-
-  if (input.filterOnSaleOnly) {
-    next = next.filter(item => hasDiscount(item))
-  }
-
-  const selectedTagSet = new Set(
-    input.selectedTags
-      .map(tag => tag.trim())
-      .filter(Boolean)
-  )
-
-  if (selectedTagSet.size > 0) {
-    next = next.filter(item => {
-      const dishTags = (item.tags || [])
-        .map(tag => String(tag || '').trim())
-        .filter(Boolean)
-
-      return dishTags.some(tag => selectedTagSet.has(tag))
-    })
-  }
-
-  const query = input.searchQuery.trim().toLowerCase()
-  if (query) {
-    next = next.filter(item => {
-      const haystack = [
-        item.nameZh,
-        item.nameEn,
-        item.descriptionEn,
-        item.category
-      ]
-        .map(value => String(value || '').toLowerCase())
-        .join(' ')
-
-      return haystack.includes(query)
-    })
-  }
-
-  if (input.appliedMinPrice != null || input.appliedMaxPrice != null) {
-    next = next.filter(item => {
-      const price = getDishPrice(item)
-
-      return (input.appliedMinPrice == null || price >= input.appliedMinPrice) &&
-        (input.appliedMaxPrice == null || price <= input.appliedMaxPrice)
-    })
-  }
-
   return sortDishes(
-    next.map(item => ({
+    input.dishes.map(item => ({
       ...item,
       isFavorite: input.favoriteIds.includes(item.id)
     })),
@@ -1767,7 +2222,7 @@ function toShowcaseHomeDish(dish: DemoDish): ShowcaseHomeDish {
     clickCount: Number.isFinite(Number(dish.clickCount)) ? Number(dish.clickCount) : 0,
     id: dish.id,
     title: title || 'Untitled item',
-    subtitle: String(dish.descriptionEn || '').trim() || null,
+    subtitle: String(dish.description || '').trim() || null,
     category: String(dish.category || '').trim() || null,
     price: getDishPrice(dish),
     originalPrice: normalizedOriginalPrice,
@@ -1776,7 +2231,8 @@ function toShowcaseHomeDish(dish: DemoDish): ShowcaseHomeDish {
     isSoldOut: Boolean(dish.isSoldOut),
     isFavorite: Boolean(dish.isFavorite),
     isHidden: Boolean(dish.isHidden),
-    imagePreviewUrl: resolveDishImage(dish)
+    imagePreviewUrl: selectDishImageUrl(dish, 'home'),
+    imageVariants: dish.imageVariants ?? null
   }
 }
 
@@ -1818,23 +2274,13 @@ export function useShowcaseViewModel(input: UseShowcaseViewModelInput = {}): Sho
 
   const repository = repositoryRef.current
 
-  repository.setMerchantSessionCallbacks({
-    onRefreshed: session => {
-      applyRefreshedMerchantSession(session)
-    }
-  })
-
   const chatRepositoryRef = useRef<ShowcaseChatRepository | null>(null)
 
   if (!chatRepositoryRef.current) {
     chatRepositoryRef.current = createShowcaseChatRepository({
       cloud: repository,
       chatCloud: createShowcaseChatCloudRepository({
-        logTag: 'ChatTrace',
-        refreshMerchantSession: async () => {
-          const session = await ensureMerchantSessionLoadedForCloud()
-          return Boolean(session?.accessToken)
-        }
+        logTag: 'ChatTrace'
       }),
       storagePrefix: `ndjc_showcase_chat_repository_${storeId}`,
       chatCloudEnabled: true,
@@ -1843,7 +2289,8 @@ export function useShowcaseViewModel(input: UseShowcaseViewModelInput = {}): Sho
   }
 
   const chatRepository = chatRepositoryRef.current
-  const initialMerchantSessionRef = useRef<MerchantAuthSession | null>(readMerchantSession())
+  const initialMerchantSessionRef = useRef<MerchantAuthSession | null>(null)
+  const initialMerchantLoginNameRef = useRef<string>(readLastMerchantLoginName())
   const initialClientIdRef = useRef<string>(readClientId())
   const defaultUiState = useMemo(() => createDefaultShowcaseUiState(), [])
   const defaultChatUiState = useMemo(() => createDefaultShowcaseChatUiState(), [])
@@ -1855,10 +2302,11 @@ export function useShowcaseViewModel(input: UseShowcaseViewModelInput = {}): Sho
   const [clientId] = useState(initialClientIdRef.current)
   const [merchantSession, setMerchantSession] = useState<MerchantAuthSession | null>(initialMerchantSessionRef.current)
   const [merchantBindings, setMerchantBindings] = useState<MerchantStoreMembership[]>([])
-  const [isAdminLoggedIn, setIsAdminLoggedIn] = useState(Boolean(initialMerchantSessionRef.current?.accessToken))
+  const [isAdminLoggedIn, setIsAdminLoggedIn] = useState(false)
   const renderCountRef = useRef(0)
   const currentScreenRef = useRef<ShowcaseScreenName>(screen)
   const isAdminLoggedInRef = useRef(isAdminLoggedIn)
+  const merchantSessionRef = useRef<MerchantAuthSession | null>(merchantSession)
 
   renderCountRef.current += 1
 
@@ -1878,7 +2326,8 @@ export function useShowcaseViewModel(input: UseShowcaseViewModelInput = {}): Sho
   useEffect(() => {
     currentScreenRef.current = screen
     isAdminLoggedInRef.current = isAdminLoggedIn
-  }, [screen, isAdminLoggedIn])
+    merchantSessionRef.current = merchantSession
+  }, [screen, isAdminLoggedIn, merchantSession])
 
   useEffect(() => {
     setCurrentStoreId(storeId)
@@ -1886,16 +2335,186 @@ export function useShowcaseViewModel(input: UseShowcaseViewModelInput = {}): Sho
     bindMerchantSessionToRepository(repository)
   }, [merchantSession, repository, storeId])
 
+  useEffect(() => {
+    const subscription = onShowcaseAuthStateChange((event, authSession) => {
+      if (event === 'SIGNED_OUT') {
+        const preservedLoginName = getPreferredLoginNameForLoginScreen()
+
+        clearStoreMerchantSession()
+        bindMerchantSessionToRepository(repository)
+        setStoreMerchantSessionFromAuthSession(null)
+        setMerchantSession(null)
+        setMerchantBindings([])
+        setIsAdminLoggedIn(false)
+        clearStoredMerchantSession()
+        setAdminUsernameDraft(preservedLoginName)
+        setLoginUsernameDraft(preservedLoginName)
+        setAdminPasswordDraft('')
+        setLoginPasswordDraft('')
+        setLoginError(null)
+        setIsLoginLoading(false)
+        return
+      }
+
+      if (event !== 'TOKEN_REFRESHED' && event !== 'USER_UPDATED') {
+        return
+      }
+
+      const currentSession = merchantSessionRef.current
+
+      if (!currentSession?.authUserId || !authSession?.accessToken || !authSession.authUserId) {
+        return
+      }
+
+      if (currentSession.authUserId.toLowerCase() !== authSession.authUserId.toLowerCase()) {
+        const preservedLoginName = getPreferredLoginNameForLoginScreen()
+
+        clearStoreMerchantSession()
+        bindMerchantSessionToRepository(repository)
+        setStoreMerchantSessionFromAuthSession(null)
+        setMerchantSession(null)
+        setMerchantBindings([])
+        setIsAdminLoggedIn(false)
+        clearStoredMerchantSession()
+        setAdminUsernameDraft(preservedLoginName)
+        setLoginUsernameDraft(preservedLoginName)
+        setAdminPasswordDraft('')
+        setLoginPasswordDraft('')
+        setLoginError('Session expired. Please sign in again.')
+        setIsLoginLoading(false)
+        return
+      }
+
+      const nextSession: MerchantAuthSession = {
+        ...currentSession,
+        accessToken: authSession.accessToken,
+        refreshToken: null,
+        authUserId: authSession.authUserId,
+        loginName: authSession.email || currentSession.loginName,
+        expiresAt: authSession.expiresAt || currentSession.expiresAt
+      }
+
+      writeMerchantSession(nextSession)
+      setStoreMerchantSessionFromAuthSession(nextSession)
+      bindMerchantSessionToRepository(repository)
+      setMerchantSession(nextSession)
+    })
+
+    return () => {
+      subscription.unsubscribe()
+    }
+  }, [repository])
+  useEffect(() => {
+    if (!isBrowser()) return
+    if (!isAdminLoggedIn && !merchantSession?.accessToken) return
+
+    let refreshInFlight = false
+
+    const runResumeRefresh = (): void => {
+      if (refreshInFlight) return
+
+      refreshInFlight = true
+
+      void refreshMerchantSessionForPwaResume().finally(() => {
+        refreshInFlight = false
+      })
+    }
+
+    const handleFocus = (): void => {
+      runResumeRefresh()
+    }
+
+    const handleOnline = (): void => {
+      runResumeRefresh()
+    }
+
+    const handleVisibilityChange = (): void => {
+      if (document.visibilityState === 'visible') {
+        runResumeRefresh()
+      }
+    }
+
+    window.addEventListener('focus', handleFocus)
+    window.addEventListener('online', handleOnline)
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+
+    return () => {
+      window.removeEventListener('focus', handleFocus)
+      window.removeEventListener('online', handleOnline)
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
+    }
+  }, [
+    isAdminLoggedIn,
+    merchantSession?.accessToken,
+    merchantSession?.authUserId,
+    repository,
+    screen,
+    storeId
+  ])
+
   const [dishes, setDishes] = useState<DemoDish[]>(() => {
+    if (input.previewMode === false) {
+      return []
+    }
+
     const localDishes = loadDishesFromStorage(storeId)
 
     if (localDishes.length) {
       return localDishes
     }
 
-    return input.previewMode === false ? [] : initialDishes
+    return initialDishes
   })
-  const [categories, setCategories] = useState<CloudCategory[]>([])
+  const [dishEntitiesById, setDishEntitiesById] = useState<Record<string, DemoDish>>(() => {
+    const localDishes = input.previewMode === false
+      ? []
+      : loadDishesFromStorage(storeId)
+    const sourceItems = localDishes.length ? localDishes : initialDishes
+    const entities: Record<string, DemoDish> = {}
+
+    sourceItems.forEach(item => {
+      const id = String(item.id || '').trim()
+      if (id) {
+        entities[id] = item
+      }
+    })
+
+    return entities
+  })
+  const [homeDishIds, setHomeDishIds] = useState<string[]>(() => {
+    const localDishes = input.previewMode === false
+      ? []
+      : loadDishesFromStorage(storeId)
+    const sourceItems = localDishes.length ? localDishes : initialDishes
+
+    return sourceItems
+      .filter(item => !item.isHidden)
+      .map(item => String(item.id || '').trim())
+      .filter(Boolean)
+  })
+  const [adminItemIds, setAdminItemIds] = useState<string[]>(() => {
+    const localDishes = input.previewMode === false
+      ? []
+      : loadDishesFromStorage(storeId)
+    const sourceItems = localDishes.length ? localDishes : initialDishes
+
+    return sourceItems
+      .map(item => String(item.id || '').trim())
+      .filter(Boolean)
+  })
+  const [categories, setCategories] = useState<CloudCategory[]>(() => {
+    const localDishes = input.previewMode === false
+      ? []
+      : loadDishesFromStorage(storeId)
+    const localManualCategories = input.previewMode === false
+      ? []
+      : loadManualCategoriesFromStorage(storeId)
+    const sourceItems = localDishes.length ? localDishes : initialDishes
+    const categoryNames = deriveCategoriesFromModels(sourceItems, localManualCategories)
+
+    return manualCategoryNamesToCloudCategories(categoryNames)
+  })
+  const [homeDishFilterRows, setHomeDishFilterRows] = useState<CloudDishFilterRow[]>([])
   const [favoriteIds, setFavoriteIds] = useState<string[]>(() => readFavoriteIds(storeId))
   const [favoriteAddedAt, setFavoriteAddedAt] = useState<Record<string, number>>(() => loadFavoriteAddedAtFromStorage(storeId))
   const [favoriteSnapshots, setFavoriteSnapshots] = useState<Record<string, ShowcaseFavoriteSnapshot>>(() => loadFavoriteSnapshotsFromStorage(storeId))
@@ -1908,15 +2527,21 @@ export function useShowcaseViewModel(input: UseShowcaseViewModelInput = {}): Sho
   const [isWriteAllowed, setIsWriteAllowed] = useState(defaultUiState.cloudStatus?.canWrite ?? true)
   const [statusMessage, setStatusMessage] = useState<string | null>(defaultUiState.statusMessage)
   const [snackbarMessage, setSnackbarMessage] = useState<string | null>(null)
+  const [isOffline, setIsOffline] = useState(() => {
+    return isBrowser() ? window.navigator.onLine === false : false
+  })
   const [syncOverviewState, setSyncOverviewState] = useState<ShowcaseSyncOverviewState>(defaultUiState.syncOverviewState)
   const [lastSyncAt, setLastSyncAt] = useState<number | null>(defaultUiState.lastSyncAt)
   const [pendingSyncOperations, setPendingSyncOperations] = useState<PendingSyncOperation[]>(() => {
     return buildPendingDishSyncOperations(loadDishesFromStorage(storeId))
   })
+  const pendingSyncRetryInFlightRef = useRef(false)
+  const pendingSyncOperationsRef = useRef<PendingSyncOperation[]>(pendingSyncOperations)
   const [syncErrorMessage, setSyncErrorMessage] = useState<string | null>(defaultUiState.syncErrorMessage)
   const [lastRetryOp, setLastRetryOp] = useState<ShowcaseRetryOp | null>(defaultUiState.lastRetryOp)
 
   const [selectedCategory, setSelectedCategory] = useState<string | null>(defaultUiState.selectedCategory)
+  const [adminItemsSelectedCategory, setAdminItemsSelectedCategory] = useState<string | null>(null)
   const [selectedTags, setSelectedTags] = useState<string[]>(defaultUiState.selectedTags)
   const [searchQuery, setSearchQuery] = useState(defaultUiState.searchQuery)
   const [sortMode, setSortMode] = useState<ShowcaseHomeSortMode>(defaultUiState.sortMode)
@@ -1943,12 +2568,13 @@ export function useShowcaseViewModel(input: UseShowcaseViewModelInput = {}): Sho
   const [adminSelectedDishIds, setAdminSelectedDishIds] = useState<string[]>(defaultUiState.adminSelectedDishIds)
   const [pendingDeleteDishId, setPendingDeleteDishId] = useState<string | null>(defaultUiState.pendingDeleteDishId)
   const [adminEntryMode, setAdminEntryMode] = useState<AdminEntryMode>(defaultUiState.adminEntryMode)
-  const [adminUsernameDraft, setAdminUsernameDraft] = useState(initialMerchantSessionRef.current?.loginName || defaultUiState.adminUsernameDraft)
+  const [adminUsernameDraft, setAdminUsernameDraft] = useState(initialMerchantLoginNameRef.current || defaultUiState.adminUsernameDraft)
   const [adminPasswordDraft, setAdminPasswordDraft] = useState(defaultUiState.adminPasswordDraft)
   const [adminPendingDeleteCategory, setAdminPendingDeleteCategory] = useState<PendingDeleteCategoryDialog>(null)
   const [adminCannotDeleteCategory, setAdminCannotDeleteCategory] = useState<string | null>(defaultUiState.adminCannotDeleteCategory)
+  const [categorySubmittingAction, setCategorySubmittingAction] = useState<'add' | 'rename' | 'delete' | 'reorder' | null>(null)
 
-  const [loginUsernameDraft, setLoginUsernameDraft] = useState(initialMerchantSessionRef.current?.loginName || defaultUiState.loginUsernameDraft)
+  const [loginUsernameDraft, setLoginUsernameDraft] = useState(initialMerchantLoginNameRef.current || defaultUiState.loginUsernameDraft)
   const [loginPasswordDraft, setLoginPasswordDraft] = useState(defaultUiState.loginPasswordDraft)
   const [loginRememberMeDraft, setLoginRememberMeDraft] = useState(readRememberMe())
   const [loginError, setLoginError] = useState<string | null>(defaultUiState.loginError)
@@ -1962,30 +2588,71 @@ export function useShowcaseViewModel(input: UseShowcaseViewModelInput = {}): Sho
   const [isChangingPassword, setIsChangingPassword] = useState(false)
 
   const [storeProfileCloud, setStoreProfileCloud] = useState<CloudStoreProfile | null>(null)
-  const [storeProfile, setStoreProfile] = useState<ShowcaseStoreProfile | null>(() => storeProfileFromCloud(null))
+  const [storeProfile, setStoreProfile] = useState<ShowcaseStoreProfile | null>(() => {
+    const cachedProfile = loadStoreProfileFromStorage(storeId)
+
+    return cachedProfile
+      ? storeProfileFromCachedProfile(cachedProfile)
+      : storeProfileFromCloud(null)
+  })
   const [storeProfileDraft, setStoreProfileDraft] = useState<ShowcaseStoreProfileDraft | null>(() => {
     const persisted = readPersistedStoreProfileDraft(storeId)
-    return persisted || storeProfileDraftFromProfile(storeProfileFromCloud(null))
+    if (persisted) return persisted
+
+    const cachedProfile = loadStoreProfileFromStorage(storeId)
+    const sourceProfile = cachedProfile
+      ? storeProfileFromCachedProfile(cachedProfile)
+      : storeProfileFromCloud(null)
+
+    return storeProfileDraftFromProfile(sourceProfile)
   })
-  const [storeProfileServices, setStoreProfileServices] = useState<string[]>(defaultUiState.storeProfileServices)
-  const [storeProfileExtraContacts, setStoreProfileExtraContacts] = useState<ShowcaseExtraContact[]>(defaultUiState.storeProfileExtraContacts)
-  const [draftStoreProfileServices, setDraftStoreProfileServices] = useState<string[]>(defaultUiState.draftStoreProfileServices)
-  const [draftStoreProfileExtraContacts, setDraftStoreProfileExtraContacts] = useState<DraftExtraContact[]>(defaultUiState.draftStoreProfileExtraContacts)
-  const [storeProfileCoverUrl, setStoreProfileCoverUrl] = useState(defaultUiState.storeProfileCoverUrl)
-  const [storeProfileLogoUrl, setStoreProfileLogoUrl] = useState(defaultUiState.storeProfileLogoUrl)
-  const [draftStoreProfileCoverUrl, setDraftStoreProfileCoverUrl] = useState(defaultUiState.draftStoreProfileCoverUrl)
-  const [draftStoreProfileLogoUrl, setDraftStoreProfileLogoUrl] = useState(defaultUiState.draftStoreProfileLogoUrl)
-  const [draftStoreProfileDescription, setDraftStoreProfileDescription] = useState(defaultUiState.draftStoreProfileDescription)
-  const [draftBusinessStatus, setDraftBusinessStatus] = useState(defaultUiState.draftBusinessStatus)
+  const [storeProfileServices, setStoreProfileServices] = useState<string[]>(() => {
+    return loadStoreProfileFromStorage(storeId)?.services || defaultUiState.storeProfileServices
+  })
+  const [storeProfileExtraContacts, setStoreProfileExtraContacts] = useState<ShowcaseExtraContact[]>(() => {
+    return loadStoreProfileFromStorage(storeId)?.extraContacts || defaultUiState.storeProfileExtraContacts
+  })
+  const [draftStoreProfileServices, setDraftStoreProfileServices] = useState<string[]>(() => {
+    return loadStoreProfileFromStorage(storeId)?.services || defaultUiState.draftStoreProfileServices
+  })
+  const [draftStoreProfileExtraContacts, setDraftStoreProfileExtraContacts] = useState<DraftExtraContact[]>(() => {
+    const cachedContacts = loadStoreProfileFromStorage(storeId)?.extraContacts || []
+
+    if (!cachedContacts.length) return defaultUiState.draftStoreProfileExtraContacts
+
+    return cachedContacts.map((item, index) => ({
+      id: `cached_extra_contact_${index + 1}`,
+      name: item.name,
+      value: item.value
+    }))
+  })
+  const [storeProfileCoverUrl, setStoreProfileCoverUrl] = useState(() => {
+    return loadStoreProfileFromStorage(storeId)?.coverUrl || defaultUiState.storeProfileCoverUrl
+  })
+  const [storeProfileLogoUrl, setStoreProfileLogoUrl] = useState(() => {
+    return loadStoreProfileFromStorage(storeId)?.logoUrl || defaultUiState.storeProfileLogoUrl
+  })
+  const [draftStoreProfileCoverUrl, setDraftStoreProfileCoverUrl] = useState(() => {
+    return loadStoreProfileFromStorage(storeId)?.coverUrl || defaultUiState.draftStoreProfileCoverUrl
+  })
+  const [draftStoreProfileLogoUrl, setDraftStoreProfileLogoUrl] = useState(() => {
+    return loadStoreProfileFromStorage(storeId)?.logoUrl || defaultUiState.draftStoreProfileLogoUrl
+  })
+  const [draftStoreProfileDescription, setDraftStoreProfileDescription] = useState(() => {
+    return loadStoreProfileFromStorage(storeId)?.description || defaultUiState.draftStoreProfileDescription
+  })
+  const [draftBusinessStatus, setDraftBusinessStatus] = useState(() => {
+    return loadStoreProfileFromStorage(storeId)?.businessStatus || defaultUiState.draftBusinessStatus
+  })
   const [isEditingStoreProfile, setIsEditingStoreProfile] = useState(defaultUiState.isEditingStoreProfile)
   const [isSavingStoreProfile, setIsSavingStoreProfile] = useState(defaultUiState.isSavingStoreProfile)
+  const [isRefreshingStoreProfile, setIsRefreshingStoreProfile] = useState(false)
   const [storeProfileSaveError, setStoreProfileSaveError] = useState<string | null>(defaultUiState.storeProfileSaveError)
   const [storeProfileSaveSuccess, setStoreProfileSaveSuccess] = useState(defaultUiState.storeProfileSaveSuccess)
 
   const [editDishId, setEditDishId] = useState<string | null>(null)
-  const [editDishNameZh, setEditDishNameZh] = useState('')
-  const [editDishNameEn, setEditDishNameEn] = useState('')
-  const [editDishDescriptionEn, setEditDishDescriptionEn] = useState('')
+  const [editDishName, setEditDishName] = useState('')
+  const [editDishDescription, setEditDishDescription] = useState('')
   const [editDishCategory, setEditDishCategory] = useState<string | null>(null)
   const [editDishOriginalPrice, setEditDishOriginalPrice] = useState('')
   const [editDishDiscountPrice, setEditDishDiscountPrice] = useState('')
@@ -2013,6 +2680,9 @@ export function useShowcaseViewModel(input: UseShowcaseViewModelInput = {}): Sho
   const [appointmentSettings, setAppointmentSettings] = useState<CloudAppointmentSettings>(() => defaultAppointmentSettings(storeId))
   const [appointmentsEnabled, setAppointmentsEnabled] = useState(defaultUiState.appointmentsEnabled)
   const [appointmentRequests, setAppointmentRequests] = useState<CloudAppointmentRequest[]>(() => loadAppointmentsFromStorage(storeId))
+  const [adminAppointmentFilterRows, setAdminAppointmentFilterRows] = useState<CloudAppointmentFilterRow[]>([])
+  const [customerAppointmentFilterRows, setCustomerAppointmentFilterRows] = useState<CloudAppointmentFilterRow[]>([])
+  const [appointmentLinkedDishesById, setAppointmentLinkedDishesById] = useState<Record<string, DemoDish>>({})
   const [appointmentSourceDishId, setAppointmentSourceDishId] = useState<string | null>(defaultUiState.appointmentSourceDishId)
   const [appointmentServiceDraft, setAppointmentServiceDraft] = useState(defaultUiState.appointmentServiceDraft)
   const [appointmentNameDraft, setAppointmentNameDraft] = useState(defaultUiState.appointmentNameDraft)
@@ -2023,6 +2693,8 @@ export function useShowcaseViewModel(input: UseShowcaseViewModelInput = {}): Sho
   const [appointmentError, setAppointmentError] = useState<string | null>(defaultUiState.appointmentError)
   const [appointmentSuccess, setAppointmentSuccess] = useState<string | null>(defaultUiState.appointmentSuccess)
   const [appointmentsRefreshing, setAppointmentsRefreshing] = useState(defaultUiState.appointmentsRefreshing)
+  const [appointmentStatusSubmittingId, setAppointmentStatusSubmittingId] = useState<string | null>(null)
+  const [appointmentSettingsSubmitting, setAppointmentSettingsSubmitting] = useState(false)
   const [appointmentBookingWindowDays, setAppointmentBookingWindowDays] = useState(defaultUiState.appointmentBookingWindowDays)
   const [appointmentAvailableHoursText, setAppointmentAvailableHoursText] = useState(defaultUiState.appointmentAvailableHoursText)
   const [appointmentSlotIntervalMinutes, setAppointmentSlotIntervalMinutes] = useState(defaultUiState.appointmentSlotIntervalMinutes)
@@ -2036,7 +2708,13 @@ export function useShowcaseViewModel(input: UseShowcaseViewModelInput = {}): Sho
   const [appointmentCustomerStatusFilter, setAppointmentCustomerStatusFilter] = useState(defaultUiState.appointmentCustomerStatusFilter)
   const [appointmentCustomerServiceFilter, setAppointmentCustomerServiceFilter] = useState(defaultUiState.appointmentCustomerServiceFilter)
 
-  const [announcements, setAnnouncements] = useState<CloudAnnouncement[]>([])
+  const [announcements, setAnnouncements] = useState<CloudAnnouncement[]>(() => {
+    return loadPublishedAnnouncementsLocally(storeId)
+      .filter(item => item.status === 'published')
+      .sort((left, right) => {
+        return (right.updatedAt || right.createdAt || 0) - (left.updatedAt || left.createdAt || 0)
+      })
+  })
   const [announcementsEntryDotVisible, setAnnouncementsEntryDotVisible] = useState(false)
   const [bookingsEntryDotVisible, setBookingsEntryDotVisible] = useState(false)
   const [adminAnnouncementDraftItems, setAdminAnnouncementDraftItems] = useState<DraftAnnouncement[]>([])
@@ -2047,9 +2725,10 @@ export function useShowcaseViewModel(input: UseShowcaseViewModelInput = {}): Sho
   const [adminAnnouncementSelectedIds, setAdminAnnouncementSelectedIds] = useState<string[]>(defaultUiState.adminAnnouncementSelectedIds)
   const [adminAnnouncementPreviewId, setAdminAnnouncementPreviewId] = useState<string | null>(defaultUiState.adminAnnouncementPreviewId)
   const [adminAnnouncementError, setAdminAnnouncementError] = useState<string | null>(defaultUiState.adminAnnouncementError)
-  const [adminAnnouncementSuccess, setAdminAnnouncementSuccess] = useState<string | null>(defaultUiState.adminAnnouncementSuccess)
+  const [adminAnnouncementSuccess, setAdminAnnouncementSuccess] = useState(defaultUiState.adminAnnouncementSuccess)
   const [adminAnnouncementIsSubmitting, setAdminAnnouncementIsSubmitting] = useState(defaultUiState.adminAnnouncementIsSubmitting)
   const [adminAnnouncementIsBlocking, setAdminAnnouncementIsBlocking] = useState(defaultUiState.adminAnnouncementIsBlocking)
+  const [adminAnnouncementSubmittingAction, setAdminAnnouncementSubmittingAction] = useState<'save' | 'publish' | 'delete' | null>(null)
   const [pushTargetAnnouncementId, setPushTargetAnnouncementId] = useState<string | null>(defaultUiState.pushTargetAnnouncementId)
   const [seenAnnouncementIds, setSeenAnnouncementIds] = useState<string[]>(() => loadViewedAnnouncementIdsLocally(storeId))
   const [pushToken, setPushToken] = useState<string | null>(null)
@@ -2070,6 +2749,7 @@ export function useShowcaseViewModel(input: UseShowcaseViewModelInput = {}): Sho
   const [chatDraft, setChatDraft] = useState(() => readChatDraft(storeId, buildDefaultConversationId(storeId, initialClientIdRef.current))?.draft || defaultChatUiState.draft)
   const [chatDraftImageUrls, setChatDraftImageUrls] = useState<string[]>(() => readChatDraft(storeId, buildDefaultConversationId(storeId, initialClientIdRef.current))?.draftImageUrls || defaultChatUiState.draftImageUrls)
   const [chatPendingProduct, setChatPendingProduct] = useState<ShowcaseChatProductShare | null>(() => readChatDraft(storeId, buildDefaultConversationId(storeId, initialClientIdRef.current))?.pendingProduct || defaultChatUiState.pendingProduct)
+  const [chatPendingAppointment, setChatPendingAppointment] = useState<ShowcaseChatAppointmentShare | null>(() => readChatDraft(storeId, buildDefaultConversationId(storeId, initialClientIdRef.current))?.pendingAppointment || defaultChatUiState.pendingAppointment)
   const [chatQuotedMessageId, setChatQuotedMessageId] = useState<string | null>(() => readChatDraft(storeId, buildDefaultConversationId(storeId, initialClientIdRef.current))?.quotedMessageId || defaultChatUiState.quotedMessageId)
   const [chatIsSending, setChatIsSending] = useState(defaultChatUiState.isSending)
   const [chatIsOpening, setChatIsOpening] = useState(false)
@@ -2080,6 +2760,7 @@ export function useShowcaseViewModel(input: UseShowcaseViewModelInput = {}): Sho
   const [chatFocusedMessageId, setChatFocusedMessageId] = useState<string | null>(defaultChatUiState.focusedMessageId)
   const [chatScrollToMessageId, setChatScrollToMessageId] = useState<string | null>(defaultChatUiState.scrollToMessageId)
   const [chatScrollToMessageSignal, setChatScrollToMessageSignal] = useState(defaultChatUiState.scrollToMessageSignal)
+  const [chatScrollToBottomSignal, setChatScrollToBottomSignal] = useState(0)
   const [chatFlashMessageId, setChatFlashMessageId] = useState<string | null>(defaultChatUiState.flashMessageId)
   const [chatFlashSignal, setChatFlashSignal] = useState(defaultChatUiState.flashSignal)
   const [chatMediaPreviewUrls, setChatMediaPreviewUrls] = useState<string[]>(defaultChatUiState.mediaPreviewUrls)
@@ -2087,14 +2768,96 @@ export function useShowcaseViewModel(input: UseShowcaseViewModelInput = {}): Sho
   const [chatPinned, setChatPinned] = useState(defaultChatUiState.pinned)
   const [chatSearchResults, setChatSearchResults] = useState<ChatSearchResult[]>([])
   const [chatMediaItems, setChatMediaItems] = useState<ChatMediaItem[]>([])
+  const [chatSearchPagination, setChatSearchPagination] = useState<ShowcasePaginationRuntimeState>({
+    nextOffset: 0,
+    hasMore: false,
+    isLoadingMore: false
+  })
+  const [chatMediaPagination, setChatMediaPagination] = useState<ShowcasePaginationRuntimeState>({
+    nextOffset: 0,
+    hasMore: true,
+    isLoadingMore: false
+  })
   const [chatEntryDotVisible, setChatEntryDotVisible] = useState(false)
   const [chatPollingEnabled, setChatPollingEnabled] = useState(false)
   const [chatEntryPollingEnabled, setChatEntryPollingEnabled] = useState(false)
   const [chatMode, setChatModeState] = useState<ChatMode>('Client')
 
+  const [homePagination, setHomePagination] = useState<ShowcasePaginationRuntimeState>({
+    nextOffset: SHOWCASE_PAGE_SIZE.homeDishes,
+    hasMore: true,
+    isLoadingMore: false
+  })
+  const [adminItemsPagination, setAdminItemsPagination] = useState<ShowcasePaginationRuntimeState>({
+    nextOffset: SHOWCASE_PAGE_SIZE.adminItems,
+    hasMore: true,
+    isLoadingMore: false
+  })
+  const [publicAnnouncementsPagination, setPublicAnnouncementsPagination] = useState<ShowcasePaginationRuntimeState>({
+    nextOffset: SHOWCASE_PAGE_SIZE.publicAnnouncements,
+    hasMore: true,
+    isLoadingMore: false
+  })
+  const [adminAnnouncementsPagination, setAdminAnnouncementsPagination] = useState<ShowcasePaginationRuntimeState>({
+    nextOffset: SHOWCASE_PAGE_SIZE.adminAnnouncements,
+    hasMore: true,
+    isLoadingMore: false
+  })
+  const [customerAppointmentsPagination, setCustomerAppointmentsPagination] = useState<ShowcasePaginationRuntimeState>({
+    nextOffset: SHOWCASE_PAGE_SIZE.clientAppointments,
+    hasMore: true,
+    isLoadingMore: false
+  })
+  const [adminAppointmentsPagination, setAdminAppointmentsPagination] = useState<ShowcasePaginationRuntimeState>({
+    nextOffset: SHOWCASE_PAGE_SIZE.merchantAppointments,
+    hasMore: true,
+    isLoadingMore: false
+  })
+  const [merchantChatListPagination, setMerchantChatListPagination] = useState<ShowcasePaginationRuntimeState>({
+    nextOffset: SHOWCASE_PAGE_SIZE.chatThreads,
+    hasMore: true,
+    isLoadingMore: false
+  })
+  const [merchantChatListSearchQuery, setMerchantChatListSearchQuery] = useState('')
+  const [merchantChatListSearchThreads, setMerchantChatListSearchThreads] = useState<ChatThreadSummary[]>([])
+  const [merchantChatListSearchPagination, setMerchantChatListSearchPagination] = useState<ShowcasePaginationRuntimeState>({
+    nextOffset: 0,
+    hasMore: false,
+    isLoadingMore: false
+  })
+  const [chatMessagesPagination, setChatMessagesPagination] = useState<ShowcasePaginationRuntimeState>({
+    nextOffset: SHOWCASE_PAGE_SIZE.chatMessages,
+    hasMore: true,
+    isLoadingMore: false
+  })
+  const [chatMessageWindow, setChatMessageWindow] = useState<ChatMessageWindowRuntimeState>({
+    mode: 'latest',
+    anchorMessageId: null,
+    hasOlder: true,
+    hasNewer: false,
+    isLoadingOlder: false,
+    isLoadingNewer: false,
+    oldestTimeMs: null,
+    newestTimeMs: null
+  })
+
+  const chatMessagesPaginationRef = useRef(chatMessagesPagination)
+  const chatMessageWindowRef = useRef(chatMessageWindow)
+
   const snackbarTimerRef = useRef<number | null>(null)
   const loadingSeqRef = useRef(0)
   const loadFromCloudRunningRef = useRef(false)
+  const homeMainRefreshInFlightRef = useRef(false)
+  const homeSearchDebounceTimerRef = useRef<number | null>(null)
+  const homeSearchRequestSeqRef = useRef(0)
+  const adminItemsSearchDebounceTimerRef = useRef<number | null>(null)
+  const adminItemsSearchRequestSeqRef = useRef(0)
+  const homeBadgeRefreshInFlightRef = useRef(false)
+  const adminHomeRefreshInFlightRef = useRef(false)
+  const adminItemsRefreshInFlightRef = useRef(false)
+  const adminCategoriesRefreshInFlightRef = useRef(false)
+  const announcementClickCountInFlightRef = useRef<Set<string>>(new Set())
+  const lastMerchantSessionEnsureResultRef = useRef<'valid' | 'temporary_failed' | 'permission_failed' | 'expired' | null>(null)
   const detailBackTargetRef = useRef<ShowcaseScreenName>(ShowcaseScreens.Home)
   const appointmentDetailBackTargetRef = useRef<ShowcaseScreenName>(ShowcaseScreens.Home)
   const merchantChatListBackTargetRef = useRef<ShowcaseScreenName>(ShowcaseScreens.Admin)
@@ -2113,10 +2876,16 @@ export function useShowcaseViewModel(input: UseShowcaseViewModelInput = {}): Sho
   const chatEntryPollingTimerRef = useRef<number | null>(null)
   const announcementsEntryPollingTimerRef = useRef<number | null>(null)
   const bookingsEntryPollingTimerRef = useRef<number | null>(null)
+  const homeBadgePollingTimerRef = useRef<number | null>(null)
+  const homeBadgePollingIntervalMsRef = useRef(0)
+  const adminHomePollingTimerRef = useRef<number | null>(null)
+  const adminHomePollingIntervalMsRef = useRef(0)
   const merchantChatListPollingTimerRef = useRef<number | null>(null)
   const merchantChatListPollingIntervalMsRef = useRef(0)
   const merchantChatListRefreshInFlightRef = useRef(false)
   const merchantChatListDbObserveAbortRef = useRef<AbortController | null>(null)
+  const merchantChatListSearchDebounceTimerRef = useRef<number | null>(null)
+  const merchantChatListSearchRequestSeqRef = useRef(0)
   const chatDbObserveAbortRef = useRef<AbortController | null>(null)
   const pushLocationSearchConsumedRef = useRef(false)
   const merchantPushRegistrationKeyRef = useRef('')
@@ -2124,7 +2893,10 @@ export function useShowcaseViewModel(input: UseShowcaseViewModelInput = {}): Sho
   const pushRegistrationThrottleAtRef = useRef<Record<string, number>>({})
   const activeConversationIdRef = useRef(activeConversationId)
   const chatIsOpeningRef = useRef(false)
+  const chatSyncInFlightRef = useRef(false)
   const chatMessageLoadSeqRef = useRef(0)
+  const chatSearchLoadSeqRef = useRef(0)
+  const chatMediaLoadSeqRef = useRef(0)
   const chatContextSnapshotRef = useRef<{
     conversationId: string
     previousScreen: ShowcaseScreenName
@@ -2142,115 +2914,136 @@ export function useShowcaseViewModel(input: UseShowcaseViewModelInput = {}): Sho
     setRuntimeActiveConversationId(activeConversationId)
   }, [activeConversationId])
 
+  useEffect(() => {
+    chatMessagesPaginationRef.current = chatMessagesPagination
+  }, [chatMessagesPagination])
+
+  useEffect(() => {
+    chatMessageWindowRef.current = chatMessageWindow
+  }, [chatMessageWindow])
+
+  useEffect(() => {
+    const protectedMessageIds = chatMessages
+      .map(message => message.id.trim())
+      .filter(Boolean)
+
+    if (!storeId.trim() || !protectedMessageIds.length) return
+
+    void chatRepository.pruneLocalChatCache({
+      storeId,
+      protectedMessageIds
+    })
+  }, [chatMessages, storeId])
+
   const manualCategories = useMemo(() => {
     return cloudCategoriesToManualCategoryNames(categories)
   }, [categories])
 
-  const allTags = useMemo(() => allTagsFromDishes(dishes), [dishes])
+  const homeListDishes = useMemo(() => {
+    return dishesFromIds(homeDishIds)
+  }, [dishEntitiesById, homeDishIds])
+
+  const adminListDishes = useMemo(() => {
+    return dishesFromIds(adminItemIds)
+  }, [adminItemIds, dishEntitiesById])
+
+  const allTags = useMemo(() => {
+  const metadataTags = dishFilterRowsToTags(homeDishFilterRows)
+
+  if (metadataTags.length) return metadataTags
+
+  return allTagsFromDishes(homeListDishes)
+}, [homeDishFilterRows, homeListDishes])
 
   const selectedDish = useMemo(() => {
-    return dishes.find(item => item.id === selectedDishId) || null
-  }, [dishes, selectedDishId])
+    return getDishEntityById(selectedDishId)
+  }, [dishEntitiesById, selectedDishId])
 
   const selectedEditDish = useMemo(() => {
-    return dishes.find(item => item.id === editDishId) || null
-  }, [dishes, editDishId])
+    return getAdminEditableDishById(editDishId)
+  }, [adminItemIds, dishEntitiesById, dishes, editDishId])
 
   const activeAppointmentDish = useMemo(() => {
     if (appointmentSourceDishId) {
-      return dishes.find(item => item.id === appointmentSourceDishId) || null
+      return getDishEntityById(appointmentSourceDishId)
     }
 
     return selectedDish || null
-  }, [appointmentSourceDishId, dishes, selectedDish])
+  }, [appointmentSourceDishId, dishEntitiesById, selectedDish])
 
-  const visibleDishesForUi = useMemo(() => applyHomeFilters({
-    dishes,
-    selectedCategory,
-    selectedTags,
-    searchQuery,
-    filterRecommendedOnly,
-    filterOnSaleOnly,
-    appliedMinPrice: homeAppliedMinPrice,
-    appliedMaxPrice: homeAppliedMaxPrice,
+  const visibleDishesForUi = useMemo(() => decorateCloudHomeResults({
+    dishes: homeListDishes,
     favoriteIds,
     sortMode
   }), [
-    dishes,
-    selectedCategory,
-    selectedTags,
-    searchQuery,
-    filterRecommendedOnly,
-    filterOnSaleOnly,
-    homeAppliedMinPrice,
-    homeAppliedMaxPrice,
+    homeListDishes,
     favoriteIds,
     sortMode
   ])
-
   const homeDishesForUi = useMemo(
     () => visibleDishesForUi.map(toShowcaseHomeDish),
     [visibleDishesForUi]
   )
 
-  const adminVisibleDishes = useMemo(() => {
-    let next = [...dishes]
-
-    if (adminItemsSearchQuery.trim()) {
-      const query = adminItemsSearchQuery.trim().toLowerCase()
-      next = next.filter(item => {
-        return String(item.nameZh || '').toLowerCase().includes(query) ||
-          String(item.nameEn || '').toLowerCase().includes(query)
-      })
+  const cachedFallbackHomeDishesForUi = useMemo(() => {
+    if (homeDishesForUi.length) {
+      return []
     }
 
-    const selectedCategoryName = String(selectedCategory || '').trim()
+    const cachedDishes = loadDishesFromStorage(storeId)
+      .filter(item => !item.isHidden)
 
-    if (selectedCategoryName) {
-      next = next.filter(item => String(item.category || '').trim() === selectedCategoryName)
+    if (!cachedDishes.length) {
+      return []
     }
 
-    if (adminItemsFilterRecommended) {
-      next = next.filter(item => item.isRecommended)
-    }
-
-    if (adminItemsFilterHiddenOnly) {
-      next = next.filter(item => item.isHidden)
-    }
-
-    if (adminItemsFilterDiscountOnly) {
-      next = next.filter(item => hasDiscount(item))
-    }
-
-    if (adminItemsAppliedMinPrice != null || adminItemsAppliedMaxPrice != null) {
-      next = next.filter(item => {
-        const price = getDishPrice(item)
-        return (adminItemsAppliedMinPrice == null || price >= adminItemsAppliedMinPrice) &&
-          (adminItemsAppliedMaxPrice == null || price <= adminItemsAppliedMaxPrice)
-      })
-    }
-
-    next = sortDishes(next, adminItemsSortMode)
-
-    return next
+    return decorateCloudHomeResults({
+      dishes: cachedDishes,
+      favoriteIds,
+      sortMode
+    }).map(toShowcaseHomeDish)
   }, [
-    adminItemsAppliedMaxPrice,
-    adminItemsAppliedMinPrice,
-    adminItemsFilterDiscountOnly,
-    adminItemsFilterHiddenOnly,
-    adminItemsFilterRecommended,
-    adminItemsSearchQuery,
-    adminItemsSortMode,
-    dishes,
-    selectedCategory
+    favoriteIds,
+    homeDishesForUi.length,
+    sortMode,
+    storeId
   ])
 
-  const favoriteRows = useMemo(() => {
-    const dishById = new Map(dishes.map(dish => [dish.id, dish]))
+  const effectiveHomeDishesForUi = homeDishesForUi.length
+    ? homeDishesForUi
+    : cachedFallbackHomeDishesForUi
 
+
+
+  const adminVisibleDishes = useMemo(() => {
+    return adminListDishes
+  }, [
+    adminListDishes
+  ])
+
+  useEffect(() => {
+    const missingFavoriteDishIds = Array.from(
+      new Set(
+        favoriteIds
+          .map(id => String(id || '').trim())
+          .filter(Boolean)
+          .filter(id => !dishEntitiesById[id])
+      )
+    )
+
+    if (!missingFavoriteDishIds.length) return
+
+    void repository.fetchDishesByIds(storeId, missingFavoriteDishIds).then(items => {
+      if (!items.length) return
+
+      mergeDishEntities(items)
+    })
+  }, [dishEntitiesById, favoriteIds, repository, storeId])
+
+  const favoriteRows = useMemo(() => {
     return favoriteIds
       .map(id => {
-        const dish = dishById.get(id) || null
+        const dish = getDishEntityById(id)
 
         if (dish) {
           const snapshot = favoriteSnapshotFromDish(dish)
@@ -2263,7 +3056,8 @@ export function useShowcaseViewModel(input: UseShowcaseViewModelInput = {}): Sho
             originalPriceText: snapshot.originalPriceText,
             discountPriceText: snapshot.discountPriceText,
             priceText: snapshot.priceText,
-            imageUrl: snapshot.imageUrl,
+            imageUrl: selectDishImageUrl(dish, 'list'),
+            imageVariants: dish.imageVariants ?? snapshot.imageVariants ?? null,
             priceValue,
             isRecommended: Boolean(dish.isRecommended),
             isOnSale: hasDiscount(dish),
@@ -2288,10 +3082,11 @@ export function useShowcaseViewModel(input: UseShowcaseViewModelInput = {}): Sho
           discountPriceText: snapshot.discountPriceText,
           priceText: snapshot.priceText,
           imageUrl: snapshot.imageUrl,
+          imageVariants: snapshot.imageVariants ?? createRemoteOnlyShowcaseImageVariants(snapshot.imageUrl),
           priceValue,
           isRecommended: false,
           isOnSale: Boolean(snapshot.discountPriceText),
-          itemAvailable: false
+          itemAvailable: true
         }
       })
       .filter((item): item is {
@@ -2302,12 +3097,13 @@ export function useShowcaseViewModel(input: UseShowcaseViewModelInput = {}): Sho
         discountPriceText: string | null
         priceText: string
         imageUrl: string | null
+        imageVariants: ShowcaseImageVariants | null
         priceValue: number
         isRecommended: boolean
         isOnSale: boolean
         itemAvailable: boolean
       } => Boolean(item))
-  }, [dishes, favoriteIds, favoriteSnapshots])
+  }, [dishEntitiesById, favoriteIds, favoriteSnapshots])
 
   const favoriteCategories = useMemo(() => {
     return Array.from(
@@ -2373,6 +3169,8 @@ export function useShowcaseViewModel(input: UseShowcaseViewModelInput = {}): Sho
       discountPriceText: item.discountPriceText,
       priceText: item.priceText,
       imageUrl: item.imageUrl,
+      isRecommended: item.isRecommended,
+      isHidden: false,
       itemAvailable: item.itemAvailable
     }))
   }, [
@@ -2398,10 +3196,11 @@ export function useShowcaseViewModel(input: UseShowcaseViewModelInput = {}): Sho
 
   const appointmentCards = useMemo<ShowcaseAppointmentCard[]>(() => {
     return appointmentRequests.map(item => {
-      const dish = item.sourceDishId ? dishes.find(dishItem => dishItem.id === item.sourceDishId) || null : null
+      const dish = getDishEntityById(item.sourceDishId)
+
       return appointmentToCard(item, dish)
     })
-  }, [appointmentRequests, dishes])
+  }, [appointmentRequests, dishEntitiesById])
 
   const currentClientAppointmentIdSet = useMemo(() => {
     const currentClientId = clientId.trim()
@@ -2423,6 +3222,18 @@ export function useShowcaseViewModel(input: UseShowcaseViewModelInput = {}): Sho
       return currentClientAppointmentIdSet.has(item.id.trim())
     })
   }, [appointmentCards, currentClientAppointmentIdSet])
+
+  useEffect(() => {
+    mergeDishEntities(dishes)
+  }, [dishes])
+
+  useEffect(() => {
+    mergeDishEntities(Object.values(appointmentLinkedDishesById))
+  }, [appointmentLinkedDishesById])
+
+  useEffect(() => {
+    void hydrateAppointmentLinkedDishesFromRequests(appointmentRequests)
+  }, [appointmentLinkedDishesById, appointmentRequests, dishes, storeId])
 
   useEffect(() => {
     if (screen !== ShowcaseScreens.CustomerBookings) return
@@ -2451,17 +3262,29 @@ export function useShowcaseViewModel(input: UseShowcaseViewModelInput = {}): Sho
   const activeChatProductMap = useMemo(() => {
     const map = new Map<string, ShowcaseChatProductShare>()
 
-    dishes.forEach(dish => {
-      map.set(dish.id, {
-        dishId: dish.id,
-        title: getDishTitle(dish),
-        price: formatUsd(getDishPrice(dish)),
-        imageUrl: resolveDishImage(dish)
-      })
+    Object.values(dishEntitiesById).forEach(dish => {
+      map.set(dish.id, buildChatProductShareFromDish(dish))
     })
 
     return map
-  }, [dishes])
+  }, [dishEntitiesById])
+
+  useEffect(() => {
+    const missingDishIds = Array.from(
+      new Set(
+        chatMessages
+          .map(message => String(message.productDishId || '').trim())
+          .filter(Boolean)
+          .filter(dishId => !dishEntitiesById[dishId])
+      )
+    )
+
+    if (!missingDishIds.length) return
+
+    void repository.fetchDishesByIds(storeId, missingDishIds).then(items => {
+      mergeDishEntities(items)
+    })
+  }, [chatMessages, dishEntitiesById, repository, storeId])
 
   const chatUiMessages = useMemo<ShowcaseChatMessage[]>(() => {
     const currentRole = chatMode === 'Merchant' ? 'merchant' : 'user'
@@ -2496,9 +3319,54 @@ export function useShowcaseViewModel(input: UseShowcaseViewModelInput = {}): Sho
     setChatFocusedMessageId(domainState.findFocusedId || domainState.scrollToMessageId || null)
   }, [chatFindQuery, chatUiMessages])
 
+  const merchantChatListSearchActive = merchantChatListSearchQuery.trim().length > 0
   const merchantThreadSummaries = useMemo(() => {
-    return merchantChatThreads.map(chatThreadSummaryToUi)
-  }, [merchantChatThreads])
+    const sourceThreads = merchantChatListSearchActive
+      ? merchantChatListSearchThreads
+      : merchantChatThreads
+
+    return sourceThreads.map(chatThreadSummaryToUi)
+  }, [merchantChatListSearchActive, merchantChatListSearchThreads, merchantChatThreads])
+
+  useEffect(() => {
+    const normalizedQuery = merchantChatListSearchQuery.trim()
+    merchantChatListSearchRequestSeqRef.current += 1
+    const requestSeq = merchantChatListSearchRequestSeqRef.current
+
+    if (merchantChatListSearchDebounceTimerRef.current != null && isBrowser()) {
+      window.clearTimeout(merchantChatListSearchDebounceTimerRef.current)
+      merchantChatListSearchDebounceTimerRef.current = null
+    }
+
+    if (!normalizedQuery) {
+      setMerchantChatListSearchThreads([])
+      setMerchantChatListSearchPagination({
+        nextOffset: 0,
+        hasMore: false,
+        isLoadingMore: false
+      })
+      return
+    }
+
+    if (!isBrowser()) return
+
+    setMerchantChatListSearchPagination({
+      nextOffset: 0,
+      hasMore: false,
+      isLoadingMore: true
+    })
+
+    merchantChatListSearchDebounceTimerRef.current = window.setTimeout(() => {
+      void refreshMerchantChatListSearch(normalizedQuery, requestSeq)
+    }, 350)
+
+    return () => {
+      if (merchantChatListSearchDebounceTimerRef.current != null && isBrowser()) {
+        window.clearTimeout(merchantChatListSearchDebounceTimerRef.current)
+        merchantChatListSearchDebounceTimerRef.current = null
+      }
+    }
+  }, [merchantChatListSearchQuery, storeId])
 
   const appointmentServiceOptions = useMemo(() => {
     return ['All', ...manualCategories]
@@ -2506,9 +3374,9 @@ export function useShowcaseViewModel(input: UseShowcaseViewModelInput = {}): Sho
 
   const selectedDishImages = resolveDishImages(selectedDish)
   const safeDetailImageIndex = clampIndex(detailImageIndex, selectedDishImages.length)
-  const selectedDishPrice = selectedDish ? getDishPrice(selectedDish) : 0
+  const selectedDishOriginalPrice = selectedDish ? normalizeNumber(selectedDish.originalPrice, 0) : 0
   const selectedDishDiscount = selectedDish ? normalizeNumber(selectedDish.discountPrice, 0) : 0
-  const selectedDishHasDiscount = selectedDishDiscount > 0
+  const selectedDishHasDiscount = selectedDishDiscount > 0 && selectedDishOriginalPrice > 0 && selectedDishDiscount < selectedDishOriginalPrice
 
   const bottomNavigationActions: ShowcaseBottomNavigationActions = {
     onOpenStoreProfileView: openStoreProfileView,
@@ -2530,7 +3398,659 @@ export function useShowcaseViewModel(input: UseShowcaseViewModelInput = {}): Sho
     snackbarTimerRef.current = window.setTimeout(() => {
       setSnackbarMessage(null)
       snackbarTimerRef.current = null
-    }, 2400)
+    }, 3000)
+  }
+
+  function guardOfflineWriteOperation(
+    message = 'You are offline. Please reconnect and try again.'
+  ): boolean {
+    if (!isOffline) {
+      return false
+    }
+
+    setStatusMessage(message)
+    showSnackbar(message)
+    return true
+  }
+
+  useEffect(() => {
+    if (!isBrowser()) return
+
+    const syncOfflineState = (): void => {
+      setIsOffline(window.navigator.onLine === false)
+    }
+
+    const handleOffline = (): void => {
+      setIsOffline(true)
+    }
+
+    const handleOnline = (): void => {
+      setIsOffline(false)
+      showSnackbar('Back online. You can continue.')
+    }
+
+    syncOfflineState()
+
+    window.addEventListener('offline', handleOffline)
+    window.addEventListener('online', handleOnline)
+
+    return () => {
+      window.removeEventListener('offline', handleOffline)
+      window.removeEventListener('online', handleOnline)
+    }
+  }, [])
+
+  function pageStateForUi(pageState: { hasMore: boolean; isLoadingMore: boolean }): { hasMore: boolean; isLoadingMore: boolean } {
+    return {
+      hasMore: pageState.hasMore,
+      isLoadingMore: pageState.isLoadingMore
+    }
+  }
+
+  function mergeUniqueById<T extends { id: string }>(currentItems: T[], nextItems: T[]): T[] {
+    const merged = new Map<string, T>()
+
+    currentItems.forEach(item => {
+      const id = item.id.trim()
+      if (id) merged.set(id, item)
+    })
+
+    nextItems.forEach(item => {
+      const id = item.id.trim()
+      if (id) merged.set(id, item)
+    })
+
+    return Array.from(merged.values())
+  }
+
+  function sortChatMessagesByCreatedAtAsc<T extends { createdAt?: number | null; id: string }>(items: T[]): T[] {
+    return items.slice().sort((left, right) => {
+      const leftTime = Number(left.createdAt || 0)
+      const rightTime = Number(right.createdAt || 0)
+
+      if (leftTime !== rightTime) return leftTime - rightTime
+
+      return left.id.localeCompare(right.id)
+    })
+  }
+
+  function limitChatMessagesForActiveWindow(
+    messages: ChatMessage[],
+    activeWindow: ChatMessageWindowRuntimeState
+  ): ChatMessage[] {
+    const sortedMessages = sortChatMessagesByCreatedAtAsc(messages)
+    const limit = activeWindow.mode === 'aroundMessage'
+      ? CHAT_AROUND_MESSAGE_WINDOW_MAX_MESSAGES
+      : CHAT_LATEST_WINDOW_MAX_MESSAGES
+
+    if (sortedMessages.length <= limit) return sortedMessages
+
+    if (activeWindow.mode === 'aroundMessage' && activeWindow.anchorMessageId) {
+      const anchorIndex = sortedMessages.findIndex(message => message.id === activeWindow.anchorMessageId)
+
+      if (anchorIndex >= 0) {
+        const halfWindow = Math.floor(limit / 2)
+        const start = Math.max(0, Math.min(anchorIndex - halfWindow, sortedMessages.length - limit))
+        const end = Math.min(sortedMessages.length, start + limit)
+
+        return sortedMessages.slice(start, end)
+      }
+    }
+
+    return sortedMessages.slice(-limit)
+  }
+
+  function mergeChatMessagesForConversation(
+    currentMessages: ChatMessage[],
+    conversationIdInput: string,
+    nextMessages: ChatMessage[]
+  ): ChatMessage[] {
+    const conversationId = String(conversationIdInput || '').trim()
+    const activeWindow = chatMessageWindowRef.current
+
+    if (!conversationId) {
+      return limitChatMessagesForActiveWindow(
+        mergeUniqueById(currentMessages, nextMessages),
+        activeWindow
+      )
+    }
+
+    const currentConversationMessages = currentMessages.filter(message => message.conversationId === conversationId)
+
+    return limitChatMessagesForActiveWindow(
+      mergeUniqueById(currentConversationMessages, nextMessages),
+      activeWindow
+    )
+  }
+
+  async function mergeLatestLocalChatMessages(conversationIdInput: string): Promise<void> {
+    const conversationId = String(conversationIdInput || '').trim()
+
+    if (!conversationId) return
+
+    const latestLocalMessages = await chatRepository.listLocal(conversationId)
+    const latestMessages = latestLocalMessages.map(chatEntityToCloudMessage)
+
+    setChatMessages(current => mergeChatMessagesForConversation(
+      current,
+      conversationId,
+      latestMessages
+    ))
+  }
+
+  function triggerChatScrollToBottomForOwnSend(): void {
+    setChatScrollToBottomSignal(Date.now())
+  }
+
+  async function applyLocalChatMessagesFirst(conversationIdInput: string): Promise<boolean> {
+    const conversationId = String(conversationIdInput || '').trim()
+
+    if (!conversationId) return false
+
+    const localMessages = await chatRepository.listLocal(
+      conversationId,
+      SHOWCASE_PAGE_SIZE.chatMessages,
+      0
+    )
+
+    if (!localMessages.length) return false
+
+    const messages = limitChatMessagesForActiveWindow(
+      localMessages.map(chatEntityToCloudMessage),
+      {
+        mode: 'latest',
+        anchorMessageId: null,
+        hasOlder: localMessages.length >= SHOWCASE_PAGE_SIZE.chatMessages,
+        hasNewer: false,
+        isLoadingOlder: false,
+        isLoadingNewer: false,
+        oldestTimeMs: null,
+        newestTimeMs: null
+      }
+    )
+    const bounds = getChatMessageWindowBounds(messages)
+
+    const nextWindow: ChatMessageWindowRuntimeState = {
+      mode: 'latest',
+      anchorMessageId: null,
+      hasOlder: localMessages.length >= SHOWCASE_PAGE_SIZE.chatMessages,
+      hasNewer: false,
+      isLoadingOlder: false,
+      isLoadingNewer: false,
+      oldestTimeMs: bounds.oldestTimeMs,
+      newestTimeMs: bounds.newestTimeMs
+    }
+
+    const nextPaginationState = {
+      nextOffset: localMessages.length,
+      hasMore: localMessages.length >= SHOWCASE_PAGE_SIZE.chatMessages,
+      isLoadingMore: false
+    }
+
+    chatMessageWindowRef.current = nextWindow
+    chatMessagesPaginationRef.current = nextPaginationState
+
+    setChatMessages(messages)
+    setChatMessageWindow(nextWindow)
+    setChatMessagesPagination(nextPaginationState)
+
+    const mediaItems = messages.flatMap(message => message.imageUrls
+      .map(url => url.trim())
+      .filter(Boolean)
+      .map(url => ({
+        conversationId,
+        messageId: message.id,
+        url,
+        createdAtText: formatChatCreatedAtText(message.createdAt),
+        createdAtMs: Number(message.createdAt || 0)
+      }))
+    )
+
+    setChatMediaItems(mediaItems)
+
+    return true
+  }
+
+  function sortedDishesForStorage(items: DemoDish[]): DemoDish[] {
+    return items.slice().sort((left, right) => {
+      return (right.updatedAt || 0) - (left.updatedAt || 0) || getDishTitle(left).localeCompare(getDishTitle(right))
+    })
+  }
+
+  function sortedAppointmentsForStorage(items: CloudAppointmentRequest[]): CloudAppointmentRequest[] {
+    return items.slice().sort((left, right) => {
+      return (right.createdAt || 0) - (left.createdAt || 0)
+    })
+  }
+
+  function sortedAnnouncementsForStorage(items: CloudAnnouncement[]): CloudAnnouncement[] {
+    return items.slice().sort((left, right) => {
+      return (right.updatedAt || right.createdAt || 0) - (left.updatedAt || left.createdAt || 0)
+    })
+  }
+
+  function mergeDishEntities(itemsInput: DemoDish[]): void {
+    const items = itemsInput.filter(item => String(item.id || '').trim())
+
+    if (!items.length) return
+
+    setDishEntitiesById(current => {
+      let changed = false
+      const next = {
+        ...current
+      }
+
+      items.forEach(item => {
+        const id = String(item.id || '').trim()
+
+        if (!id) return
+
+        if (next[id] !== item) {
+          next[id] = item
+          changed = true
+        }
+      })
+
+      return changed ? next : current
+    })
+  }
+
+  function getDishEntityById(dishIdInput: string | null | undefined): DemoDish | null {
+    const dishId = String(dishIdInput || '').trim()
+
+    if (!dishId) return null
+
+    return dishEntitiesById[dishId] || null
+  }
+
+  async function ensureDishEntityLoaded(dishIdInput: string | null | undefined): Promise<DemoDish | null> {
+    const dishId = String(dishIdInput || '').trim()
+
+    if (!dishId) return null
+
+    const cachedDish = getDishEntityById(dishId)
+
+    if (cachedDish) return cachedDish
+
+    const items = await repository.fetchDishesByIds(storeId, [dishId])
+    const dish = items[0] || null
+
+    if (dish) {
+      mergeDishEntities([dish])
+    }
+
+    return dish
+  }
+
+  function dishIdsFromItems(itemsInput: DemoDish[]): string[] {
+    return itemsInput
+      .map(item => String(item.id || '').trim())
+      .filter(Boolean)
+  }
+
+  function mergeDishIds(currentIds: string[], itemsInput: DemoDish[]): string[] {
+    const next = [...currentIds]
+    const existing = new Set(next)
+
+    itemsInput.forEach(item => {
+      const id = String(item.id || '').trim()
+
+      if (!id || existing.has(id)) return
+
+      existing.add(id)
+      next.push(id)
+    })
+
+    return next
+  }
+
+  function removeDishIdFromList(currentIds: string[], dishIdInput: string | null | undefined): string[] {
+    const dishId = String(dishIdInput || '').trim()
+
+    if (!dishId) return currentIds
+
+    return currentIds.filter(id => id !== dishId)
+  }
+
+  function removeDishEntityById(dishIdInput: string | null | undefined): void {
+    const dishId = String(dishIdInput || '').trim()
+
+    if (!dishId) return
+
+    setDishEntitiesById(current => {
+      if (!current[dishId]) return current
+
+      const next = {
+        ...current
+      }
+
+      delete next[dishId]
+
+      return next
+    })
+  }
+
+  function isDishInAdminManagementContext(dishIdInput: string | null | undefined): boolean {
+    const dishId = String(dishIdInput || '').trim()
+
+    if (!dishId) return false
+
+    if (adminItemIds.includes(dishId)) return true
+
+    return dishes.some(item => item.id === dishId)
+  }
+
+  function getAdminEditableDishById(dishIdInput: string | null | undefined): DemoDish | null {
+    const dishId = String(dishIdInput || '').trim()
+
+    if (!dishId) return null
+
+    if (!isDishInAdminManagementContext(dishId)) return null
+
+    return getDishEntityById(dishId) || null
+  }
+
+  function dishesFromIds(idsInput: string[]): DemoDish[] {
+    const ids = idsInput
+      .map(id => String(id || '').trim())
+      .filter(Boolean)
+
+    if (!ids.length) return []
+
+    return ids
+      .map(id => getDishEntityById(id))
+      .filter((item): item is DemoDish => Boolean(item))
+  }
+
+  async function hydrateAppointmentLinkedDishesFromRequests(
+    requestsInput: CloudAppointmentRequest[]
+  ): Promise<void> {
+    const ids = Array.from(
+      new Set(
+        requestsInput
+          .map(item => String(item.sourceDishId || '').trim())
+          .filter(Boolean)
+      )
+    )
+
+    if (!ids.length) return
+
+    const loadedDishIds = new Set([
+      ...dishes.map(item => item.id),
+      ...Object.keys(appointmentLinkedDishesById)
+    ])
+
+    const missingIds = ids.filter(id => !loadedDishIds.has(id))
+
+    if (!missingIds.length) return
+
+    const fetchedItems = await repository.fetchDishesByIds(storeId, missingIds)
+
+    if (!fetchedItems.length) return
+
+    mergeDishEntities(fetchedItems)
+
+    setAppointmentLinkedDishesById(current => {
+      const next = {
+        ...current
+      }
+
+      fetchedItems.forEach(item => {
+        if (item.id) {
+          next[item.id] = item
+        }
+      })
+
+      return next
+    })
+  }
+
+  function currentHomeDishCloudFilters(input: Partial<DishCloudQueryFilters> = {}): DishCloudQueryFilters {
+    return {
+      categoryName: input.categoryName === undefined ? selectedCategory : input.categoryName,
+      searchQuery: input.searchQuery === undefined ? searchQuery : input.searchQuery,
+      selectedTags: input.selectedTags === undefined ? selectedTags : input.selectedTags,
+      recommendedOnly: input.recommendedOnly === undefined ? filterRecommendedOnly : input.recommendedOnly,
+      onSaleOnly: input.onSaleOnly === undefined ? filterOnSaleOnly : input.onSaleOnly,
+      minPrice: input.minPrice === undefined ? homeAppliedMinPrice : input.minPrice,
+      maxPrice: input.maxPrice === undefined ? homeAppliedMaxPrice : input.maxPrice,
+      includeHidden: false,
+      hiddenOnly: false,
+      sortMode: input.sortMode === undefined ? sortMode : input.sortMode
+    }
+  }
+
+  function currentAdminItemsCloudFilters(input: Partial<DishCloudQueryFilters> = {}): DishCloudQueryFilters {
+    return {
+      categoryName: input.categoryName === undefined ? adminItemsSelectedCategory : input.categoryName,
+      searchQuery: input.searchQuery === undefined ? adminItemsSearchQuery : input.searchQuery,
+      selectedTags: [],
+      recommendedOnly: input.recommendedOnly === undefined ? adminItemsFilterRecommended : input.recommendedOnly,
+      onSaleOnly: input.onSaleOnly === undefined ? adminItemsFilterDiscountOnly : input.onSaleOnly,
+      minPrice: input.minPrice === undefined ? adminItemsAppliedMinPrice : input.minPrice,
+      maxPrice: input.maxPrice === undefined ? adminItemsAppliedMaxPrice : input.maxPrice,
+      includeHidden: true,
+      hiddenOnly: input.hiddenOnly === undefined ? adminItemsFilterHiddenOnly : input.hiddenOnly,
+      sortMode: input.sortMode === undefined ? adminItemsSortMode : input.sortMode
+    }
+  }
+
+  function resetHomePaginationForFirstPage(itemsLength: number): void {
+    setHomePagination({
+      nextOffset: itemsLength,
+      hasMore: itemsLength >= SHOWCASE_PAGE_SIZE.homeDishes,
+      isLoadingMore: false
+    })
+  }
+
+  function resetAdminItemsPaginationForFirstPage(itemsLength: number): void {
+    setAdminItemsPagination({
+      nextOffset: itemsLength,
+      hasMore: itemsLength >= SHOWCASE_PAGE_SIZE.adminItems,
+      isLoadingMore: false
+    })
+  }
+
+  async function fetchHomeDishesFilteredPage(
+    filters: DishCloudQueryFilters,
+    offset: number
+  ): Promise<DemoDish[]> {
+    const items = await repository.fetchDishesFilteredPage({
+      storeId,
+      categoryName: filters.categoryName,
+      searchQuery: filters.searchQuery,
+      selectedTags: filters.selectedTags,
+      recommendedOnly: filters.recommendedOnly,
+      onSaleOnly: filters.onSaleOnly,
+      minPrice: filters.minPrice,
+      maxPrice: filters.maxPrice,
+      includeHidden: false,
+      hiddenOnly: false,
+      sortMode: filters.sortMode,
+      limit: SHOWCASE_PAGE_SIZE.homeDishes,
+      offset
+    })
+
+    mergeDishEntities(items)
+
+    return items
+  }
+
+  async function fetchAdminItemsFilteredPage(
+    filters: DishCloudQueryFilters,
+    offset: number
+  ): Promise<DemoDish[]> {
+    const items = await repository.fetchDishesFilteredPage({
+      storeId,
+      categoryName: filters.categoryName,
+      searchQuery: filters.searchQuery,
+      selectedTags: filters.selectedTags,
+      recommendedOnly: filters.recommendedOnly,
+      onSaleOnly: filters.onSaleOnly,
+      minPrice: filters.minPrice,
+      maxPrice: filters.maxPrice,
+      includeHidden: true,
+      hiddenOnly: filters.hiddenOnly,
+      sortMode: filters.sortMode,
+      limit: SHOWCASE_PAGE_SIZE.adminItems,
+      offset
+    })
+
+    mergeDishEntities(items)
+
+    return items
+  }
+
+  async function refreshHomeDishesFilteredFirstPage(
+    filtersInput: DishCloudQueryFilters = currentHomeDishCloudFilters(),
+    requestSeq?: number
+  ): Promise<void> {
+    try {
+      const cloudLoadStartedAt = Date.now()
+      const localDishes = loadDishesFromStorage(storeId)
+      const localVisibleDishes = localDishes.filter(item => !item.isHidden)
+
+      const filterRows = await repository.fetchDishFilterRows({
+        storeId,
+        includeHidden: false,
+        hiddenOnly: false
+      })
+
+      if (requestSeq != null && requestSeq !== homeSearchRequestSeqRef.current) return
+
+      if (filterRows.length) {
+        setHomeDishFilterRows(filterRows)
+      }
+
+      const items = await fetchHomeDishesFilteredPage(filtersInput, 0)
+
+      if (requestSeq != null && requestSeq !== homeSearchRequestSeqRef.current) return
+
+      const browserOffline = isBrowserOfflineNow()
+      const cloudReadFailed = repository.lastReadFailureAt >= cloudLoadStartedAt
+      const cloudUnavailable = browserOffline || cloudReadFailed
+      const shouldUseLocalDishCache = cloudUnavailable && !items.length && localVisibleDishes.length > 0
+      const sourceItems = shouldUseLocalDishCache ? localVisibleDishes : items
+      const merged = sortedDishesForStorage(sourceItems)
+
+      mergeDishEntities(merged)
+      setHomeDishIds(dishIdsFromItems(merged))
+      setDishes(merged)
+      refreshFavoritesList(merged)
+      setPendingSyncOperations(buildPendingDishSyncOperations(merged))
+      resetHomePaginationForFirstPage(sourceItems.length)
+      setStatusMessage(
+        shouldUseLocalDishCache
+          ? 'Cloud unavailable, loaded from local cache.'
+          : items.length
+            ? 'Loaded from cloud.'
+            : 'No data.'
+      )
+    } catch (error) {
+      if (requestSeq != null && requestSeq !== homeSearchRequestSeqRef.current) return
+
+      const localDishes = loadDishesFromStorage(storeId)
+      const localVisibleDishes = localDishes.filter(item => !item.isHidden)
+
+      if (localVisibleDishes.length) {
+        const merged = sortedDishesForStorage(localVisibleDishes)
+
+        mergeDishEntities(merged)
+        setHomeDishIds(dishIdsFromItems(merged))
+        setDishes(merged)
+        refreshFavoritesList(merged)
+        setPendingSyncOperations(buildPendingDishSyncOperations(merged))
+        resetHomePaginationForFirstPage(localVisibleDishes.length)
+        setStatusMessage('Cloud unavailable, loaded from local cache.')
+        return
+      }
+
+      setHomePagination(current => ({
+        nextOffset: current.nextOffset,
+        hasMore: current.hasMore,
+        isLoadingMore: false
+      }))
+      setStatusMessage(error instanceof Error ? error.message : 'Failed to refresh items.')
+    }
+  }
+
+  async function refreshAdminItemsFilteredFirstPage(
+    filtersInput: DishCloudQueryFilters = currentAdminItemsCloudFilters(),
+    requestSeq?: number
+  ): Promise<void> {
+    try {
+      const cloudLoadStartedAt = Date.now()
+      const localDishes = loadDishesFromStorage(storeId)
+
+      const validSession = await ensureValidMerchantSessionLoadedForCloud()
+
+      if (!validSession) {
+        if (localDishes.length) {
+          const merged = sortedDishesForStorage(localDishes)
+
+          setAdminItemIds(dishIdsFromItems(merged))
+          setDishes(merged)
+          refreshFavoritesList(merged)
+          setPendingSyncOperations(buildPendingDishSyncOperations(merged))
+          resetAdminItemsPaginationForFirstPage(localDishes.length)
+          setStatusMessage('Cloud unavailable, loaded from local cache.')
+          return
+        }
+
+        setStatusMessage(merchantSessionEnsureFailureMessage())
+        return
+      }
+
+      setStoreMerchantSessionFromAuthSession(validSession)
+      bindMerchantSessionToRepository(repository)
+
+      const items = await fetchAdminItemsFilteredPage(filtersInput, 0)
+
+      if (requestSeq != null && requestSeq !== adminItemsSearchRequestSeqRef.current) return
+
+      const browserOffline = isBrowserOfflineNow()
+      const cloudReadFailed = repository.lastReadFailureAt >= cloudLoadStartedAt
+      const cloudUnavailable = browserOffline || cloudReadFailed
+      const shouldUseLocalDishCache = cloudUnavailable && !items.length && localDishes.length > 0
+      const sourceItems = shouldUseLocalDishCache ? localDishes : items
+      const merged = sortedDishesForStorage(sourceItems)
+
+      setAdminItemIds(dishIdsFromItems(merged))
+      setDishes(merged)
+      refreshFavoritesList(merged)
+      setPendingSyncOperations(buildPendingDishSyncOperations(merged))
+      resetAdminItemsPaginationForFirstPage(sourceItems.length)
+      setStatusMessage(
+        shouldUseLocalDishCache
+          ? 'Cloud unavailable, loaded from local cache.'
+          : items.length
+            ? 'Loaded from cloud.'
+            : 'No data.'
+      )
+    } catch (error) {
+      if (requestSeq != null && requestSeq !== adminItemsSearchRequestSeqRef.current) return
+
+      const localDishes = loadDishesFromStorage(storeId)
+
+      if (localDishes.length) {
+        const merged = sortedDishesForStorage(localDishes)
+
+        setAdminItemIds(dishIdsFromItems(merged))
+        setDishes(merged)
+        refreshFavoritesList(merged)
+        setPendingSyncOperations(buildPendingDishSyncOperations(merged))
+        resetAdminItemsPaginationForFirstPage(localDishes.length)
+        setStatusMessage('Cloud unavailable, loaded from local cache.')
+        return
+      }
+
+      setAdminItemsPagination(current => ({
+        nextOffset: current.nextOffset,
+        hasMore: current.hasMore,
+        isLoadingMore: false
+      }))
+      setStatusMessage(error instanceof Error ? error.message : 'Failed to refresh items.')
+    }
   }
 
   function pushPendingSync(op: PendingSyncOperation): void {
@@ -2539,6 +4059,7 @@ export function useShowcaseViewModel(input: UseShowcaseViewModelInput = {}): Sho
       return [...current, op]
     })
     setSyncOverviewState(SyncOverviewStates.HasPending)
+    setLastRetryOp(ShowcaseRetryOps.RetryPendingSync)
   }
 
   function removePendingSync(id: string): void {
@@ -2550,6 +4071,10 @@ export function useShowcaseViewModel(input: UseShowcaseViewModelInput = {}): Sho
       return next
     })
   }
+
+  useEffect(() => {
+    pendingSyncOperationsRef.current = pendingSyncOperations
+  }, [pendingSyncOperations])
 
   function setMerchantSessionAndPersist(session: MerchantAuthSession | null, remember = loginRememberMeDraft): void {
     setStoreMerchantSessionFromAuthSession(session)
@@ -2565,19 +4090,43 @@ export function useShowcaseViewModel(input: UseShowcaseViewModelInput = {}): Sho
     setLoginError(null)
   }
 
-  function resetLoginDrafts(): void {
+  function getPreferredLoginNameForLoginScreen(): string {
+    const runtimeLoginName = String(loginUsernameDraft || '').trim()
+    if (runtimeLoginName) return runtimeLoginName
+
+    const adminLoginName = String(adminUsernameDraft || '').trim()
+    if (adminLoginName) return adminLoginName
+
+    const sessionLoginName = String(merchantSession?.loginName || '').trim()
+    if (sessionLoginName) return sessionLoginName
+
+    const initialLoginName = String(initialMerchantLoginNameRef.current || '').trim()
+    if (initialLoginName) return initialLoginName
+
+    return ''
+  }
+
+  function prepareLoginScreen(message: string | null = null): void {
+    const preservedLoginName = getPreferredLoginNameForLoginScreen()
+
+    setLoginUsernameDraft(preservedLoginName)
+    setAdminUsernameDraft(preservedLoginName)
     setLoginPasswordDraft('')
-    setLoginError(null)
+    setAdminPasswordDraft('')
+    setLoginError(message)
     setIsLoginLoading(false)
+  }
+
+  function resetLoginDrafts(): void {
+    prepareLoginScreen(null)
   }
 
   function resetEditDishForm(): void {
     const draft = loadItemEditorDraftLocally(storeId, 'new')
 
     setEditDishId(null)
-    setEditDishNameZh(normalizeText(draft?.name))
-    setEditDishNameEn(normalizeText(draft?.name))
-    setEditDishDescriptionEn(normalizeText(draft?.description))
+    setEditDishName(normalizeText(draft?.name))
+    setEditDishDescription(normalizeText(draft?.description))
     setEditDishCategory(normalizeNullableText(draft?.category))
     setEditDishOriginalPrice(draft?.price || '')
     setEditDishDiscountPrice(draft?.discountPrice || '')
@@ -2594,9 +4143,8 @@ export function useShowcaseViewModel(input: UseShowcaseViewModelInput = {}): Sho
     const useCachedForEdit = Boolean(cached && cached.editingId === dish.id)
 
     setEditDishId(dish.id)
-    setEditDishNameZh(useCachedForEdit ? cached?.name || '' : dish.nameZh || dish.title || '')
-    setEditDishNameEn(useCachedForEdit ? cached?.name || '' : dish.nameEn || dish.title || '')
-    setEditDishDescriptionEn(useCachedForEdit ? cached?.description || '' : dish.descriptionEn || '')
+    setEditDishName(useCachedForEdit ? cached?.name || '' : dish.name || dish.title || '')
+    setEditDishDescription(useCachedForEdit ? cached?.description || '' : dish.description || '')
     setEditDishCategory(useCachedForEdit ? cached?.category || null : dish.category || null)
     setEditDishOriginalPrice(useCachedForEdit ? cached?.price || '' : formatPlainNumber(dish.originalPrice))
     setEditDishDiscountPrice(useCachedForEdit ? cached?.discountPrice || '' : dish.discountPrice ? formatPlainNumber(dish.discountPrice) : '')
@@ -2612,10 +4160,10 @@ export function useShowcaseViewModel(input: UseShowcaseViewModelInput = {}): Sho
     persistItemEditorDraftLocally(storeId, {
       editingId: editDishId?.trim() || null,
       isNew: !editDishId,
-      name: (editDishNameZh || editDishNameEn).trim(),
+      name: editDishName.trim(),
       price: editDishOriginalPrice.trim(),
       discountPrice: editDishDiscountPrice.trim(),
-      description: editDishDescriptionEn.trim(),
+      description: editDishDescription.trim(),
       category: editDishCategory?.trim() || null
     })
   }
@@ -2627,27 +4175,51 @@ export function useShowcaseViewModel(input: UseShowcaseViewModelInput = {}): Sho
 
   function openDetail(dishId: string): void {
     const id = dishId.trim()
-    const dish = dishes.find(item => item.id === id)
-    if (!dish) return
 
-    detailBackTargetRef.current = screen
+    if (!id) return
 
-    setDishes(current => current.map(item => {
-      if (item.id !== id) return item
+    const openResolvedDetail = (dish: DemoDish): void => {
+      detailBackTargetRef.current = screen
 
-      return {
-        ...item,
-        clickCount: Math.max(0, Number(item.clickCount || 0) + 1)
+      const clickedDish = {
+        ...dish,
+        clickCount: Math.max(0, Number(dish.clickCount || 0) + 1)
       }
-    }))
 
-    void repository.incrementDishClickCount(storeId, id)
+      setDishes(current => current.map(item => {
+        if (item.id !== id) return item
 
-    setSelectedDishId(id)
-    setDetailImageIndex(0)
-    setStatusMessage(null)
-    setPreviousScreen(screen)
-    setScreen('Detail')
+        return {
+          ...item,
+          clickCount: Math.max(0, Number(item.clickCount || 0) + 1)
+        }
+      }))
+
+      mergeDishEntities([clickedDish])
+      void repository.incrementDishClickCount(storeId, id)
+
+      setSelectedDishId(id)
+      setDetailImageIndex(0)
+      setStatusMessage(null)
+      setPreviousScreen(screen)
+      setScreen('Detail')
+    }
+
+    const cachedDish = getDishEntityById(id)
+
+    if (cachedDish) {
+      openResolvedDetail(cachedDish)
+      return
+    }
+
+    void ensureDishEntityLoaded(id).then(dish => {
+      if (!dish) {
+        setStatusMessage('Item is no longer available.')
+        return
+      }
+
+      openResolvedDetail(dish)
+    })
   }
 
   function backToHome(): void {
@@ -2703,24 +4275,39 @@ export function useShowcaseViewModel(input: UseShowcaseViewModelInput = {}): Sho
     const findCleared = closeFindInDomain(selectedCleared)
     const jumpCleared = clearJumpOnExit(findCleared)
     const target = chatBackTargetRef.current || ShowcaseScreens.Home
+    const isReturningToChatSearchResults = target === ShowcaseScreens.ChatSearchResults
 
     stopChatPolling()
     stopChatDbObserve()
 
     markRuntimeConversationRecentlySeen(activeConversationId)
     setRuntimeChatVisible(false)
+    postChatVisibilityToServiceWorker({
+      visible: false,
+      conversationId: activeConversationId,
+      screen,
+      clientId,
+      chatRole: currentChatRole()
+    })
     applyChatDomainInteractionState(jumpCleared)
-    setChatSearchResults([])
+
+    if (!isReturningToChatSearchResults) {
+      setChatSearchResults([])
+    }
+
     setChatMediaPreviewUrls([])
     setChatMediaPreviewIndex(0)
+
+    if (isReturningToChatSearchResults) {
+      setPreviousScreen(chatBackTargetBeforeSearchRef.current || ShowcaseScreens.MerchantChatList)
+      setScreen(ShowcaseScreens.ChatSearchResults)
+      return
+    }
 
     snapshotCurrentChatContext()
 
     if (target === ShowcaseScreens.MerchantChatList) {
       void restoreMerchantChatContext(activeConversationId)
-      void refreshMerchantChatListSilently()
-      startMerchantChatListDbObserve()
-      startMerchantChatListPolling(2000)
     } else {
       void restoreClientChatContext()
       void refreshChatEntryDotOnce()
@@ -2735,9 +4322,7 @@ export function useShowcaseViewModel(input: UseShowcaseViewModelInput = {}): Sho
   }
 
 function backFromAppointments(): void {
-  const sourceDish = appointmentSourceDishId
-    ? dishes.find(item => item.id === appointmentSourceDishId) || null
-    : null
+  const sourceDish = getDishEntityById(appointmentSourceDishId)
 
   setAppointmentError(null)
   setAppointmentSuccess(null)
@@ -2884,13 +4469,20 @@ function backFromAppointments(): void {
     saveFavoriteSnapshotsToStorage(storeId, normalizedSnapshots)
   }
 
-  function updateChatDraftPersistence(nextDraft: string, nextImageUrls = chatDraftImageUrls, nextProduct = chatPendingProduct, nextQuotedMessageId = chatQuotedMessageId): void {
+  function updateChatDraftPersistence(
+    nextDraft: string,
+    nextImageUrls = chatDraftImageUrls,
+    nextProduct = chatPendingProduct,
+    nextQuotedMessageId = chatQuotedMessageId,
+    nextAppointment = chatPendingAppointment
+  ): void {
     writeChatDraft({
       storeId,
       conversationId: activeConversationId,
       draft: nextDraft,
       draftImageUrls: nextImageUrls,
       pendingProduct: nextProduct,
+      pendingAppointment: nextAppointment,
       quotedMessageId: nextQuotedMessageId
     })
   }
@@ -2949,6 +4541,7 @@ function backFromAppointments(): void {
     const localManualCategories = loadManualCategoriesFromStorage(storeId)
 
     if (localDishes.length) {
+      mergeDishEntities(localDishes)
       setDishes(localDishes)
       setPendingSyncOperations(buildPendingDishSyncOperations(localDishes))
     }
@@ -2961,14 +4554,21 @@ function backFromAppointments(): void {
     setPreviousScreen(screen)
     setScreen('AdminItems')
 
-    void ensureLoaded()
+    void refreshAdminItemsFilteredFirstPage(currentAdminItemsCloudFilters())
   }
 
   async function openAdminCategoriesScreen(): Promise<void> {
-    await ensureLoaded()
+    const localManualCategories = loadManualCategoriesFromStorage(storeId)
 
+    if (localManualCategories.length) {
+      setCategories(manualCategoryNamesToCloudCategories(localManualCategories))
+    }
+
+    setLastRetryOp(ShowcaseRetryOps.LoadFromCloud)
     setPreviousScreen(screen)
     setScreen('AdminCategories')
+
+    void refreshAdminCategoriesData()
   }
 
   async function openAdminAnnouncementPublisher(): Promise<void> {
@@ -3004,12 +4604,13 @@ function backFromAppointments(): void {
     setAdminAnnouncementSuccess(null)
     setAdminAnnouncementIsSubmitting(false)
     setAdminAnnouncementIsBlocking(false)
+    setAdminAnnouncementSubmittingAction(null)
   }
 
   async function openAdminAppointmentManager(): Promise<void> {
     if (!isAdminLoggedIn) {
       setPreviousScreen(screen)
-      setLoginError(null)
+      prepareLoginScreen(null)
       setScreen('Login')
       return
     }
@@ -3017,8 +4618,6 @@ function backFromAppointments(): void {
     if (!hasLoadedInitialCloudRef.current) {
       void ensureLoaded()
     }
-
-    void ensureMerchantSessionLoadedForCloud()
 
     setPreviousScreen(screen)
     setStatusMessage(null)
@@ -3042,21 +4641,15 @@ function backFromAppointments(): void {
   async function openMerchantChatList(): Promise<void> {
     if (!isAdminLoggedIn) {
       setPreviousScreen(screen)
-      setLoginError(null)
+      prepareLoginScreen(null)
       setScreen('Login')
       return
     }
-
-    void ensureMerchantSessionLoadedForCloud()
 
     merchantChatListBackTargetRef.current = 'Admin'
     setPreviousScreen('Admin')
     setStatusMessage(null)
     setScreen('MerchantChatList')
-
-    startMerchantChatListDbObserve()
-    void refreshMerchantChatListSilently()
-    startMerchantChatListPolling(2000)
   }
 
   function openFavorites(): void {
@@ -3128,7 +4721,8 @@ function backFromAppointments(): void {
 
   async function openCustomerChatFromScreen(
     backTarget: ShowcaseScreenName,
-    pendingProduct: ShowcaseChatProductShare | null = null
+    pendingProduct: ShowcaseChatProductShare | null = null,
+    pendingAppointment: ShowcaseChatAppointmentShare | null = null
   ): Promise<void> {
     chatBackTargetRef.current = backTarget
     setPreviousScreen(backTarget)
@@ -3147,7 +4741,7 @@ function backFromAppointments(): void {
     setScreen(ShowcaseScreens.Chat)
 
     try {
-      await restoreClientChatContext(pendingProduct)
+      await restoreClientChatContext(pendingProduct, pendingAppointment)
       setChatStatusMessage(null)
       await syncChat()
       startChatDbObserve()
@@ -3171,6 +4765,28 @@ function backFromAppointments(): void {
       : null
 
     void openCustomerChatFromScreen(backTarget, pendingProduct)
+  }
+
+  function openChatFromCustomerBooking(appointmentIdInput: string): void {
+    const appointmentId = appointmentIdInput.trim()
+    if (!appointmentId) return
+
+    const item = customerAppointmentCards.find(appointment => appointment.id === appointmentId) ||
+      appointmentCards.find(appointment => appointment.id === appointmentId) ||
+      null
+
+    if (!item) {
+      setStatusMessage('Booking is unavailable.')
+      return
+    }
+
+    const pendingAppointment = buildPendingAppointmentFromCard(item)
+
+    void openCustomerChatFromScreen(
+      ShowcaseScreens.CustomerBookings,
+      null,
+      pendingAppointment
+    )
   }
 
   function openChatFromHome(): void {
@@ -3353,7 +4969,7 @@ function backFromAppointments(): void {
       ? normalizeNumber(editDishDiscountPrice, 0)
       : null
 
-    const name = (editDishNameZh.trim() || editDishNameEn.trim() || existing?.nameZh || existing?.nameEn || existing?.title || 'Untitled item').trim()
+    const name = (editDishName.trim() || existing?.name || existing?.title || 'Untitled item').trim()
     const id = editDishId || existing?.id || createUuidLikeId()
     const imageUrls = editDishImageUrls
       .map(item => item.trim())
@@ -3363,10 +4979,9 @@ function backFromAppointments(): void {
 
     return {
       id,
-      nameZh: name,
-      nameEn: name,
+      name,
       title: name,
-      descriptionEn: editDishDescriptionEn.trim().slice(0, 200),
+      description: editDishDescription.trim().slice(0, 200),
       category: editDishCategory?.trim() || '',
       originalPrice,
       discountPrice,
@@ -3375,6 +4990,7 @@ function backFromAppointments(): void {
       isHidden: editDishHidden,
       imageUri: imageUrls[0] || null,
       imageUrls,
+      imageVariants: existing?.imageVariants ?? null,
       tags: existing?.tags || [],
       clickCount: existing?.clickCount || 0,
       updatedAt: nowMillis(),
@@ -3385,7 +5001,7 @@ function backFromAppointments(): void {
   }
 
   function validateEditDish(): string | null {
-    const name = editDishNameZh.trim() || editDishNameEn.trim()
+    const name = editDishName.trim()
     if (!name) return 'Please enter Name.'
 
     const priceText = editDishOriginalPrice.trim()
@@ -3396,7 +5012,7 @@ function backFromAppointments(): void {
       return 'Please enter a valid Price.'
     }
 
-    const description = editDishDescriptionEn.trim()
+    const description = editDishDescription.trim()
     if (!description) return 'Please enter Description.'
 
     const category = editDishCategory?.trim() || ''
@@ -3450,6 +5066,87 @@ function backFromAppointments(): void {
     setMax(validMax)
   }
 
+  function isBrowserOfflineNow(): boolean {
+    if (typeof navigator === 'undefined') return false
+    return navigator.onLine === false
+  }
+
+  function applyCachedFirstScreenData(input: {
+    localDishes: DemoDish[]
+    localManualCategories: string[]
+    localStoreProfile: ReturnType<typeof loadStoreProfileFromStorage>
+    localAnnouncements: CloudAnnouncement[]
+    localAppointments: CloudAppointmentRequest[]
+  }): void {
+    const localHomeDishes = input.localDishes.filter(item => !item.isHidden)
+    const effectiveLocalDishes = isAdminLoggedIn
+      ? input.localDishes
+      : localHomeDishes
+    const effectiveCategoryNames = deriveCategoriesFromModels(
+      effectiveLocalDishes,
+      input.localManualCategories
+    )
+
+    if (input.localDishes.length) {
+      mergeDishEntities(input.localDishes)
+      setHomeDishIds(dishIdsFromItems(localHomeDishes))
+      setAdminItemIds(dishIdsFromItems(input.localDishes))
+      setDishes(effectiveLocalDishes)
+      refreshFavoritesList(effectiveLocalDishes)
+      setPendingSyncOperations(buildPendingDishSyncOperations(input.localDishes))
+    }
+
+    if (effectiveCategoryNames.length) {
+      setCategories(manualCategoryNamesToCloudCategories(effectiveCategoryNames))
+    }
+
+    if (input.localStoreProfile) {
+      const localProfileForUi = storeProfileFromCachedProfile(input.localStoreProfile)
+      setStoreProfile(localProfileForUi)
+      setStoreProfileDraft(current => current || storeProfileDraftFromProfile(localProfileForUi))
+      setStoreProfileServices(input.localStoreProfile.services)
+      setStoreProfileExtraContacts(input.localStoreProfile.extraContacts)
+      setStoreProfileCoverUrl(input.localStoreProfile.coverUrl)
+      setStoreProfileLogoUrl(input.localStoreProfile.logoUrl)
+      setDraftStoreProfileCoverUrl(input.localStoreProfile.coverUrl)
+      setDraftStoreProfileLogoUrl(input.localStoreProfile.logoUrl)
+      setDraftStoreProfileDescription(input.localStoreProfile.description)
+      setDraftBusinessStatus(input.localStoreProfile.businessStatus)
+      setDraftStoreProfileServices(input.localStoreProfile.services)
+      setDraftStoreProfileExtraContacts(
+        input.localStoreProfile.extraContacts.map((item, index) => ({
+          id: `cached_extra_contact_${index + 1}`,
+          name: item.name,
+          value: item.value
+        }))
+      )
+    }
+
+    if (input.localAnnouncements.length) {
+      setAnnouncements(
+        input.localAnnouncements
+          .filter(item => item.status === 'published')
+          .sort((left, right) => {
+            return (right.updatedAt || right.createdAt || 0) - (left.updatedAt || left.createdAt || 0)
+          })
+      )
+    }
+
+    if (input.localAppointments.length) {
+      setAppointmentRequests(input.localAppointments)
+    }
+
+    if (
+      input.localDishes.length ||
+      effectiveCategoryNames.length ||
+      input.localStoreProfile ||
+      input.localAnnouncements.length ||
+      input.localAppointments.length
+    ) {
+      setStatusMessage('Loaded cached data. Refreshing cloud...')
+    }
+  }
+
   const loadFromCloud = useCallback(async (reason: ShowcaseRetryOp = ShowcaseRetryOps.LoadFromCloud): Promise<void> => {
     const seq = loadingSeqRef.current + 1
     loadingSeqRef.current = seq
@@ -3486,13 +5183,34 @@ function backFromAppointments(): void {
     setLastRetryOp(reason)
 
     try {
-      setStoreMerchantSessionFromAuthSession(merchantSession)
+      const validSession = isAdminLoggedIn || isMerchantLoggedInInStoreSession()
+        ? await ensureValidMerchantSessionLoadedForCloud()
+        : merchantSession
+
+      if ((isAdminLoggedIn || isMerchantLoggedInInStoreSession()) && !validSession) {
+        setSyncOverviewState(SyncOverviewStates.Failed)
+        setSyncErrorMessage(merchantSessionEnsureFailureMessage())
+        return
+      }
+
+      setStoreMerchantSessionFromAuthSession(validSession)
       bindMerchantSessionToRepository(repository)
 
       const localDishes = loadDishesFromStorage(storeId)
       const localManualCategories = loadManualCategoriesFromStorage(storeId)
       const localStoreProfile = loadStoreProfileFromStorage(storeId)
       const localAnnouncements = loadPublishedAnnouncementsLocally(storeId)
+      const localAppointments = loadAppointmentsFromStorage(storeId)
+
+      applyCachedFirstScreenData({
+        localDishes,
+        localManualCategories,
+        localStoreProfile,
+        localAnnouncements,
+        localAppointments
+      })
+
+      const cloudLoadStartedAt = Date.now()
 
       const [
         serviceStatus,
@@ -3505,7 +5223,11 @@ function backFromAppointments(): void {
       ] = await Promise.all([
         repository.fetchStoreServiceStatus(storeId),
         repository.fetchCategories(storeId),
-        repository.fetchDishes(storeId),
+        repository.fetchDishesPaged({
+          storeId,
+          limit: isAdminLoggedIn ? SHOWCASE_PAGE_SIZE.adminItems : SHOWCASE_PAGE_SIZE.homeDishes,
+          offset: 0
+        }),
         repository.fetchStoreProfile(storeId),
         repository.fetchAppointmentSettings(storeId),
         isAdminLoggedIn
@@ -3513,7 +5235,9 @@ function backFromAppointments(): void {
           : repository.fetchAppointmentRequestsForClient(storeId, clientId),
         repository.fetchAnnouncements({
           storeId,
-          includeDrafts: false
+          includeDrafts: false,
+          limit: SHOWCASE_PAGE_SIZE.publicAnnouncements,
+          offset: 0
         })
       ])
 
@@ -3527,11 +5251,24 @@ function backFromAppointments(): void {
         ? cloudDishes
         : cloudDishes.filter(item => !item.isHidden)
 
-      const effectiveDishes = publicCloudDishes.length
-        ? isAdminLoggedIn
-          ? mergeRemoteAndLocal(publicCloudDishes, localDishes)
+      const browserOffline = isBrowserOfflineNow()
+      const cloudReadFailed = repository.lastReadFailureAt >= cloudLoadStartedAt
+      const cloudUnavailable = browserOffline || cloudReadFailed
+      const localVisibleDishes = localDishes.filter(item => isAdminLoggedIn || !item.isHidden)
+
+      const protectedLocalDishes = localDishes.filter(item => {
+        return item.dirty === true || item.syncState === 'Pending' || item.syncState === 'Failed'
+      })
+
+      const shouldUseLocalDishCache = cloudUnavailable && !publicCloudDishes.length && localVisibleDishes.length > 0
+
+      const effectiveDishes = shouldUseLocalDishCache
+        ? localVisibleDishes
+        : isAdminLoggedIn
+          ? publicCloudDishes.length
+            ? mergeRemoteAndLocal(publicCloudDishes, localDishes)
+            : protectedLocalDishes
           : publicCloudDishes
-        : localDishes.filter(item => isAdminLoggedIn || !item.isHidden)
 
       const effectiveManualCategories = cloudManualCategories.length
         ? cloudManualCategories
@@ -3550,16 +5287,23 @@ function backFromAppointments(): void {
       setCloudStatus(serviceStatus)
       setIsWriteAllowed(serviceStatus ? serviceStatus.isWriteAllowed : await repository.isStoreWriteAllowed(storeId))
       setCategories(cloudCategories.length ? cloudCategories : manualCategoryNamesToCloudCategories(effectiveManualCategories))
+      mergeDishEntities(effectiveDishes)
+      setHomeDishIds(dishIdsFromItems(effectiveDishes))
+      setAdminItemIds(dishIdsFromItems(effectiveDishes))
       setDishes(effectiveDishes)
       refreshFavoritesList(effectiveDishes)
       setPendingSyncOperations(buildPendingDishSyncOperations(effectiveDishes))
 
-      if (selectedDishId) {
-        const reboundSelectedDish = effectiveDishes.find(item => item.id === selectedDishId) || null
+      if (selectedDishId && screen === 'Detail') {
+        const reboundSelectedDish = getDishEntityById(selectedDishId)
 
-        if (!reboundSelectedDish && screen === 'Detail') {
-          setScreen('Home')
-          setSelectedDishId(null)
+        if (!reboundSelectedDish) {
+          void ensureDishEntityLoaded(selectedDishId).then(item => {
+            if (!item && screen === 'Detail') {
+              setScreen('Home')
+              setSelectedDishId(null)
+            }
+          })
         }
       }
 
@@ -3601,7 +5345,7 @@ function backFromAppointments(): void {
       setAppointmentRequests(appointmentRequests)
       setAnnouncements(effectiveAnnouncements)
 
-      if (publicCloudDishes.length) {
+      if (!cloudUnavailable || effectiveDishes.length) {
         saveDishesToStorage(storeId, effectiveDishes)
       }
 
@@ -3631,9 +5375,16 @@ function backFromAppointments(): void {
         })
 
         const threads = await fetchMerchantThreadsFromChatRepository(
-          `VM${Date.now()}_${storeId.slice(-4)}`
+          `VM${Date.now()}_${storeId.slice(-4)}`,
+          SHOWCASE_PAGE_SIZE.chatThreads,
+          0
         )
         setMerchantChatThreads(await buildMerchantThreadsWithLocalMeta(threads))
+        setMerchantChatListPagination({
+          nextOffset: threads.length,
+          hasMore: threads.length >= SHOWCASE_PAGE_SIZE.chatThreads,
+          isLoadingMore: false
+        })
 
         ndjcTrace('loadFromCloud admin threads applied', {
           seq,
@@ -3664,6 +5415,7 @@ function backFromAppointments(): void {
             setChatDraft(draft.draft)
             setChatDraftImageUrls(draft.draftImageUrls)
             setChatPendingProduct(draft.pendingProduct)
+            setChatPendingAppointment(draft.pendingAppointment)
             setChatQuotedMessageId(draft.quotedMessageId)
           }
 
@@ -3683,12 +5435,12 @@ function backFromAppointments(): void {
             ? SyncOverviewStates.HasPending
             : SyncOverviewStates.Idle
       )
-      setSyncErrorMessage(publicCloudDishes.length ? null : syncErrorMessage)
+      setSyncErrorMessage(null)
       setStatusMessage(
-        publicCloudDishes.length
-          ? 'Loaded from cloud.'
-          : localDishes.filter(item => isAdminLoggedIn || !item.isHidden).length
-            ? 'Cloud unavailable, loaded from local cache.'
+        cloudUnavailable && effectiveDishes.length
+          ? 'Cloud unavailable, loaded from local cache.'
+          : publicCloudDishes.length
+            ? 'Loaded from cloud.'
             : 'No data.'
       )
     } catch (error) {
@@ -3711,6 +5463,8 @@ function backFromAppointments(): void {
       const message = error instanceof Error ? error.message : String(error || 'Cloud load failed.')
 
       const effectiveLocalDishes = localDishes.filter(item => isAdminLoggedIn || !item.isHidden)
+
+      mergeDishEntities(effectiveLocalDishes)
 
       setDishes(effectiveLocalDishes)
       refreshFavoritesList(effectiveLocalDishes)
@@ -3778,6 +5532,541 @@ function backFromAppointments(): void {
     syncErrorMessage
   ])
 
+  const refreshHomeMainData = useCallback(async (): Promise<void> => {
+    if (homeMainRefreshInFlightRef.current) return
+
+    homeMainRefreshInFlightRef.current = true
+
+    ndjcTrace('ENTER refreshHomeMainData', {
+      screen,
+      isAdminLoggedIn,
+      hasMerchantSession: Boolean(merchantSession?.accessToken),
+      storeId
+    })
+
+    try {
+      const validSession = isAdminLoggedIn || isMerchantLoggedInInStoreSession()
+        ? await ensureValidMerchantSessionLoadedForCloud()
+        : merchantSession
+
+      if ((isAdminLoggedIn || isMerchantLoggedInInStoreSession()) && !validSession) {
+        setSyncOverviewState(SyncOverviewStates.Failed)
+        setSyncErrorMessage(merchantSessionEnsureFailureMessage())
+        return
+      }
+
+      setStoreMerchantSessionFromAuthSession(validSession)
+      bindMerchantSessionToRepository(repository)
+
+      const localDishes = loadDishesFromStorage(storeId)
+      const localManualCategories = loadManualCategoriesFromStorage(storeId)
+      const localStoreProfile = loadStoreProfileFromStorage(storeId)
+      const localAnnouncements = loadPublishedAnnouncementsLocally(storeId)
+      const localAppointments = loadAppointmentsFromStorage(storeId)
+
+      applyCachedFirstScreenData({
+        localDishes,
+        localManualCategories,
+        localStoreProfile,
+        localAnnouncements,
+        localAppointments
+      })
+
+      const cloudLoadStartedAt = Date.now()
+
+      const [
+        serviceStatus,
+        cloudCategories,
+        cloudDishes,
+        cloudStoreProfile,
+        cloudAppointmentSettings,
+        publishedAnnouncements
+      ] = await Promise.all([
+        repository.fetchStoreServiceStatus(storeId),
+        repository.fetchCategories(storeId),
+        repository.fetchDishesPaged({
+          storeId,
+          limit: isAdminLoggedIn ? SHOWCASE_PAGE_SIZE.adminItems : SHOWCASE_PAGE_SIZE.homeDishes,
+          offset: 0
+        }),
+        repository.fetchStoreProfile(storeId),
+        repository.fetchAppointmentSettings(storeId),
+        repository.fetchAnnouncements({
+          storeId,
+          includeDrafts: false,
+          limit: SHOWCASE_PAGE_SIZE.publicAnnouncements,
+          offset: 0
+        })
+      ])
+
+      const cloudManualCategories = cloudCategories
+        .map(item => item.name.trim())
+        .filter(Boolean)
+
+      const publicCloudDishes = isAdminLoggedIn
+        ? cloudDishes
+        : cloudDishes.filter(item => !item.isHidden)
+
+      const browserOffline = isBrowserOfflineNow()
+      const cloudReadFailed = repository.lastReadFailureAt >= cloudLoadStartedAt
+      const cloudUnavailable = browserOffline || cloudReadFailed
+      const localVisibleDishes = localDishes.filter(item => isAdminLoggedIn || !item.isHidden)
+
+      const protectedLocalDishes = localDishes.filter(item => {
+        return item.dirty === true || item.syncState === 'Pending' || item.syncState === 'Failed'
+      })
+
+      const shouldUseLocalDishCache = cloudUnavailable && !publicCloudDishes.length && localVisibleDishes.length > 0
+
+      const effectiveDishes = shouldUseLocalDishCache
+        ? localVisibleDishes
+        : isAdminLoggedIn
+          ? publicCloudDishes.length
+            ? mergeRemoteAndLocal(publicCloudDishes, localDishes)
+            : protectedLocalDishes
+          : publicCloudDishes
+
+      const effectiveManualCategories = cloudManualCategories.length
+        ? cloudManualCategories
+        : localManualCategories
+
+      const effectiveAnnouncements = (publishedAnnouncements.length
+        ? publishedAnnouncements
+        : localAnnouncements
+      )
+        .filter(item => item.status === 'published')
+        .sort((left, right) => {
+          return (right.updatedAt || right.createdAt || 0) - (left.updatedAt || left.createdAt || 0)
+        })
+        .map(toPublishedAnnouncementEntity)
+
+      setCloudStatus(serviceStatus)
+      setIsWriteAllowed(serviceStatus ? serviceStatus.isWriteAllowed : await repository.isStoreWriteAllowed(storeId))
+      setCategories(cloudCategories.length ? cloudCategories : manualCategoryNamesToCloudCategories(effectiveManualCategories))
+      mergeDishEntities(effectiveDishes)
+      setHomeDishIds(dishIdsFromItems(effectiveDishes))
+      if (isAdminLoggedIn) {
+        setAdminItemIds(dishIdsFromItems(effectiveDishes))
+      }
+      setDishes(effectiveDishes)
+      refreshFavoritesList(effectiveDishes)
+      setPendingSyncOperations(buildPendingDishSyncOperations(effectiveDishes))
+
+      if (selectedDishId && screen === 'Detail') {
+        const reboundSelectedDish = getDishEntityById(selectedDishId)
+
+        if (!reboundSelectedDish) {
+          void ensureDishEntityLoaded(selectedDishId).then(item => {
+            if (!item && screen === 'Detail') {
+              setScreen('Home')
+              setSelectedDishId(null)
+            }
+          })
+        }
+      }
+
+      const effectiveCategoryNames = cloudCategories.length
+        ? cloudCategoriesToManualCategoryNames(cloudCategories)
+        : effectiveManualCategories
+
+      if (selectedCategory && !effectiveCategoryNames.includes(selectedCategory)) {
+        setSelectedCategory(null)
+      }
+
+      if (cloudStoreProfile) {
+        applyCloudStoreProfile(cloudStoreProfile)
+        saveStoreProfileToStorage(storeId, {
+          title: cloudStoreProfile.title || 'Showcase Store',
+          subtitle: cloudStoreProfile.subtitle || 'Browse items, book services, and contact the store.',
+          description: cloudStoreProfile.description || '',
+          services: parseJsonStringArray(cloudStoreProfile.servicesJson),
+          address: cloudStoreProfile.address || '',
+          hours: cloudStoreProfile.hours || '',
+          mapUrl: cloudStoreProfile.mapUrl || '',
+          extraContacts: parseExtraContacts(cloudStoreProfile.extraContactsJson).map(item => ({
+            name: item.name,
+            value: item.value
+          })),
+          coverUrl: cloudStoreProfile.coverUrl || '',
+          logoUrl: cloudStoreProfile.logoUrl || '',
+          businessStatus: cloudStoreProfile.businessStatus || ''
+        })
+      } else if (localStoreProfile) {
+        const localProfileForUi = storeProfileFromCachedProfile(localStoreProfile)
+        setStoreProfile(localProfileForUi)
+        setStoreProfileDraft(current => current || storeProfileDraftFromProfile(localProfileForUi))
+      } else {
+        applyCloudStoreProfile(null)
+      }
+
+      applyCloudAppointmentSettings(cloudAppointmentSettings)
+      setAnnouncements(effectiveAnnouncements)
+
+      if (!cloudUnavailable || effectiveDishes.length) {
+        saveDishesToStorage(storeId, effectiveDishes)
+      }
+
+      if (effectiveManualCategories.length) {
+        saveManualCategoriesToStorage(storeId, effectiveManualCategories)
+      }
+
+      if (effectiveAnnouncements.length) {
+        persistPublishedAnnouncementsLocally(storeId, effectiveAnnouncements)
+      }
+
+      const pendingCount = effectiveDishes.filter(item => item.dirty === true || item.syncState === 'Pending').length
+      const failedCount = effectiveDishes.filter(item => item.syncState === 'Failed').length
+
+      setLastSyncAt(nowMillis())
+      setSyncOverviewState(
+        failedCount > 0
+          ? SyncOverviewStates.Failed
+          : pendingSyncOperations.length || pendingCount > 0
+            ? SyncOverviewStates.HasPending
+            : SyncOverviewStates.Idle
+      )
+      setSyncErrorMessage(null)
+      setStatusMessage(
+        cloudUnavailable && effectiveDishes.length
+          ? 'Cloud unavailable, loaded from local cache.'
+          : publicCloudDishes.length
+            ? 'Loaded from cloud.'
+            : 'No data.'
+      )
+    } catch (error) {
+      ndjcTraceError('ERROR refreshHomeMainData', error, {
+        screen,
+        isAdminLoggedIn,
+        hasMerchantSession: Boolean(merchantSession?.accessToken),
+        storeId
+      })
+
+      const localDishes = loadDishesFromStorage(storeId)
+      const localManualCategories = loadManualCategoriesFromStorage(storeId)
+      const localStoreProfile = loadStoreProfileFromStorage(storeId)
+      const localAnnouncements = loadPublishedAnnouncementsLocally(storeId)
+      const message = error instanceof Error ? error.message : String(error || 'Cloud load failed.')
+      const effectiveLocalDishes = localDishes.filter(item => isAdminLoggedIn || !item.isHidden)
+
+      mergeDishEntities(effectiveLocalDishes)
+      setHomeDishIds(dishIdsFromItems(effectiveLocalDishes))
+
+      if (isAdminLoggedIn) {
+        setAdminItemIds(dishIdsFromItems(effectiveLocalDishes))
+      }
+
+      setDishes(effectiveLocalDishes)
+      refreshFavoritesList(effectiveLocalDishes)
+      setCategories(manualCategoryNamesToCloudCategories(localManualCategories))
+      setPendingSyncOperations(buildPendingDishSyncOperations(effectiveLocalDishes))
+
+      const effectiveLocalCategoryNames = Array.from(
+        new Set([
+          ...localManualCategories,
+          ...effectiveLocalDishes
+            .map(item => item.category?.trim() || '')
+            .filter(Boolean)
+        ])
+      )
+
+      if (selectedCategory && !effectiveLocalCategoryNames.includes(selectedCategory)) {
+        setSelectedCategory(null)
+      }
+
+      if (localStoreProfile) {
+        const localProfileForUi = storeProfileFromCachedProfile(localStoreProfile)
+        setStoreProfile(localProfileForUi)
+        setStoreProfileDraft(current => current || storeProfileDraftFromProfile(localProfileForUi))
+      }
+
+      if (localAnnouncements.length) {
+        setAnnouncements(localAnnouncements)
+      }
+
+      setSyncErrorMessage('Failed to load home data from cloud.')
+      setSyncOverviewState(SyncOverviewStates.Failed)
+      setStatusMessage(effectiveLocalDishes.length ? 'Cloud unavailable, loaded from local cache.' : message)
+      setLastRetryOp(ShowcaseRetryOps.LoadFromCloud)
+    } finally {
+      ndjcTrace('EXIT refreshHomeMainData', {
+        screen,
+        isAdminLoggedIn,
+        storeId
+      })
+
+      homeMainRefreshInFlightRef.current = false
+    }
+  }, [
+    isAdminLoggedIn,
+    merchantSession,
+    pendingSyncOperations.length,
+    repository,
+    screen,
+    selectedCategory,
+    selectedDishId,
+    storeId,
+    syncErrorMessage
+  ])
+
+  const refreshHomeBadgeData = useCallback(async (): Promise<void> => {
+    if (homeBadgeRefreshInFlightRef.current) return
+
+    homeBadgeRefreshInFlightRef.current = true
+
+    ndjcTrace('ENTER refreshHomeBadgeData', {
+      screen,
+      isAdminLoggedIn,
+      storeId
+    })
+
+    try {
+      await Promise.allSettled([
+        refreshChatEntryDotOnce(),
+        refreshBookingsEntryDotOnce(),
+        refreshAnnouncementsEntryDotOnce()
+      ])
+    } finally {
+      ndjcTrace('EXIT refreshHomeBadgeData', {
+        screen,
+        isAdminLoggedIn,
+        storeId
+      })
+
+      homeBadgeRefreshInFlightRef.current = false
+    }
+  }, [
+    isAdminLoggedIn,
+    screen,
+    storeId
+  ])
+
+  const refreshAdminItemsData = useCallback(async (): Promise<void> => {
+    if (adminItemsRefreshInFlightRef.current) return
+
+    adminItemsRefreshInFlightRef.current = true
+
+    ndjcTrace('ENTER refreshAdminItemsData', {
+      screen,
+      isAdminLoggedIn,
+      hasMerchantSession: Boolean(merchantSession?.accessToken),
+      storeId
+    })
+
+    try {
+      const validSession = isAdminLoggedIn || isMerchantLoggedInInStoreSession()
+        ? await ensureValidMerchantSessionLoadedForCloud()
+        : merchantSession
+
+      if ((isAdminLoggedIn || isMerchantLoggedInInStoreSession()) && !validSession) {
+        setSyncOverviewState(SyncOverviewStates.Failed)
+        setSyncErrorMessage(merchantSessionEnsureFailureMessage())
+        return
+      }
+
+      setStoreMerchantSessionFromAuthSession(validSession)
+      bindMerchantSessionToRepository(repository)
+
+      const localDishes = loadDishesFromStorage(storeId)
+      const localManualCategories = loadManualCategoriesFromStorage(storeId)
+
+      const [serviceStatus, cloudCategories, filteredItems] = await Promise.all([
+        repository.fetchStoreServiceStatus(storeId),
+        repository.fetchCategories(storeId),
+        fetchAdminItemsFilteredPage(currentAdminItemsCloudFilters(), 0)
+      ])
+
+      const cloudManualCategories = cloudCategories
+        .map(item => item.name.trim())
+        .filter(Boolean)
+
+      const protectedLocalDishes = localDishes.filter(item => {
+        return item.dirty === true || item.syncState === 'Pending' || item.syncState === 'Failed'
+      })
+
+      const effectiveDishes = mergeRemoteAndLocal(filteredItems, protectedLocalDishes)
+
+      const effectiveManualCategories = cloudManualCategories.length
+        ? cloudManualCategories
+        : localManualCategories
+
+      setCloudStatus(serviceStatus)
+      setIsWriteAllowed(serviceStatus ? serviceStatus.isWriteAllowed : await repository.isStoreWriteAllowed(storeId))
+      setCategories(cloudCategories.length ? cloudCategories : manualCategoryNamesToCloudCategories(effectiveManualCategories))
+      mergeDishEntities(effectiveDishes)
+      setAdminItemIds(dishIdsFromItems(filteredItems))
+      setDishes(effectiveDishes)
+      refreshFavoritesList(effectiveDishes)
+      setPendingSyncOperations(buildPendingDishSyncOperations(effectiveDishes))
+      resetAdminItemsPaginationForFirstPage(filteredItems.length)
+
+      const effectiveCategoryNames = cloudCategories.length
+        ? cloudCategoriesToManualCategoryNames(cloudCategories)
+        : effectiveManualCategories
+
+      if (adminItemsSelectedCategory && !effectiveCategoryNames.includes(adminItemsSelectedCategory)) {
+        setAdminItemsSelectedCategory(null)
+      }
+
+      saveDishesToStorage(storeId, effectiveDishes)
+
+      if (effectiveManualCategories.length) {
+        saveManualCategoriesToStorage(storeId, effectiveManualCategories)
+      }
+
+      const pendingCount = effectiveDishes.filter(item => item.dirty === true || item.syncState === 'Pending').length
+      const failedCount = effectiveDishes.filter(item => item.syncState === 'Failed').length
+
+      setLastSyncAt(nowMillis())
+      setSyncOverviewState(
+        failedCount > 0
+          ? SyncOverviewStates.Failed
+          : pendingSyncOperations.length || pendingCount > 0
+            ? SyncOverviewStates.HasPending
+            : SyncOverviewStates.Idle
+      )
+      setSyncErrorMessage(null)
+    } catch (error) {
+      ndjcTraceError('ERROR refreshAdminItemsData', error, {
+        screen,
+        isAdminLoggedIn,
+        hasMerchantSession: Boolean(merchantSession?.accessToken),
+        storeId
+      })
+
+      const localDishes = loadDishesFromStorage(storeId)
+      const localManualCategories = loadManualCategoriesFromStorage(storeId)
+
+      if (localDishes.length) {
+        mergeDishEntities(localDishes)
+        setDishes(localDishes)
+        refreshFavoritesList(localDishes)
+        setPendingSyncOperations(buildPendingDishSyncOperations(localDishes))
+      }
+
+      if (localManualCategories.length) {
+        setCategories(manualCategoryNamesToCloudCategories(localManualCategories))
+      }
+
+      setSyncErrorMessage('Failed to refresh items from cloud.')
+      setSyncOverviewState(SyncOverviewStates.Failed)
+      setLastRetryOp(ShowcaseRetryOps.LoadFromCloud)
+    } finally {
+      ndjcTrace('EXIT refreshAdminItemsData', {
+        screen,
+        isAdminLoggedIn,
+        storeId
+      })
+
+      adminItemsRefreshInFlightRef.current = false
+    }
+  }, [
+    adminItemsSelectedCategory,
+    adminItemsSearchQuery,
+    adminItemsSortMode,
+    adminItemsSortAscending,
+    adminItemsFilterRecommended,
+    adminItemsFilterHiddenOnly,
+    adminItemsFilterDiscountOnly,
+    adminItemsAppliedMinPrice,
+    adminItemsAppliedMaxPrice,
+    isAdminLoggedIn,
+    merchantSession,
+    pendingSyncOperations.length,
+    repository,
+    screen,
+    storeId
+  ])
+
+  const refreshAdminCategoriesData = useCallback(async (): Promise<void> => {
+    if (adminCategoriesRefreshInFlightRef.current) return
+
+    adminCategoriesRefreshInFlightRef.current = true
+
+    ndjcTrace('ENTER refreshAdminCategoriesData', {
+      screen,
+      isAdminLoggedIn,
+      hasMerchantSession: Boolean(merchantSession?.accessToken),
+      storeId
+    })
+
+    try {
+      const validSession = isAdminLoggedIn || isMerchantLoggedInInStoreSession()
+        ? await ensureValidMerchantSessionLoadedForCloud()
+        : merchantSession
+
+      if ((isAdminLoggedIn || isMerchantLoggedInInStoreSession()) && !validSession) {
+        setSyncOverviewState(SyncOverviewStates.Failed)
+        setSyncErrorMessage(merchantSessionEnsureFailureMessage())
+        return
+      }
+
+      setStoreMerchantSessionFromAuthSession(validSession)
+      bindMerchantSessionToRepository(repository)
+
+      const localManualCategories = loadManualCategoriesFromStorage(storeId)
+
+      const [serviceStatus, cloudCategories] = await Promise.all([
+        repository.fetchStoreServiceStatus(storeId),
+        repository.fetchCategories(storeId)
+      ])
+
+      const cloudManualCategories = cloudCategories
+        .map(item => item.name.trim())
+        .filter(Boolean)
+
+      const effectiveManualCategories = cloudManualCategories.length
+        ? cloudManualCategories
+        : localManualCategories
+
+      setCloudStatus(serviceStatus)
+      setIsWriteAllowed(serviceStatus ? serviceStatus.isWriteAllowed : await repository.isStoreWriteAllowed(storeId))
+      setCategories(cloudCategories.length ? cloudCategories : manualCategoryNamesToCloudCategories(effectiveManualCategories))
+
+      if (effectiveManualCategories.length) {
+        saveManualCategoriesToStorage(storeId, effectiveManualCategories)
+      }
+
+      if (selectedCategory && !effectiveManualCategories.includes(selectedCategory)) {
+        setSelectedCategory(null)
+      }
+
+      setLastSyncAt(nowMillis())
+      setSyncErrorMessage(null)
+    } catch (error) {
+      ndjcTraceError('ERROR refreshAdminCategoriesData', error, {
+        screen,
+        isAdminLoggedIn,
+        hasMerchantSession: Boolean(merchantSession?.accessToken),
+        storeId
+      })
+
+      const localManualCategories = loadManualCategoriesFromStorage(storeId)
+
+      if (localManualCategories.length) {
+        setCategories(manualCategoryNamesToCloudCategories(localManualCategories))
+      }
+
+      setSyncErrorMessage('Failed to refresh categories from cloud.')
+      setSyncOverviewState(SyncOverviewStates.Failed)
+      setLastRetryOp(ShowcaseRetryOps.LoadFromCloud)
+    } finally {
+      ndjcTrace('EXIT refreshAdminCategoriesData', {
+        screen,
+        isAdminLoggedIn,
+        storeId
+      })
+
+      adminCategoriesRefreshInFlightRef.current = false
+    }
+  }, [
+    isAdminLoggedIn,
+    merchantSession,
+    repository,
+    screen,
+    selectedCategory,
+    storeId
+  ])
+
   const refreshCloud = useCallback(async (): Promise<void> => {
     await tryLoadFromCloud(ShowcaseRetryOps.LoadFromCloud)
   }, [tryLoadFromCloud])
@@ -3788,7 +6077,16 @@ function backFromAppointments(): void {
       return
     }
 
-    setStoreMerchantSessionFromAuthSession(merchantSession)
+    const validSession = await ensureValidMerchantSessionLoadedForCloud()
+
+    if (!validSession) {
+      setSyncOverviewState(SyncOverviewStates.Failed)
+      setSyncErrorMessage(merchantSessionEnsureFailureMessage())
+      showSnackbar(merchantSessionEnsureSnackbarMessage())
+      return
+    }
+
+    setStoreMerchantSessionFromAuthSession(validSession)
     bindMerchantSessionToRepository(repository)
     setSyncOverviewState(SyncOverviewStates.Syncing)
     setSyncErrorMessage(null)
@@ -3797,37 +6095,176 @@ function backFromAppointments(): void {
     for (const op of pendingSyncOperations) {
       try {
         if (op.type === 'dish-upsert') {
-          const dish = dishes.find(item => item.id === op.dishId)
+          const dish = getDishEntityById(op.dishId)
           if (!dish) {
             removePendingSync(op.id)
             continue
           }
 
-          const ok = await repository.upsertDishFromDemo(storeId, dish)
+          const uploadedImages: UploadedShowcaseImage[] = []
+
+          for (const rawUrl of resolveDishImages(dish)) {
+            const uploadedImage = await uploadDishImageIfNeeded(rawUrl)
+
+            if (!uploadedImage) {
+              throw new Error('Pending image upload failed.')
+            }
+
+            uploadedImages.push(uploadedImage)
+          }
+
+          const uploadedImageUrls = uploadedImages
+            .map(item => item.url.trim())
+            .filter(Boolean)
+            .filter((item, index, all) => all.indexOf(item) === index)
+
+          const nextDish: DemoDish = {
+            ...dish,
+            imageUri: uploadedImageUrls[0] || dish.imageUri || null,
+            imageUrls: uploadedImageUrls.length ? uploadedImageUrls : dish.imageUrls,
+            imageVariants: uploadedImages[0]?.variants ?? dish.imageVariants ?? null,
+            updatedAt: nowMillis(),
+            syncState: 'Pending',
+            dirty: true
+          }
+
+          let ok = await repository.upsertDishFromDemo(storeId, nextDish)
+
+          if (!ok) {
+            const detail = [
+              repository.lastUpsertCode != null ? `code=${repository.lastUpsertCode}` : '',
+              repository.lastUpsertBody ? `body=${repository.lastUpsertBody.slice(0, 300)}` : ''
+            ].filter(Boolean).join(' ')
+
+            const retry = await retryMerchantCloudOperationAfterAuthRefresh({
+              errorInput: new Error(detail || 'Cloud save failed.'),
+              operation: () => repository.upsertDishFromDemo(storeId, nextDish),
+              isSuccess: value => value
+            })
+
+            if (retry.status === 'handled_without_retry') {
+              setSyncOverviewState(SyncOverviewStates.Failed)
+              setSyncErrorMessage(merchantSessionEnsureFailureMessage())
+              return
+            }
+
+            if (retry.status === 'retried_success') {
+              ok = true
+            }
+          }
+
           if (ok) {
+            const syncedDish: DemoDish = {
+              ...nextDish,
+              syncState: 'Synced',
+              dirty: false
+            }
+
+            const nextDishes = sortedDishesForStorage([
+              syncedDish,
+              ...loadDishesFromStorage(storeId).filter(item => item.id !== syncedDish.id)
+            ])
+
+            saveDishesToStorage(storeId, nextDishes)
+            mergeDishEntities(nextDishes)
+            setDishes(nextDishes)
+            refreshFavoritesList(nextDishes)
+            setHomeDishIds(current => {
+              if (syncedDish.isHidden) {
+                return removeDishIdFromList(current, syncedDish.id)
+              }
+
+              if (current.includes(syncedDish.id)) {
+                return current
+              }
+
+              return [syncedDish.id, ...current]
+            })
+            setAdminItemIds(current => {
+              if (current.includes(syncedDish.id)) {
+                return current
+              }
+
+              return [syncedDish.id, ...current]
+            })
             removePendingSync(op.id)
           }
         }
 
         if (op.type === 'dish-delete') {
-          const ok = await repository.deleteDishById(op.dishId)
+          const dishId = String(op.dishId || '').trim()
+
+          if (!dishId) {
+            removePendingSync(op.id)
+            continue
+          }
+
+          let ok = await repository.deleteDishById(dishId)
+
+          if (!ok) {
+            const retry = await retryMerchantCloudOperationAfterAuthRefresh({
+              errorInput: new Error('Cloud delete failed.'),
+              operation: () => repository.deleteDishById(dishId),
+              isSuccess: value => value
+            })
+
+            if (retry.status === 'handled_without_retry') {
+              setSyncOverviewState(SyncOverviewStates.Failed)
+              setSyncErrorMessage(merchantSessionEnsureFailureMessage())
+              return
+            }
+
+            if (retry.status === 'retried_success') {
+              ok = true
+            }
+          }
 
           if (ok) {
             removePendingSync(op.id)
 
-            const nextDishes = dishes.filter(item => item.id !== op.dishId)
+            const nextDishes = dishes.filter(item => item.id !== dishId)
 
+            removeDishEntityById(dishId)
+            setAdminItemIds(current => removeDishIdFromList(current, dishId))
+            setHomeDishIds(current => removeDishIdFromList(current, dishId))
             setDishes(nextDishes)
             saveDishesToStorage(storeId, nextDishes)
             refreshFavoritesList(nextDishes)
 
-            setAdminSelectedDishIds(current => current.filter(id => id !== op.dishId))
-            setSelectedDishId(current => current === op.dishId ? null : current)
+            setAdminSelectedDishIds(current => current.filter(id => id !== dishId))
+            setSelectedDishId(current => current === dishId ? null : current)
+            setEditDishId(current => current === dishId ? null : current)
+            setAppointmentSourceDishId(current => current === dishId ? null : current)
           }
         }
 
         if (op.type === 'store-profile-upsert') {
-          const ok = await repository.upsertStoreProfile(buildCloudStoreProfileFromDraft())
+          const payload = buildCloudStoreProfileFromDraft()
+          let ok = await repository.upsertStoreProfile(payload)
+
+          if (!ok) {
+            const detail = [
+              repository.lastUpsertCode != null ? `code=${repository.lastUpsertCode}` : '',
+              repository.lastUpsertBody ? `body=${repository.lastUpsertBody.slice(0, 300)}` : ''
+            ].filter(Boolean).join(' ')
+
+            const retry = await retryMerchantCloudOperationAfterAuthRefresh({
+              errorInput: new Error(detail || 'Cloud save failed.'),
+              operation: () => repository.upsertStoreProfile(payload),
+              isSuccess: value => value
+            })
+
+            if (retry.status === 'handled_without_retry') {
+              setSyncOverviewState(SyncOverviewStates.Failed)
+              setSyncErrorMessage(merchantSessionEnsureFailureMessage())
+              return
+            }
+
+            if (retry.status === 'retried_success') {
+              ok = true
+            }
+          }
+
           if (ok) {
             removePendingSync(op.id)
           }
@@ -3840,15 +6277,48 @@ function backFromAppointments(): void {
             continue
           }
 
-          const saved = await repository.upsertAnnouncement({
+          let saved = await repository.upsertAnnouncement({
             id: draft.id,
             storeId,
             coverUrl: draft.coverUrl,
+            coverImageVariants: draft.coverImageVariants ?? null,
             body: draft.body,
             status: draft.status,
             updatedAt: draft.updatedAt || nowMillis(),
             viewCount: draft.viewCount
           })
+
+          if (!saved) {
+            const detail = [
+              repository.lastAnnouncementUpsertCode != null ? `code=${repository.lastAnnouncementUpsertCode}` : '',
+              repository.lastAnnouncementUpsertBody ? `body=${repository.lastAnnouncementUpsertBody.slice(0, 300)}` : ''
+            ].filter(Boolean).join(' ')
+
+            const retry = await retryMerchantCloudOperationAfterAuthRefresh({
+              errorInput: new Error(detail || 'Cloud save failed.'),
+              operation: () => repository.upsertAnnouncement({
+                id: draft.id,
+                storeId,
+                coverUrl: draft.coverUrl,
+                coverImageVariants: draft.coverImageVariants ?? null,
+                body: draft.body,
+                status: draft.status,
+                updatedAt: draft.updatedAt || nowMillis(),
+                viewCount: draft.viewCount
+              }),
+              isSuccess: value => Boolean(value)
+            })
+
+            if (retry.status === 'handled_without_retry') {
+              setSyncOverviewState(SyncOverviewStates.Failed)
+              setSyncErrorMessage(merchantSessionEnsureFailureMessage())
+              return
+            }
+
+            if (retry.status === 'retried_success' && retry.value) {
+              saved = retry.value
+            }
+          }
 
           if (saved) {
             removePendingSync(op.id)
@@ -3856,7 +6326,31 @@ function backFromAppointments(): void {
         }
 
         if (op.type === 'appointment-settings-upsert') {
-          const ok = await repository.upsertAppointmentSettings(currentAppointmentSettingsForCloud())
+          const payload = currentAppointmentSettingsForCloud()
+          let ok = await repository.upsertAppointmentSettings(payload)
+
+          if (!ok) {
+            const detail = [
+              repository.lastUpsertCode != null ? `code=${repository.lastUpsertCode}` : '',
+              repository.lastUpsertBody ? `body=${repository.lastUpsertBody.slice(0, 300)}` : ''
+            ].filter(Boolean).join(' ')
+
+            const retry = await retryMerchantCloudOperationAfterAuthRefresh({
+              errorInput: new Error(detail || 'Appointment settings save failed.'),
+              operation: () => repository.upsertAppointmentSettings(payload),
+              isSuccess: value => value
+            })
+
+            if (retry.status === 'handled_without_retry') {
+              setSyncOverviewState(SyncOverviewStates.Failed)
+              setSyncErrorMessage(merchantSessionEnsureFailureMessage())
+              return
+            }
+
+            if (retry.status === 'retried_success') {
+              ok = true
+            }
+          }
 
           if (ok) {
             removePendingSync(op.id)
@@ -3889,12 +6383,81 @@ function backFromAppointments(): void {
     storeId
   ])
 
+  useEffect(() => {
+    if (!pendingSyncOperations.length) {
+      return
+    }
+
+    setSyncOverviewState(current => {
+      if (current === SyncOverviewStates.Syncing) {
+        return current
+      }
+
+      return SyncOverviewStates.HasPending
+    })
+  }, [pendingSyncOperations.length])
+
+  useEffect(() => {
+    if (!isBrowser()) return
+
+    const runPendingSyncIfPossible = (): void => {
+      if (pendingSyncRetryInFlightRef.current) return
+      if (!pendingSyncOperationsRef.current.length) return
+      if (window.navigator.onLine === false) return
+
+      pendingSyncRetryInFlightRef.current = true
+
+      window.setTimeout(() => {
+        void retryPendingSync()
+          .catch(error => {
+            const message = error instanceof Error ? error.message : String(error || 'Auto sync failed.')
+            setSyncErrorMessage(message)
+            setSyncOverviewState(SyncOverviewStates.Failed)
+          })
+          .finally(() => {
+            pendingSyncRetryInFlightRef.current = false
+          })
+      }, 500)
+    }
+
+    const handleOnline = (): void => {
+      runPendingSyncIfPossible()
+    }
+
+    const handleFocus = (): void => {
+      runPendingSyncIfPossible()
+    }
+
+    const handleVisibilityChange = (): void => {
+      if (document.visibilityState === 'visible') {
+        runPendingSyncIfPossible()
+      }
+    }
+
+    window.addEventListener('online', handleOnline)
+    window.addEventListener('focus', handleFocus)
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+
+    runPendingSyncIfPossible()
+
+    return () => {
+      window.removeEventListener('online', handleOnline)
+      window.removeEventListener('focus', handleFocus)
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
+    }
+  }, [retryPendingSync])
+
   async function signInMerchant(loginNameInput?: string, passwordInput?: string): Promise<void> {
     const loginName = (typeof loginNameInput === 'string' ? loginNameInput : loginUsernameDraft).trim()
     const password = (typeof passwordInput === 'string' ? passwordInput : loginPasswordDraft).trim()
 
     if (!loginName || !password) {
       setLoginError('Please enter account and password.')
+      return
+    }
+
+    if (guardOfflineWriteOperation()) {
+      setLoginError('You are offline. Please reconnect and try again.')
       return
     }
 
@@ -3914,7 +6477,7 @@ function backFromAppointments(): void {
         setMerchantBindings([])
         setIsAdminLoggedIn(false)
         clearPersistedMerchantSession(false)
-        setLoginError('Invalid account or password.')
+        setLoginError(merchantSignInFailureMessage())
         return
       }
 
@@ -3924,6 +6487,8 @@ function backFromAppointments(): void {
       const binding = await repository.fetchMerchantBindingForStoreAndAuthUser(storeId, session.authUserId)
 
       if (!binding || !binding.authUserId || binding.authUserId.toLowerCase() !== session.authUserId.toLowerCase()) {
+        const message = merchantBindingFailureMessage()
+
         await repository.signOutMerchant()
         setStoreMerchantSessionFromAuthSession(null)
         bindMerchantSessionToRepository(repository)
@@ -3931,7 +6496,7 @@ function backFromAppointments(): void {
         setMerchantBindings([])
         setIsAdminLoggedIn(false)
         clearPersistedMerchantSession(false)
-        setLoginError('This account is not bound to current store.')
+        setLoginError(message)
         return
       }
 
@@ -3942,6 +6507,7 @@ function backFromAppointments(): void {
       }
       const routeAfterLogin = pendingPushRoute
 
+      writeMerchantSession(effectiveSession)
       setMerchantSessionAndPersist(effectiveSession, loginRememberMeDraft)
       setMerchantBindings([binding])
       setAdminUsernameDraft(effectiveLoginName)
@@ -3958,27 +6524,26 @@ function backFromAppointments(): void {
 
       void registerMerchantPushDevice('merchant-sign-in-success', true)
 
-      await tryLoadFromCloud(ShowcaseRetryOps.LoadFromCloud)
-      await refreshAdminHomeCloudState(false)
-
       if (routeAfterLogin && String(routeAfterLogin.openAs || '').trim().toLowerCase() === 'merchant') {
         setPendingPushRoute(null)
         await handlePushRoute(routeAfterLogin)
       }
-    } catch {
+    } catch (error) {
       setStoreMerchantSessionFromAuthSession(null)
       bindMerchantSessionToRepository(repository)
       setMerchantSession(null)
       setMerchantBindings([])
       setIsAdminLoggedIn(false)
       clearPersistedMerchantSession(false)
-      setLoginError('Invalid account or password.')
+      setLoginError(merchantUnexpectedSignInFailureMessage(error))
     } finally {
       setIsLoginLoading(false)
     }
   }
 
   async function signOutMerchant(): Promise<void> {
+    const preservedLoginName = getPreferredLoginNameForLoginScreen()
+
     try {
       await unregisterMerchantPushDevice('merchant-sign-out')
       await repository.signOutMerchant()
@@ -3992,12 +6557,13 @@ function backFromAppointments(): void {
       clearPersistedMerchantSession(true)
       writeRememberMe(false)
 
-      setAdminUsernameDraft('')
+      setAdminUsernameDraft(preservedLoginName)
       setAdminPasswordDraft('')
-      setLoginUsernameDraft('')
+      setLoginUsernameDraft(preservedLoginName)
       setLoginPasswordDraft('')
       setLoginRememberMeDraft(false)
       setLoginError(null)
+      setIsLoginLoading(false)
 
       setChangePasswordCurrentDraft('')
       setChangePasswordNewDraft('')
@@ -4037,6 +6603,12 @@ function backFromAppointments(): void {
 
     if (next !== confirm) {
       setChangePasswordError('Passwords do not match.')
+      return
+    }
+
+    if (guardOfflineWriteOperation()) {
+      setChangePasswordError('You are offline. Please reconnect and try again.')
+      setChangePasswordSuccess(null)
       return
     }
 
@@ -4093,6 +6665,10 @@ function backFromAppointments(): void {
       return
     }
 
+    if (guardOfflineWriteOperation()) {
+      return
+    }
+
     const ok = await repository.updateMerchantLoginName({
       newLoginName: nextLoginName
     })
@@ -4120,21 +6696,72 @@ function backFromAppointments(): void {
     await signOutMerchant()
   }
 
-  function loadAdminCredentials(): void {
-    const restored = restoreMerchantSessionFromStorage()
+  async function loadAdminCredentials(): Promise<void> {
+    const cachedLoginName = readLastMerchantLoginName()
 
-    if (!restored) {
-      setAdminUsernameDraft('')
-      setLoginUsernameDraft('')
+    restoreMerchantSessionFromStorage()
+
+    if (cachedLoginName) {
+      setAdminUsernameDraft(cachedLoginName)
+      setLoginUsernameDraft(cachedLoginName)
+    }
+
+    let authSession: Awaited<ReturnType<typeof getFreshShowcaseAuthSession>> | null = null
+
+    try {
+      authSession = await getFreshShowcaseAuthSession()
+    } catch {
+      setStoreMerchantSessionFromAuthSession(null)
+      bindMerchantSessionToRepository(repository)
+      setMerchantSession(null)
+      setMerchantBindings([])
+      setIsAdminLoggedIn(false)
       return
     }
 
-    setAdminUsernameDraft(restored.loginName)
-    setLoginUsernameDraft(restored.loginName)
-    setStoreMerchantSessionFromAuthSession(restored)
+    if (!authSession?.accessToken || !authSession.authUserId) {
+      setStoreMerchantSessionFromAuthSession(null)
+      bindMerchantSessionToRepository(repository)
+      setMerchantSession(null)
+      setMerchantBindings([])
+      setIsAdminLoggedIn(false)
+      return
+    }
+
+    const sourceSession: MerchantAuthSession = {
+      accessToken: authSession.accessToken,
+      refreshToken: null,
+      authUserId: authSession.authUserId,
+      loginName: authSession.email || cachedLoginName,
+      expiresAt: authSession.expiresAt || 0
+    }
+
+    setStoreMerchantSessionFromAuthSession(sourceSession)
     bindMerchantSessionToRepository(repository)
-    setMerchantSession(restored)
-    setIsAdminLoggedIn(Boolean(restored.accessToken))
+
+    const binding = await repository.fetchMerchantBindingForStoreAndAuthUser(storeId, sourceSession.authUserId)
+
+    if (!binding || !binding.authUserId || binding.authUserId.toLowerCase() !== sourceSession.authUserId.toLowerCase()) {
+      setMerchantSession(null)
+      setMerchantBindings([])
+      setIsAdminLoggedIn(false)
+      return
+    }
+
+    const effectiveLoginName = binding.loginName?.trim() || sourceSession.loginName
+    const effectiveSession: MerchantAuthSession = {
+      ...sourceSession,
+      loginName: effectiveLoginName
+    }
+
+    writeMerchantSession(effectiveSession)
+    setStoreMerchantSessionFromAuthSession(effectiveSession)
+    bindMerchantSessionToRepository(repository)
+    setMerchantSession(effectiveSession)
+    setMerchantBindings([binding])
+    setIsAdminLoggedIn(true)
+    setAdminUsernameDraft(effectiveLoginName)
+    setLoginUsernameDraft(effectiveLoginName)
 
     window.setTimeout(() => {
       void registerMerchantPushDevice('merchant-session-restored', true)
@@ -4170,30 +6797,10 @@ function backFromAppointments(): void {
   async function validateRestoredMerchantSession(sessionInput: MerchantAuthSession | null): Promise<boolean> {
     if (!sessionInput?.accessToken || !sessionInput.authUserId) return false
 
-    const validSession = await ensureValidMerchantAccessToken({
-      session: sessionInput,
-      refreshSession: async session => {
-        const refreshed = await repository.refreshCurrentMerchantSessionForManager(session)
-
-        return {
-          ok: Boolean(refreshed),
-          session: refreshed
-        }
-      },
-      persistSession: session => {
-        persistMerchantSession(session, readRememberMe())
-      }
-    })
-
-    if (!validSession) {
-      bindMerchantSessionToRepository(repository)
-      return false
-    }
-
-    setStoreMerchantSessionFromAuthSession(validSession)
+    setStoreMerchantSessionFromAuthSession(sessionInput)
     bindMerchantSessionToRepository(repository)
 
-    const binding = await repository.fetchMerchantBindingForStoreAndAuthUser(storeId, validSession.authUserId)
+    const binding = await repository.fetchMerchantBindingForStoreAndAuthUser(storeId, sessionInput.authUserId)
     if (!binding) {
       setSyncErrorMessage('Merchant binding check failed. Please try again.')
       setSyncOverviewState(SyncOverviewStates.Failed)
@@ -4201,83 +6808,309 @@ function backFromAppointments(): void {
     }
 
     setMerchantBindings([binding])
-    applyRefreshedMerchantSession(validSession)
-    setAdminUsernameDraft(validSession.loginName)
-    setLoginUsernameDraft(validSession.loginName)
+    applyRefreshedMerchantSession(sessionInput)
+    setAdminUsernameDraft(sessionInput.loginName)
+    setLoginUsernameDraft(sessionInput.loginName)
     return true
   }
 
-  async function ensureMerchantSessionLoadedForCloud(): Promise<MerchantAuthSession | null> {
+  type MerchantSessionEnsureResult =
+    | {
+        type: 'valid'
+        session: MerchantAuthSession
+      }
+    | {
+        type: 'temporary_failed'
+        session: MerchantAuthSession
+      }
+    | {
+        type: 'permission_failed'
+      }
+    | {
+        type: 'expired'
+      }
+
+  async function ensureMerchantSessionLoadedForCloud(): Promise<MerchantSessionEnsureResult> {
     ndjcTrace('ENTER ensureMerchantSessionLoadedForCloud', {
       screen,
       isAdminLoggedIn,
       hasReactSession: Boolean(merchantSession?.accessToken),
-      hasStoredSession: Boolean(restoreMerchantSessionFromStorage()?.accessToken),
+      hasStoredSession: false,
       storeId
     })
 
-    const sourceSession = merchantSession?.accessToken
-      ? merchantSession
-      : restoreMerchantSessionFromStorage()
+    restoreMerchantSessionFromStorage()
 
-    if (!sourceSession) {
-      ndjcTrace('EXIT ensureMerchantSessionLoadedForCloud no source session', {
+    const storedSession = merchantSession?.accessToken
+      ? merchantSession
+      : null
+
+    let authSession: Awaited<ReturnType<typeof getFreshShowcaseAuthSession>> | null = null
+
+    try {
+      authSession = await getFreshShowcaseAuthSession()
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error || '')
+      const status = typeof error === 'object' && error && 'status' in error
+        ? Number((error as { status?: number | null }).status || 0)
+        : 0
+
+      ndjcTrace('ensureMerchantSessionLoadedForCloud failed to refresh SDK session', {
+        screen,
+        isAdminLoggedIn,
+        message,
+        status
+      })
+
+      if (
+        storedSession?.accessToken &&
+        storedSession.authUserId &&
+        isTemporaryMerchantRefreshFailure(status, message)
+      ) {
+        handleTemporaryMerchantRefreshFailure(storedSession)
+
+        return {
+          type: 'temporary_failed',
+          session: storedSession
+        }
+      }
+
+      return {
+        type: 'expired'
+      }
+    }
+
+    if (!authSession?.accessToken || !authSession.authUserId) {
+      ndjcTrace('EXIT ensureMerchantSessionLoadedForCloud no SDK auth session', {
         screen,
         isAdminLoggedIn
       })
-      return null
+
+      return {
+        type: 'expired'
+      }
     }
 
-    const validSession = await ensureValidMerchantAccessToken({
-      session: sourceSession,
-      refreshSession: async session => {
-        const refreshed = await repository.refreshCurrentMerchantSessionForManager(session)
+    const sourceSession: MerchantAuthSession = {
+      accessToken: authSession.accessToken,
+      refreshToken: null,
+      authUserId: authSession.authUserId,
+      loginName: authSession.email || storedSession?.loginName || loginUsernameDraft || adminUsernameDraft || '',
+      expiresAt: authSession.expiresAt || storedSession?.expiresAt || 0
+    }
 
-        return {
-          ok: Boolean(refreshed),
-          session: refreshed
-        }
-      },
-      persistSession: session => {
-        persistMerchantSession(session, readRememberMe())
-      }
-    })
+    setStoreMerchantSessionFromAuthSession(sourceSession)
+    bindMerchantSessionToRepository(repository)
 
-    if (!validSession) {
-      ndjcTrace('ensureMerchantSessionLoadedForCloud refresh returned null, keep source session', {
+    const binding = await repository.fetchMerchantBindingForStoreAndAuthUser(storeId, sourceSession.authUserId)
+
+    if (!binding || !binding.authUserId || binding.authUserId.toLowerCase() !== sourceSession.authUserId.toLowerCase()) {
+      const message = merchantBindingFailureMessage()
+
+      ndjcTrace('ensureMerchantSessionLoadedForCloud binding failed', {
         screen,
         isAdminLoggedIn,
         authUserId: sourceSession.authUserId,
-        expiresAt: sourceSession.expiresAt
+        bindingCode: repository.lastMerchantBindingCode,
+        bindingBody: repository.lastMerchantBindingBody,
+        message
       })
 
-      setStoreMerchantSessionFromAuthSession(sourceSession)
-      bindMerchantSessionToRepository(repository)
-      setMerchantSession(sourceSession)
-      setIsAdminLoggedIn(isMerchantLoggedInInStoreSession())
-      return sourceSession
+      setSyncOverviewState(SyncOverviewStates.Failed)
+      setSyncErrorMessage(message)
+      setStatusMessage(message)
+
+      if (repository.lastMerchantBindingCode === 401) {
+        return {
+          type: 'expired'
+        }
+      }
+
+      return {
+        type: 'permission_failed'
+      }
     }
 
-    applyRefreshedMerchantSession(validSession)
+    const effectiveLoginName = binding.loginName?.trim() || sourceSession.loginName
+    const effectiveSession: MerchantAuthSession = {
+      ...sourceSession,
+      loginName: effectiveLoginName
+    }
 
-    ndjcTrace('EXIT ensureMerchantSessionLoadedForCloud valid session', {
+    setMerchantBindings([binding])
+    applyRefreshedMerchantSession(effectiveSession)
+    setAdminUsernameDraft(effectiveLoginName)
+    setLoginUsernameDraft(effectiveLoginName)
+
+    ndjcTrace('EXIT ensureMerchantSessionLoadedForCloud valid SDK-backed session', {
       screen,
       isAdminLoggedIn,
-      authUserId: validSession.authUserId,
-      expiresAt: validSession.expiresAt
+      authUserId: effectiveSession.authUserId,
+      expiresAt: effectiveSession.expiresAt
     })
 
-    return validSession
+    return {
+      type: 'valid',
+      session: effectiveSession
+    }
+  }
+
+  async function ensureValidMerchantSessionLoadedForCloud(): Promise<MerchantAuthSession | null> {
+    const result = await ensureMerchantSessionLoadedForCloud()
+    lastMerchantSessionEnsureResultRef.current = result.type
+
+    if (result.type === 'valid') {
+      return result.session
+    }
+
+    return null
+  }
+
+  function merchantSessionEnsureFailureMessage(): string {
+    if (lastMerchantSessionEnsureResultRef.current === 'temporary_failed') {
+      return 'Cloud sync failed. Please check your connection and try again.'
+    }
+
+    if (lastMerchantSessionEnsureResultRef.current === 'permission_failed') {
+      return merchantBindingFailureMessage()
+    }
+
+    return 'Session expired. Please sign in again.'
+  }
+
+  function merchantSessionEnsureSnackbarMessage(): string {
+    if (lastMerchantSessionEnsureResultRef.current === 'temporary_failed') {
+      return 'Cloud sync failed. Please check your connection and try again.'
+    }
+
+    if (lastMerchantSessionEnsureResultRef.current === 'permission_failed') {
+      return merchantBindingFailureMessage()
+    }
+
+    return 'Please sign in again.'
+  }
+
+  function repositoryErrorText(bodyInput: string | null | undefined): string {
+    const body = String(bodyInput || '').trim()
+    if (!body) return ''
+
+    try {
+      const parsed = JSON.parse(body) as Record<string, unknown>
+      const error = String(parsed.error || '').trim()
+      const message = String(parsed.message || '').trim()
+      const msg = String(parsed.msg || '').trim()
+      const details = String(parsed.details || '').trim()
+      return error || message || msg || details || body
+    } catch {
+      return body
+    }
+  }
+
+  function isNetworkFailureCode(codeInput: number | null | undefined): boolean {
+    const code = codeInput || 0
+    return code === 0 || code === 408 || code === 409 || code === 425 || code === 429 || code >= 500
+  }
+
+  function merchantSignInFailureMessage(): string {
+    const code = repository.lastMerchantAuthCode
+    const body = repository.lastMerchantAuthBody
+    const detail = repositoryErrorText(body).toLowerCase()
+
+    if (isNetworkFailureCode(code)) {
+      if (
+        detail.includes('supabase url is missing') ||
+        detail.includes('supabase anon key is missing') ||
+        detail.includes('missing_supabase_url') ||
+        detail.includes('missing_supabase_anon_key')
+      ) {
+        return 'Cloud auth is not configured. Please check Supabase URL and anon key.'
+      }
+
+      return 'Network error. Please check your connection and try again.'
+    }
+
+    if (code === 400 || code === 401 || code === 403) {
+      return 'Invalid account or password.'
+    }
+
+    return 'Sign in failed. Please try again.'
+  }
+
+  function merchantBindingFailureMessage(): string {
+    const code = repository.lastMerchantBindingCode
+    const body = repository.lastMerchantBindingBody
+    const detail = repositoryErrorText(body).toLowerCase()
+
+    if (code === 404 || detail.includes('not bound') || detail.includes('no rows') || detail.includes('0 rows')) {
+      return 'This account is not bound to current store.'
+    }
+
+    if (code === 401) {
+      return 'Session expired. Please sign in again.'
+    }
+
+    if (code === 403) {
+      return 'Permission denied for current store.'
+    }
+
+    if (isNetworkFailureCode(code)) {
+      return 'Network error. Please check your connection and try again.'
+    }
+
+    return 'This account is not bound to current store.'
+  }
+
+  function merchantUnexpectedSignInFailureMessage(errorInput: unknown): string {
+    const message = errorInput instanceof Error ? errorInput.message : String(errorInput || '')
+
+    if (!message.trim()) {
+      return 'Sign in failed. Please try again.'
+    }
+
+    const lower = message.toLowerCase()
+
+    if (
+      lower.includes('failed to fetch') ||
+      lower.includes('network error') ||
+      lower.includes('networkerror') ||
+      lower.includes('timeout') ||
+      lower.includes('timed out') ||
+      lower.includes('offline')
+    ) {
+      return 'Network error. Please check your connection and try again.'
+    }
+
+    return 'Sign in failed. Please try again.'
   }
 
   function isRecoverableMerchantAuthErrorMessage(messageInput: string): boolean {
     const lower = messageInput.toLowerCase()
 
+    if (
+      lower.includes('permission denied') ||
+      lower.includes('row level security') ||
+      lower.includes('rls') ||
+      lower.includes('not bound') ||
+      lower.includes('store not bound') ||
+      lower.includes('merchant binding missing') ||
+      lower.includes('forbidden') ||
+      lower.includes('403')
+    ) {
+      return false
+    }
+
     return lower.includes('jwt expired') ||
       lower.includes('jwt is expired') ||
       lower.includes('invalid jwt') ||
       lower.includes('expired jwt') ||
+      lower.includes('"exp" claim timestamp check failed') ||
+      lower.includes('exp claim timestamp check failed') ||
+      lower.includes('access token expired') ||
+      lower.includes('token expired') ||
       lower.includes('unauthorized') ||
+      lower.includes('not authenticated') ||
+      lower.includes('missing access token') ||
+      lower.includes('missing auth session') ||
       lower.includes('401')
   }
 
@@ -4289,29 +7122,175 @@ function backFromAppointments(): void {
       lower.includes('invalid refresh token') ||
       lower.includes('refresh token expired') ||
       lower.includes('session not found') ||
-      lower.includes('no refresh token')
+      lower.includes('session_not_found') ||
+      lower.includes('user not found') ||
+      lower.includes('no refresh token') ||
+      lower.includes('missing refresh token')
   }
 
-  async function tryForceRefreshMerchantSessionForAuthError(): Promise<boolean> {
+  function isTemporaryMerchantRefreshFailure(
+    codeInput: number | null | undefined,
+    bodyInput: string | null | undefined
+  ): boolean {
+    const code = codeInput || 0
+    const lower = String(bodyInput || '').toLowerCase()
+
+    if (isUnrecoverableMerchantRefreshErrorMessage(lower)) {
+      return false
+    }
+
+    if (code === 0) {
+      return true
+    }
+
+    if (code === 408 || code === 409 || code === 425 || code === 429) {
+      return true
+    }
+
+    if (code >= 500 && code <= 599) {
+      return true
+    }
+
+    return lower.includes('failed to fetch') ||
+      lower.includes('network error') ||
+      lower.includes('networkerror') ||
+      lower.includes('timeout') ||
+      lower.includes('timed out') ||
+      lower.includes('abort') ||
+      lower.includes('aborted') ||
+      lower.includes('offline') ||
+      lower.includes('temporarily unavailable') ||
+      lower.includes('service unavailable') ||
+      lower.includes('gateway timeout')
+  }
+
+  type MerchantForceRefreshResult = 'refreshed' | 'expired' | 'temporary_failed' | 'unknown_failed'
+
+  function handleTemporaryMerchantRefreshFailure(sourceSession: MerchantAuthSession): void {
+    const refreshCode = repository.lastMerchantAuthCode
+    const refreshBody = repository.lastMerchantAuthBody
+    const syncMessage = 'Cloud sync failed. Please check your connection and try again.'
+
+    ndjcTrace('handleTemporaryMerchantRefreshFailure keep merchant session', {
+      screen,
+      isAdminLoggedIn,
+      authUserId: sourceSession.authUserId,
+      expiresAt: sourceSession.expiresAt,
+      refreshCode,
+      refreshBody
+    })
+
+    setStoreMerchantSessionFromAuthSession(sourceSession)
+    bindMerchantSessionToRepository(repository)
+    setSyncOverviewState(SyncOverviewStates.Failed)
+    setSyncErrorMessage(syncMessage)
+    setStatusMessage(syncMessage)
+    showSnackbar(syncMessage)
+  }
+
+  async function tryReloadSdkMerchantSessionForAuthError(): Promise<MerchantForceRefreshResult> {
+    restoreMerchantSessionFromStorage()
+
     const sourceSession = merchantSession?.accessToken
       ? merchantSession
-      : restoreMerchantSessionFromStorage()
+      : null
 
-    if (!sourceSession?.refreshToken) {
-      return false
+    try {
+      const authSession = await refreshShowcaseAuthSession()
+
+      if (!authSession?.accessToken || !authSession.authUserId) {
+        return 'expired'
+      }
+
+      if (
+        sourceSession?.authUserId &&
+        sourceSession.authUserId.toLowerCase() !== authSession.authUserId.toLowerCase()
+      ) {
+        return 'expired'
+      }
+
+      const nextSession: MerchantAuthSession = {
+        accessToken: authSession.accessToken,
+        refreshToken: null,
+        authUserId: authSession.authUserId,
+        loginName: authSession.email || sourceSession?.loginName || loginUsernameDraft || adminUsernameDraft || '',
+        expiresAt: authSession.expiresAt || sourceSession?.expiresAt || 0
+      }
+
+      applyRefreshedMerchantSession(nextSession)
+      return 'refreshed'
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error || '')
+      const status = typeof error === 'object' && error && 'status' in error
+        ? Number((error as { status?: number | null }).status || 0)
+        : 0
+
+      if (sourceSession?.accessToken && isTemporaryMerchantRefreshFailure(status, message)) {
+        handleTemporaryMerchantRefreshFailure(sourceSession)
+        return 'temporary_failed'
+      }
+
+      return 'expired'
     }
-
-    const refreshed = await repository.refreshCurrentMerchantSessionForManager(sourceSession)
-
-    if (!refreshed?.accessToken) {
-      return false
-    }
-
-    applyRefreshedMerchantSession(refreshed)
-
-    return true
   }
+  async function refreshMerchantSessionForPwaResume(): Promise<void> {
+    if (!isBrowser()) return
 
+    const currentSession = merchantSessionRef.current
+
+    if (!currentSession?.accessToken && !isMerchantLoggedInInStoreSession()) {
+      return
+    }
+
+    try {
+      const authSession = await getFreshShowcaseAuthSession()
+
+      if (!authSession?.accessToken || !authSession.authUserId) {
+        await handleMerchantSessionExpired()
+        return
+      }
+
+      if (
+        currentSession?.authUserId &&
+        currentSession.authUserId.toLowerCase() !== authSession.authUserId.toLowerCase()
+      ) {
+        await handleMerchantSessionExpired()
+        return
+      }
+
+      const nextSession: MerchantAuthSession = {
+        accessToken: authSession.accessToken,
+        refreshToken: null,
+        authUserId: authSession.authUserId,
+        loginName: authSession.email || currentSession?.loginName || loginUsernameDraft || adminUsernameDraft || '',
+        expiresAt: authSession.expiresAt || currentSession?.expiresAt || 0
+      }
+
+      applyRefreshedMerchantSession(nextSession)
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error || '')
+      const status = typeof error === 'object' && error && 'status' in error
+        ? Number((error as { status?: number | null }).status || 0)
+        : 0
+
+      if (isUnrecoverableMerchantRefreshErrorMessage(message)) {
+        await handleMerchantSessionExpired()
+        return
+      }
+
+      if (isTemporaryMerchantRefreshFailure(status, message)) {
+        ndjcTrace('refreshMerchantSessionForPwaResume temporary failure', {
+          screen,
+          isAdminLoggedIn,
+          status,
+          message
+        })
+        return
+      }
+
+      await handleMerchantSessionExpired()
+    }
+  }
   async function handleMerchantAuthExpiredIfNeeded(errorInput?: unknown): Promise<boolean> {
     const message = errorInput instanceof Error ? errorInput.message : String(errorInput || '')
 
@@ -4338,18 +7317,109 @@ function backFromAppointments(): void {
       return false
     }
 
-    const refreshed = await tryForceRefreshMerchantSessionForAuthError()
+    const refreshResult = await tryReloadSdkMerchantSessionForAuthError()
 
     ndjcTrace('handleMerchantAuthExpiredIfNeeded force refresh result', {
-      refreshed,
-      message
+      refreshResult,
+      message,
+      refreshCode: repository.lastMerchantAuthCode,
+      refreshBody: repository.lastMerchantAuthBody
     })
 
-    if (refreshed) {
+    if (refreshResult === 'refreshed') {
+      return true
+    }
+
+    if (refreshResult === 'temporary_failed') {
+      return true
+    }
+
+    if (refreshResult === 'expired') {
+      await handleMerchantSessionExpired()
       return true
     }
 
     return false
+  }
+
+  async function retryMerchantCloudOperationAfterAuthRefresh<T>(input: {
+    errorInput: unknown
+    operation: () => Promise<T>
+    isSuccess: (value: T) => boolean
+  }): Promise<{
+    status: 'not_auth_error' | 'handled_without_retry' | 'retried_success' | 'retried_failed'
+    value: T | null
+  }> {
+    const message = input.errorInput instanceof Error
+      ? input.errorInput.message
+      : String(input.errorInput || '')
+
+    if (isUnrecoverableMerchantRefreshErrorMessage(message)) {
+      await handleMerchantSessionExpired()
+
+      return {
+        status: 'handled_without_retry',
+        value: null
+      }
+    }
+
+    if (!isRecoverableMerchantAuthErrorMessage(message)) {
+      return {
+        status: 'not_auth_error',
+        value: null
+      }
+    }
+
+    const refreshResult = await tryReloadSdkMerchantSessionForAuthError()
+
+    ndjcTrace('retryMerchantCloudOperationAfterAuthRefresh force refresh result', {
+      refreshResult,
+      message,
+      refreshCode: repository.lastMerchantAuthCode,
+      refreshBody: repository.lastMerchantAuthBody
+    })
+
+    if (refreshResult === 'refreshed') {
+      const validSession = await ensureValidMerchantSessionLoadedForCloud()
+
+      if (!validSession) {
+        return {
+          status: 'handled_without_retry',
+          value: null
+        }
+      }
+
+      setStoreMerchantSessionFromAuthSession(validSession)
+      bindMerchantSessionToRepository(repository)
+
+      const retryValue = await input.operation()
+
+      return {
+        status: input.isSuccess(retryValue) ? 'retried_success' : 'retried_failed',
+        value: retryValue
+      }
+    }
+
+    if (refreshResult === 'temporary_failed') {
+      return {
+        status: 'handled_without_retry',
+        value: null
+      }
+    }
+
+    if (refreshResult === 'expired') {
+      await handleMerchantSessionExpired()
+
+      return {
+        status: 'handled_without_retry',
+        value: null
+      }
+    }
+
+    return {
+      status: 'not_auth_error',
+      value: null
+    }
   }
 
   async function handleMerchantSessionExpired(): Promise<void> {
@@ -4361,16 +7431,28 @@ function backFromAppointments(): void {
     })
 
     const message = 'Session expired. Please sign in again.'
+    const preservedLoginName = getPreferredLoginNameForLoginScreen()
 
     clearStoreMerchantSession()
     bindMerchantSessionToRepository(repository)
+    setStoreMerchantSessionFromAuthSession(null)
     setMerchantSession(null)
     setIsAdminLoggedIn(false)
     setMerchantBindings([])
     clearStoredMerchantSession()
+    setLoginUsernameDraft(preservedLoginName)
+    setAdminUsernameDraft(preservedLoginName)
     setLoginPasswordDraft('')
     setAdminPasswordDraft('')
+    setLoginRememberMeDraft(false)
     setLoginError(message)
+    setIsLoginLoading(false)
+    setChangePasswordCurrentDraft('')
+    setChangePasswordNewDraft('')
+    setChangePasswordConfirmDraft('')
+    setChangePasswordError(null)
+    setChangePasswordSuccess(null)
+    setIsChangingPassword(false)
     setSyncErrorMessage(message)
     setSyncOverviewState(SyncOverviewStates.Failed)
     setStatusMessage(message)
@@ -4404,15 +7486,17 @@ function backFromAppointments(): void {
 
   async function refreshAdminHomeCloudState(showStatusMessage = false): Promise<void> {
     if (!isAdminLoggedIn && !isMerchantLoggedInInStoreSession()) return
+    if (adminHomeRefreshInFlightRef.current) return
 
+    adminHomeRefreshInFlightRef.current = true
     setSyncOverviewState(SyncOverviewStates.Syncing)
     setSyncErrorMessage(null)
 
     try {
-      const validSession = await ensureMerchantSessionLoadedForCloud()
+      const validSession = await ensureValidMerchantSessionLoadedForCloud()
       if (!validSession) {
         setSyncOverviewState(SyncOverviewStates.Failed)
-        setSyncErrorMessage('Session expired. Please sign in again.')
+        setSyncErrorMessage(merchantSessionEnsureFailureMessage())
         return
       }
 
@@ -4420,13 +7504,43 @@ function backFromAppointments(): void {
       bindMerchantSessionToRepository(repository)
 
       const traceId = `VM${Date.now()}_${storeId.slice(-4)}`
-      const serviceStatus = await repository.fetchStoreServiceStatus(storeId)
+
+      const [
+        serviceStatus,
+        merchantAppointments,
+        merchantThreads
+      ] = await Promise.all([
+        repository.fetchStoreServiceStatus(storeId),
+        repository.fetchAppointmentRequestsForMerchant(storeId).catch(appointmentError => {
+          console.warn('[AdminHome] appointment refresh failed', appointmentError)
+          return [] as CloudAppointmentRequest[]
+        }),
+        (async () => {
+          try {
+            await chatRepository.syncMerchantThreadMetaFromCloud(storeId, traceId)
+            return fetchLatestMerchantThreadsForMerge(traceId)
+          } catch (chatError) {
+            console.warn('[AdminHome] chat thread refresh failed', chatError)
+            return merchantChatThreads
+          }
+        })()
+      ])
+
       const writeAllowed = serviceStatus
         ? serviceStatus.isWriteAllowed
         : await repository.isStoreWriteAllowed(storeId)
 
+      const sortedAppointments = [...merchantAppointments].sort((left, right) => {
+        return (right.createdAt || 0) - (left.createdAt || 0)
+      })
+
       setCloudStatus(serviceStatus)
       setIsWriteAllowed(writeAllowed)
+      setAppointmentRequests(sortedAppointments)
+      setMerchantChatThreads(current => mergeMerchantThreadSummariesByConversationId(
+        current,
+        merchantThreads
+      ))
       setLastSyncAt(nowMillis())
       setSyncOverviewState(SyncOverviewStates.Idle)
       setSyncErrorMessage(null)
@@ -4434,29 +7548,6 @@ function backFromAppointments(): void {
       if (showStatusMessage) {
         setStatusMessage(null)
       }
-
-      void repository.fetchAppointmentRequestsForMerchant(storeId)
-        .then(merchantAppointments => {
-          const sortedAppointments = [...merchantAppointments].sort((left, right) => {
-            return (right.createdAt || 0) - (left.createdAt || 0)
-          })
-
-          setAppointmentRequests(sortedAppointments)
-        })
-        .catch(appointmentError => {
-          console.warn('[AdminHome] appointment refresh failed', appointmentError)
-        })
-
-      void chatRepository.syncMerchantThreadMetaFromCloud(storeId, traceId)
-        .then(async () => {
-          const threads = await fetchMerchantThreadsFromChatRepository(traceId)
-          const mergedThreads = await buildMerchantThreadsWithLocalMeta(threads)
-
-          setMerchantChatThreads(mergedThreads)
-        })
-        .catch(chatError => {
-          console.warn('[AdminHome] chat thread refresh failed', chatError)
-        })
     } catch (error) {
       const handled = await handleMerchantAuthExpiredIfNeeded(error)
       if (handled) return
@@ -4469,6 +7560,8 @@ function backFromAppointments(): void {
       if (showStatusMessage) {
         setStatusMessage(message)
       }
+    } finally {
+      adminHomeRefreshInFlightRef.current = false
     }
   }
 
@@ -4483,7 +7576,16 @@ function backFromAppointments(): void {
 
     try {
       if (isAdminLoggedIn || isMerchantLoggedInInStoreSession()) {
-        await ensureMerchantSessionLoadedForCloud()
+        const validSession = await ensureValidMerchantSessionLoadedForCloud()
+
+        if (!validSession) {
+          setSyncOverviewState(SyncOverviewStates.Failed)
+          setSyncErrorMessage(merchantSessionEnsureFailureMessage())
+          return
+        }
+
+        setStoreMerchantSessionFromAuthSession(validSession)
+        bindMerchantSessionToRepository(repository)
       }
 
       await loadFromCloud(reason)
@@ -4526,6 +7628,13 @@ function backFromAppointments(): void {
     const effectiveLocalDishes = localDishes.filter(item => isAdminLoggedIn || !item.isHidden)
 
     if (effectiveLocalDishes.length) {
+      mergeDishEntities(effectiveLocalDishes)
+      setHomeDishIds(dishIdsFromItems(effectiveLocalDishes))
+
+      if (isAdminLoggedIn) {
+        setAdminItemIds(dishIdsFromItems(effectiveLocalDishes))
+      }
+
       setDishes(effectiveLocalDishes)
       refreshFavoritesList(effectiveLocalDishes)
       setPendingSyncOperations(buildPendingDishSyncOperations(effectiveLocalDishes))
@@ -4547,8 +7656,8 @@ function backFromAppointments(): void {
       setAnnouncements(localAnnouncements)
     }
 
-    loadAdminCredentials()
-    await tryLoadFromCloud(ShowcaseRetryOps.LoadFromCloud)
+    await loadAdminCredentials()
+    await refreshHomeMainData()
 
     ndjcTrace('EXIT loadFromSources', {
       screen,
@@ -4596,11 +7705,30 @@ function backFromAppointments(): void {
   function buildPendingFromSelectedDish(): ShowcaseChatProductShare | null {
     if (!selectedDish) return null
 
+    return buildChatProductShareFromDish(selectedDish)
+  }
+
+  function buildPendingAppointmentFromCard(item: ShowcaseAppointmentCard): ShowcaseChatAppointmentShare {
+    const linkedItemAvailable = Boolean(item.itemAvailable && item.sourceDishId)
+
     return {
-      dishId: selectedDish.id,
-      title: getDishTitle(selectedDish),
-      price: formatUsd(getDishPrice(selectedDish)),
-      imageUrl: resolveDishImage(selectedDish)
+      appointmentId: item.id,
+      title: item.serviceTitle || 'General appointment',
+      preferredDate: item.preferredDate,
+      preferredTime: item.preferredTime,
+      statusLabel: item.statusLabel,
+      imageUrl: item.imageUrl,
+      imageVariants: item.imageVariants ?? createRemoteOnlyShowcaseImageVariants(item.imageUrl),
+      customerName: item.customerName || 'Customer',
+      customerContact: item.customerContact || '',
+      note: item.note || '',
+      sourceDishId: item.sourceDishId,
+      priceText: item.priceText,
+      originalPriceText: item.originalPriceText,
+      discountPriceText: item.discountPriceText,
+      categoryText: item.categoryText,
+      itemAvailable: linkedItemAvailable,
+      createdAtText: item.createdAtText
     }
   }
 
@@ -4642,6 +7770,7 @@ function backFromAppointments(): void {
       setChatDraft('')
       setChatDraftImageUrls([])
       setChatPendingProduct(null)
+      setChatPendingAppointment(null)
       setChatQuotedMessageId(null)
       setChatSelectedMessageIds(domainState.selectedIds)
       setChatFindResultIds(domainState.findMatchIds)
@@ -4727,15 +7856,7 @@ function backFromAppointments(): void {
   }
 
   async function ensureAnnouncementRegistrationOnHome(): Promise<void> {
-    await refreshAnnouncementsEntryDotOnce()
-    await refreshBookingsEntryDotOnce()
-
-    if (isBrowser()) {
-      window.setTimeout(() => {
-        void refreshAnnouncementsEntryDotOnce()
-        void refreshBookingsEntryDotOnce()
-      }, 2500)
-    }
+    await refreshHomeBadgeData()
   }
 
   function ensureChatRealtimeStarted(): void {
@@ -4749,6 +7870,12 @@ function backFromAppointments(): void {
 
   async function ensureLoaded(): Promise<void> {
     if (hasLoadedInitialCloudRef.current) {
+      if (currentScreenRef.current === ShowcaseScreens.Home) {
+        await refreshHomeMainData()
+        void refreshHomeBadgeData()
+        return
+      }
+
       await tryLoadFromCloud(ShowcaseRetryOps.LoadFromCloud)
       return
     }
@@ -4770,7 +7897,8 @@ function backFromAppointments(): void {
       originalPriceText,
       discountPriceText,
       priceText: discountPriceText || originalPriceText,
-      imageUrl: resolveDishImage(dish)
+      imageUrl: selectDishImageUrl(dish, 'list'),
+      imageVariants: dish.imageVariants ?? null
     }
   }
 
@@ -4819,32 +7947,13 @@ function backFromAppointments(): void {
   }
 
   function formatYmdAmpmHm(valueInput: string | number | Date | null | undefined): string {
-    if (valueInput == null) return ''
-
-    const date = valueInput instanceof Date
-      ? valueInput
-      : typeof valueInput === 'number'
-        ? new Date(valueInput)
-        : new Date(valueInput)
-
-    if (!Number.isFinite(date.getTime())) {
-      return typeof valueInput === 'string' ? valueInput : ''
-    }
-
-    const ymd = date.toISOString().slice(0, 10)
-    const hm = date.toLocaleTimeString(undefined, {
-      hour: '2-digit',
-      minute: '2-digit'
-    })
-
-    return `${ymd} ${hm}`
+    return formatShowcaseDateTime(valueInput)
   }
 
   function hasUnsavedEditDraft(): boolean {
     return Boolean(
-      editDishNameZh.trim() ||
-      editDishNameEn.trim() ||
-      editDishDescriptionEn.trim() ||
+      editDishName.trim() ||
+      editDishDescription.trim() ||
       editDishCategory ||
       editDishOriginalPrice.trim() ||
       editDishDiscountPrice.trim() ||
@@ -4906,12 +8015,8 @@ function backFromAppointments(): void {
     await deleteMerchantThread(conversationId)
   }
 
-  async function merchantChatListMarkRead(conversationId: string): Promise<void> {
-    await markMerchantThreadRead(conversationId)
-  }
-
-  function merchantChatListRenameThread(conversationId: string, title: string): void {
-    void renameMerchantThread(conversationId, title)
+  async function merchantChatListRenameThread(conversationId: string, title: string): Promise<void> {
+    await renameMerchantThread(conversationId, title)
   }
 
   async function merchantChatListTogglePin(conversationId: string, pinned: boolean): Promise<void> {
@@ -4968,12 +8073,18 @@ function backFromAppointments(): void {
   }
 
   function onAdminItemsApplyPriceRange(): void {
-    applyPriceRangeFromDrafts(
-      adminItemsPriceMinDraft,
-      adminItemsPriceMaxDraft,
-      setAdminItemsAppliedMinPrice,
-      setAdminItemsAppliedMaxPrice
-    )
+    const min = parseHomePriceDraft(adminItemsPriceMinDraft)
+    const max = parseHomePriceDraft(adminItemsPriceMaxDraft)
+    const nextMin = min != null && max != null && min > max ? max : min
+    const nextMax = min != null && max != null && min > max ? min : max
+
+    setAdminItemsAppliedMinPrice(nextMin)
+    setAdminItemsAppliedMaxPrice(nextMax)
+
+    void refreshAdminItemsFilteredFirstPage(currentAdminItemsCloudFilters({
+      minPrice: nextMin,
+      maxPrice: nextMax
+    }))
   }
 
   function onAdminItemsClearPriceRange(): void {
@@ -4981,20 +8092,52 @@ function backFromAppointments(): void {
     setAdminItemsPriceMaxDraft('')
     setAdminItemsAppliedMinPrice(null)
     setAdminItemsAppliedMaxPrice(null)
+
+    void refreshAdminItemsFilteredFirstPage(currentAdminItemsCloudFilters({
+      minPrice: null,
+      maxPrice: null
+    }))
   }
 
-  function onAdminItemsFilterDiscountOnlyChange(value: boolean): void {
-    setAdminItemsFilterDiscountOnly(value)
+  function onAdminItemsFilterDiscountOnlyChange(_value: boolean): void {
+    return
   }
 
-  function onAdminItemsFilterHiddenOnlyChange(value: boolean): void {
-    setAdminItemsFilterHiddenOnly(value)
+  function onAdminItemsFilterHiddenOnlyChange(_value: boolean): void {
+    return
   }
 
-  function onAdminItemsFilterRecommendedChange(value: boolean): void {
-    setAdminItemsFilterRecommended(value)
+  function onAdminItemsFilterRecommendedChange(_value: boolean): void {
+    return
   }
+  function onAdminItemsApplyFilters(value: {
+    recommendedOnly: boolean
+    hiddenOnly: boolean
+    discountOnly: boolean
+    minPriceDraft: string
+    maxPriceDraft: string
+  }): void {
+    const min = parseHomePriceDraft(value.minPriceDraft)
+    const max = parseHomePriceDraft(value.maxPriceDraft)
+    const nextMin = min != null && max != null && min > max ? max : min
+    const nextMax = min != null && max != null && min > max ? min : max
 
+    setAdminItemsFilterRecommended(value.recommendedOnly)
+    setAdminItemsFilterHiddenOnly(value.hiddenOnly)
+    setAdminItemsFilterDiscountOnly(value.discountOnly)
+    setAdminItemsPriceMinDraft(value.minPriceDraft)
+    setAdminItemsPriceMaxDraft(value.maxPriceDraft)
+    setAdminItemsAppliedMinPrice(nextMin)
+    setAdminItemsAppliedMaxPrice(nextMax)
+
+    void refreshAdminItemsFilteredFirstPage(currentAdminItemsCloudFilters({
+      recommendedOnly: value.recommendedOnly,
+      hiddenOnly: value.hiddenOnly,
+      onSaleOnly: value.discountOnly,
+      minPrice: nextMin,
+      maxPrice: nextMax
+    }))
+  }
   function onAdminItemsPriceMaxDraftChange(value: string): void {
     setAdminItemsPriceMaxDraft(value)
   }
@@ -5005,20 +8148,39 @@ function backFromAppointments(): void {
 
   function onAdminItemsSearchQueryChange(value: string): void {
     setAdminItemsSearchQuery(value)
+
+    adminItemsSearchRequestSeqRef.current += 1
+    const requestSeq = adminItemsSearchRequestSeqRef.current
+
+    if (adminItemsSearchDebounceTimerRef.current != null && isBrowser()) {
+      window.clearTimeout(adminItemsSearchDebounceTimerRef.current)
+      adminItemsSearchDebounceTimerRef.current = null
+    }
+
+    const nextFilters = currentAdminItemsCloudFilters({
+      searchQuery: value
+    })
+
+    if (!isBrowser()) {
+      void refreshAdminItemsFilteredFirstPage(nextFilters, requestSeq)
+      return
+    }
+
+    adminItemsSearchDebounceTimerRef.current = window.setTimeout(() => {
+      void refreshAdminItemsFilteredFirstPage(nextFilters, requestSeq)
+    }, 350)
   }
 
   function onAdminItemsSortModeChange(value: ShowcaseHomeSortMode): void {
     const nextMode = normalizeSortMode(value)
+    const nextAscending = nextMode !== 'PriceDesc'
 
-    setAdminItemsSortMode(current => {
-      if (current === nextMode) {
-        setAdminItemsSortAscending(currentAscending => !currentAscending)
-        return current
-      }
+    setAdminItemsSortMode(nextMode)
+    setAdminItemsSortAscending(nextAscending)
 
-      setAdminItemsSortAscending(true)
-      return nextMode
-    })
+    void refreshAdminItemsFilteredFirstPage(currentAdminItemsCloudFilters({
+      sortMode: nextMode
+    }))
   }
 
   function onAdminPasswordDraftChange(value: string): void {
@@ -5052,7 +8214,7 @@ function backFromAppointments(): void {
   }
 
   function openAppointmentFromDish(dishId: string): void {
-    openAppointmentForDish(dishId)
+    void openAppointmentForDish(dishId)
   }
 
   function openAppointmentFromSelectedDish(): void {
@@ -5085,9 +8247,14 @@ function backFromAppointments(): void {
   }
 
   async function refresh(): Promise<void> {
+    if (screen === ShowcaseScreens.Admin) {
+      await refreshAdminHomeCloudState(true)
+      return
+    }
+
     await tryLoadFromCloud(ShowcaseRetryOps.LoadFromCloud)
 
-    if (screen === ShowcaseScreens.Admin || isAdminLoggedIn) {
+    if (isAdminLoggedIn) {
       await refreshAdminHomeCloudState(false)
     }
   }
@@ -5145,9 +8312,205 @@ function backFromAppointments(): void {
 
   async function refreshMerchantChatListByUser(): Promise<void> {
     if (merchantChatListRefreshInFlightRef.current) return
+
+    const normalizedQuery = merchantChatListSearchQuery.trim()
+    if (normalizedQuery) {
+      merchantChatListSearchRequestSeqRef.current += 1
+      await refreshMerchantChatListSearch(normalizedQuery, merchantChatListSearchRequestSeqRef.current)
+      return
+    }
+
     await refreshMerchantChatListInternal(true)
   }
 
+  async function loadMoreMerchantChatThreads(): Promise<void> {
+    if (merchantChatListSearchQuery.trim()) {
+      await loadMoreMerchantChatThreadSearch()
+      return
+    }
+
+    if (merchantChatListPagination.isLoadingMore || !merchantChatListPagination.hasMore) return
+
+    const offset = Math.max(0, merchantChatListPagination.nextOffset)
+
+    setMerchantChatListPagination(current => ({
+      nextOffset: current.nextOffset,
+      hasMore: current.hasMore,
+      isLoadingMore: true
+    }))
+
+    try {
+      const validSession = await ensureValidMerchantSessionLoadedForCloud()
+
+      if (!validSession) {
+        setStatusMessage(merchantSessionEnsureFailureMessage())
+        showSnackbar(merchantSessionEnsureSnackbarMessage())
+        setMerchantChatListPagination(current => ({
+          nextOffset: current.nextOffset,
+          hasMore: current.hasMore,
+          isLoadingMore: false
+        }))
+        return
+      }
+
+      setStoreMerchantSessionFromAuthSession(validSession)
+      bindMerchantSessionToRepository(repository)
+
+      const traceId = `VM${Date.now()}_${storeId.slice(-4)}`
+      const threads = await fetchMerchantThreadsFromChatRepository(
+        traceId,
+        SHOWCASE_PAGE_SIZE.chatThreads,
+        offset
+      )
+      const nextThreads = await buildMerchantThreadsWithLocalMeta(threads)
+      const nextOffset = offset + threads.length
+
+      setMerchantChatThreads(current => mergeMerchantThreadSummariesByConversationId(
+        current,
+        nextThreads
+      ))
+      setMerchantChatListPagination({
+        nextOffset,
+        hasMore: threads.length >= SHOWCASE_PAGE_SIZE.chatThreads,
+        isLoadingMore: false
+      })
+    } catch (error) {
+      setMerchantChatListPagination(current => ({
+        nextOffset: current.nextOffset,
+        hasMore: current.hasMore,
+        isLoadingMore: false
+      }))
+      setStatusMessage(error instanceof Error ? error.message : 'Failed to load more conversations.')
+    }
+  }
+  async function refreshMerchantChatListSearch(queryInput: string, requestSeq: number): Promise<void> {
+    const query = String(queryInput || '').trim()
+
+    if (!query) return
+
+    setMerchantChatListRefreshing(true)
+    setMerchantChatListSearchThreads([])
+    setMerchantChatListSearchPagination({
+      nextOffset: 0,
+      hasMore: false,
+      isLoadingMore: true
+    })
+
+    try {
+      const validSession = await ensureValidMerchantSessionLoadedForCloud()
+
+      if (!validSession) {
+        if (requestSeq !== merchantChatListSearchRequestSeqRef.current) return
+
+        setStatusMessage(merchantSessionEnsureFailureMessage())
+        showSnackbar(merchantSessionEnsureSnackbarMessage())
+        setMerchantChatListSearchThreads([])
+        setMerchantChatListSearchPagination({
+          nextOffset: 0,
+          hasMore: false,
+          isLoadingMore: false
+        })
+        return
+      }
+
+      setStoreMerchantSessionFromAuthSession(validSession)
+      bindMerchantSessionToRepository(repository)
+
+      const traceId = `VM${Date.now()}_${storeId.slice(-4)}`
+      const threads = await searchMerchantThreadsFromChatRepository(
+        traceId,
+        query,
+        SHOWCASE_PAGE_SIZE.chatThreads,
+        0
+      )
+
+      if (requestSeq !== merchantChatListSearchRequestSeqRef.current) return
+
+      const nextThreads = await buildMerchantThreadsWithLocalMeta(threads)
+
+      setMerchantChatListSearchThreads(nextThreads)
+      setMerchantChatListSearchPagination({
+        nextOffset: threads.length,
+        hasMore: threads.length >= SHOWCASE_PAGE_SIZE.chatThreads,
+        isLoadingMore: false
+      })
+      setStatusMessage(null)
+    } catch (error) {
+      if (requestSeq !== merchantChatListSearchRequestSeqRef.current) return
+
+      setMerchantChatListSearchThreads([])
+      setMerchantChatListSearchPagination({
+        nextOffset: 0,
+        hasMore: false,
+        isLoadingMore: false
+      })
+      setStatusMessage(error instanceof Error ? error.message : 'Failed to search conversations.')
+    } finally {
+      if (requestSeq === merchantChatListSearchRequestSeqRef.current) {
+        setMerchantChatListRefreshing(false)
+      }
+    }
+  }
+
+  async function loadMoreMerchantChatThreadSearch(): Promise<void> {
+    const query = merchantChatListSearchQuery.trim()
+
+    if (!query) return
+    if (merchantChatListSearchPagination.isLoadingMore || !merchantChatListSearchPagination.hasMore) return
+
+    const offset = Math.max(0, merchantChatListSearchPagination.nextOffset)
+
+    setMerchantChatListSearchPagination(current => ({
+      nextOffset: current.nextOffset,
+      hasMore: current.hasMore,
+      isLoadingMore: true
+    }))
+
+    try {
+      const validSession = await ensureValidMerchantSessionLoadedForCloud()
+
+      if (!validSession) {
+        setStatusMessage(merchantSessionEnsureFailureMessage())
+        showSnackbar(merchantSessionEnsureSnackbarMessage())
+        setMerchantChatListSearchPagination(current => ({
+          nextOffset: current.nextOffset,
+          hasMore: current.hasMore,
+          isLoadingMore: false
+        }))
+        return
+      }
+
+      setStoreMerchantSessionFromAuthSession(validSession)
+      bindMerchantSessionToRepository(repository)
+
+      const traceId = `VM${Date.now()}_${storeId.slice(-4)}`
+      const threads = await searchMerchantThreadsFromChatRepository(
+        traceId,
+        query,
+        SHOWCASE_PAGE_SIZE.chatThreads,
+        offset
+      )
+      const nextThreads = await buildMerchantThreadsWithLocalMeta(threads)
+      const nextOffset = offset + threads.length
+
+      setMerchantChatListSearchThreads(current => mergeMerchantThreadSummariesByConversationId(
+        current,
+        nextThreads
+      ))
+      setMerchantChatListSearchPagination({
+        nextOffset,
+        hasMore: threads.length >= SHOWCASE_PAGE_SIZE.chatThreads,
+        isLoadingMore: false
+      })
+    } catch (error) {
+      setMerchantChatListSearchPagination(current => ({
+        nextOffset: current.nextOffset,
+        hasMore: current.hasMore,
+        isLoadingMore: false
+      }))
+      setStatusMessage(error instanceof Error ? error.message : 'Failed to load more search results.')
+    }
+  }
   async function refreshMerchantChatListInternal(showRefreshing: boolean): Promise<void> {
     if (merchantChatListRefreshInFlightRef.current) return
 
@@ -5158,7 +8521,16 @@ function backFromAppointments(): void {
     }
 
     try {
-      await ensureMerchantSessionLoadedForCloud()
+      const validSession = await ensureValidMerchantSessionLoadedForCloud()
+
+      if (!validSession) {
+        setStatusMessage(merchantSessionEnsureFailureMessage())
+        showSnackbar(merchantSessionEnsureSnackbarMessage())
+        return
+      }
+
+      setStoreMerchantSessionFromAuthSession(validSession)
+      bindMerchantSessionToRepository(repository)
 
       const traceId = `VM${Date.now()}_${storeId.slice(-4)}`
 
@@ -5167,9 +8539,7 @@ function backFromAppointments(): void {
         traceId
       )
 
-      const threads = await fetchMerchantThreadsFromChatRepository(traceId)
-
-      setMerchantChatThreads(await buildMerchantThreadsWithLocalMeta(threads))
+      await mergeLatestMerchantThreadsIntoState(traceId)
       setStatusMessage(null)
     } catch (error) {
       setStatusMessage(error instanceof Error ? error.message : 'refreshMerchantChatList failed')
@@ -5191,13 +8561,29 @@ function backFromAppointments(): void {
   }
 
   async function removeCategory(nameInput: string): Promise<void> {
+    if (categorySubmittingAction) return
+
     const name = nameInput.trim()
     if (!name) return
 
-    setStoreMerchantSessionFromAuthSession(merchantSession)
-    bindMerchantSessionToRepository(repository)
+    if (guardOfflineWriteOperation()) {
+      return
+    }
+
+    setCategorySubmittingAction('delete')
 
     try {
+      const validSession = await ensureValidMerchantSessionLoadedForCloud()
+
+      if (!validSession) {
+        setStatusMessage(merchantSessionEnsureFailureMessage())
+        showSnackbar(merchantSessionEnsureSnackbarMessage())
+        return
+      }
+
+      setStoreMerchantSessionFromAuthSession(validSession)
+      bindMerchantSessionToRepository(repository)
+
       const categoryId = await repository.getCategoryIdByName(storeId, name)
 
       if (!categoryId) {
@@ -5214,17 +8600,23 @@ function backFromAppointments(): void {
         return
       }
 
-      const result = await repository.deleteCategoryByName(storeId, name)
+      let result = await repository.deleteCategoryByName(storeId, name)
 
       if (!result.ok) {
-        const handled = await handleMerchantAuthExpiredIfNeeded(
-          new Error(`${result.errorCode} ${result.errorBody || ''}`)
-        )
+        const retry = await retryMerchantCloudOperationAfterAuthRefresh({
+          errorInput: new Error(`${result.errorCode} ${result.errorBody || ''}`),
+          operation: () => repository.deleteCategoryByName(storeId, name),
+          isSuccess: value => value.ok
+        })
 
-        if (handled) return
+        if (retry.status === 'handled_without_retry') return
 
-        setStatusMessage(result.errorMessage || 'Failed to delete category.')
-        return
+        if (retry.status === 'retried_success' && retry.value) {
+          result = retry.value
+        } else {
+          setStatusMessage(result.errorMessage || 'Failed to delete category.')
+          return
+        }
       }
 
       const [cloudDishes, cloudCategories] = await Promise.all([
@@ -5239,11 +8631,15 @@ function backFromAppointments(): void {
 
       const allCategoryNames = cloudCategoriesToManualCategoryNames(cloudCategories)
 
+      mergeDishEntities(finalDishes)
+      setAdminItemIds(dishIdsFromItems(finalDishes))
+      setHomeDishIds(dishIdsFromItems(finalDishes.filter(item => !item.isHidden)))
       setDishes(finalDishes)
       setCategories(cloudCategories)
       setPendingSyncOperations(buildPendingDishSyncOperations(finalDishes))
       setSelectedCategory(current => String(current || '').trim() === name ? null : current)
       setEditDishCategory(current => String(current || '').trim() === name ? null : current)
+      setAdminPendingDeleteCategory(null)
       setStatusMessage(null)
 
       saveDishesToStorage(storeId, finalDishes)
@@ -5251,6 +8647,8 @@ function backFromAppointments(): void {
       setLastSyncAt(nowMillis())
     } catch {
       setStatusMessage('Failed to delete category.')
+    } finally {
+      setCategorySubmittingAction(null)
     }
   }
   function saveImageUrlToGallery(url: string): void {
@@ -5300,6 +8698,35 @@ function backFromAppointments(): void {
       window.clearInterval(bookingsEntryPollingTimerRef.current)
       bookingsEntryPollingTimerRef.current = null
     }
+  }
+
+  function startHomeBadgePolling(intervalMillis = 10000): void {
+    if (!isBrowser()) return
+
+    const safeIntervalMillis = Math.max(5000, Math.round(intervalMillis))
+
+    if (
+      homeBadgePollingTimerRef.current != null &&
+      homeBadgePollingIntervalMsRef.current === safeIntervalMillis
+    ) {
+      return
+    }
+
+    stopHomeBadgePolling()
+    homeBadgePollingIntervalMsRef.current = safeIntervalMillis
+
+    homeBadgePollingTimerRef.current = window.setInterval(() => {
+      void refreshHomeBadgeData()
+    }, safeIntervalMillis)
+  }
+
+  function stopHomeBadgePolling(): void {
+    if (homeBadgePollingTimerRef.current != null && isBrowser()) {
+      window.clearInterval(homeBadgePollingTimerRef.current)
+      homeBadgePollingTimerRef.current = null
+    }
+
+    homeBadgePollingIntervalMsRef.current = 0
   }
 
   function startMerchantChatListDbObserve(): void {
@@ -5383,6 +8810,37 @@ function backFromAppointments(): void {
     merchantChatListPollingIntervalMsRef.current = 0
   }
 
+  function startAdminHomePolling(intervalMillis = 10000): void {
+    if (!isBrowser()) return
+
+    const safeIntervalMillis = Math.max(5000, Math.round(intervalMillis))
+
+    if (
+      adminHomePollingTimerRef.current != null &&
+      adminHomePollingIntervalMsRef.current === safeIntervalMillis
+    ) {
+      return
+    }
+
+    stopAdminHomePolling()
+    adminHomePollingIntervalMsRef.current = safeIntervalMillis
+
+    void refreshAdminHomeCloudState(false)
+
+    adminHomePollingTimerRef.current = window.setInterval(() => {
+      void refreshAdminHomeCloudState(false)
+    }, safeIntervalMillis)
+  }
+
+  function stopAdminHomePolling(): void {
+    if (adminHomePollingTimerRef.current != null && isBrowser()) {
+      window.clearInterval(adminHomePollingTimerRef.current)
+      adminHomePollingTimerRef.current = null
+    }
+
+    adminHomePollingIntervalMsRef.current = 0
+  }
+
   async function submitChangePassword(): Promise<void> {
     await updateMerchantPassword()
   }
@@ -5397,6 +8855,7 @@ function backFromAppointments(): void {
 
   async function refreshStoreProfile(): Promise<void> {
     setLastRetryOp(ShowcaseRetryOps.RefreshStoreProfile)
+    setIsRefreshingStoreProfile(true)
 
     try {
       const profile = await repository.fetchStoreProfile(storeId)
@@ -5495,6 +8954,8 @@ function backFromAppointments(): void {
       setStatusMessage('Profile refresh failed.')
       setSyncErrorMessage('Profile refresh failed.')
       setLastRetryOp(ShowcaseRetryOps.RefreshStoreProfile)
+    } finally {
+      setIsRefreshingStoreProfile(false)
     }
   }
 
@@ -5561,6 +9022,11 @@ function backFromAppointments(): void {
     const normalizedBusinessStatus = draftBusinessStatus.trim()
     const normalizedWebsiteUrl = draft.websiteUrl.trim()
 
+    if (guardOfflineWriteOperation()) {
+      setStoreProfileSaveError('You are offline. Please reconnect and try again.')
+      return
+    }
+
     setIsSavingStoreProfile(true)
     setStoreProfileSaveError(null)
     setStoreProfileSaveSuccess(false)
@@ -5571,7 +9037,19 @@ function backFromAppointments(): void {
         throw new Error('Store is read-only.')
       }
 
+      const validSession = await ensureValidMerchantSessionLoadedForCloud()
+
+      if (!validSession) {
+        setStoreProfileSaveError(merchantSessionEnsureFailureMessage())
+        showSnackbar(merchantSessionEnsureSnackbarMessage())
+        return
+      }
+
+      setStoreMerchantSessionFromAuthSession(validSession)
+      bindMerchantSessionToRepository(repository)
+
       let logoUrl = draftStoreProfileLogoUrl.trim()
+      let logoImageVariants: ShowcaseImageVariants | null = null
 
       if (logoUrl && isLocalImageUri(logoUrl)) {
         const uploadedLogo = await uploadStoreImageIfNeeded(logoUrl, 'logo')
@@ -5580,7 +9058,10 @@ function backFromAppointments(): void {
           throw new Error('Logo upload failed.')
         }
 
-        logoUrl = uploadedLogo
+        logoUrl = uploadedLogo.url
+        logoImageVariants = uploadedLogo.variants
+      } else if (logoUrl) {
+        logoImageVariants = createRemoteOnlyImageVariants(logoUrl)
       }
 
       const coverCandidates = draftStoreProfileCoverUrl
@@ -5591,7 +9072,7 @@ function backFromAppointments(): void {
         .filter((item, index, all) => all.indexOf(item) === index)
         .slice(0, 9)
 
-      const uploadedCoverUrls: string[] = []
+      const uploadedCoverImages: UploadedShowcaseImage[] = []
 
       for (const rawCoverUrl of coverCandidates) {
         if (isLocalImageUri(rawCoverUrl)) {
@@ -5601,11 +9082,17 @@ function backFromAppointments(): void {
             throw new Error('Cover upload failed.')
           }
 
-          uploadedCoverUrls.push(uploadedCover)
+          uploadedCoverImages.push(uploadedCover)
         } else {
-          uploadedCoverUrls.push(rawCoverUrl)
+          uploadedCoverImages.push({
+            url: rawCoverUrl,
+            variants: createRemoteOnlyImageVariants(rawCoverUrl)
+          })
         }
       }
+
+      const uploadedCoverUrls = uploadedCoverImages.map(item => item.url)
+      const coverImageVariants = uploadedCoverImages[0]?.variants ?? null
 
       const cloudLogoUrl = logoUrl && !isLocalImageUri(logoUrl) ? logoUrl : ''
       const cloudCoverUrl = uploadedCoverUrls
@@ -5627,14 +9114,13 @@ function backFromAppointments(): void {
         servicesJson: serializeServices(normalizedServices),
         coverUrl: cloudCoverUrl,
         logoUrl: cloudLogoUrl,
+        coverImageVariants,
+        logoImageVariants,
         businessStatus: normalizedBusinessStatus,
         updatedAt: nowMillis()
       }
 
-      setStoreMerchantSessionFromAuthSession(merchantSession)
-      bindMerchantSessionToRepository(repository)
-
-      const ok = await repository.upsertStoreProfile(payload)
+      let ok = await repository.upsertStoreProfile(payload)
 
       if (!ok) {
         const detail = [
@@ -5642,13 +9128,19 @@ function backFromAppointments(): void {
           repository.lastUpsertBody ? `body=${repository.lastUpsertBody.slice(0, 300)}` : ''
         ].filter(Boolean).join(' ')
 
-        const handled = await handleMerchantAuthExpiredIfNeeded(
-          new Error(detail || 'Cloud save failed.')
-        )
+        const retry = await retryMerchantCloudOperationAfterAuthRefresh({
+          errorInput: new Error(detail || 'Cloud save failed.'),
+          operation: () => repository.upsertStoreProfile(payload),
+          isSuccess: value => value
+        })
 
-        if (handled) return
+        if (retry.status === 'handled_without_retry') return
 
-        throw new Error(detail ? `Cloud save failed. ${detail}` : 'Cloud save failed.')
+        if (retry.status === 'retried_success') {
+          ok = true
+        } else {
+          throw new Error(detail ? `Cloud save failed. ${detail}` : 'Cloud save failed.')
+        }
       }
 
       clearStoreProfileDraftLocalImages(storeId)
@@ -5700,6 +9192,8 @@ function backFromAppointments(): void {
         })),
         coverUrl: cloudCoverUrl,
         logoUrl: cloudLogoUrl,
+        coverImageVariants,
+        logoImageVariants,
         businessStatus: normalizedBusinessStatus
       })
       setLastSyncAt(nowMillis())
@@ -5721,6 +9215,8 @@ function backFromAppointments(): void {
   }
 
   async function addCategory(nameInput: string): Promise<void> {
+    if (categorySubmittingAction) return
+
     const name = nameInput.trim()
     if (!name) return
 
@@ -5734,21 +9230,41 @@ function backFromAppointments(): void {
 
     if (existing.includes(name)) return
 
-    setStoreMerchantSessionFromAuthSession(merchantSession)
-    bindMerchantSessionToRepository(repository)
+    if (guardOfflineWriteOperation()) {
+      return
+    }
+
+    setCategorySubmittingAction('add')
 
     try {
-      const result = await repository.ensureCategoryExists(storeId, name)
+      const validSession = await ensureValidMerchantSessionLoadedForCloud()
+
+      if (!validSession) {
+        setStatusMessage(merchantSessionEnsureFailureMessage())
+        showSnackbar(merchantSessionEnsureSnackbarMessage())
+        return
+      }
+
+      setStoreMerchantSessionFromAuthSession(validSession)
+      bindMerchantSessionToRepository(repository)
+
+      let result = await repository.ensureCategoryExists(storeId, name)
 
       if (!result.ok) {
-        const handled = await handleMerchantAuthExpiredIfNeeded(
-          new Error(`${result.errorCode} ${result.errorBody || ''}`)
-        )
+        const retry = await retryMerchantCloudOperationAfterAuthRefresh({
+          errorInput: new Error(`${result.errorCode} ${result.errorBody || ''}`),
+          operation: () => repository.ensureCategoryExists(storeId, name),
+          isSuccess: value => value.ok
+        })
 
-        if (handled) return
+        if (retry.status === 'handled_without_retry') return
 
-        setStatusMessage(result.errorMessage || 'Failed to add category.')
-        return
+        if (retry.status === 'retried_success' && retry.value) {
+          result = retry.value
+        } else {
+          setStatusMessage(result.errorMessage || 'Failed to add category.')
+          return
+        }
       }
 
       const [cloudDishes, cloudCategories] = await Promise.all([
@@ -5763,6 +9279,9 @@ function backFromAppointments(): void {
 
       const allCategoryNames = cloudCategoriesToManualCategoryNames(cloudCategories)
 
+      mergeDishEntities(finalDishes)
+      setAdminItemIds(dishIdsFromItems(finalDishes))
+      setHomeDishIds(dishIdsFromItems(finalDishes.filter(item => !item.isHidden)))
       setDishes(finalDishes)
       setCategories(cloudCategories)
       setPendingSyncOperations(buildPendingDishSyncOperations(finalDishes))
@@ -5778,20 +9297,14 @@ function backFromAppointments(): void {
           ? `Failed to add category. ${error.message}`
           : 'Failed to add category.'
       )
+    } finally {
+      setCategorySubmittingAction(null)
     }
   }
 
   function requestDeleteCategory(nameInput: string): void {
     const name = nameInput.trim()
     if (!name) return
-
-    const isReferencedLocally = dishes.some(item => String(item.category || '').trim() === name)
-
-    if (isReferencedLocally) {
-      setAdminCannotDeleteCategory(name)
-      setAdminPendingDeleteCategory(null)
-      return
-    }
 
     setAdminPendingDeleteCategory({
       name,
@@ -5801,6 +9314,8 @@ function backFromAppointments(): void {
   }
 
   async function confirmDeleteCategory(): Promise<void> {
+    if (categorySubmittingAction) return
+
     const pending = adminPendingDeleteCategory
     if (!pending) return
 
@@ -5810,20 +9325,35 @@ function backFromAppointments(): void {
       return
     }
 
-    setAdminPendingDeleteCategory(null)
     await removeCategory(name)
   }
 
   async function renameCategory(oldName: string, newName: string): Promise<void> {
+    if (categorySubmittingAction) return
+
     const from = oldName.trim()
     const to = newName.trim()
 
     if (!from || !to || from === to) return
 
-    setStoreMerchantSessionFromAuthSession(merchantSession)
-    bindMerchantSessionToRepository(repository)
+    if (guardOfflineWriteOperation()) {
+      return
+    }
+
+    setCategorySubmittingAction('rename')
 
     try {
+      const validSession = await ensureValidMerchantSessionLoadedForCloud()
+
+      if (!validSession) {
+        setStatusMessage(merchantSessionEnsureFailureMessage())
+        showSnackbar(merchantSessionEnsureSnackbarMessage())
+        return
+      }
+
+      setStoreMerchantSessionFromAuthSession(validSession)
+      bindMerchantSessionToRepository(repository)
+
       const categoryId = await repository.getCategoryIdByName(storeId, from)
 
       if (!categoryId) {
@@ -5831,21 +9361,31 @@ function backFromAppointments(): void {
         return
       }
 
-      const result = await repository.renameCategoryById({
+      let result = await repository.renameCategoryById({
         storeId,
         categoryId,
         newName: to
       })
 
       if (!result.ok) {
-        const handled = await handleMerchantAuthExpiredIfNeeded(
-          new Error(`${result.errorCode} ${result.errorBody || ''}`)
-        )
+        const retry = await retryMerchantCloudOperationAfterAuthRefresh({
+          errorInput: new Error(`${result.errorCode} ${result.errorBody || ''}`),
+          operation: () => repository.renameCategoryById({
+            storeId,
+            categoryId,
+            newName: to
+          }),
+          isSuccess: value => value.ok
+        })
 
-        if (handled) return
+        if (retry.status === 'handled_without_retry') return
 
-        setStatusMessage(result.errorMessage || 'Failed to update category.')
-        return
+        if (retry.status === 'retried_success' && retry.value) {
+          result = retry.value
+        } else {
+          setStatusMessage(result.errorMessage || 'Failed to update category.')
+          return
+        }
       }
 
       const [cloudDishes, cloudCategories] = await Promise.all([
@@ -5870,6 +9410,9 @@ function backFromAppointments(): void {
 
       const allCategoryNames = cloudCategoriesToManualCategoryNames(cloudCategories)
 
+      mergeDishEntities(finalDishes)
+      setAdminItemIds(dishIdsFromItems(finalDishes))
+      setHomeDishIds(dishIdsFromItems(finalDishes.filter(item => !item.isHidden)))
       setDishes(finalDishes)
       setCategories(cloudCategories)
       setPendingSyncOperations(buildPendingDishSyncOperations(finalDishes))
@@ -5882,26 +9425,59 @@ function backFromAppointments(): void {
       setLastSyncAt(nowMillis())
     } catch {
       setStatusMessage('Failed to update category.')
+    } finally {
+      setCategorySubmittingAction(null)
     }
   }
 
   async function reorderCategory(categoryId: string, sortOrder: number): Promise<void> {
-    setStoreMerchantSessionFromAuthSession(merchantSession)
-    bindMerchantSessionToRepository(repository)
+    if (categorySubmittingAction) return
 
-    const result = await repository.setCategorySortOrder({
-      storeId,
-      categoryId,
-      sortOrder
-    })
+    setCategorySubmittingAction('reorder')
 
-    if (!result.ok) {
-      showSnackbar(result.errorMessage || 'Update category order failed.')
-      return
+    try {
+      const validSession = await ensureValidMerchantSessionLoadedForCloud()
+
+      if (!validSession) {
+        showSnackbar(merchantSessionEnsureSnackbarMessage())
+        return
+      }
+
+      setStoreMerchantSessionFromAuthSession(validSession)
+      bindMerchantSessionToRepository(repository)
+
+      let result = await repository.setCategorySortOrder({
+        storeId,
+        categoryId,
+        sortOrder
+      })
+
+      if (!result.ok) {
+        const retry = await retryMerchantCloudOperationAfterAuthRefresh({
+          errorInput: new Error(`${result.errorCode} ${result.errorBody || result.errorMessage || ''}`),
+          operation: () => repository.setCategorySortOrder({
+            storeId,
+            categoryId,
+            sortOrder
+          }),
+          isSuccess: value => value.ok
+        })
+
+        if (retry.status === 'handled_without_retry') return
+
+        if (retry.status === 'retried_success' && retry.value) {
+          result = retry.value
+        } else {
+          showSnackbar(result.errorMessage || 'Update category order failed.')
+          return
+        }
+      }
+
+      const cloudCategories = await repository.fetchCategories(storeId)
+      setCategories(cloudCategories)
+    } finally {
+      setCategorySubmittingAction(null)
     }
-
-    const cloudCategories = await repository.fetchCategories(storeId)
-    setCategories(cloudCategories)
   }
 
   async function saveDishFromEditForm(): Promise<void> {
@@ -5911,8 +9487,13 @@ function backFromAppointments(): void {
       return
     }
 
+    if (guardOfflineWriteOperation()) {
+      setEditValidationError('You are offline. Please reconnect and try again.')
+      return
+    }
+
     const wasNew = !editDishId
-    const existing = editDishId ? dishes.find(item => item.id === editDishId) || null : null
+    const existing = editDishId ? getAdminEditableDishById(editDishId) : null
     const draftDish = buildDishFromEditForm(existing)
     const backTarget = previousScreen && previousScreen !== 'Edit'
       ? previousScreen
@@ -5931,20 +9512,31 @@ function backFromAppointments(): void {
         throw new Error('Store is read-only.')
       }
 
-      const remoteUrls: string[] = []
+      const validSession = await ensureValidMerchantSessionLoadedForCloud()
+
+      if (!validSession) {
+        setEditValidationError(merchantSessionEnsureFailureMessage())
+        showSnackbar(merchantSessionEnsureSnackbarMessage())
+        return
+      }
+
+      setStoreMerchantSessionFromAuthSession(validSession)
+      bindMerchantSessionToRepository(repository)
+
+      const uploadedImages: UploadedShowcaseImage[] = []
 
       for (const rawUrl of draftDish.imageUrls) {
-        const uploadedUrl = await uploadDishImageIfNeeded(rawUrl)
+        const uploadedImage = await uploadDishImageIfNeeded(rawUrl)
 
-        if (!uploadedUrl) {
+        if (!uploadedImage) {
           throw new Error('Image upload failed.')
         }
 
-        remoteUrls.push(uploadedUrl)
+        uploadedImages.push(uploadedImage)
       }
 
-      const finalImageUrls = remoteUrls
-        .map(item => item.trim())
+      const finalImageUrls = uploadedImages
+        .map(item => item.url.trim())
         .filter(Boolean)
         .filter((item, index, all) => all.indexOf(item) === index)
         .slice(0, 9)
@@ -5957,47 +9549,58 @@ function backFromAppointments(): void {
         ...draftDish,
         imageUri: finalImageUrls[0] || null,
         imageUrls: finalImageUrls,
+        imageVariants: uploadedImages[0]?.variants ?? draftDish.imageVariants ?? null,
         updatedAt: nowMillis(),
         syncState: 'Pending',
         dirty: true
       }
 
-      setStoreMerchantSessionFromAuthSession(merchantSession)
-      bindMerchantSessionToRepository(repository)
-
-      const ok = await repository.upsertDishFromDemo(storeId, nextDish)
+      let ok = await repository.upsertDishFromDemo(storeId, nextDish)
 
       if (!ok) {
-        throw new Error('Cloud save failed.')
-      }
+        const retry = await retryMerchantCloudOperationAfterAuthRefresh({
+          errorInput: new Error('Cloud save failed.'),
+          operation: () => repository.upsertDishFromDemo(storeId, nextDish),
+          isSuccess: value => value
+        })
 
-      let refreshed = await repository.fetchDishes(storeId)
+        if (retry.status === 'handled_without_retry') return
 
-      if (!refreshed.some(item => item.id === nextDish.id)) {
-        refreshed = [nextDish, ...refreshed]
-      }
-
-      const finalDishes = refreshed.map(item => {
-        if (item.id !== nextDish.id) return item
-
-        return {
-          ...item,
-          imageUri: item.imageUri || nextDish.imageUri,
-          imageUrls: item.imageUrls.length ? item.imageUrls : nextDish.imageUrls,
-          updatedAt: item.updatedAt || nextDish.updatedAt,
-          syncState: 'Synced' as SyncState,
-          dirty: false
+        if (retry.status === 'retried_success') {
+          ok = true
+        } else {
+          throw new Error('Cloud save failed.')
         }
-      })
+      }
 
-      saveDishesToStorage(storeId, finalDishes)
-      setDishes(finalDishes)
-
-      const selected = finalDishes.find(item => item.id === nextDish.id) || {
+      const selected: DemoDish = {
         ...nextDish,
         syncState: 'Synced' as SyncState,
         dirty: false
       }
+
+      const finalDishes = sortedDishesForStorage([
+        selected,
+        ...dishes.filter(item => item.id !== selected.id)
+      ])
+
+      saveDishesToStorage(storeId, finalDishes)
+      mergeDishEntities(finalDishes)
+      setDishes(finalDishes)
+
+      setHomeDishIds(current => {
+        if (selected.isHidden) {
+          return removeDishIdFromList(current, selected.id)
+        }
+
+        if (current.includes(selected.id)) {
+          return current
+        }
+
+        return wasNew ? [selected.id, ...current] : current
+      })
+
+      await refreshAdminItemsFilteredFirstPage(currentAdminItemsCloudFilters())
 
       setSelectedDishId(selected.id)
       setEditDishId(selected.id)
@@ -6039,13 +9642,80 @@ function backFromAppointments(): void {
       const isImageUploadFailure = rawMessage.includes('Image upload failed')
       const failureMessage = isImageUploadFailure ? 'Image upload failed.' : 'Cloud save failed.'
 
-      setStatusMessage(failureMessage)
-      setSyncOverviewState(SyncOverviewStates.Failed)
+      const queuedDish: DemoDish = {
+        ...draftDish,
+        updatedAt: nowMillis(),
+        syncState: 'Pending',
+        dirty: true
+      }
+
+      const finalDishes = sortedDishesForStorage([
+        queuedDish,
+        ...loadDishesFromStorage(storeId).filter(item => item.id !== queuedDish.id)
+      ])
+
+      saveDishesToStorage(storeId, finalDishes)
+      mergeDishEntities(finalDishes)
+      setDishes(finalDishes)
+      refreshFavoritesList(finalDishes)
+
+      setHomeDishIds(current => {
+        if (queuedDish.isHidden) {
+          return removeDishIdFromList(current, queuedDish.id)
+        }
+
+        if (current.includes(queuedDish.id)) {
+          return current
+        }
+
+        return wasNew ? [queuedDish.id, ...current] : current
+      })
+
+      setAdminItemIds(current => {
+        if (current.includes(queuedDish.id)) {
+          return current
+        }
+
+        return [queuedDish.id, ...current]
+      })
+
+      pushPendingSync({
+        id: `dish-upsert:${queuedDish.id}`,
+        type: 'dish-upsert',
+        dishId: queuedDish.id,
+        createdAt: nowMillis()
+      })
+
+      setSelectedDishId(queuedDish.id)
+      setEditDishId(queuedDish.id)
+      setStatusMessage('Item saved locally. It will sync when the network is available.')
+      setSyncOverviewState(SyncOverviewStates.HasPending)
       setSyncErrorMessage(failureMessage)
-      setLastRetryOp(null)
-      setEditValidationError(failureMessage)
+      setLastRetryOp(ShowcaseRetryOps.RetryPendingSync)
+      setEditValidationError(null)
       setIsSavingEditDish(false)
       setIsBlockingEditDish(false)
+      showSnackbar('Item queued for sync.')
+
+      const finishNavigation = () => {
+        if (backTarget === 'Detail') {
+          setSelectedDishId(queuedDish.id)
+          setScreen('Detail')
+        } else {
+          setSelectedDishId(null)
+          setScreen(backTarget)
+        }
+
+        setPreviousScreen('Admin')
+        setStatusMessage('Item saved locally. It will sync when the network is available.')
+        setEditValidationError(null)
+      }
+
+      if (isBrowser()) {
+        window.setTimeout(finishNavigation, 500)
+      } else {
+        finishNavigation()
+      }
     }
   }
 
@@ -6057,9 +9727,14 @@ function backFromAppointments(): void {
       return
     }
 
-    const dish = dishes.find(item => item.id === dishId) || null
+    const dish = getAdminEditableDishById(dishId)
 
     if (!dish) {
+      setPendingDeleteDishId(null)
+      return
+    }
+
+    if (guardOfflineWriteOperation()) {
       setPendingDeleteDishId(null)
       return
     }
@@ -6070,10 +9745,20 @@ function backFromAppointments(): void {
     setSyncErrorMessage(null)
     setLastRetryOp(null)
 
-    setStoreMerchantSessionFromAuthSession(merchantSession)
-    bindMerchantSessionToRepository(repository)
-
     try {
+      const validSession = await ensureValidMerchantSessionLoadedForCloud()
+
+      if (!validSession) {
+        setSyncOverviewState(SyncOverviewStates.Failed)
+        setSyncErrorMessage(merchantSessionEnsureFailureMessage())
+        setStatusMessage(merchantSessionEnsureFailureMessage())
+        showSnackbar(merchantSessionEnsureSnackbarMessage())
+        return
+      }
+
+      setStoreMerchantSessionFromAuthSession(validSession)
+      bindMerchantSessionToRepository(repository)
+
       const imageUrls = resolveDishImages(dish)
         .map(item => item.trim())
         .filter(Boolean)
@@ -6085,22 +9770,31 @@ function backFromAppointments(): void {
         }
       }
 
-      const ok = await repository.deleteDishById(dish.id)
+      let ok = await repository.deleteDishById(dish.id)
 
       if (!ok) {
-        throw new Error('Cloud delete failed.')
+        const retry = await retryMerchantCloudOperationAfterAuthRefresh({
+          errorInput: new Error('Cloud delete failed.'),
+          operation: () => repository.deleteDishById(dish.id),
+          isSuccess: value => value
+        })
+
+        if (retry.status === 'handled_without_retry') return
+
+        if (retry.status === 'retried_success') {
+          ok = true
+        } else {
+          throw new Error('Cloud delete failed.')
+        }
       }
 
       preserveFavoriteSnapshotsBeforeDishDelete([dish])
 
-      let refreshed = await repository.fetchDishes(storeId)
+      const finalDishes = dishes.filter(item => item.id !== dish.id)
 
-      if (!refreshed.length) {
-        refreshed = dishes.filter(item => item.id !== dish.id)
-      }
-
-      const finalDishes = refreshed.filter(item => item.id !== dish.id)
-
+      removeDishEntityById(dish.id)
+      setAdminItemIds(current => removeDishIdFromList(current, dish.id))
+      setHomeDishIds(current => removeDishIdFromList(current, dish.id))
       setDishes(finalDishes)
       saveDishesToStorage(storeId, finalDishes)
       refreshFavoritesList(finalDishes)
@@ -6108,6 +9802,8 @@ function backFromAppointments(): void {
       removePendingSync(`dish-upsert:${dish.id}`)
 
       setSelectedDishId(current => current === dish.id ? null : current)
+      setEditDishId(current => current === dish.id ? null : current)
+      setAppointmentSourceDishId(current => current === dish.id ? null : current)
       setAdminSelectedDishIds(current => current.filter(id => id !== dish.id))
       setLastSyncAt(nowMillis())
       setSyncOverviewState(SyncOverviewStates.Idle)
@@ -6130,15 +9826,8 @@ function backFromAppointments(): void {
 
   function visibleDishes(includeHidden = false): DemoDish[] {
     if (includeHidden) {
-      return applyHomeFilters({
-        dishes,
-        selectedCategory,
-        selectedTags,
-        searchQuery,
-        filterRecommendedOnly,
-        filterOnSaleOnly,
-        appliedMinPrice: homeAppliedMinPrice,
-        appliedMaxPrice: homeAppliedMaxPrice,
+      return decorateCloudHomeResults({
+        dishes: dishesFromIds(homeDishIds),
         favoriteIds,
         sortMode
       })
@@ -6190,10 +9879,16 @@ function backFromAppointments(): void {
 
     if (!ids.length) return
 
-    const toDelete = dishes.filter(item => ids.includes(item.id))
+    const toDelete = ids
+      .map(id => getAdminEditableDishById(id))
+      .filter((item): item is DemoDish => Boolean(item))
 
     if (!toDelete.length) {
       setAdminSelectedDishIds([])
+      return
+    }
+
+    if (guardOfflineWriteOperation()) {
       return
     }
 
@@ -6204,10 +9899,20 @@ function backFromAppointments(): void {
     setSyncErrorMessage(null)
     setLastRetryOp(null)
 
-    setStoreMerchantSessionFromAuthSession(merchantSession)
-    bindMerchantSessionToRepository(repository)
-
     try {
+      const validSession = await ensureValidMerchantSessionLoadedForCloud()
+
+      if (!validSession) {
+        setSyncOverviewState(SyncOverviewStates.Failed)
+        setSyncErrorMessage(merchantSessionEnsureFailureMessage())
+        setStatusMessage(merchantSessionEnsureFailureMessage())
+        showSnackbar(merchantSessionEnsureSnackbarMessage())
+        return
+      }
+
+      setStoreMerchantSessionFromAuthSession(validSession)
+      bindMerchantSessionToRepository(repository)
+
       let allOk = true
 
       for (const dish of toDelete) {
@@ -6222,7 +9927,23 @@ function backFromAppointments(): void {
           }
         }
 
-        const ok = await repository.deleteDishById(dish.id)
+        let ok = await repository.deleteDishById(dish.id)
+
+        if (!ok) {
+          const retry = await retryMerchantCloudOperationAfterAuthRefresh({
+            errorInput: new Error('Cloud delete failed.'),
+            operation: () => repository.deleteDishById(dish.id),
+            isSuccess: value => value
+          })
+
+          if (retry.status === 'handled_without_retry') {
+            allOk = false
+          } else if (retry.status === 'retried_success') {
+            ok = true
+          } else {
+            allOk = false
+          }
+        }
 
         if (!ok) {
           allOk = false
@@ -6235,16 +9956,17 @@ function backFromAppointments(): void {
 
       preserveFavoriteSnapshotsBeforeDishDelete(toDelete)
 
-      let refreshed = await repository.fetchDishes(storeId)
-
-      if (!refreshed.length) {
-        const deletingIds = new Set(toDelete.map(item => item.id))
-        refreshed = dishes.filter(item => !deletingIds.has(item.id))
-      }
-
       const deletingIds = new Set(toDelete.map(item => item.id))
-      const finalDishes = refreshed.filter(item => !deletingIds.has(item.id))
+      const finalDishes = dishes.filter(item => !deletingIds.has(item.id))
 
+      mergeDishEntities(finalDishes)
+
+      toDelete.forEach(dish => {
+        removeDishEntityById(dish.id)
+      })
+
+      setAdminItemIds(current => current.filter(id => !deletingIds.has(id)))
+      setHomeDishIds(current => current.filter(id => !deletingIds.has(id)))
       setDishes(finalDishes)
       saveDishesToStorage(storeId, finalDishes)
       refreshFavoritesList(finalDishes)
@@ -6255,6 +9977,8 @@ function backFromAppointments(): void {
       })
 
       setSelectedDishId(current => current && deletingIds.has(current) ? null : current)
+      setEditDishId(current => current && deletingIds.has(current) ? null : current)
+      setAppointmentSourceDishId(current => current && deletingIds.has(current) ? null : current)
       setLastSyncAt(nowMillis())
       setSyncOverviewState(SyncOverviewStates.Idle)
       setSyncErrorMessage(null)
@@ -6291,9 +10015,8 @@ function backFromAppointments(): void {
   }
 
   function updateEditDraft(patch: {
-    nameZh?: string
-    nameEn?: string
-    descriptionEn?: string
+    name?: string
+    description?: string
     category?: string | null
     originalPrice?: string
     discountPrice?: string
@@ -6301,16 +10024,14 @@ function backFromAppointments(): void {
     isHidden?: boolean
     imageUrls?: string[]
   }): void {
-    const nextNameZh = patch.nameZh !== undefined ? patch.nameZh : editDishNameZh
-    const nextNameEn = patch.nameEn !== undefined ? patch.nameEn : editDishNameEn
-    const nextDescriptionEn = patch.descriptionEn !== undefined ? patch.descriptionEn : editDishDescriptionEn
+    const nextName = patch.name !== undefined ? patch.name : editDishName
+    const nextDescription = patch.description !== undefined ? patch.description : editDishDescription
     const nextCategory = patch.category !== undefined ? patch.category : editDishCategory
     const nextOriginalPrice = patch.originalPrice !== undefined ? patch.originalPrice : editDishOriginalPrice
     const nextDiscountPrice = patch.discountPrice !== undefined ? patch.discountPrice : editDishDiscountPrice
 
-    if (patch.nameZh !== undefined) setEditDishNameZh(patch.nameZh)
-    if (patch.nameEn !== undefined) setEditDishNameEn(patch.nameEn)
-    if (patch.descriptionEn !== undefined) setEditDishDescriptionEn(patch.descriptionEn)
+    if (patch.name !== undefined) setEditDishName(patch.name)
+    if (patch.description !== undefined) setEditDishDescription(patch.description)
     if (patch.category !== undefined) setEditDishCategory(patch.category)
     if (patch.originalPrice !== undefined) setEditDishOriginalPrice(patch.originalPrice)
     if (patch.discountPrice !== undefined) setEditDishDiscountPrice(patch.discountPrice)
@@ -6321,10 +10042,10 @@ function backFromAppointments(): void {
     persistItemEditorDraftLocally(storeId, {
       editingId: editDishId?.trim() || null,
       isNew: !editDishId,
-      name: (nextNameZh || nextNameEn).trim(),
+      name: nextName.trim(),
       price: nextOriginalPrice.trim(),
       discountPrice: nextDiscountPrice.trim(),
-      description: nextDescriptionEn.trim(),
+      description: nextDescription.trim(),
       category: nextCategory?.trim() || null
     })
 
@@ -6333,8 +10054,7 @@ function backFromAppointments(): void {
 
   function onEditNameChange(value: string): void {
     updateEditDraft({
-      nameZh: value,
-      nameEn: value
+      name: value
     })
   }
 
@@ -6352,7 +10072,7 @@ function backFromAppointments(): void {
 
   function onEditDescriptionChange(value: string): void {
     updateEditDraft({
-      descriptionEn: value.slice(0, 200)
+      description: value.slice(0, 200)
     })
   }
 
@@ -6374,13 +10094,16 @@ function backFromAppointments(): void {
     })
   }
 
-  async function uploadDishImageIfNeeded(value: File | Blob | string): Promise<string | null> {
+  async function uploadDishImageIfNeeded(value: File | Blob | string): Promise<UploadedShowcaseImage | null> {
     if (typeof value === 'string') {
       const url = value.trim()
       if (!url) return null
 
       if (!isLocalImageUri(url)) {
-        return url
+        return {
+          url,
+          variants: createRemoteOnlyImageVariants(url)
+        }
       }
 
       try {
@@ -6388,7 +10111,7 @@ function backFromAppointments(): void {
         if (!response.ok) return null
 
         const blob = await response.blob()
-        const uploaded = await pickAndUploadImage({
+        const uploaded = await pickAndUploadImageWithVariants({
           bucket: 'dish',
           pathPrefix: editDishId || 'draft',
           file: blob
@@ -6404,7 +10127,7 @@ function backFromAppointments(): void {
       }
     }
 
-    return pickAndUploadImage({
+    return pickAndUploadImageWithVariants({
       bucket: 'dish',
       pathPrefix: editDishId || 'draft',
       file: value
@@ -6559,9 +10282,23 @@ function backFromAppointments(): void {
 
       return {
         ...item,
-        clickCount: item.clickCount + 1
+        clickCount: Math.max(0, Number(item.clickCount || 0) + 1)
       }
     }))
+
+    setDishEntitiesById(current => {
+      const dish = current[id]
+
+      if (!dish) return current
+
+      return {
+        ...current,
+        [id]: {
+          ...dish,
+          clickCount: Math.max(0, Number(dish.clickCount || 0) + 1)
+        }
+      }
+    })
 
     await repository.incrementDishClickCount(storeId, id)
   }
@@ -6570,17 +10307,73 @@ function backFromAppointments(): void {
     const clean = url.trim()
     if (!clean) return
 
-    const ok = await repository.deleteDishImageByUrl(clean)
-    if (!ok) {
-      showSnackbar('Delete image failed.')
+    if (guardOfflineWriteOperation()) {
       return
+    }
+
+    const validSession = await ensureValidMerchantSessionLoadedForCloud()
+
+    if (!validSession) {
+      showSnackbar(merchantSessionEnsureSnackbarMessage())
+      return
+    }
+
+    setStoreMerchantSessionFromAuthSession(validSession)
+    bindMerchantSessionToRepository(repository)
+
+    let ok = await repository.deleteDishImageByUrl(clean)
+
+    if (!ok) {
+      const detail = [
+        repository.lastDeleteCode != null ? `code=${repository.lastDeleteCode}` : '',
+        repository.lastDeleteBody ? `body=${repository.lastDeleteBody.slice(0, 300)}` : ''
+      ].filter(Boolean).join(' ')
+
+      const retry = await retryMerchantCloudOperationAfterAuthRefresh({
+        errorInput: new Error(detail || 'Delete image failed.'),
+        operation: () => repository.deleteDishImageByUrl(clean),
+        isSuccess: value => value
+      })
+
+      if (retry.status === 'handled_without_retry') return
+
+      if (retry.status === 'retried_success') {
+        ok = true
+      } else {
+        showSnackbar('Delete image failed.')
+        return
+      }
     }
 
     setEditDishImageUrls(current => current.filter(item => item !== clean))
     setDishes(current => current.map(item => ({
       ...item,
-      imageUrls: item.imageUrls.filter(imageUrl => imageUrl !== clean)
+      imageUrls: item.imageUrls.filter(imageUrl => imageUrl !== clean),
+      imageUri: item.imageUri === clean ? item.imageUrls.filter(imageUrl => imageUrl !== clean)[0] || null : item.imageUri
     })))
+    setDishEntitiesById(current => {
+      let changed = false
+      const next: Record<string, DemoDish> = {}
+
+      Object.entries(current).forEach(([id, dish]) => {
+        const imageUrls = dish.imageUrls.filter(imageUrl => imageUrl !== clean)
+        const imageUri = dish.imageUri === clean ? imageUrls[0] || null : dish.imageUri
+
+        if (imageUrls.length !== dish.imageUrls.length || imageUri !== dish.imageUri) {
+          changed = true
+          next[id] = {
+            ...dish,
+            imageUrls,
+            imageUri
+          }
+          return
+        }
+
+        next[id] = dish
+      })
+
+      return changed ? next : current
+    })
     showSnackbar('Image deleted.')
   }
 
@@ -6606,11 +10399,8 @@ function backFromAppointments(): void {
     }
 
     setIsHydrated(true)
-    clearExpiredLocalTempFiles(storeId)
+    runShowcaseLocalCacheMaintenance(storeId)
     console.log('[NDJC_PUSH] Auto push registration is disabled. Use a user-click action to enable notifications.')
-    startChatEntryPolling()
-    startAnnouncementsEntryPolling()
-    startBookingsEntryPolling()
 
     return () => {
       ndjcTrace('CLEANUP initial useEffect', {
@@ -6625,6 +10415,7 @@ function backFromAppointments(): void {
       stopChatEntryPolling()
       stopBookingsEntryPolling()
       stopAnnouncementsEntryPolling()
+      stopHomeBadgePolling()
       stopMerchantChatListDbObserve()
       stopMerchantChatListPolling()
       stopChatDbObserve()
@@ -6655,24 +10446,47 @@ function backFromAppointments(): void {
     updateChatDraftPersistence(chatDraft)
   }, [chatDraft, chatDraftImageUrls, chatPendingProduct, chatQuotedMessageId, activeConversationId])
   useEffect(() => {
+    const postVisibleState = (visible: boolean): void => {
+      postChatVisibilityToServiceWorker({
+        visible,
+        conversationId: activeConversationId,
+        screen,
+        clientId,
+        chatRole: currentChatRole()
+      })
+    }
+
+    const handleVisibilityChange = (): void => {
+      if (document.visibilityState === 'visible' && screen === ShowcaseScreens.Chat) {
+        markRuntimeConversationVisible(activeConversationId)
+        setRuntimeChatVisible(true)
+        postVisibleState(true)
+        return
+      }
+
+      postVisibleState(false)
+    }
+
+    const handleControllerChange = (): void => {
+      if (screen !== ShowcaseScreens.Chat) return
+      postVisibleState(true)
+    }
+
     if (screen === ShowcaseScreens.Chat) {
       markRuntimeConversationVisible(activeConversationId)
       setRuntimeChatVisible(true)
-      postChatVisibilityToServiceWorker({
-        visible: true,
-        conversationId: activeConversationId,
-        screen
-      })
+      postVisibleState(true)
       startChatPolling()
       startChatDbObserve()
 
+      if (isBrowser()) {
+        window.document.addEventListener('visibilitychange', handleVisibilityChange)
+        window.navigator.serviceWorker?.addEventListener('controllerchange', handleControllerChange)
+      }
+
       const heartbeatTimer = isBrowser()
         ? window.setInterval(() => {
-            postChatVisibilityToServiceWorker({
-              visible: true,
-              conversationId: activeConversationId,
-              screen
-            })
+            postVisibleState(document.visibilityState === 'visible')
           }, NDJC_CHAT_VISIBILITY_HEARTBEAT_MS)
         : null
 
@@ -6681,13 +10495,14 @@ function backFromAppointments(): void {
           window.clearInterval(heartbeatTimer)
         }
 
+        if (isBrowser()) {
+          window.document.removeEventListener('visibilitychange', handleVisibilityChange)
+          window.navigator.serviceWorker?.removeEventListener('controllerchange', handleControllerChange)
+        }
+
         markRuntimeConversationRecentlySeen(activeConversationId)
         setRuntimeChatVisible(false)
-        postChatVisibilityToServiceWorker({
-          visible: false,
-          conversationId: activeConversationId,
-          screen
-        })
+        postVisibleState(false)
         stopChatPolling()
         stopChatDbObserve()
       }
@@ -6695,15 +10510,11 @@ function backFromAppointments(): void {
 
     markRuntimeConversationRecentlySeen(activeConversationId)
     setRuntimeChatVisible(false)
-    postChatVisibilityToServiceWorker({
-      visible: false,
-      conversationId: activeConversationId,
-      screen
-    })
+    postVisibleState(false)
     stopChatPolling()
     stopChatDbObserve()
     return undefined
-  }, [screen, activeConversationId])
+  }, [screen, activeConversationId, clientId, chatMode])
 
   useEffect(() => {
     if (!isBrowser()) return undefined
@@ -6719,21 +10530,52 @@ function backFromAppointments(): void {
       }
 
       const pushedConversationId = String(payload.conversation_id || '').trim()
+      const activeChatConversationId = activeConversationIdRef.current.trim()
+      const isCurrentConversationVisible =
+        screen === ShowcaseScreens.Chat &&
+        pushedConversationId &&
+        activeChatConversationId === pushedConversationId
 
       console.log('[NDJC_CHAT] Service Worker chat push received.', {
         pushedConversationId,
         screen,
-        activeConversationId: activeConversationIdRef.current
+        activeConversationId: activeChatConversationId,
+        isCurrentConversationVisible
       })
+
+      if (isCurrentConversationVisible) {
+        void syncChat().then(async () => {
+          if (currentChatRole() === 'merchant') {
+            const traceId = `VM${Date.now()}_${pushedConversationId.slice(-4)}`
+
+            await chatRepository.markUserMessagesReadToCloud(
+              storeId,
+              pushedConversationId,
+              traceId
+            )
+
+            setMerchantChatThreads(current => current.map(thread => {
+              if (thread.conversationId !== pushedConversationId) return thread
+
+              return {
+                ...thread,
+                unreadCount: 0
+              }
+            }))
+
+            return
+          }
+
+          await acknowledgeVisibleClientConversation(pushedConversationId)
+        })
+
+        return
+      }
 
       void refreshChatEntryDotOnce()
 
-      if (
-        screen === ShowcaseScreens.Chat &&
-        pushedConversationId &&
-        activeConversationIdRef.current.trim() === pushedConversationId
-      ) {
-        void syncChat()
+      if (screen === ShowcaseScreens.MerchantChatList) {
+        void refreshMerchantChatListSilently()
       }
     }
 
@@ -6744,12 +10586,21 @@ function backFromAppointments(): void {
     }
   }, [screen])
   useEffect(() => {
-    if (screen !== ShowcaseScreens.Home) return
+    if (screen !== ShowcaseScreens.Home) {
+      stopHomeBadgePolling()
+      return
+    }
 
     void ensureAnnouncementRegistrationOnHome()
-  }, [screen])
-    useEffect(() => {
+    startHomeBadgePolling(5000)
+
+    return () => {
+      stopHomeBadgePolling()
+    }
+  }, [screen, storeId, merchantSession])
+  useEffect(() => {
     if (screen === 'MerchantChatList') {
+      stopAdminHomePolling()
       startMerchantChatListDbObserve()
       void refreshMerchantChatListInternal(false)
       startMerchantChatListPolling(2000)
@@ -6757,12 +10608,13 @@ function backFromAppointments(): void {
     }
 
     if (screen === 'Admin') {
-      startMerchantChatListDbObserve()
-      void refreshMerchantChatListInternal(false)
-      startMerchantChatListPolling(10000)
+      stopMerchantChatListDbObserve()
+      stopMerchantChatListPolling()
+      startAdminHomePolling(10000)
       return
     }
 
+    stopAdminHomePolling()
     stopMerchantChatListDbObserve()
     stopMerchantChatListPolling()
   }, [screen, storeId, merchantSession])
@@ -6773,13 +10625,19 @@ function backFromAppointments(): void {
     fileName?: string | null
     contentType?: string | null
   }): Promise<string | null> {
-    setStoreMerchantSessionFromAuthSession(merchantSession)
-    bindMerchantSessionToRepository(repository)
-
-    if (!merchantSession?.accessToken) {
-      showSnackbar('Please sign in to upload images.')
+    if (guardOfflineWriteOperation()) {
       return null
     }
+
+    const validSession = await ensureValidMerchantSessionLoadedForCloud()
+
+    if (!validSession) {
+      showSnackbar(merchantSessionEnsureSnackbarMessage())
+      return null
+    }
+
+    setStoreMerchantSessionFromAuthSession(validSession)
+    bindMerchantSessionToRepository(repository)
 
     const profile = uploadImageProfileForBucket(input.bucket, input.pathPrefix)
     const compressed = await compressImage(input.file, profile.maxLongEdge, profile.jpegQuality)
@@ -6794,19 +10652,114 @@ function backFromAppointments(): void {
       bytes: compressed
     }
 
-    if (input.bucket === 'dish') {
-      return repository.uploadDishImageBytes(payload)
+    const upload = async (): Promise<string | null> => {
+      if (input.bucket === 'dish') {
+        return repository.uploadDishImageBytes(payload)
+      }
+
+      if (input.bucket === 'store') {
+        return repository.uploadStoreImageBytes(payload)
+      }
+
+      if (input.bucket === 'announcement') {
+        return repository.uploadAnnouncementImageBytes(payload)
+      }
+
+      return null
     }
 
-    if (input.bucket === 'store') {
-      return repository.uploadStoreImageBytes(payload)
+    const buildUploadErrorDetail = (): string => {
+      if (input.bucket === 'dish') {
+        return [
+          repository.lastDishImageUploadCode != null ? `code=${repository.lastDishImageUploadCode}` : '',
+          repository.lastDishImageUploadBody ? `body=${repository.lastDishImageUploadBody.slice(0, 300)}` : ''
+        ].filter(Boolean).join(' ')
+      }
+
+      if (input.bucket === 'store') {
+        return [
+          repository.lastStoreImageUploadCode != null ? `code=${repository.lastStoreImageUploadCode}` : '',
+          repository.lastStoreImageUploadBody ? `body=${repository.lastStoreImageUploadBody.slice(0, 300)}` : ''
+        ].filter(Boolean).join(' ')
+      }
+
+      if (input.bucket === 'announcement') {
+        return [
+          repository.lastAnnouncementUpsertCode != null ? `code=${repository.lastAnnouncementUpsertCode}` : '',
+          repository.lastAnnouncementUpsertBody ? `body=${repository.lastAnnouncementUpsertBody.slice(0, 300)}` : ''
+        ].filter(Boolean).join(' ')
+      }
+
+      return ''
     }
 
-    if (input.bucket === 'announcement') {
-      return repository.uploadAnnouncementImageBytes(payload)
+    const uploadedUrl = await upload()
+
+    if (uploadedUrl) {
+      return uploadedUrl
+    }
+
+    const detail = buildUploadErrorDetail()
+    const retry = await retryMerchantCloudOperationAfterAuthRefresh({
+      errorInput: new Error(detail || 'Image upload failed.'),
+      operation: upload,
+      isSuccess: value => Boolean(value)
+    })
+
+    if (retry.status === 'retried_success' && retry.value) {
+      return retry.value
     }
 
     return null
+  }
+
+  async function pickAndUploadImageWithVariants(input: {
+    bucket: 'dish' | 'store' | 'announcement'
+    pathPrefix: string
+    file: File | Blob
+    fileName?: string | null
+    contentType?: string | null
+  }): Promise<UploadedShowcaseImage | null> {
+    const specs = buildImageVariantSpecs(input.bucket, input.pathPrefix)
+    const uploaded: Record<ShowcaseImageVariantName, string | null> = {
+      original: null,
+      large: null,
+      medium: null,
+      thumb: null,
+      blur: null
+    }
+
+    for (const spec of specs) {
+      const compressed = await compressImage(input.file, spec.maxLongEdge, spec.jpegQuality)
+      const uploadedUrl = await pickAndUploadImage({
+        bucket: input.bucket,
+        pathPrefix: input.pathPrefix,
+        file: compressed,
+        fileName: buildImageVariantFileName(input.fileName, spec.name),
+        contentType: 'image/jpeg'
+      })
+
+      if (uploadedUrl) {
+        uploaded[spec.name] = uploadedUrl
+      }
+    }
+
+    const mainUrl = uploaded.large || uploaded.original || uploaded.medium || uploaded.thumb
+
+    if (!mainUrl) {
+      return null
+    }
+
+    return {
+      url: mainUrl,
+      variants: {
+        originalUrl: uploaded.original || mainUrl,
+        largeUrl: uploaded.large || mainUrl,
+        mediumUrl: uploaded.medium || mainUrl,
+        thumbUrl: uploaded.thumb || mainUrl,
+        blurDataUrl: uploaded.blur
+      }
+    }
   }
 
   function savePreviewImage(urlInput: string): void {
@@ -6835,20 +10788,20 @@ function backFromAppointments(): void {
       return
     }
 
-    const uploadedUrl = await pickAndUploadImage({
+    const uploadedImage = await pickAndUploadImageWithVariants({
       bucket: 'dish',
       pathPrefix: editDishId || 'draft',
       file: fileOrUrl
     })
 
-    if (!uploadedUrl) {
+    if (!uploadedImage) {
       showSnackbar('Image upload failed.')
       return
     }
 
     setEditDishImageUrls(current => {
-      if (current.includes(uploadedUrl)) return current
-      return [...current, uploadedUrl]
+      if (current.includes(uploadedImage.url)) return current
+      return [...current, uploadedImage.url]
     })
   }
 
@@ -6859,18 +10812,18 @@ function backFromAppointments(): void {
       return
     }
 
-    const uploadedUrl = await pickAndUploadImage({
+    const uploadedImage = await pickAndUploadImageWithVariants({
       bucket: 'store',
       pathPrefix: 'logo',
       file: fileOrUrl
     })
 
-    if (!uploadedUrl) {
+    if (!uploadedImage) {
       showSnackbar('Logo upload failed.')
       return
     }
 
-    setDraftStoreProfileLogoUrl(uploadedUrl)
+    setDraftStoreProfileLogoUrl(uploadedImage.url)
   }
 
   async function handleStoreCoverPicked(fileOrUrl: File | Blob | string): Promise<void> {
@@ -6880,27 +10833,30 @@ function backFromAppointments(): void {
       return
     }
 
-    const uploadedUrl = await pickAndUploadImage({
+    const uploadedImage = await pickAndUploadImageWithVariants({
       bucket: 'store',
       pathPrefix: 'cover',
       file: fileOrUrl
     })
 
-    if (!uploadedUrl) {
+    if (!uploadedImage) {
       showSnackbar('Cover upload failed.')
       return
     }
 
-    setDraftStoreProfileCoverUrl(uploadedUrl)
+    setDraftStoreProfileCoverUrl(uploadedImage.url)
   }
 
-  async function uploadAnnouncementCoverIfNeeded(valueInput: string | null): Promise<string | null> {
+  async function uploadAnnouncementCoverIfNeeded(valueInput: string | null): Promise<UploadedShowcaseImage | null> {
     const value = valueInput?.trim() || null
 
     if (!value) return null
 
     if (!isLocalImageUri(value)) {
-      return value
+      return {
+        url: value,
+        variants: createRemoteOnlyImageVariants(value)
+      }
     }
 
     try {
@@ -6911,18 +10867,18 @@ function backFromAppointments(): void {
       }
 
       const blob = await response.blob()
-      const uploadedUrl = await pickAndUploadImage({
+      const uploadedImage = await pickAndUploadImageWithVariants({
         bucket: 'announcement',
         pathPrefix: 'covers',
         file: blob
       })
 
-      if (!uploadedUrl) {
+      if (!uploadedImage) {
         return null
       }
 
       rememberLocalTempImage(storeId, 'admin-announcement', value)
-      return uploadedUrl
+      return uploadedImage
     } catch {
       return null
     }
@@ -7000,7 +10956,7 @@ async function uploadChatDraftImageForSend(input: {
   index: number
   messageId: string
   traceId: string
-}): Promise<string> {
+}): Promise<UploadedShowcaseImage> {
   const sourceUrl = input.sourceUrl.trim()
 
   if (!sourceUrl) {
@@ -7008,7 +10964,10 @@ async function uploadChatDraftImageForSend(input: {
   }
 
   if (!input.needsUpload) {
-    return sourceUrl
+    return {
+      url: sourceUrl,
+      variants: createRemoteOnlyImageVariants(sourceUrl)
+    }
   }
 
   const response = await fetch(sourceUrl)
@@ -7018,26 +10977,53 @@ async function uploadChatDraftImageForSend(input: {
   }
 
   const blob = await response.blob()
-  const compressed = await compressImage(blob, CHAT_IMAGE_LONG_EDGE, CHAT_IMAGE_JPEG_QUALITY)
-  const contentType = normalizeImageContentType(compressed.type || blob.type || 'image/jpeg')
+  const specs = buildImageVariantSpecs('chat', 'chat')
+  const uploaded: Record<ShowcaseImageVariantName, string | null> = {
+    original: null,
+    large: null,
+    medium: null,
+    thumb: null,
+    blur: null
+  }
 
-  const uploadedUrl = await chatRepository.uploadChatImageToPublicUrl({
-    bytes: compressed,
-    contentType,
-    storeId,
-    conversationId: input.conversation.id,
-    msgId: input.messageId,
-    clientId: input.conversation.clientId || clientId,
-    asMerchant: currentChatRole() === 'merchant',
-    index: input.index,
-    traceId: input.traceId
-  })
+  for (const spec of specs) {
+    const compressed = await compressImage(blob, spec.maxLongEdge, spec.jpegQuality)
+    const contentType = normalizeImageContentType(compressed.type || blob.type || 'image/jpeg')
+    const variantIndex = input.index * 10 + specs.findIndex(item => item.name === spec.name)
 
-  if (!uploadedUrl) {
+    const uploadedUrl = await chatRepository.uploadChatImageToPublicUrl({
+      bytes: compressed,
+      contentType,
+      storeId,
+      conversationId: input.conversation.id,
+      msgId: `${input.messageId}_${spec.name}`,
+      clientId: input.conversation.clientId || clientId,
+      asMerchant: currentChatRole() === 'merchant',
+      index: variantIndex,
+      traceId: input.traceId
+    })
+
+    if (uploadedUrl) {
+      uploaded[spec.name] = uploadedUrl
+    }
+  }
+
+  const mainUrl = uploaded.large || uploaded.original || uploaded.medium || uploaded.thumb
+
+  if (!mainUrl) {
     throw new Error('Chat image upload failed.')
   }
 
-  return uploadedUrl
+  return {
+    url: mainUrl,
+    variants: {
+      originalUrl: uploaded.original || mainUrl,
+      largeUrl: uploaded.large || mainUrl,
+      mediumUrl: uploaded.medium || mainUrl,
+      thumbUrl: uploaded.thumb || mainUrl,
+      blurDataUrl: uploaded.blur
+    }
+  }
 }
 
   function toggleFavorite(dishIdInput: string): void {
@@ -7060,7 +11046,7 @@ async function uploadChatDraftImageForSend(input: {
       return
     }
 
-    const dish = dishes.find(item => item.id === dishId) || null
+    const dish = getDishEntityById(dishId)
     const nextIds = [...favoriteIds, dishId]
     const nextAddedAt = {
       ...favoriteAddedAt,
@@ -7126,8 +11112,14 @@ async function uploadChatDraftImageForSend(input: {
     setSortMode('Default')
     setFilterRecommendedOnly(false)
     setFilterOnSaleOnly(false)
+    setSelectedTags([])
+    setHomePriceMinDraft('')
+    setHomePriceMaxDraft('')
+    setHomeAppliedMinPrice(null)
+    setHomeAppliedMaxPrice(null)
     setHomeShowSortMenu(false)
     setHomeShowFilterMenu(false)
+    setHomeShowPriceMenu(false)
   }
 
   function clearAdminItemsFilters(): void {
@@ -7141,7 +11133,7 @@ async function uploadChatDraftImageForSend(input: {
     setAdminItemsPriceMaxDraft('')
     setAdminItemsAppliedMinPrice(null)
     setAdminItemsAppliedMaxPrice(null)
-    setSelectedCategory(null)
+    setAdminItemsSelectedCategory(null)
   }
 
   function clearFavoritesFilters(): void {
@@ -7177,41 +11169,122 @@ async function uploadChatDraftImageForSend(input: {
   }
 
   function onSelectedTagsChange(tags: string[]): void {
-    setSelectedTags(
-      Array.from(
-        new Set(
-          tags
-            .map(tag => tag.trim())
-            .filter(Boolean)
-        )
+    const nextTags = Array.from(
+      new Set(
+        tags
+          .map(tag => tag.trim())
+          .filter(Boolean)
       )
     )
+
+    setSelectedTags(nextTags)
+    void refreshHomeDishesFilteredFirstPage(currentHomeDishCloudFilters({
+      selectedTags: nextTags
+    }))
   }
 
   function onClearTags(): void {
     setSelectedTags([])
+    void refreshHomeDishesFilteredFirstPage(currentHomeDishCloudFilters({
+      selectedTags: []
+    }))
   }
 
   function onSearchQueryChange(value: string): void {
     setSearchQuery(value)
+
+    homeSearchRequestSeqRef.current += 1
+    const requestSeq = homeSearchRequestSeqRef.current
+
+    if (homeSearchDebounceTimerRef.current != null && isBrowser()) {
+      window.clearTimeout(homeSearchDebounceTimerRef.current)
+      homeSearchDebounceTimerRef.current = null
+    }
+
+    const nextFilters = currentHomeDishCloudFilters({
+      searchQuery: value
+    })
+
+    if (!isBrowser()) {
+      void refreshHomeDishesFilteredFirstPage(nextFilters, requestSeq)
+      return
+    }
+
+    homeSearchDebounceTimerRef.current = window.setTimeout(() => {
+      void refreshHomeDishesFilteredFirstPage(nextFilters, requestSeq)
+    }, 350)
   }
 
   function onCategorySelected(value: string | null): void {
     const category = String(value || '').trim()
-    setSelectedCategory(category || null)
-  }
+    const nextCategory = category || null
 
+    setSelectedCategory(nextCategory)
+
+    void refreshHomeDishesFilteredFirstPage(currentHomeDishCloudFilters({
+      categoryName: nextCategory
+    }))
+  }
+  function onAdminItemsCategorySelected(value: string | null): void {
+    const category = String(value || '').trim()
+    const nextCategory = category || null
+
+    setAdminItemsSelectedCategory(nextCategory)
+
+    void refreshAdminItemsFilteredFirstPage(currentAdminItemsCloudFilters({
+      categoryName: nextCategory
+    }))
+  }
   function onSortModeChange(value: ShowcaseHomeSortMode): void {
-    setSortMode(normalizeSortMode(value))
+    const nextSortMode = normalizeSortMode(value)
+
+    setSortMode(nextSortMode)
     setHomeShowSortMenu(false)
+
+    void refreshHomeDishesFilteredFirstPage(currentHomeDishCloudFilters({
+      sortMode: nextSortMode
+    }))
   }
 
   function onFilterRecommendedOnlyChange(value: boolean): void {
     setFilterRecommendedOnly(value)
+    void refreshHomeDishesFilteredFirstPage(currentHomeDishCloudFilters({
+      recommendedOnly: value
+    }))
   }
 
   function onFilterOnSaleOnlyChange(value: boolean): void {
     setFilterOnSaleOnly(value)
+    void refreshHomeDishesFilteredFirstPage(currentHomeDishCloudFilters({
+      onSaleOnly: value
+    }))
+  }
+
+  function onApplyHomeFilters(value: {
+    recommendedOnly: boolean
+    onSaleOnly: boolean
+    minPriceDraft: string
+    maxPriceDraft: string
+  }): void {
+    const min = parseHomePriceDraft(value.minPriceDraft)
+    const max = parseHomePriceDraft(value.maxPriceDraft)
+    const nextMin = min != null && max != null && min > max ? max : min
+    const nextMax = min != null && max != null && min > max ? min : max
+
+    setFilterRecommendedOnly(value.recommendedOnly)
+    setFilterOnSaleOnly(value.onSaleOnly)
+    setHomePriceMinDraft(value.minPriceDraft)
+    setHomePriceMaxDraft(value.maxPriceDraft)
+    setHomeAppliedMinPrice(nextMin)
+    setHomeAppliedMaxPrice(nextMax)
+    setHomeShowFilterMenu(false)
+
+    void refreshHomeDishesFilteredFirstPage(currentHomeDishCloudFilters({
+      recommendedOnly: value.recommendedOnly,
+      onSaleOnly: value.onSaleOnly,
+      minPrice: nextMin,
+      maxPrice: nextMax
+    }))
   }
 
   function onHomeShowSortMenuChange(value: boolean): void {
@@ -7243,6 +11316,11 @@ async function uploadChatDraftImageForSend(input: {
     setHomeAppliedMinPrice(nextMin)
     setHomeAppliedMaxPrice(nextMax)
     setHomeShowPriceMenu(false)
+
+    void refreshHomeDishesFilteredFirstPage(currentHomeDishCloudFilters({
+      minPrice: nextMin,
+      maxPrice: nextMax
+    }))
   }
 
   function onHomeClearPriceRange(): void {
@@ -7251,10 +11329,25 @@ async function uploadChatDraftImageForSend(input: {
     setHomeAppliedMinPrice(null)
     setHomeAppliedMaxPrice(null)
     setHomeShowPriceMenu(false)
+
+    void refreshHomeDishesFilteredFirstPage(currentHomeDishCloudFilters({
+      minPrice: null,
+      maxPrice: null
+    }))
   }
 
   function onClearSortAndFilters(): void {
     clearHomeSortAndFilters()
+
+    void refreshHomeDishesFilteredFirstPage(currentHomeDishCloudFilters({
+      searchQuery: '',
+      selectedTags: [],
+      recommendedOnly: false,
+      onSaleOnly: false,
+      minPrice: null,
+      maxPrice: null,
+      sortMode: 'Default'
+    }))
   }
 
   function onClearAll(): void {
@@ -7266,6 +11359,19 @@ async function uploadChatDraftImageForSend(input: {
     setHomeAppliedMinPrice(null)
     setHomeAppliedMaxPrice(null)
     setHomeShowPriceMenu(false)
+
+    void refreshHomeDishesFilteredFirstPage({
+      categoryName: null,
+      searchQuery: '',
+      selectedTags: [],
+      recommendedOnly: false,
+      onSaleOnly: false,
+      minPrice: null,
+      maxPrice: null,
+      includeHidden: false,
+      hiddenOnly: false,
+      sortMode: 'Default'
+    })
   }
 
   function onHomeDishSelected(dishId: string): void {
@@ -7281,6 +11387,7 @@ async function uploadChatDraftImageForSend(input: {
       return
     }
 
+    prepareLoginScreen(null)
     setScreen(ShowcaseScreens.Login)
   }
 
@@ -7410,9 +11517,9 @@ async function uploadChatDraftImageForSend(input: {
     closeFavorites()
   }
 
-  function openAppointmentForDish(dishIdInput: string): void {
+  async function openAppointmentForDish(dishIdInput: string): Promise<void> {
     const dishId = dishIdInput.trim()
-    const dish = dishes.find(item => item.id === dishId) || null
+    const dish = getDishEntityById(dishId) || await ensureDishEntityLoaded(dishId)
 
     if (!dish || dish.isSoldOut) {
       setStatusMessage('Please select an item first.')
@@ -7449,6 +11556,12 @@ async function uploadChatDraftImageForSend(input: {
     setAppointmentError(null)
     setAppointmentSuccess(null)
 
+    if (guardOfflineWriteOperation()) {
+      setAppointmentError('You are offline. Please reconnect and try again.')
+      setAppointmentSuccess(null)
+      return
+    }
+
     if (!appointmentsEnabled) {
       setAppointmentError('Appointment booking is not enabled.')
       setAppointmentSuccess(null)
@@ -7456,7 +11569,7 @@ async function uploadChatDraftImageForSend(input: {
     }
 
     const sourceDish = appointmentSourceDishId
-      ? dishes.find(item => item.id === appointmentSourceDishId) || null
+      ? getDishEntityById(appointmentSourceDishId) || await ensureDishEntityLoaded(appointmentSourceDishId)
       : null
 
     const serviceTitle = sourceDish
@@ -7529,7 +11642,11 @@ async function uploadChatDraftImageForSend(input: {
         preferredDate,
         preferredTime,
         note,
-        sourceDishId: sourceDish.id
+        sourceDishId: sourceDish.id,
+        sourcePriceSnapshot: encodeAppointmentPriceSnapshotFromDish(sourceDish),
+        sourceImageUrlSnapshot: resolveDishImage(sourceDish),
+        sourceCategorySnapshot: sourceDish.category || null,
+        sourceRecommendedSnapshot: Boolean(sourceDish.isRecommended)
       })
 
       if (!created) {
@@ -7565,8 +11682,30 @@ async function uploadChatDraftImageForSend(input: {
     }
   }
 
-  async function saveAppointmentSettings(): Promise<void> {
-    await saveAppointmentSettingsToCloud()
+  async function saveAppointmentSettings(
+    value?: ShowcaseAppointmentSettingsSaveInput
+  ): Promise<void> {
+    if (guardOfflineWriteOperation()) {
+      return
+    }
+
+    if (!value) {
+      await saveAppointmentSettingsToCloud()
+      return
+    }
+
+    const normalizedHours = normalizeAppointmentAvailableHoursText(value.availableHoursText)
+    const nextSettings = currentAppointmentSettingsForCloud({
+      enabled: value.enabled,
+      bookingWindowDays: value.bookingWindowDays,
+      availableStartTime: normalizedHours.start,
+      availableEndTime: normalizedHours.end,
+      slotIntervalMinutes: value.slotIntervalMinutes,
+      closedDays: value.closedDays,
+      minimumNotice: value.minimumNotice
+    })
+
+    await saveAppointmentSettingsToCloud(nextSettings)
   }
 
   async function refreshAppointments(): Promise<void> {
@@ -7580,11 +11719,19 @@ async function uploadChatDraftImageForSend(input: {
   }
 
 async function updateAppointmentStatus(appointmentIdInput: string, statusInput: string): Promise<void> {
+  if (appointmentStatusSubmittingId) return
+
   const appointmentId = appointmentIdInput.trim()
   const statusLabel = appointmentsStatusFromCloud(statusInput)
   const status = appointmentsStatusToCloud(statusLabel)
 
   if (!appointmentId || !status) return
+
+  if (guardOfflineWriteOperation()) {
+    return
+  }
+
+  setAppointmentStatusSubmittingId(appointmentId)
 
   const previous = appointmentRequests
   const previousTarget = previous.find(item => item.id === appointmentId) || null
@@ -7594,18 +11741,8 @@ async function updateAppointmentStatus(appointmentIdInput: string, statusInput: 
     if (item.id !== appointmentId) return item
 
     return {
-      id: item.id,
-      storeId: item.storeId,
-      clientId: item.clientId,
-      customerName: item.customerName,
-      customerContact: item.customerContact,
-      serviceTitle: item.serviceTitle,
-      preferredDate: item.preferredDate,
-      preferredTime: item.preferredTime,
-      note: item.note,
-      sourceDishId: item.sourceDishId,
-      status,
-      createdAt: item.createdAt
+      ...item,
+      status
     }
   })
 
@@ -7616,12 +11753,20 @@ async function updateAppointmentStatus(appointmentIdInput: string, statusInput: 
   setStatusMessage(null)
 
   try {
-    await ensureMerchantSessionLoadedForCloud()
+    const validSession = await ensureValidMerchantSessionLoadedForCloud()
 
-    setStoreMerchantSessionFromAuthSession(merchantSession)
+    if (!validSession) {
+      setAppointmentRequests(previous)
+      saveAppointmentsToStorage(storeId, previous)
+      setStatusMessage(merchantSessionEnsureFailureMessage())
+      showSnackbar(merchantSessionEnsureSnackbarMessage())
+      return
+    }
+
+    setStoreMerchantSessionFromAuthSession(validSession)
     bindMerchantSessionToRepository(repository)
 
-    const ok = await repository.updateAppointmentStatus({
+    let ok = await repository.updateAppointmentStatus({
       storeId,
       appointmentId,
       status
@@ -7633,13 +11778,23 @@ async function updateAppointmentStatus(appointmentIdInput: string, statusInput: 
         repository.lastUpsertBody ? `body=${repository.lastUpsertBody.slice(0, 300)}` : ''
       ].filter(Boolean).join(' ')
 
-      const handled = await handleMerchantAuthExpiredIfNeeded(
-        new Error(detail || 'Appointment status update failed.')
-      )
+      const retry = await retryMerchantCloudOperationAfterAuthRefresh({
+        errorInput: new Error(detail || 'Appointment status update failed.'),
+        operation: () => repository.updateAppointmentStatus({
+          storeId,
+          appointmentId,
+          status
+        }),
+        isSuccess: value => value
+      })
 
-      if (handled) return
+      if (retry.status === 'handled_without_retry') return
 
-      throw new Error('Appointment status update failed.')
+      if (retry.status === 'retried_success') {
+        ok = true
+      } else {
+        throw new Error('Appointment status update failed.')
+      }
     }
 
     if (previousStatus !== status && nextTarget) {
@@ -7652,6 +11807,8 @@ async function updateAppointmentStatus(appointmentIdInput: string, statusInput: 
     saveAppointmentsToStorage(storeId, previous)
     setStatusMessage('Appointment status update failed.')
     showSnackbar('Booking status update failed.')
+  } finally {
+    setAppointmentStatusSubmittingId(null)
   }
 }
   function normalizeAppointmentAvailableHoursText(valueInput: string): {
@@ -7923,16 +12080,143 @@ async function updateAppointmentStatus(appointmentIdInput: string, statusInput: 
       })
   }
 
+  function currentAdminAppointmentCloudFilters(input: {
+    dateFilter?: string | null
+    statusFilter?: string | null
+    serviceFilter?: string | null
+    historyDateFilter?: string | null
+  } = {}): AppointmentCloudQueryFilters {
+    const dateFilter = String(input.dateFilter ?? appointmentAdminDateFilter).trim() || 'All'
+    const statusFilter = String(input.statusFilter ?? appointmentAdminStatusFilter).trim() || 'All'
+    const serviceFilter = String(input.serviceFilter ?? appointmentAdminServiceFilter).trim() || 'All'
+    const historyDateFilter = input.historyDateFilter === undefined
+      ? appointmentAdminHistoryDateFilter
+      : input.historyDateFilter
+
+    return {
+      ...appointmentCloudDateFiltersFromUi(dateFilter, historyDateFilter),
+      status: appointmentCloudStatusFilterFromUi(statusFilter),
+      serviceTitle: appointmentCloudServiceFilterFromUi(serviceFilter)
+    }
+  }
+
+  function currentCustomerAppointmentCloudFilters(input: {
+    dateFilter?: string | null
+    statusFilter?: string | null
+    serviceFilter?: string | null
+  } = {}): AppointmentCloudQueryFilters {
+    const dateFilter = String(input.dateFilter ?? appointmentCustomerDateFilter).trim() || 'All'
+    const statusFilter = String(input.statusFilter ?? appointmentCustomerStatusFilter).trim() || 'All'
+    const serviceFilter = String(input.serviceFilter ?? appointmentCustomerServiceFilter).trim() || 'All'
+
+    return {
+      ...appointmentCloudDateFiltersFromUi(dateFilter, null),
+      status: appointmentCloudStatusFilterFromUi(statusFilter),
+      serviceTitle: appointmentCloudServiceFilterFromUi(serviceFilter)
+    }
+  }
+
+  function appointmentFilterRowsToFutureDateOptions(rows: CloudAppointmentFilterRow[]): string[] {
+    const today = appointmentLocalDateKey(new Date())
+
+    return [
+      'All',
+      ...Array.from(
+        new Set(
+          rows
+            .map(item => item.preferredDate.trim())
+            .filter(value => value && value >= today)
+        )
+      ).sort((left, right) => left.localeCompare(right))
+    ]
+  }
+
+  function appointmentFilterRowMatchesDate(
+    row: CloudAppointmentFilterRow,
+    dateFilterInput: string,
+    historyDateInput: string | null = null
+  ): boolean {
+    const today = appointmentLocalDateKey(new Date())
+    const historyDate = String(historyDateInput || '').trim()
+    const dateFilter = historyDate || String(dateFilterInput || '').trim() || 'All'
+
+    if (dateFilter === 'History') return row.preferredDate < today
+    if (dateFilter === 'All') return row.preferredDate >= today
+
+    return row.preferredDate === dateFilter
+  }
+
+  function appointmentFilterRowMatchesStatus(
+    row: CloudAppointmentFilterRow,
+    statusFilterInput: string
+  ): boolean {
+    const statusFilter = String(statusFilterInput || '').trim() || 'All'
+
+    if (statusFilter === 'All') return true
+
+    return appointmentsStatusFromCloud(row.status) === statusFilter
+  }
+
+  function appointmentFilterRowsToServiceOptions(
+    rows: CloudAppointmentFilterRow[],
+    dateFilterInput: string,
+    statusFilterInput: string,
+    historyDateInput: string | null = null
+  ): string[] {
+    return [
+      'All',
+      ...Array.from(
+        new Set(
+          rows
+            .filter(item => appointmentFilterRowMatchesDate(item, dateFilterInput, historyDateInput))
+            .filter(item => appointmentFilterRowMatchesStatus(item, statusFilterInput))
+            .map(item => item.serviceTitle.trim() || 'General appointment')
+            .filter(Boolean)
+        )
+      )
+    ]
+  }
+
+  function resetAdminAppointmentsPaginationForFirstPage(itemsLength: number): void {
+    setAdminAppointmentsPagination({
+      nextOffset: itemsLength,
+      hasMore: itemsLength >= SHOWCASE_PAGE_SIZE.merchantAppointments,
+      isLoadingMore: false
+    })
+  }
+
+  function resetCustomerAppointmentsPaginationForFirstPage(itemsLength: number): void {
+    setCustomerAppointmentsPagination({
+      nextOffset: itemsLength,
+      hasMore: itemsLength >= SHOWCASE_PAGE_SIZE.clientAppointments,
+      isLoadingMore: false
+    })
+  }
+
   function onAppointmentAdminDateFilterChange(value: string): void {
-    setAppointmentAdminDateFilter(value.trim() || 'All')
+    const nextDateFilter = value.trim() || 'All'
+
+    setAppointmentAdminDateFilter(nextDateFilter)
     setAppointmentAdminHistoryDateFilter(null)
     setAppointmentAdminServiceFilter('All')
+
+    void refreshAdminAppointmentsFromCloud(null, currentAdminAppointmentCloudFilters({
+      dateFilter: nextDateFilter,
+      historyDateFilter: null,
+      serviceFilter: 'All'
+    }))
   }
 
   function onAppointmentAdminHistoryDateClear(): void {
     setAppointmentAdminHistoryDateFilter(null)
     setAppointmentAdminDateFilter('All')
     setAppointmentAdminServiceFilter('All')
+
+    void refreshAdminAppointmentsFromCloud(null, currentAdminAppointmentCloudFilters({
+      dateFilter: 'All',
+      historyDateFilter: null,
+      serviceFilter: 'All'
+    }))
   }
 
   function onAppointmentAdminHistoryDateSelected(value: string): void {
@@ -7943,18 +12227,41 @@ async function updateAppointmentStatus(appointmentIdInput: string, statusInput: 
     setAppointmentAdminHistoryDateFilter(safeValue)
     setAppointmentAdminDateFilter('All')
     setAppointmentAdminServiceFilter('All')
+
+    void refreshAdminAppointmentsFromCloud(null, currentAdminAppointmentCloudFilters({
+      dateFilter: 'All',
+      historyDateFilter: safeValue,
+      serviceFilter: 'All'
+    }))
   }
 
   function onAppointmentAdminServiceFilterChange(value: string): void {
-    setAppointmentAdminServiceFilter(value.trim() || 'All')
+    const nextServiceFilter = value.trim() || 'All'
+
+    setAppointmentAdminServiceFilter(nextServiceFilter)
+
+    void refreshAdminAppointmentsFromCloud(null, currentAdminAppointmentCloudFilters({
+      serviceFilter: nextServiceFilter
+    }))
   }
 
   function onAppointmentAdminStatusFilterChange(value: string): void {
-    setAppointmentAdminStatusFilter(value.trim() || 'All')
+    const nextStatusFilter = value.trim() || 'All'
+
+    setAppointmentAdminStatusFilter(nextStatusFilter)
     setAppointmentAdminServiceFilter('All')
+
+    void refreshAdminAppointmentsFromCloud(null, currentAdminAppointmentCloudFilters({
+      statusFilter: nextStatusFilter,
+      serviceFilter: 'All'
+    }))
   }
 
   function onAppointmentAvailableHoursTextChange(value: string): void {
+    if (guardOfflineWriteOperation()) {
+      return
+    }
+
     const normalizedHours = normalizeAppointmentAvailableHoursText(value)
     const nextSettings = currentAppointmentSettingsForCloud({
       availableStartTime: normalizedHours.start,
@@ -7968,6 +12275,10 @@ async function updateAppointmentStatus(appointmentIdInput: string, statusInput: 
   }
 
   function onAppointmentBookingWindowDaysChange(value: number): void {
+    if (guardOfflineWriteOperation()) {
+      return
+    }
+
     const safeDays = normalizeAppointmentBookingWindowDays(value)
     const nextSettings = currentAppointmentSettingsForCloud({
       bookingWindowDays: safeDays
@@ -7980,6 +12291,10 @@ async function updateAppointmentStatus(appointmentIdInput: string, statusInput: 
   }
 
   function onAppointmentClosedDayToggle(value: string): void {
+    if (guardOfflineWriteOperation()) {
+      return
+    }
+
     const nextClosedDays = nextClosedDaysAfterToggle(appointmentClosedDays, value)
     const nextSettings = currentAppointmentSettingsForCloud({
       closedDays: nextClosedDays
@@ -7998,17 +12313,37 @@ async function updateAppointmentStatus(appointmentIdInput: string, statusInput: 
   }
 
   function onAppointmentCustomerDateFilterChange(value: string): void {
-    setAppointmentCustomerDateFilter(value.trim() || 'All')
+    const nextDateFilter = value.trim() || 'All'
+
+    setAppointmentCustomerDateFilter(nextDateFilter)
     setAppointmentCustomerServiceFilter('All')
+
+    void refreshCustomerAppointmentsFromCloud(null, currentCustomerAppointmentCloudFilters({
+      dateFilter: nextDateFilter,
+      serviceFilter: 'All'
+    }))
   }
 
   function onAppointmentCustomerServiceFilterChange(value: string): void {
-    setAppointmentCustomerServiceFilter(value.trim() || 'All')
+    const nextServiceFilter = value.trim() || 'All'
+
+    setAppointmentCustomerServiceFilter(nextServiceFilter)
+
+    void refreshCustomerAppointmentsFromCloud(null, currentCustomerAppointmentCloudFilters({
+      serviceFilter: nextServiceFilter
+    }))
   }
 
   function onAppointmentCustomerStatusFilterChange(value: string): void {
-    setAppointmentCustomerStatusFilter(value.trim() || 'All')
+    const nextStatusFilter = value.trim() || 'All'
+
+    setAppointmentCustomerStatusFilter(nextStatusFilter)
     setAppointmentCustomerServiceFilter('All')
+
+    void refreshCustomerAppointmentsFromCloud(null, currentCustomerAppointmentCloudFilters({
+      statusFilter: nextStatusFilter,
+      serviceFilter: 'All'
+    }))
   }
 
   function onAppointmentDateDraftChange(value: string): void {
@@ -8019,6 +12354,10 @@ async function updateAppointmentStatus(appointmentIdInput: string, statusInput: 
   }
 
   function onAppointmentMinimumNoticeChange(value: string): void {
+    if (guardOfflineWriteOperation()) {
+      return
+    }
+
     const safeValue = normalizeAppointmentMinimumNotice(value)
     const nextSettings = currentAppointmentSettingsForCloud({
       minimumNotice: safeValue
@@ -8049,6 +12388,10 @@ async function updateAppointmentStatus(appointmentIdInput: string, statusInput: 
   }
 
   function onAppointmentSlotIntervalMinutesChange(value: number): void {
+    if (guardOfflineWriteOperation()) {
+      return
+    }
+
     const safeMinutes = normalizeAppointmentSlotIntervalMinutes(value)
     const nextSettings = currentAppointmentSettingsForCloud({
       slotIntervalMinutes: safeMinutes
@@ -8067,6 +12410,10 @@ async function updateAppointmentStatus(appointmentIdInput: string, statusInput: 
   }
 
   function onAppointmentsEnabledChange(value: boolean): void {
+    if (guardOfflineWriteOperation()) {
+      return
+    }
+
     const nextSettings = currentAppointmentSettingsForCloud({
       enabled: value
     })
@@ -8077,13 +12424,111 @@ async function updateAppointmentStatus(appointmentIdInput: string, statusInput: 
     void saveAppointmentSettingsToCloud(nextSettings)
   }
 
-async function refreshAdminAppointmentsFromCloud(statusMessageOverride: string | null = null): Promise<void> {
+async function loadMoreHomeDishes(): Promise<void> {
+  if (homePagination.isLoadingMore || !homePagination.hasMore) return
+
+  setHomePagination(current => ({
+    nextOffset: current.nextOffset,
+    hasMore: current.hasMore,
+    isLoadingMore: true
+  }))
+
+  try {
+    const nextItems = await fetchHomeDishesFilteredPage(
+      currentHomeDishCloudFilters(),
+      homePagination.nextOffset
+    )
+    const currentItems = dishesFromIds(homeDishIds)
+    const merged = sortedDishesForStorage(mergeUniqueById(currentItems, nextItems))
+
+    setHomeDishIds(mergeDishIds(homeDishIds, nextItems))
+    setDishes(merged)
+    refreshFavoritesList(merged)
+    setPendingSyncOperations(buildPendingDishSyncOperations(merged))
+
+    setHomePagination({
+      nextOffset: homePagination.nextOffset + nextItems.length,
+      hasMore: nextItems.length >= SHOWCASE_PAGE_SIZE.homeDishes,
+      isLoadingMore: false
+    })
+  } catch (error) {
+    setHomePagination(current => ({
+      nextOffset: current.nextOffset,
+      hasMore: current.hasMore,
+      isLoadingMore: false
+    }))
+    setStatusMessage(error instanceof Error ? error.message : 'Failed to load more items.')
+  }
+}
+
+async function loadMoreAdminItems(): Promise<void> {
+  if (adminItemsPagination.isLoadingMore || !adminItemsPagination.hasMore) return
+
+  setAdminItemsPagination(current => ({
+    nextOffset: current.nextOffset,
+    hasMore: current.hasMore,
+    isLoadingMore: true
+  }))
+
+  try {
+    const validSession = await ensureValidMerchantSessionLoadedForCloud()
+
+    if (!validSession) {
+      setStatusMessage(merchantSessionEnsureFailureMessage())
+      setAdminItemsPagination(current => ({
+        nextOffset: current.nextOffset,
+        hasMore: current.hasMore,
+        isLoadingMore: false
+      }))
+      return
+    }
+
+    setStoreMerchantSessionFromAuthSession(validSession)
+    bindMerchantSessionToRepository(repository)
+
+    const nextItems = await fetchAdminItemsFilteredPage(
+      currentAdminItemsCloudFilters(),
+      adminItemsPagination.nextOffset
+    )
+    const currentItems = dishesFromIds(adminItemIds)
+    const merged = sortedDishesForStorage(mergeUniqueById(currentItems, nextItems))
+
+    setAdminItemIds(mergeDishIds(adminItemIds, nextItems))
+    setDishes(merged)
+    refreshFavoritesList(merged)
+    setPendingSyncOperations(buildPendingDishSyncOperations(merged))
+
+    setAdminItemsPagination({
+      nextOffset: adminItemsPagination.nextOffset + nextItems.length,
+      hasMore: nextItems.length >= SHOWCASE_PAGE_SIZE.adminItems,
+      isLoadingMore: false
+    })
+  } catch (error) {
+    setAdminItemsPagination(current => ({
+      nextOffset: current.nextOffset,
+      hasMore: current.hasMore,
+      isLoadingMore: false
+    }))
+    setStatusMessage(error instanceof Error ? error.message : 'Failed to load more items.')
+  }
+}
+
+async function refreshAdminAppointmentsFromCloud(
+  statusMessageOverride: string | null = null,
+  filtersInput: AppointmentCloudQueryFilters = currentAdminAppointmentCloudFilters()
+): Promise<void> {
   setAppointmentsRefreshing(true)
 
   try {
-    await ensureMerchantSessionLoadedForCloud()
+    const validSession = await ensureValidMerchantSessionLoadedForCloud()
 
-    setStoreMerchantSessionFromAuthSession(merchantSession)
+    if (!validSession) {
+      setStatusMessage(merchantSessionEnsureFailureMessage())
+      setAdminAppointmentFilterRows([])
+      return
+    }
+
+    setStoreMerchantSessionFromAuthSession(validSession)
     bindMerchantSessionToRepository(repository)
 
     const cloudSettings = await repository.fetchAppointmentSettings(storeId)
@@ -8092,13 +12537,32 @@ async function refreshAdminAppointmentsFromCloud(statusMessageOverride: string |
       applyCloudAppointmentSettings(cloudSettings)
     }
 
-    const items = await repository.fetchAppointmentRequestsForMerchant(storeId)
-    const sortedItems = [...items].sort((left, right) => {
+    const filterRows = await repository.fetchAppointmentFilterRows({
+      storeId,
+      merchant: true
+    })
+
+    setAdminAppointmentFilterRows(filterRows)
+
+    const items = await repository.fetchAppointmentRequests({
+      storeId,
+      merchant: true,
+      preferredDate: filtersInput.preferredDate,
+      preferredDateGte: filtersInput.preferredDateGte,
+      preferredDateLt: filtersInput.preferredDateLt,
+      status: filtersInput.status,
+      serviceTitle: filtersInput.serviceTitle,
+      limit: SHOWCASE_PAGE_SIZE.merchantAppointments,
+      offset: 0
+    })
+    const sortedItems = items.slice().sort((left, right) => {
       return (right.createdAt || 0) - (left.createdAt || 0)
     })
 
     setAppointmentRequests(sortedItems)
     saveAppointmentsToStorage(storeId, sortedItems)
+    void hydrateAppointmentLinkedDishesFromRequests(sortedItems)
+    resetAdminAppointmentsPaginationForFirstPage(sortedItems.length)
     setStatusMessage(statusMessageOverride || 'Appointments refreshed.')
   } catch (error) {
     const cachedItems = loadAppointmentsFromStorage(storeId)
@@ -8106,6 +12570,8 @@ async function refreshAdminAppointmentsFromCloud(statusMessageOverride: string |
     if (cachedItems.length) {
       setAppointmentRequests(cachedItems)
     }
+
+    resetAdminAppointmentsPaginationForFirstPage(cachedItems.length)
 
     const message = error instanceof Error
       ? error.message
@@ -8117,7 +12583,10 @@ async function refreshAdminAppointmentsFromCloud(statusMessageOverride: string |
   }
 }
 
-async function refreshCustomerAppointmentsFromCloud(statusMessageOverride: string | null = null): Promise<void> {
+async function refreshCustomerAppointmentsFromCloud(
+  statusMessageOverride: string | null = null,
+  filtersInput: AppointmentCloudQueryFilters = currentCustomerAppointmentCloudFilters()
+): Promise<void> {
   setAppointmentsRefreshing(true)
 
   try {
@@ -8127,13 +12596,34 @@ async function refreshCustomerAppointmentsFromCloud(statusMessageOverride: strin
       applyCloudAppointmentSettings(cloudSettings)
     }
 
-    const items = await repository.fetchAppointmentRequestsForClient(storeId, clientId)
-    const sortedItems = [...items].sort((left, right) => {
+    const filterRows = await repository.fetchAppointmentFilterRows({
+      storeId,
+      clientId,
+      merchant: false
+    })
+
+    setCustomerAppointmentFilterRows(filterRows)
+
+    const items = await repository.fetchAppointmentRequests({
+      storeId,
+      clientId,
+      merchant: false,
+      preferredDate: filtersInput.preferredDate,
+      preferredDateGte: filtersInput.preferredDateGte,
+      preferredDateLt: filtersInput.preferredDateLt,
+      status: filtersInput.status,
+      serviceTitle: filtersInput.serviceTitle,
+      limit: SHOWCASE_PAGE_SIZE.clientAppointments,
+      offset: 0
+    })
+    const sortedItems = items.slice().sort((left, right) => {
       return (right.createdAt || 0) - (left.createdAt || 0)
     })
 
     setAppointmentRequests(sortedItems)
     saveAppointmentsToStorage(storeId, sortedItems)
+    void hydrateAppointmentLinkedDishesFromRequests(sortedItems)
+    resetCustomerAppointmentsPaginationForFirstPage(sortedItems.length)
     setStatusMessage(statusMessageOverride || 'Bookings refreshed.')
   } catch {
     const cachedItems = loadAppointmentsFromStorage(storeId)
@@ -8141,6 +12631,8 @@ async function refreshCustomerAppointmentsFromCloud(statusMessageOverride: strin
     if (cachedItems.length) {
       setAppointmentRequests(cachedItems)
     }
+
+    resetCustomerAppointmentsPaginationForFirstPage(cachedItems.length)
 
     setStatusMessage('Bookings refresh failed.')
   } finally {
@@ -8151,15 +12643,22 @@ async function refreshCustomerAppointmentsFromCloud(statusMessageOverride: strin
   async function saveAppointmentSettingsToCloud(settingsInput?: CloudAppointmentSettings): Promise<void> {
     const nextSettings = settingsInput || currentAppointmentSettingsForCloud()
 
+    setAppointmentSettingsSubmitting(true)
     applyAppointmentSettingsLocally(nextSettings)
 
     try {
-      await ensureMerchantSessionLoadedForCloud()
+      const validSession = await ensureValidMerchantSessionLoadedForCloud()
 
-      setStoreMerchantSessionFromAuthSession(merchantSession)
+      if (!validSession) {
+        setStatusMessage(merchantSessionEnsureFailureMessage())
+        showSnackbar(merchantSessionEnsureSnackbarMessage())
+        return
+      }
+
+      setStoreMerchantSessionFromAuthSession(validSession)
       bindMerchantSessionToRepository(repository)
 
-      const ok = await repository.upsertAppointmentSettings(nextSettings)
+      let ok = await repository.upsertAppointmentSettings(nextSettings)
 
       if (!ok) {
         const detail = [
@@ -8167,13 +12666,19 @@ async function refreshCustomerAppointmentsFromCloud(statusMessageOverride: strin
           repository.lastUpsertBody ? `body=${repository.lastUpsertBody.slice(0, 300)}` : ''
         ].filter(Boolean).join(' ')
 
-        const handled = await handleMerchantAuthExpiredIfNeeded(
-          new Error(detail || 'Appointment settings save failed.')
-        )
+        const retry = await retryMerchantCloudOperationAfterAuthRefresh({
+          errorInput: new Error(detail || 'Appointment settings save failed.'),
+          operation: () => repository.upsertAppointmentSettings(nextSettings),
+          isSuccess: value => value
+        })
 
-        if (handled) return
+        if (retry.status === 'handled_without_retry') return
 
-        throw new Error('Appointment settings save failed.')
+        if (retry.status === 'retried_success') {
+          ok = true
+        } else {
+          throw new Error('Appointment settings save failed.')
+        }
       }
 
       removePendingSync('appointment-settings-upsert')
@@ -8188,6 +12693,8 @@ async function refreshCustomerAppointmentsFromCloud(statusMessageOverride: strin
 
       setStatusMessage('Booking settings saved locally, but cloud sync failed.')
       showSnackbar('Booking settings queued for sync.')
+    } finally {
+      setAppointmentSettingsSubmitting(false)
     }
   }
 
@@ -8229,6 +12736,7 @@ async function refreshCustomerAppointmentsFromCloud(statusMessageOverride: strin
     persistAdminAnnouncementEditorDraftLocally(storeId, {
       id: draft.id,
       coverUrl: draft.coverUrl,
+      coverImageVariants: draft.coverImageVariants ?? null,
       body: draft.body,
       status: 'draft',
       createdAt: draft.createdAt || nowMillis(),
@@ -8249,6 +12757,12 @@ async function refreshCustomerAppointmentsFromCloud(statusMessageOverride: strin
 
     if (!draftBody && !selectedDraft) {
       setAdminAnnouncementError('Content is required.')
+      setAdminAnnouncementSuccess(null)
+      return
+    }
+
+    if (guardOfflineWriteOperation()) {
+      setAdminAnnouncementError('You are offline. Please reconnect and try again.')
       setAdminAnnouncementSuccess(null)
       return
     }
@@ -8277,17 +12791,30 @@ async function refreshCustomerAppointmentsFromCloud(statusMessageOverride: strin
 
     setAdminAnnouncementError(null)
     setAdminAnnouncementSuccess(null)
+    setAdminAnnouncementSubmittingAction(nextStatus === 'published' ? 'publish' : 'save')
     setAdminAnnouncementIsSubmitting(true)
     setAdminAnnouncementIsBlocking(true)
     setStatusMessage(null)
 
     try {
+      const validSession = await ensureValidMerchantSessionLoadedForCloud()
+
+      if (!validSession) {
+        setAdminAnnouncementError(merchantSessionEnsureFailureMessage())
+        showSnackbar(merchantSessionEnsureSnackbarMessage())
+        return
+      }
+
+      setStoreMerchantSessionFromAuthSession(validSession)
+      bindMerchantSessionToRepository(repository)
+
       let uploadedCoverUrl: string | null = sourceCoverUrl
+      let coverImageVariants: ShowcaseImageVariants | null = existingEntity?.coverImageVariants ?? null
 
-      if (uploadedCoverUrl && isLocalImageUri(uploadedCoverUrl)) {
-        const nextUploadedCoverUrl = await uploadAnnouncementCoverIfNeeded(uploadedCoverUrl)
+      if (uploadedCoverUrl) {
+        const uploadedCover = await uploadAnnouncementCoverIfNeeded(uploadedCoverUrl)
 
-        if (!nextUploadedCoverUrl) {
+        if (!uploadedCover) {
           const handled = await handleMerchantAuthExpiredIfNeeded(
             new Error(nextStatus === 'published' ? 'Cloud publish failed.' : 'Cloud save failed.')
           )
@@ -8295,22 +12822,22 @@ async function refreshCustomerAppointmentsFromCloud(statusMessageOverride: strin
           if (handled) {
             setAdminAnnouncementIsSubmitting(false)
             setAdminAnnouncementIsBlocking(false)
+            setAdminAnnouncementSubmittingAction(null)
             return
           }
 
           throw new Error(nextStatus === 'published' ? 'Cloud publish failed.' : 'Cloud save failed.')
         }
 
-        uploadedCoverUrl = nextUploadedCoverUrl
+        uploadedCoverUrl = uploadedCover.url
+        coverImageVariants = uploadedCover.variants
       }
 
-      setStoreMerchantSessionFromAuthSession(merchantSession)
-      bindMerchantSessionToRepository(repository)
-
-      const saved = await repository.upsertAnnouncement({
+      let saved = await repository.upsertAnnouncement({
         id: targetId,
         storeId,
         coverUrl: uploadedCoverUrl,
+        coverImageVariants,
         body,
         status: nextStatus,
         updatedAt: now,
@@ -8323,21 +12850,36 @@ async function refreshCustomerAppointmentsFromCloud(statusMessageOverride: strin
           repository.lastAnnouncementUpsertBody ? `body=${repository.lastAnnouncementUpsertBody.slice(0, 300)}` : ''
         ].filter(Boolean).join(' ')
 
-        const handled = await handleMerchantAuthExpiredIfNeeded(
-          new Error(detail || (nextStatus === 'published' ? 'Cloud publish failed.' : 'Cloud save failed.'))
-        )
+        const retry = await retryMerchantCloudOperationAfterAuthRefresh({
+          errorInput: new Error(detail || (nextStatus === 'published' ? 'Cloud publish failed.' : 'Cloud save failed.')),
+          operation: () => repository.upsertAnnouncement({
+            id: targetId,
+            storeId,
+            coverUrl: uploadedCoverUrl,
+            coverImageVariants,
+            body,
+            status: nextStatus,
+            updatedAt: now,
+            viewCount
+          }),
+          isSuccess: value => Boolean(value)
+        })
 
-        if (handled) {
+        if (retry.status === 'handled_without_retry') {
           setAdminAnnouncementIsSubmitting(false)
           setAdminAnnouncementIsBlocking(false)
           return
         }
 
-        throw new Error(nextStatus === 'published' ? 'Cloud publish failed.' : 'Cloud save failed.')
+        if (retry.status === 'retried_success' && retry.value) {
+          saved = retry.value
+        } else {
+          throw new Error(nextStatus === 'published' ? 'Cloud publish failed.' : 'Cloud save failed.')
+        }
       }
 
       if (nextStatus === 'published') {
-        const pushOk = await repository.dispatchAnnouncementPush({
+        let pushOk = await repository.dispatchAnnouncementPush({
           storeId,
           announcementId: targetId,
           bodyPreview: 'Posted a new announcement'
@@ -8349,14 +12891,24 @@ async function refreshCustomerAppointmentsFromCloud(statusMessageOverride: strin
             repository.lastAnnouncementPushBody ? `body=${repository.lastAnnouncementPushBody.slice(0, 300)}` : ''
           ].filter(Boolean).join(' ')
 
-          const handled = await handleMerchantAuthExpiredIfNeeded(
-            new Error(detail || 'Announcement push failed.')
-          )
+          const retry = await retryMerchantCloudOperationAfterAuthRefresh({
+            errorInput: new Error(detail || 'Announcement push failed.'),
+            operation: () => repository.dispatchAnnouncementPush({
+              storeId,
+              announcementId: targetId,
+              bodyPreview: 'Posted a new announcement'
+            }),
+            isSuccess: value => value
+          })
 
-          if (handled) {
+          if (retry.status === 'handled_without_retry') {
             setAdminAnnouncementIsSubmitting(false)
             setAdminAnnouncementIsBlocking(false)
             return
+          }
+
+          if (retry.status === 'retried_success') {
+            pushOk = true
           }
         }
 
@@ -8380,7 +12932,9 @@ async function refreshCustomerAppointmentsFromCloud(statusMessageOverride: strin
 
       const latestAnnouncements = await repository.fetchAnnouncements({
         storeId,
-        includeDrafts: true
+        includeDrafts: true,
+        limit: SHOWCASE_PAGE_SIZE.adminAnnouncements,
+        offset: 0
       })
 
       rebuildAnnouncementsList(latestAnnouncements)
@@ -8395,6 +12949,7 @@ async function refreshCustomerAppointmentsFromCloud(statusMessageOverride: strin
       setAdminAnnouncementSuccess(nextStatus === 'published' ? 'Announcement published.' : 'Draft saved.')
       setAdminAnnouncementIsSubmitting(false)
       setAdminAnnouncementIsBlocking(false)
+      setAdminAnnouncementSubmittingAction(null)
       setStatusMessage(nextStatus === 'published' ? 'Announcement published.' : 'Draft saved.')
       removePendingSync(`announcement-upsert:${targetId}`)
 
@@ -8418,6 +12973,7 @@ async function refreshCustomerAppointmentsFromCloud(statusMessageOverride: strin
       setAdminAnnouncementSuccess(null)
       setAdminAnnouncementIsSubmitting(false)
       setAdminAnnouncementIsBlocking(false)
+      setAdminAnnouncementSubmittingAction(null)
       setStatusMessage(nextStatus === 'published'
         ? `Couldn't publish announcement. ${message}`
         : `Couldn't save draft. ${message}`)
@@ -8425,6 +12981,8 @@ async function refreshCustomerAppointmentsFromCloud(statusMessageOverride: strin
   }
 
   async function deleteSelectedAnnouncements(): Promise<void> {
+    if (adminAnnouncementIsSubmitting) return
+
     const draftIdSet = new Set(
       adminAnnouncementDraftItems
         .filter(item => item.status === 'draft')
@@ -8437,55 +12995,32 @@ async function refreshCustomerAppointmentsFromCloud(statusMessageOverride: strin
 
     if (!selected.length) return
 
-    setAdminAnnouncementDraftItems(current => {
-      return current.filter(item => {
-        return item.status !== 'draft' || !selected.includes(item.id)
-      })
-    })
-
-    const clearedEditingId = adminAnnouncementEditingId && selected.includes(adminAnnouncementEditingId)
-      ? null
-      : adminAnnouncementEditingId
-
-    const clearedCover = clearedEditingId == null
-      ? null
-      : adminAnnouncementCoverDraftUrl
-
-    const clearedBody = clearedEditingId == null
-      ? ''
-      : adminAnnouncementBodyDraft
-
-    const clearedPreviewId = adminAnnouncementPreviewId && selected.includes(adminAnnouncementPreviewId)
-      ? null
-      : adminAnnouncementPreviewId
-
-    setAdminAnnouncementEditingId(clearedEditingId)
-    setAdminAnnouncementCoverDraftUrl(clearedCover)
-    setAdminAnnouncementBodyDraft(clearedBody)
-    setAdminAnnouncementSelectedIds([])
-    setAdminAnnouncementPreviewId(clearedPreviewId)
-    setAdminAnnouncementError(null)
-    setAdminAnnouncementSuccess(`Deleted ${selected.length} draft(s).`)
-
-    if (clearedEditingId == null) {
-      clearAdminAnnouncementEditorDraftLocally(storeId)
-    } else {
-      const draft = toAnnouncementEntity({
-        id: clearedEditingId,
-        coverUrl: clearedCover,
-        body: clearedBody,
-        status: 'draft',
-        viewCount: 0
-      })
-
-      persistAdminAnnouncementEditorDraftLocally(storeId, draft)
+    if (guardOfflineWriteOperation()) {
+      setAdminAnnouncementError('You are offline. Please reconnect and try again.')
+      setAdminAnnouncementSuccess(null)
+      return
     }
 
-    void (async () => {
-      setStoreMerchantSessionFromAuthSession(merchantSession)
+    setAdminAnnouncementSubmittingAction('delete')
+    setAdminAnnouncementIsSubmitting(true)
+    setAdminAnnouncementIsBlocking(true)
+    setAdminAnnouncementError(null)
+    setAdminAnnouncementSuccess(null)
+    setStatusMessage(null)
+
+    try {
+      const validSession = await ensureValidMerchantSessionLoadedForCloud()
+
+      if (!validSession) {
+        setAdminAnnouncementError(merchantSessionEnsureFailureMessage())
+        showSnackbar(merchantSessionEnsureSnackbarMessage())
+        return
+      }
+
+      setStoreMerchantSessionFromAuthSession(validSession)
       bindMerchantSessionToRepository(repository)
 
-      const deleteOk = await repository.deleteAnnouncements(storeId, selected)
+      let deleteOk = await repository.deleteAnnouncements(storeId, selected)
 
       if (!deleteOk) {
         const detail = [
@@ -8493,11 +13028,77 @@ async function refreshCustomerAppointmentsFromCloud(statusMessageOverride: strin
           repository.lastDeleteBody ? `body=${repository.lastDeleteBody.slice(0, 300)}` : ''
         ].filter(Boolean).join(' ')
 
-        await handleMerchantDeleteExpiredIfNeeded(
-          new Error(detail || 'Delete announcements failed.')
-        )
+        const retry = await retryMerchantCloudOperationAfterAuthRefresh({
+          errorInput: new Error(detail || 'Delete announcements failed.'),
+          operation: () => repository.deleteAnnouncements(storeId, selected),
+          isSuccess: value => value
+        })
+
+        if (retry.status === 'handled_without_retry') return
+
+        if (retry.status === 'retried_success') {
+          deleteOk = true
+        } else {
+          throw new Error('Delete announcements failed.')
+        }
       }
-    })()
+
+      setAdminAnnouncementDraftItems(current => {
+        return current.filter(item => {
+          return item.status !== 'draft' || !selected.includes(item.id)
+        })
+      })
+
+      const clearedEditingId = adminAnnouncementEditingId && selected.includes(adminAnnouncementEditingId)
+        ? null
+        : adminAnnouncementEditingId
+
+      const clearedCover = clearedEditingId == null
+        ? null
+        : adminAnnouncementCoverDraftUrl
+
+      const clearedBody = clearedEditingId == null
+        ? ''
+        : adminAnnouncementBodyDraft
+
+      const clearedPreviewId = adminAnnouncementPreviewId && selected.includes(adminAnnouncementPreviewId)
+        ? null
+        : adminAnnouncementPreviewId
+
+      setAdminAnnouncementEditingId(clearedEditingId)
+      setAdminAnnouncementCoverDraftUrl(clearedCover)
+      setAdminAnnouncementBodyDraft(clearedBody)
+      setAdminAnnouncementSelectedIds([])
+      setAdminAnnouncementPreviewId(clearedPreviewId)
+      setAdminAnnouncementError(null)
+      setAdminAnnouncementSuccess(`Deleted ${selected.length} draft(s).`)
+
+      if (clearedEditingId == null) {
+        clearAdminAnnouncementEditorDraftLocally(storeId)
+      } else {
+        const draft = toAnnouncementEntity({
+          id: clearedEditingId,
+          coverUrl: clearedCover,
+          body: clearedBody,
+          status: 'draft',
+          viewCount: 0
+        })
+
+        persistAdminAnnouncementEditorDraftLocally(storeId, draft)
+      }
+    } catch (error) {
+      const message = error instanceof Error && error.message.trim()
+        ? error.message.trim()
+        : 'Delete announcements failed.'
+
+      setAdminAnnouncementError(message)
+      setAdminAnnouncementSuccess(null)
+      setStatusMessage(message)
+    } finally {
+      setAdminAnnouncementIsSubmitting(false)
+      setAdminAnnouncementIsBlocking(false)
+      setAdminAnnouncementSubmittingAction(null)
+    }
   }
 
   function hasAnnouncementBeenViewedLocally(idInput: string): boolean {
@@ -8590,16 +13191,31 @@ async function refreshCustomerAppointmentsFromCloud(statusMessageOverride: strin
     if (!id) return
 
     if (hasAnnouncementClickBeenCountedLocally(id)) return
+    if (announcementClickCountInFlightRef.current.has(id)) return
 
-    const ok = await repository.incrementAnnouncementViewCount({
-      storeId,
-      announcementId: id
-    })
+    announcementClickCountInFlightRef.current.add(id)
 
-    if (!ok) return
+    try {
+      const ok = await repository.incrementAnnouncementViewCount({
+        storeId,
+        announcementId: id
+      })
 
-    markAnnouncementClickCountedLocally(id)
-    await syncPublicAnnouncementsFromCloud(false)
+      if (!ok) return
+
+      markAnnouncementClickCountedLocally(id)
+
+      setAnnouncements(current => current.map(item => {
+        if (item.id !== id) return item
+
+        return {
+          ...item,
+          viewCount: item.viewCount + 1
+        }
+      }))
+    } finally {
+      announcementClickCountInFlightRef.current.delete(id)
+    }
   }
 
   async function openAnnouncement(idInput: string): Promise<void> {
@@ -8656,6 +13272,7 @@ async function refreshCustomerAppointmentsFromCloud(statusMessageOverride: strin
   function toAnnouncementEntity(input: {
     id?: string | null
     coverUrl?: string | null
+    coverImageVariants?: ShowcaseImageVariants | null
     body: string
     status: 'draft' | 'published'
     viewCount?: number | null
@@ -8665,6 +13282,7 @@ async function refreshCustomerAppointmentsFromCloud(statusMessageOverride: strin
     return {
       id: input.id || createUuidLikeId(),
       coverUrl: input.coverUrl || null,
+      coverImageVariants: input.coverImageVariants ?? null,
       body: input.body,
       status: input.status,
       createdAt: now,
@@ -8689,6 +13307,7 @@ async function refreshCustomerAppointmentsFromCloud(statusMessageOverride: strin
     return {
       id: item.id,
       coverUrl: item.coverUrl,
+      coverImageVariants: item.coverImageVariants ?? null,
       bodyPreview: bodyPreview.length <= 120 ? bodyPreview : `${bodyPreview.slice(0, 120)}…`,
       bodyText: normalizedBody,
       timeText: showYear
@@ -8722,6 +13341,7 @@ async function refreshCustomerAppointmentsFromCloud(statusMessageOverride: strin
       .map(item => ({
         id: item.id,
         coverUrl: item.coverUrl,
+        coverImageVariants: item.coverImageVariants ?? null,
         body: item.body,
         status: 'draft' as const,
         createdAt: item.createdAt || nowMillis(),
@@ -8735,10 +13355,123 @@ async function refreshCustomerAppointmentsFromCloud(statusMessageOverride: strin
     persistPublishedAnnouncementsLocally(storeId, published)
   }
 
+  async function loadMoreCustomerAppointments(): Promise<void> {
+    if (customerAppointmentsPagination.isLoadingMore || !customerAppointmentsPagination.hasMore) return
+
+    setCustomerAppointmentsPagination(current => ({
+      nextOffset: current.nextOffset,
+      hasMore: current.hasMore,
+      isLoadingMore: true
+    }))
+
+    try {
+      const filters = currentCustomerAppointmentCloudFilters()
+      const nextItems = await repository.fetchAppointmentRequests({
+        storeId,
+        clientId,
+        merchant: false,
+        preferredDate: filters.preferredDate,
+        preferredDateGte: filters.preferredDateGte,
+        preferredDateLt: filters.preferredDateLt,
+        status: filters.status,
+        serviceTitle: filters.serviceTitle,
+        limit: SHOWCASE_PAGE_SIZE.clientAppointments,
+        offset: customerAppointmentsPagination.nextOffset
+      })
+      const merged = sortedAppointmentsForStorage(mergeUniqueById(appointmentRequests, nextItems))
+
+      setAppointmentRequests(merged)
+      if (nextItems.length) {
+        saveAppointmentsToStorage(storeId, merged)
+        pruneBookingSeenWhenCompletePageLoaded(
+          storeId,
+          clientId,
+          merged,
+          nextItems.length,
+          SHOWCASE_PAGE_SIZE.clientAppointments
+        )
+      }
+      void hydrateAppointmentLinkedDishesFromRequests(merged)
+
+      setCustomerAppointmentsPagination({
+        nextOffset: customerAppointmentsPagination.nextOffset + nextItems.length,
+        hasMore: nextItems.length >= SHOWCASE_PAGE_SIZE.clientAppointments,
+        isLoadingMore: false
+      })
+    } catch (error) {
+      setCustomerAppointmentsPagination(current => ({
+        nextOffset: current.nextOffset,
+        hasMore: current.hasMore,
+        isLoadingMore: false
+      }))
+      setStatusMessage(error instanceof Error ? error.message : 'Failed to load more bookings.')
+    }
+  }
+
+  async function loadMoreAdminAppointments(): Promise<void> {
+    if (adminAppointmentsPagination.isLoadingMore || !adminAppointmentsPagination.hasMore) return
+
+    setAdminAppointmentsPagination(current => ({
+      nextOffset: current.nextOffset,
+      hasMore: current.hasMore,
+      isLoadingMore: true
+    }))
+
+    try {
+      const validSession = await ensureValidMerchantSessionLoadedForCloud()
+
+      if (!validSession) {
+        setStatusMessage(merchantSessionEnsureFailureMessage())
+        setAdminAppointmentsPagination(current => ({
+          nextOffset: current.nextOffset,
+          hasMore: current.hasMore,
+          isLoadingMore: false
+        }))
+        return
+      }
+
+      setStoreMerchantSessionFromAuthSession(validSession)
+      bindMerchantSessionToRepository(repository)
+
+      const filters = currentAdminAppointmentCloudFilters()
+      const nextItems = await repository.fetchAppointmentRequests({
+        storeId,
+        merchant: true,
+        preferredDate: filters.preferredDate,
+        preferredDateGte: filters.preferredDateGte,
+        preferredDateLt: filters.preferredDateLt,
+        status: filters.status,
+        serviceTitle: filters.serviceTitle,
+        limit: SHOWCASE_PAGE_SIZE.merchantAppointments,
+        offset: adminAppointmentsPagination.nextOffset
+      })
+      const merged = sortedAppointmentsForStorage(mergeUniqueById(appointmentRequests, nextItems))
+
+      setAppointmentRequests(merged)
+      if (nextItems.length) saveAppointmentsToStorage(storeId, merged)
+      void hydrateAppointmentLinkedDishesFromRequests(merged)
+
+      setAdminAppointmentsPagination({
+        nextOffset: adminAppointmentsPagination.nextOffset + nextItems.length,
+        hasMore: nextItems.length >= SHOWCASE_PAGE_SIZE.merchantAppointments,
+        isLoadingMore: false
+      })
+    } catch (error) {
+      setAdminAppointmentsPagination(current => ({
+        nextOffset: current.nextOffset,
+        hasMore: current.hasMore,
+        isLoadingMore: false
+      }))
+      setStatusMessage(error instanceof Error ? error.message : 'Failed to load more appointments.')
+    }
+  }
+
   async function syncPublicAnnouncementsFromCloud(markViewedAfterSync = false): Promise<void> {
     const latest = await repository.fetchAnnouncements({
       storeId,
-      includeDrafts: false
+      includeDrafts: false,
+      limit: SHOWCASE_PAGE_SIZE.publicAnnouncements,
+      offset: 0
     })
 
     const cachedItems = loadPublishedAnnouncementsLocally(storeId)
@@ -8767,19 +13500,147 @@ async function refreshCustomerAppointmentsFromCloud(statusMessageOverride: strin
 
     if (latest.length) {
       persistPublishedAnnouncementsLocally(storeId, publishedItems)
+      pruneAnnouncementMarksWhenCompletePageLoaded(
+        storeId,
+        publishedItems,
+        latest.length,
+        SHOWCASE_PAGE_SIZE.publicAnnouncements
+      )
     }
   }
 
   async function syncMerchantAnnouncementsFromCloud(): Promise<void> {
-    setStoreMerchantSessionFromAuthSession(merchantSession)
+    const validSession = await ensureValidMerchantSessionLoadedForCloud()
+
+    if (!validSession) {
+      setStatusMessage(merchantSessionEnsureFailureMessage())
+      showSnackbar(merchantSessionEnsureSnackbarMessage())
+      return
+    }
+
+    setStoreMerchantSessionFromAuthSession(validSession)
     bindMerchantSessionToRepository(repository)
 
     const latest = await repository.fetchAnnouncements({
       storeId,
-      includeDrafts: true
+      includeDrafts: true,
+      limit: SHOWCASE_PAGE_SIZE.adminAnnouncements,
+      offset: 0
     })
 
     rebuildAnnouncementsList(latest)
+  }
+
+  async function loadMorePublicAnnouncements(): Promise<void> {
+    if (publicAnnouncementsPagination.isLoadingMore || !publicAnnouncementsPagination.hasMore) return
+
+    setPublicAnnouncementsPagination(current => ({
+      nextOffset: current.nextOffset,
+      hasMore: current.hasMore,
+      isLoadingMore: true
+    }))
+
+    try {
+      const latest = await repository.fetchAnnouncements({
+        storeId,
+        includeDrafts: false,
+        limit: SHOWCASE_PAGE_SIZE.publicAnnouncements,
+        offset: publicAnnouncementsPagination.nextOffset
+      })
+      const publishedItems = latest
+        .filter(item => item.status === 'published')
+        .map(toPublishedAnnouncementEntity)
+      const merged = sortedAnnouncementsForStorage(mergeUniqueById(announcements, publishedItems))
+
+      setAnnouncements(merged)
+      setAnnouncementsEntryDotVisible(computeAnnouncementsEntryDot(merged))
+      if (publishedItems.length) {
+        persistPublishedAnnouncementsLocally(storeId, merged)
+        pruneAnnouncementMarksWhenCompletePageLoaded(
+          storeId,
+          merged,
+          latest.length,
+          SHOWCASE_PAGE_SIZE.publicAnnouncements
+        )
+      }
+
+      setPublicAnnouncementsPagination({
+        nextOffset: publicAnnouncementsPagination.nextOffset + latest.length,
+        hasMore: latest.length >= SHOWCASE_PAGE_SIZE.publicAnnouncements,
+        isLoadingMore: false
+      })
+    } catch (error) {
+      setPublicAnnouncementsPagination(current => ({
+        nextOffset: current.nextOffset,
+        hasMore: current.hasMore,
+        isLoadingMore: false
+      }))
+      setStatusMessage(error instanceof Error ? error.message : 'Failed to load more announcements.')
+    }
+  }
+
+  async function loadMoreAdminAnnouncements(): Promise<void> {
+    if (adminAnnouncementsPagination.isLoadingMore || !adminAnnouncementsPagination.hasMore) return
+
+    setAdminAnnouncementsPagination(current => ({
+      nextOffset: current.nextOffset,
+      hasMore: current.hasMore,
+      isLoadingMore: true
+    }))
+
+    try {
+      const validSession = await ensureValidMerchantSessionLoadedForCloud()
+
+      if (!validSession) {
+        setStatusMessage(merchantSessionEnsureFailureMessage())
+        showSnackbar(merchantSessionEnsureSnackbarMessage())
+        setAdminAnnouncementsPagination(current => ({
+          nextOffset: current.nextOffset,
+          hasMore: current.hasMore,
+          isLoadingMore: false
+        }))
+        return
+      }
+
+      setStoreMerchantSessionFromAuthSession(validSession)
+      bindMerchantSessionToRepository(repository)
+
+      const latest = await repository.fetchAnnouncements({
+        storeId,
+        includeDrafts: true,
+        limit: SHOWCASE_PAGE_SIZE.adminAnnouncements,
+        offset: adminAnnouncementsPagination.nextOffset
+      })
+      const currentItems = [
+        ...announcements,
+        ...adminAnnouncementDraftItems.map(item => ({
+          id: item.id,
+          storeId,
+          coverUrl: item.coverUrl,
+          title: '',
+          body: item.body,
+          status: item.status,
+          createdAt: item.createdAt,
+          updatedAt: item.updatedAt,
+          viewCount: item.viewCount
+        } as CloudAnnouncement))
+      ]
+
+      rebuildAnnouncementsList(sortedAnnouncementsForStorage(mergeUniqueById(currentItems, latest)))
+
+      setAdminAnnouncementsPagination({
+        nextOffset: adminAnnouncementsPagination.nextOffset + latest.length,
+        hasMore: latest.length >= SHOWCASE_PAGE_SIZE.adminAnnouncements,
+        isLoadingMore: false
+      })
+    } catch (error) {
+      setAdminAnnouncementsPagination(current => ({
+        nextOffset: current.nextOffset,
+        hasMore: current.hasMore,
+        isLoadingMore: false
+      }))
+      setStatusMessage(error instanceof Error ? error.message : 'Failed to load more announcements.')
+    }
   }
 
   async function refreshAnnouncements(): Promise<void> {
@@ -8789,7 +13650,9 @@ async function refreshCustomerAppointmentsFromCloud(statusMessageOverride: strin
   async function refreshAnnouncementsEntryDotOnce(): Promise<void> {
     const latest = await repository.fetchAnnouncements({
       storeId,
-      includeDrafts: false
+      includeDrafts: false,
+      limit: SHOWCASE_PAGE_SIZE.publicAnnouncements,
+      offset: 0
     })
 
     const cachedItems = loadPublishedAnnouncementsLocally(storeId)
@@ -8806,6 +13669,12 @@ async function refreshCustomerAppointmentsFromCloud(statusMessageOverride: strin
 
     if (latest.length) {
       persistPublishedAnnouncementsLocally(storeId, publishedItems)
+      pruneAnnouncementMarksWhenCompletePageLoaded(
+        storeId,
+        publishedItems,
+        latest.length,
+        SHOWCASE_PAGE_SIZE.publicAnnouncements
+      )
     }
   }
 
@@ -8823,8 +13692,14 @@ async function refreshCustomerAppointmentsFromCloud(statusMessageOverride: strin
     const canUpdateCustomerAppointmentList = !latestAdminLoggedIn && isCustomerBookingsScreen
 
     try {
-      const latest = await repository.fetchAppointmentRequestsForClient(storeId, currentClientId)
-      const sortedItems = [...latest].sort((left, right) => {
+      const latest = await repository.fetchAppointmentRequests({
+        storeId,
+        clientId: currentClientId,
+        merchant: false,
+        limit: SHOWCASE_PAGE_SIZE.clientAppointments,
+        offset: 0
+      })
+      const sortedItems = latest.slice().sort((left, right) => {
         return (right.createdAt || 0) - (left.createdAt || 0)
       })
 
@@ -8841,6 +13716,14 @@ async function refreshCustomerAppointmentsFromCloud(statusMessageOverride: strin
           itemCount: sortedItems.length
         })
       }
+
+      pruneBookingSeenWhenCompletePageLoaded(
+        storeId,
+        currentClientId,
+        sortedItems,
+        latest.length,
+        SHOWCASE_PAGE_SIZE.clientAppointments
+      )
 
       const seenKeys = loadSeenAppointmentStatusAlertKeys(storeId, currentClientId)
       const hasUnseenAlert = sortedItems
@@ -8991,8 +13874,8 @@ async function refreshCustomerAppointmentsFromCloud(statusMessageOverride: strin
     persistAdminAnnouncementEditorDraftLocally(storeId, draft)
   }
 
-  function onAdminAnnouncementDeleteSelected(): void {
-    void deleteSelectedAnnouncements()
+  function onAdminAnnouncementDeleteSelected(): Promise<void> {
+    return deleteSelectedAnnouncements()
   }
 
   function onAdminAnnouncementDismissPreview(): void {
@@ -9016,12 +13899,12 @@ async function refreshCustomerAppointmentsFromCloud(statusMessageOverride: strin
     setAdminAnnouncementPreviewId(clean)
   }
 
-  function onAdminAnnouncementPushNow(): void {
-    void saveAnnouncement('published')
+  function onAdminAnnouncementPushNow(): Promise<void> {
+    return saveAnnouncement('published')
   }
 
-  function onAdminAnnouncementSaveDraft(): void {
-    void saveAnnouncement('draft')
+  function onAdminAnnouncementSaveDraft(): Promise<void> {
+    return saveAnnouncement('draft')
   }
 
   function onAdminAnnouncementStartNew(): void {
@@ -9046,7 +13929,6 @@ async function refreshCustomerAppointmentsFromCloud(statusMessageOverride: strin
 
     if (!exists) return
 
-    setFocusedAnnouncementId(clean)
     markAnnouncementViewedLocally(clean)
     void trackAnnouncementClickOnce(clean)
   }
@@ -9514,6 +14396,11 @@ async function refreshCustomerAppointmentsFromCloud(statusMessageOverride: strin
   async function ensureActiveConversation(): Promise<ChatConversation | null> {
     if (activeConversation) return activeConversation
 
+    if (guardOfflineWriteOperation()) {
+      setChatStatusMessage('You are offline. Please reconnect and try again.')
+      return null
+    }
+
     const conversationId = repository.buildConversationId(storeId, clientId)
     const ok = await repository.upsertChatConversation(conversationId, storeId, clientId)
 
@@ -9586,6 +14473,15 @@ async function refreshCustomerAppointmentsFromCloud(statusMessageOverride: strin
           conversationId,
           traceId
         )
+
+        setMerchantChatThreads(current => current.map(thread => {
+          if (thread.conversationId !== conversationId) return thread
+
+          return {
+            ...thread,
+            unreadCount: 0
+          }
+        }))
       } else {
         await chatRepository.markMerchantMessagesReadToCloud(
           storeId,
@@ -9593,6 +14489,8 @@ async function refreshCustomerAppointmentsFromCloud(statusMessageOverride: strin
           effectiveClientId,
           traceId
         )
+
+        setChatEntryDotVisible(false)
       }
     }
 
@@ -9615,19 +14513,59 @@ async function refreshCustomerAppointmentsFromCloud(statusMessageOverride: strin
       return
     }
 
-    setChatMessages(messages)
-    setChatMediaItems(
-      messages.flatMap(message => message.imageUrls
+    const activeWindow = chatMessageWindowRef.current
+    const activePagination = chatMessagesPaginationRef.current
+
+    if (activeWindow.mode === 'aroundMessage') {
+      setChatMessageWindow(currentWindow => ({
+        ...currentWindow,
+        hasOlder: currentWindow.hasOlder,
+        hasNewer: currentWindow.hasNewer,
+        isLoadingOlder: false,
+        isLoadingNewer: false,
+        oldestTimeMs: currentWindow.oldestTimeMs,
+        newestTimeMs: currentWindow.newestTimeMs
+      }))
+    } else {
+      setChatMessages(current => {
+        const nextMessages = mergeChatMessagesForConversation(
+          current,
+          conversationId,
+          messages
+        )
+
+        const bounds = getChatMessageWindowBounds(nextMessages)
+
+        setChatMessageWindow({
+          mode: 'latest',
+          anchorMessageId: null,
+          hasOlder: activePagination.hasMore,
+          hasNewer: false,
+          isLoadingOlder: false,
+          isLoadingNewer: false,
+          oldestTimeMs: bounds.oldestTimeMs,
+          newestTimeMs: bounds.newestTimeMs
+        })
+
+        return nextMessages
+      })
+    }
+
+    if (screen !== ShowcaseScreens.ChatMedia && activeWindow.mode !== 'aroundMessage') {
+      const latestMediaItems = messages.flatMap(message => message.imageUrls
         .map(url => url.trim())
         .filter(Boolean)
         .map(url => ({
           conversationId,
           messageId: message.id,
           url,
-          createdAtText: formatChatCreatedAtText(message.createdAt)
+          createdAtText: formatChatCreatedAtText(message.createdAt),
+          createdAtMs: Number(message.createdAt || 0)
         }))
       )
-    )
+
+      setChatMediaItems(current => mergeChatMediaItems(current, latestMediaItems))
+    }
 
     if (role === 'merchant') {
       const unreadCount = await chatRepository.countUnreadForMerchantConversation(
@@ -9656,6 +14594,235 @@ async function refreshCustomerAppointmentsFromCloud(statusMessageOverride: strin
         : unreadCount > 0
     )
   }
+  async function loadOlderChatMessages(): Promise<void> {
+    const conversationId = activeConversationIdRef.current.trim()
+    const activeWindow = chatMessageWindowRef.current
+    const activePagination = chatMessagesPaginationRef.current
+
+    if (
+      !conversationId ||
+      activeWindow.isLoadingOlder ||
+      activePagination.isLoadingMore ||
+      !activeWindow.hasOlder
+    ) {
+      return
+    }
+
+    const windowBounds = getChatMessageWindowBounds(chatMessages)
+    const beforeTimeMs = Number(activeWindow.oldestTimeMs || windowBounds.oldestTimeMs || 0)
+
+    if (!Number.isFinite(beforeTimeMs) || beforeTimeMs <= 0) {
+      setChatMessageWindow(current => {
+        const nextState = {
+          ...current,
+          hasOlder: false,
+          isLoadingOlder: false
+        }
+
+        chatMessageWindowRef.current = nextState
+        return nextState
+      })
+
+      setChatMessagesPagination(current => {
+        const nextState = {
+          ...current,
+          hasMore: false,
+          isLoadingMore: false
+        }
+
+        chatMessagesPaginationRef.current = nextState
+        return nextState
+      })
+
+      return
+    }
+
+    const limit = SHOWCASE_PAGE_SIZE.chatMessages
+
+    setChatMessagesPagination(current => {
+      const nextState = {
+        nextOffset: current.nextOffset,
+        hasMore: current.hasMore,
+        isLoadingMore: true
+      }
+
+      chatMessagesPaginationRef.current = nextState
+      return nextState
+    })
+
+    setChatMessageWindow(current => {
+      const nextState = {
+        ...current,
+        isLoadingOlder: true
+      }
+
+      chatMessageWindowRef.current = nextState
+      return nextState
+    })
+
+    try {
+      const role = currentChatRole()
+      const traceId = `VM${Date.now()}_${conversationId.slice(-4)}`
+      const effectiveClientId = role === 'merchant'
+        ? activeConversation?.clientId || merchantChatThreads.find(thread => thread.conversationId === conversationId)?.clientId || clientId
+        : clientId
+
+      const nextLocalMessages = await chatRepository.listOlderMessagesBeforeTime({
+        storeId,
+        conversationId,
+        beforeTimeMs,
+        perspectiveRole: role === 'merchant' ? 'merchant' : 'client',
+        clientId: effectiveClientId,
+        limit,
+        traceId
+      })
+
+      const nextMessages = nextLocalMessages.map(chatEntityToCloudMessage)
+
+      setChatMessages(current => {
+        const mergedMessages = mergeChatMessagesForConversation(
+          current,
+          conversationId,
+          nextMessages
+        )
+        const bounds = getChatMessageWindowBounds(mergedMessages)
+
+        setChatMessageWindow(currentWindow => {
+          const nextState = {
+            ...currentWindow,
+            hasOlder: nextLocalMessages.length >= limit,
+            isLoadingOlder: false,
+            oldestTimeMs: bounds.oldestTimeMs,
+            newestTimeMs: bounds.newestTimeMs
+          }
+
+          chatMessageWindowRef.current = nextState
+          return nextState
+        })
+
+        return mergedMessages
+      })
+
+      setChatMessagesPagination(current => {
+        const nextState = {
+          nextOffset: current.nextOffset + nextLocalMessages.length,
+          hasMore: nextLocalMessages.length >= limit,
+          isLoadingMore: false
+        }
+
+        chatMessagesPaginationRef.current = nextState
+        return nextState
+      })
+    } catch (error) {
+      setChatMessagesPagination(current => {
+        const nextState = {
+          nextOffset: current.nextOffset,
+          hasMore: current.hasMore,
+          isLoadingMore: false
+        }
+
+        chatMessagesPaginationRef.current = nextState
+        return nextState
+      })
+
+      setChatMessageWindow(current => {
+        const nextState = {
+          ...current,
+          isLoadingOlder: false
+        }
+
+        chatMessageWindowRef.current = nextState
+        return nextState
+      })
+
+      setChatStatusMessage(error instanceof Error ? error.message : 'Failed to load earlier messages.')
+    }
+  }
+
+  async function loadNewerChatMessages(): Promise<void> {
+    const conversationId = activeConversationIdRef.current.trim()
+    const activeWindow = chatMessageWindowRef.current
+
+    if (
+      !conversationId ||
+      activeWindow.mode !== 'aroundMessage' ||
+      !activeWindow.hasNewer ||
+      activeWindow.isLoadingNewer
+    ) {
+      return
+    }
+
+    const afterTimeMs = Number(activeWindow.newestTimeMs || 0)
+    if (!Number.isFinite(afterTimeMs) || afterTimeMs <= 0) return
+
+    const limit = SHOWCASE_PAGE_SIZE.chatMessages
+
+    setChatMessageWindow(current => {
+      const nextState = {
+        ...current,
+        isLoadingNewer: true
+      }
+
+      chatMessageWindowRef.current = nextState
+      return nextState
+    })
+
+    try {
+      const role = currentChatRole()
+      const traceId = `VM${Date.now()}_${conversationId.slice(-4)}`
+      const effectiveClientId = role === 'merchant'
+        ? activeConversation?.clientId || merchantChatThreads.find(thread => thread.conversationId === conversationId)?.clientId || clientId
+        : clientId
+
+      const nextLocalMessages = await chatRepository.listNewerMessagesAfterTime({
+        storeId,
+        conversationId,
+        afterTimeMs,
+        perspectiveRole: role === 'merchant' ? 'merchant' : 'client',
+        clientId: effectiveClientId,
+        limit,
+        traceId
+      })
+
+      const nextMessages = nextLocalMessages.map(chatEntityToCloudMessage)
+
+      setChatMessages(current => {
+        const mergedMessages = mergeChatMessagesForConversation(
+          current,
+          conversationId,
+          nextMessages
+        )
+        const bounds = getChatMessageWindowBounds(mergedMessages)
+
+        setChatMessageWindow(currentWindow => {
+          const nextState = {
+            ...currentWindow,
+            hasNewer: nextLocalMessages.length >= limit,
+            isLoadingNewer: false,
+            oldestTimeMs: bounds.oldestTimeMs,
+            newestTimeMs: bounds.newestTimeMs
+          }
+
+          chatMessageWindowRef.current = nextState
+          return nextState
+        })
+
+        return mergedMessages
+      })
+    } catch (error) {
+      setChatMessageWindow(current => {
+        const nextState = {
+          ...current,
+          isLoadingNewer: false
+        }
+
+        chatMessageWindowRef.current = nextState
+        return nextState
+      })
+      setChatStatusMessage(error instanceof Error ? error.message : 'Failed to load newer messages.')
+    }
+  }
+
   function shouldShowChatEntryDot(): boolean {
     if (screen === ShowcaseScreens.Chat) {
       return false
@@ -9670,21 +14837,16 @@ async function refreshCustomerAppointmentsFromCloud(statusMessageOverride: strin
 
     const traceId = `VM${Date.now()}_${conversationId.slice(-4)}`
 
-    await chatRepository.markMerchantMessagesReadByStoreAndClient(
-      storeId,
-      clientId
-    )
+    await chatRepository.markMerchantMessagesRead(conversationId)
 
-    await chatRepository.markMerchantMessagesReadByStoreAndClientToCloud(
+    await chatRepository.markMerchantMessagesReadToCloud(
       storeId,
+      conversationId,
       clientId,
       traceId
     )
 
-    await chatRepository.markMerchantMessagesReadByStoreAndClient(
-      storeId,
-      clientId
-    )
+    await chatRepository.markMerchantMessagesRead(conversationId)
 
     setChatEntryDotVisible(false)
   }
@@ -9800,7 +14962,8 @@ async function refreshCustomerAppointmentsFromCloud(statusMessageOverride: strin
 
   function resetChatTransientStateForConversation(
     conversationId: string,
-    pendingProduct: ShowcaseChatProductShare | null = null
+    pendingProduct: ShowcaseChatProductShare | null = null,
+    pendingAppointment: ShowcaseChatAppointmentShare | null = null
   ): void {
     const normalizedConversationId = String(conversationId || '').trim()
     const currentConversationId = String(activeConversationIdRef.current || activeConversationId || '').trim()
@@ -9815,12 +14978,28 @@ async function refreshCustomerAppointmentsFromCloud(statusMessageOverride: strin
     const nextImageUrls = draft?.draftImageUrls || []
     const nextQuotedMessageId = draft?.quotedMessageId || null
     const nextPendingProduct = pendingProduct || draft?.pendingProduct || null
+    const nextPendingAppointment = pendingAppointment || draft?.pendingAppointment || null
 
     chatMessageLoadSeqRef.current += 1
 
     if (!isSameConversation) {
       setChatMessages([])
       setChatMediaItems([])
+      setChatMessagesPagination({
+        nextOffset: SHOWCASE_PAGE_SIZE.chatMessages,
+        hasMore: true,
+        isLoadingMore: false
+      })
+      setChatMessageWindow({
+        mode: 'latest',
+        anchorMessageId: null,
+        hasOlder: true,
+        hasNewer: false,
+        isLoadingOlder: false,
+        isLoadingNewer: false,
+        oldestTimeMs: null,
+        newestTimeMs: null
+      })
     }
 
     setChatSelectedMessageIds([])
@@ -9835,16 +15014,18 @@ async function refreshCustomerAppointmentsFromCloud(statusMessageOverride: strin
     setChatDraft(nextDraft)
     setChatDraftImageUrls(nextImageUrls)
     setChatPendingProduct(nextPendingProduct)
+    setChatPendingAppointment(nextPendingAppointment)
     setChatQuotedMessageId(nextQuotedMessageId)
     setChatStatusMessage(null)
 
-    if (pendingProduct) {
+    if (pendingProduct || pendingAppointment) {
       writeChatDraft({
         storeId,
         conversationId: normalizedConversationId || conversationId,
         draft: nextDraft,
         draftImageUrls: nextImageUrls,
-        pendingProduct,
+        pendingProduct: pendingProduct || nextPendingProduct,
+        pendingAppointment: pendingAppointment || nextPendingAppointment,
         quotedMessageId: nextQuotedMessageId
       })
     }
@@ -9859,7 +15040,10 @@ async function refreshCustomerAppointmentsFromCloud(statusMessageOverride: strin
     }
   }
 
-  async function restoreClientChatContext(pendingProduct: ShowcaseChatProductShare | null = null): Promise<void> {
+  async function restoreClientChatContext(
+    pendingProduct: ShowcaseChatProductShare | null = null,
+    pendingAppointment: ShowcaseChatAppointmentShare | null = null
+  ): Promise<void> {
     setChatMode('Client')
 
     const conversation = await repository.findOrCreateChatConversation({
@@ -9871,7 +15055,7 @@ async function refreshCustomerAppointmentsFromCloud(statusMessageOverride: strin
 
     if (!conversation) return
 
-    resetChatTransientStateForConversation(conversation.id, pendingProduct)
+    resetChatTransientStateForConversation(conversation.id, pendingProduct, pendingAppointment)
 
     activeConversationIdRef.current = conversation.id
     setActiveConversation(conversation)
@@ -9879,6 +15063,14 @@ async function refreshCustomerAppointmentsFromCloud(statusMessageOverride: strin
     setRuntimeActiveConversationId(conversation.id)
 
     void registerChatClientPushDevice(conversation.id, 'client-chat-context-restored', true)
+
+    const showedLocalMessages = await applyLocalChatMessagesFirst(conversation.id)
+
+    if (showedLocalMessages) {
+      void refreshChatMessages(conversation.id, true, true)
+      await acknowledgeVisibleClientConversation(conversation.id)
+      return
+    }
 
     await refreshChatMessages(conversation.id, true, true)
     await acknowledgeVisibleClientConversation(conversation.id)
@@ -9911,6 +15103,13 @@ async function refreshCustomerAppointmentsFromCloud(statusMessageOverride: strin
       : null
     )
 
+    const showedLocalMessages = await applyLocalChatMessagesFirst(conversationId)
+
+    if (showedLocalMessages) {
+      void refreshChatMessages(conversationId, true, true)
+      return
+    }
+
     await refreshChatMessages(conversationId, true, true)
   }
 
@@ -9942,6 +15141,9 @@ async function refreshCustomerAppointmentsFromCloud(statusMessageOverride: strin
   }
 
   async function syncChat(): Promise<void> {
+    if (chatSyncInFlightRef.current) return
+
+    chatSyncInFlightRef.current = true
     setChatStatusMessage(null)
 
     try {
@@ -9963,11 +15165,7 @@ async function refreshCustomerAppointmentsFromCloud(statusMessageOverride: strin
           await refreshChatMessages(activeConversationId, true, true)
         }
 
-        const threads = await buildMerchantThreadsWithLocalMeta(
-          await fetchMerchantThreadsFromChatRepository(traceId)
-        )
-
-        setMerchantChatThreads(threads)
+        await mergeLatestMerchantThreadsIntoState(traceId)
 
         return
       }
@@ -9980,6 +15178,8 @@ async function refreshCustomerAppointmentsFromCloud(statusMessageOverride: strin
       }
     } catch {
       setChatStatusMessage('Chat sync failed.')
+    } finally {
+      chatSyncInFlightRef.current = false
     }
   }
 
@@ -9989,10 +15189,13 @@ async function refreshCustomerAppointmentsFromCloud(statusMessageOverride: strin
 
   async function retryChatMessage(messageIdInput: string): Promise<void> {
     const messageId = String(messageIdInput || '').trim()
-    const domainState = buildCurrentChatDomainState()
-    const sendingState = messageId ? markRetrySending(domainState, messageId) : domainState
 
-    if (messageId && sendingState === domainState) {
+    if (guardOfflineWriteOperation()) {
+      setChatStatusMessage('You are offline. Please reconnect and try again.')
+      return
+    }
+
+    if (!messageId) {
       await syncChat()
 
       if (chatStatusMessage) {
@@ -10002,34 +15205,45 @@ async function refreshCustomerAppointmentsFromCloud(statusMessageOverride: strin
       return
     }
 
-    setChatIsSending(Boolean(sendingState.isSending))
-    setChatStatusMessage(sendingState.errorMessage)
+    const conversationId = activeConversationIdRef.current.trim()
+    if (!conversationId || chatIsSending || chatIsOpeningRef.current) return
+
+    setChatIsSending(true)
+    setChatStatusMessage(null)
+    setChatMessages(current => current.map(message => {
+      if (message.id !== messageId) return message
+
+      return {
+        ...message,
+        localStatus: 'sending'
+      }
+    }))
 
     try {
+      const traceId = `VM${Date.now()}_${conversationId.slice(-4)}`
+      const ok = await chatRepository.retryMessageToCloud(messageId, traceId)
+
+      await mergeLatestLocalChatMessages(conversationId)
+
+      if (!ok) {
+        setChatStatusMessage('Message send failed.')
+        return
+      }
+
       await syncChat()
-
-      const resultState = messageId
-        ? markRetryResult(sendingState, messageId, true, null)
-        : {
-            ...sendingState,
-            isSending: false,
-            errorMessage: null
-          }
-
-      setChatIsSending(Boolean(resultState.isSending))
-      setChatStatusMessage(resultState.errorMessage)
+      await refreshChatEntryDotOnce()
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error || 'Retry sync failed.')
-      const resultState = messageId
-        ? markRetryResult(sendingState, messageId, false, message)
-        : {
-            ...sendingState,
-            isSending: false,
-            errorMessage: message
-          }
+      setChatMessages(current => current.map(message => {
+        if (message.id !== messageId) return message
 
-      setChatIsSending(Boolean(resultState.isSending))
-      setChatStatusMessage(resultState.errorMessage)
+        return {
+          ...message,
+          localStatus: 'failed'
+        }
+      }))
+      setChatStatusMessage(normalizeChatSendErrorMessage(error))
+    } finally {
+      setChatIsSending(false)
     }
   }
 
@@ -10471,6 +15685,7 @@ async function refreshCustomerAppointmentsFromCloud(statusMessageOverride: strin
 
     if (openAs === 'merchant' && !merchantRuntimeLoggedIn) {
       setPreviousScreen(screen)
+      prepareLoginScreen(null)
       setScreen('Login')
       return
     }
@@ -10611,7 +15826,7 @@ async function refreshCustomerAppointmentsFromCloud(statusMessageOverride: strin
 
     if (!targetClientId) return
 
-    const pushOk = await repository.dispatchAppointmentPush({
+    let pushOk = await repository.dispatchAppointmentPush({
       storeId,
       appointmentId: appointment.id,
       targetAudience: 'announcement_subscriber',
@@ -10629,9 +15844,25 @@ async function refreshCustomerAppointmentsFromCloud(statusMessageOverride: strin
         repository.lastAnnouncementPushBody ? `body=${repository.lastAnnouncementPushBody.slice(0, 300)}` : ''
       ].filter(Boolean).join(' ')
 
-      void handleMerchantAuthExpiredIfNeeded(
-        new Error(detail || 'Appointment status push failed.')
-      )
+      const retry = await retryMerchantCloudOperationAfterAuthRefresh({
+        errorInput: new Error(detail || 'Appointment status push failed.'),
+        operation: () => repository.dispatchAppointmentPush({
+          storeId,
+          appointmentId: appointment.id,
+          targetAudience: 'announcement_subscriber',
+          openAs: 'client',
+          targetClientId,
+          actor: 'merchant',
+          title: appointmentStatusPushTitle(nextStatus),
+          body: `Your booking for ${appointmentPushTimeText(appointment.preferredDate)} ${appointment.preferredTime || ''}`.trim() + ` is now ${appointmentsStatusFromCloud(nextStatus)}.`,
+          bodyPreview: `Your booking for ${appointmentPushTimeText(appointment.preferredDate)} ${appointment.preferredTime || ''}`.trim() + ` is now ${appointmentsStatusFromCloud(nextStatus)}.`
+        }),
+        isSuccess: value => value
+      })
+
+      if (retry.status === 'retried_success') {
+        pushOk = true
+      }
     }
   }
 
@@ -10647,6 +15878,11 @@ async function sendChatMessage(): Promise<void> {
 
   if (!rawBody && !draftImageUploadPlan.length) return
 
+  if (guardOfflineWriteOperation()) {
+    setChatStatusMessage('You are offline. Please reconnect and try again.')
+    return
+  }
+
   setChatIsSending(true)
   setChatStatusMessage(null)
 
@@ -10660,10 +15896,10 @@ async function sendChatMessage(): Promise<void> {
     const traceId = `VM${now}_${conversation.id.slice(-4)}`
     const messageClientId = conversation.clientId || clientId
     const senderRoleForEntity = currentChatRole()
-    const uploadedImageUrls: string[] = []
+    const uploadedImages: UploadedShowcaseImage[] = []
 
     for (const item of draftImageUploadPlan) {
-      const uploadedUrl = await uploadChatDraftImageForSend({
+      const uploadedImage = await uploadChatDraftImageForSend({
         sourceUrl: item.sourceUrl,
         needsUpload: item.needsUpload,
         conversation,
@@ -10672,12 +15908,21 @@ async function sendChatMessage(): Promise<void> {
         traceId
       })
 
-      uploadedImageUrls.push(uploadedUrl)
+      uploadedImages.push(uploadedImage)
     }
+
+    const uploadedImageUrls = uploadedImages
+      .map(item => item.url.trim())
+      .filter(Boolean)
+
+    const uploadedImageVariants = uploadedImages
+      .map(item => item.variants)
+      .filter((item): item is ShowcaseImageVariants => item !== null)
 
     const sendPlan = buildChatMessageSendPlan({
       rawBody,
       uploadedImageUris: uploadedImageUrls,
+      uploadedImageVariants,
       quoteMessageId: chatQuotedMessageId,
       quotePreview,
       conversationId: conversation.id,
@@ -10690,10 +15935,12 @@ async function sendChatMessage(): Promise<void> {
 
     if (!sendPlan) return
 
-    setChatMessages(current => [
-      ...current,
-      ...sendPlan.entities.map(entity => chatEntityToCloudMessage(entity))
-    ])
+    setChatMessages(current => mergeChatMessagesForConversation(
+      current,
+      conversation.id,
+      sendPlan.entities.map(entity => chatEntityToCloudMessage(entity))
+    ))
+    triggerChatScrollToBottomForOwnSend()
 
     const results: boolean[] = []
 
@@ -10734,8 +15981,8 @@ async function sendChatMessage(): Promise<void> {
       )
     }
 
-    const latestLocalMessages = await chatRepository.listLocal(conversation.id)
-    setChatMessages(latestLocalMessages.map(chatEntityToCloudMessage))
+    await mergeLatestLocalChatMessages(conversation.id)
+    triggerChatScrollToBottomForOwnSend()
 
     const senderRole = currentChatRole()
     const targetAudience = senderRole === 'merchant' ? 'chat_client' : 'chat_merchant'
@@ -10801,8 +16048,7 @@ async function sendChatMessage(): Promise<void> {
     setChatStatusMessage(normalizeChatSendErrorMessage(error))
 
     if (activeConversationId.trim()) {
-      const latestLocalMessages = await chatRepository.listLocal(activeConversationId)
-      setChatMessages(latestLocalMessages.map(chatEntityToCloudMessage))
+      await mergeLatestLocalChatMessages(activeConversationId)
     }
   } finally {
     setChatIsSending(false)
@@ -10827,10 +16073,20 @@ async function sendChatMessage(): Promise<void> {
       || item.customerContact.trim()
       || 'Appointment customer'
 
-    await ensureMerchantSessionLoadedForCloud()
+    let validSession: MerchantAuthSession | null = null
 
-    setStoreMerchantSessionFromAuthSession(merchantSession)
-    bindMerchantSessionToRepository(repository)
+    if (!isOffline) {
+      validSession = await ensureValidMerchantSessionLoadedForCloud()
+
+      if (!validSession) {
+        setStatusMessage(merchantSessionEnsureFailureMessage())
+        showSnackbar(merchantSessionEnsureSnackbarMessage())
+        return
+      }
+
+      setStoreMerchantSessionFromAuthSession(validSession)
+      bindMerchantSessionToRepository(repository)
+    }
 
     chatBackTargetRef.current = ShowcaseScreens.AdminAppointmentManager
     snapshotCurrentChatContext()
@@ -10842,7 +16098,19 @@ async function sendChatMessage(): Promise<void> {
 
     setChatMode('Merchant')
 
-    await repository.upsertChatConversation(threadId, storeId, appointmentClientId)
+    const appointmentCard = appointmentCards.find(card => card.id === appointmentId) ||
+      appointmentToCard(
+        item,
+        getDishEntityById(item.sourceDishId)
+      )
+
+    const pendingAppointment = buildPendingAppointmentFromCard(appointmentCard)
+
+    resetChatTransientStateForConversation(threadId, null, pendingAppointment)
+
+    if (!isOffline) {
+      await repository.upsertChatConversation(threadId, storeId, appointmentClientId)
+    }
 
     activeConversationIdRef.current = threadId
     setActiveConversationId(threadId)
@@ -10852,7 +16120,7 @@ async function sendChatMessage(): Promise<void> {
       id: threadId,
       storeId,
       clientId: appointmentClientId,
-      merchantAuthUserId: merchantSession?.authUserId || null,
+      merchantAuthUserId: validSession?.authUserId || null,
       customerName: threadTitle,
       customerContact: item.customerContact || appointmentClientId,
       createdAt: null,
@@ -10860,14 +16128,27 @@ async function sendChatMessage(): Promise<void> {
     })
 
     setPreviousScreen(ShowcaseScreens.AdminAppointmentManager)
-    setChatStatusMessage(null)
+    setChatStatusMessage(
+      isOffline
+        ? 'You are offline. Viewing cached messages.'
+        : null
+    )
     setScreen(ShowcaseScreens.Chat)
 
-    await refreshChatMessages(threadId, true, true)
-    await syncChat()
+    const showedLocalMessages = await applyLocalChatMessagesFirst(threadId)
 
-    startChatDbObserve()
-    startChatPolling()
+    if (!isOffline) {
+      if (showedLocalMessages) {
+        void refreshChatMessages(threadId, true, true)
+      } else {
+        await refreshChatMessages(threadId, true, true)
+      }
+
+      await syncChat()
+
+      startChatDbObserve()
+      startChatPolling()
+    }
   }
   async function openMerchantThread(conversationIdInput: string, titleInput?: string): Promise<void> {
     const conversationId = conversationIdInput.trim()
@@ -10876,7 +16157,20 @@ async function sendChatMessage(): Promise<void> {
     const thread = merchantChatThreads.find(item => item.conversationId === conversationId) || null
     const threadTitle = titleInput?.trim() || thread?.title || 'Chat'
 
-    void ensureMerchantSessionLoadedForCloud()
+    let validSession: MerchantAuthSession | null = null
+
+    if (!isOffline) {
+      validSession = await ensureValidMerchantSessionLoadedForCloud()
+
+      if (!validSession) {
+        setStatusMessage(merchantSessionEnsureFailureMessage())
+        showSnackbar(merchantSessionEnsureSnackbarMessage())
+        return
+      }
+
+      setStoreMerchantSessionFromAuthSession(validSession)
+      bindMerchantSessionToRepository(repository)
+    }
 
     chatBackTargetRef.current = ShowcaseScreens.MerchantChatList
     snapshotCurrentChatContext()
@@ -10898,7 +16192,7 @@ async function sendChatMessage(): Promise<void> {
           id: conversationId,
           storeId,
           clientId: thread.clientId,
-          merchantAuthUserId: merchantSession?.authUserId || null,
+          merchantAuthUserId: validSession?.authUserId || null,
           customerName: threadTitle,
           customerContact: thread.clientId,
           createdAt: null,
@@ -10908,7 +16202,7 @@ async function sendChatMessage(): Promise<void> {
           id: conversationId,
           storeId,
           clientId: conversationId,
-          merchantAuthUserId: merchantSession?.authUserId || null,
+          merchantAuthUserId: validSession?.authUserId || null,
           customerName: threadTitle,
           customerContact: conversationId,
           createdAt: null,
@@ -10917,31 +16211,52 @@ async function sendChatMessage(): Promise<void> {
     )
 
     setPreviousScreen(ShowcaseScreens.MerchantChatList)
-    setChatStatusMessage(null)
+    setChatStatusMessage(
+      isOffline
+        ? 'You are offline. Viewing cached messages.'
+        : null
+    )
     setScreen(ShowcaseScreens.Chat)
 
-    await refreshChatMessages(conversationId, true, true)
-    await refreshChatEntryDotOnce()
-    await syncChat()
+    const showedLocalMessages = await applyLocalChatMessagesFirst(conversationId)
 
-    startChatDbObserve()
-    startChatPolling()
-    void refreshMerchantChatListSilently()
+    if (!isOffline) {
+      if (showedLocalMessages) {
+        void refreshChatMessages(conversationId, true, true)
+      } else {
+        await refreshChatMessages(conversationId, true, true)
+      }
+
+      await refreshChatEntryDotOnce()
+      await syncChat()
+
+      startChatDbObserve()
+      startChatPolling()
+      void refreshMerchantChatListSilently()
+    }
   }
   async function refreshMerchantThreads(): Promise<void> {
     setMerchantChatListRefreshing(true)
 
     try {
+      const traceId = `VM${Date.now()}_${storeId.slice(-4)}`
+
       await chatRepository.syncMerchantThreadMetaFromCloud(
         storeId,
-        `VM${Date.now()}_${storeId.slice(-4)}`
+        traceId
       )
 
       const threads = await fetchMerchantThreadsFromChatRepository(
-        `VM${Date.now()}_${storeId.slice(-4)}`
+        traceId,
+        SHOWCASE_PAGE_SIZE.chatThreads,
+        0
       )
+      const nextThreads = await buildMerchantThreadsWithLocalMeta(threads)
 
-      setMerchantChatThreads(await buildMerchantThreadsWithLocalMeta(threads))
+      setMerchantChatThreads(current => mergeMerchantThreadSummariesByConversationId(
+        current,
+        nextThreads
+      ))
       showSnackbar('Threads refreshed.')
     } finally {
       setMerchantChatListRefreshing(false)
@@ -11019,39 +16334,6 @@ async function sendChatMessage(): Promise<void> {
       setChatPinned(nextChatPinned)
       await syncChat()
     }
-  }
-
-  async function markMerchantThreadRead(conversationIdInput: string): Promise<void> {
-    const conversationId = conversationIdInput.trim()
-    if (!conversationId) return
-
-    await chatRepository.markAllRead(conversationId)
-
-    let shouldReloadActiveMessages = false
-    let shouldClearChatEntryDot = false
-
-    setMerchantChatThreads(current => {
-      const operationResult = buildMerchantThreadReadOperationResult({
-        threads: current,
-        conversationId,
-        activeConversationId
-      })
-
-      shouldReloadActiveMessages = operationResult.shouldReloadActiveMessages
-      shouldClearChatEntryDot = operationResult.shouldClearChatEntryDot
-
-      return operationResult.nextThreads
-    })
-
-    if (shouldReloadActiveMessages) {
-      setChatMessages(await loadChatMessagesFromRepository(conversationId))
-    }
-
-    if (shouldClearChatEntryDot) {
-      setChatEntryDotVisible(false)
-    }
-
-    await refreshMerchantChatListSilently()
   }
 
   async function renameMerchantThread(conversationIdInput: string, titleInput: string): Promise<void> {
@@ -11163,8 +16445,14 @@ async function sendChatMessage(): Promise<void> {
       flashMessageId: null
     })
 
+    chatSearchLoadSeqRef.current += 1
     applyChatDomainInteractionState(domainState)
     setChatSearchResults([])
+    setChatSearchPagination({
+      nextOffset: 0,
+      hasMore: false,
+      isLoadingMore: false
+    })
     setPreviousScreen(sourceScreen)
     setScreen(ShowcaseScreens.ChatSearchResults)
     void syncChat()
@@ -11185,6 +16473,7 @@ async function sendChatMessage(): Promise<void> {
     chatMediaBackTargetRef.current = ShowcaseScreens.Chat
     setPreviousScreen(screen)
     setScreen('ChatMedia')
+    void loadInitialChatMediaItems()
   }
 
   function chatOpenImagePreview(urlInput: string, poolInput: string[]): void {
@@ -11229,12 +16518,34 @@ async function sendChatMessage(): Promise<void> {
     })
 
     setChatPendingProduct(result.pendingProduct)
+    setChatPendingAppointment(null)
     setChatQuotedMessageId(result.quoteMessageId)
     updateChatDraftPersistence(
       result.draftText,
       result.draftImageUris,
       result.pendingProduct,
-      result.quoteMessageId
+      result.quoteMessageId,
+      null
+    )
+  }
+
+  function setPendingAppointmentForChat(appointment: ShowcaseChatAppointmentShare | null): void {
+    const result = applyPendingAppointmentForChat({
+      draftText: chatDraft,
+      draftImageUris: chatDraftImageUrls,
+      currentQuoteMessageId: chatQuotedMessageId,
+      appointment
+    })
+
+    setChatPendingAppointment(result.pendingAppointment)
+    setChatPendingProduct(null)
+    setChatQuotedMessageId(result.quoteMessageId)
+    updateChatDraftPersistence(
+      result.draftText,
+      result.draftImageUris,
+      null,
+      result.quoteMessageId,
+      result.pendingAppointment
     )
   }
 
@@ -11243,8 +16554,7 @@ async function sendChatMessage(): Promise<void> {
   }
 
   function isProductAvailable(dishIdInput: string): boolean {
-    const dishId = dishIdInput.trim()
-    const dish = dishes.find(item => item.id === dishId)
+    const dish = getDishEntityById(dishIdInput)
     return Boolean(dish && !dish.isSoldOut && !dish.isHidden)
   }
 
@@ -11399,13 +16709,32 @@ async function sendChatMessage(): Promise<void> {
       productDishId: parsed.product?.dishId || null,
       quotedMessageId: parsed.quoteMessageId,
       createdAt: entity.timeMs > 0 ? entity.timeMs : null,
-      readAt: entity.isRead ? entity.timeMs || Date.now() : null
+      readAt: entity.isRead ? entity.timeMs || Date.now() : null,
+      localStatus: entity.status
     }
   }
 
   async function loadChatMessagesFromRepository(conversationIdInput: string): Promise<ChatMessage[]> {
     const conversationId = conversationIdInput.trim()
     if (!conversationId) return []
+
+    const localMessages = await chatRepository.listLocal(
+      conversationId,
+      SHOWCASE_PAGE_SIZE.chatMessages,
+      0
+    )
+
+    if (localMessages.length > 0) {
+      void chatRepository.syncConversationFromCloud({
+        storeId,
+        conversationId,
+        perspectiveRole: currentChatPerspectiveRole(),
+        clientId,
+        traceId: `VM${Date.now()}_${conversationId.slice(-4)}`
+      })
+
+      return localMessages.map(chatEntityToCloudMessage)
+    }
 
     await chatRepository.syncConversationFromCloud({
       storeId,
@@ -11415,12 +16744,26 @@ async function sendChatMessage(): Promise<void> {
       traceId: `VM${Date.now()}_${conversationId.slice(-4)}`
     })
 
-    const localMessages = await chatRepository.listLocal(conversationId)
-    return localMessages.map(chatEntityToCloudMessage)
+    const syncedLocalMessages = await chatRepository.listLocal(
+      conversationId,
+      SHOWCASE_PAGE_SIZE.chatMessages,
+      0
+    )
+
+    return syncedLocalMessages.map(chatEntityToCloudMessage)
   }
 
-  async function fetchMerchantThreadsFromChatRepository(traceId: string): Promise<ChatThreadSummary[]> {
-    const rows = await chatRepository.fetchCloudThreadSummaries(storeId, traceId)
+  async function fetchMerchantThreadsFromChatRepository(
+    traceId: string,
+    limitInput: number = SHOWCASE_PAGE_SIZE.chatThreads,
+    offsetInput = 0
+  ): Promise<ChatThreadSummary[]> {
+    const rows = await chatRepository.fetchCloudThreadSummaries(
+      storeId,
+      traceId,
+      limitInput,
+      offsetInput
+    )
     const threads = rows
       .map(row => cloudThreadSummaryToLegacyChatThread(row))
       .filter(thread => thread.conversationId.trim().length > 0)
@@ -11440,7 +16783,42 @@ async function sendChatMessage(): Promise<void> {
 
     return withUnreadCounts
   }
+  async function searchMerchantThreadsFromChatRepository(
+    traceId: string,
+    keywordInput: string,
+    limitInput: number = SHOWCASE_PAGE_SIZE.chatThreads,
+    offsetInput = 0
+  ): Promise<ChatThreadSummary[]> {
+    const keyword = String(keywordInput || '').trim()
 
+    if (!keyword) return []
+
+    const rows = await chatRepository.searchCloudThreadSummariesByCustomerName(
+      storeId,
+      keyword,
+      traceId,
+      limitInput,
+      offsetInput
+    )
+    const threads = rows
+      .map(row => cloudThreadSummaryToLegacyChatThread(row))
+      .filter(thread => thread.conversationId.trim().length > 0)
+
+    const withUnreadCounts = await Promise.all(threads.map(async thread => {
+      const unreadCount = await chatRepository.countUnreadForMerchantConversation(
+        storeId,
+        thread.conversationId,
+        traceId
+      )
+
+      return {
+        ...thread,
+        unreadCount
+      }
+    }))
+
+    return withUnreadCounts
+  }
   async function buildMerchantThreadsWithLocalMeta(cloudThreads: ChatThreadSummary[]): Promise<ChatThreadSummary[]> {
     const localMetaList = await chatRepository.listThreadMetaByStore(storeId)
 
@@ -11448,6 +16826,56 @@ async function sendChatMessage(): Promise<void> {
       cloudThreads,
       localMetaList
     })
+  }
+
+  function mergeMerchantThreadSummariesByConversationId(
+    currentThreads: ChatThreadSummary[],
+    nextThreads: ChatThreadSummary[]
+  ): ChatThreadSummary[] {
+    const merged = new Map<string, ChatThreadSummary>()
+
+    currentThreads.forEach(thread => {
+      const conversationId = String(thread.conversationId || '').trim()
+      if (conversationId) {
+        merged.set(conversationId, thread)
+      }
+    })
+
+    nextThreads.forEach(thread => {
+      const conversationId = String(thread.conversationId || '').trim()
+      if (conversationId) {
+        merged.set(conversationId, thread)
+      }
+    })
+
+    return Array.from(merged.values()).sort((left, right) => {
+      if (left.pinned !== right.pinned) {
+        return left.pinned ? -1 : 1
+      }
+
+      return (right.lastMessageAt || 0) - (left.lastMessageAt || 0)
+    })
+  }
+
+  async function fetchLatestMerchantThreadsForMerge(traceId: string): Promise<ChatThreadSummary[]> {
+    const latestThreads = await fetchMerchantThreadsFromChatRepository(
+      traceId,
+      SHOWCASE_PAGE_SIZE.chatThreads,
+      0
+    )
+
+    return buildMerchantThreadsWithLocalMeta(latestThreads)
+  }
+
+  async function mergeLatestMerchantThreadsIntoState(traceId: string): Promise<ChatThreadSummary[]> {
+    const latestThreads = await fetchLatestMerchantThreadsForMerge(traceId)
+
+    setMerchantChatThreads(current => mergeMerchantThreadSummariesByConversationId(
+      current,
+      latestThreads
+    ))
+
+    return latestThreads
   }
 
   function buildChatQuotePreviewForSend(messageIdInput: string | null): string | null {
@@ -11506,6 +16934,7 @@ async function sendChatMessage(): Promise<void> {
       quoteMessageId: chatQuotedMessageId,
       quotePreviewText: buildChatQuotePreviewForSend(chatQuotedMessageId ?? null) || '',
       quoteProduct: null,
+      quoteAppointment: null,
 
       isSearchResults: Boolean(chatFindQuery.trim()),
       isFindOpen: Boolean(chatFindQuery.trim()),
@@ -11523,12 +16952,20 @@ async function sendChatMessage(): Promise<void> {
       scrollToMessageSignal: chatScrollToMessageSignal,
 
       pendingProduct: chatPendingProduct,
+      pendingAppointment: chatPendingAppointment,
 
       newestCreatedAt: null,
       oldestCreatedAt: null,
 
+      windowMode: chatMessageWindow.mode,
+      anchorMessageId: chatMessageWindow.anchorMessageId,
+      hasNewerMessages: chatMessageWindow.hasNewer,
+      isLoadingNewerMessages: chatMessageWindow.isLoadingNewer,
+      oldestMessageTimeMs: chatMessageWindow.oldestTimeMs,
+      newestMessageTimeMs: chatMessageWindow.newestTimeMs,
+
       unreadCount: merchantChatThreads.find(item => item.conversationId === activeConversationId)?.unreadCount || 0,
-      scrollToBottomSignal: 0,
+      scrollToBottomSignal: chatScrollToBottomSignal,
 
       findFocusedId: chatFocusedMessageId,
       findScrollSignal: 0
@@ -11550,6 +16987,20 @@ async function sendChatMessage(): Promise<void> {
     setChatFlashMessageId(domainState.flashMessageId)
     setChatFlashSignal(domainState.flashSignal)
     setChatStatusMessage(domainState.errorMessage)
+    setChatMessageWindow(current => {
+      const nextState = {
+        ...current,
+        mode: domainState.windowMode,
+        anchorMessageId: domainState.anchorMessageId,
+        hasNewer: domainState.hasNewerMessages,
+        isLoadingNewer: domainState.isLoadingNewerMessages,
+        oldestTimeMs: domainState.oldestMessageTimeMs,
+        newestTimeMs: domainState.newestMessageTimeMs
+      }
+
+      chatMessageWindowRef.current = nextState
+      return nextState
+    })
   }
 
   function buildChatSearchResultsForUi(): ShowcaseChatSearchResultUi[] {
@@ -11565,63 +17016,6 @@ async function sendChatMessage(): Promise<void> {
   function buildChatMediaItemsForUi(): ShowcaseChatMediaItemUi[] {
     type SortableChatMediaItem = ShowcaseChatMediaItemUi & {
       createdAtMsForSort: number
-    }
-
-    function parseChatMediaTimeMs(timeTextInput: string, fallbackIndex: number): number {
-      const timeText = String(timeTextInput || '').trim()
-
-      if (!timeText) {
-        return fallbackIndex * 1000
-      }
-
-      const normalized = timeText.replace(/\s+/g, ' ').trim()
-      const twentyFourHourMatch = normalized.match(/^(\d{4})-(\d{2})-(\d{2})\s+(\d{2}):(\d{2})$/)
-
-      if (twentyFourHourMatch) {
-        const [, year, month, day, hour, minute] = twentyFourHourMatch
-        const parsed = new Date(
-          Number(year),
-          Number(month) - 1,
-          Number(day),
-          Number(hour),
-          Number(minute),
-          0,
-          0
-        ).getTime()
-
-        return Number.isFinite(parsed) ? parsed : fallbackIndex * 1000
-      }
-
-      const twelveHourMatch = normalized.match(/^(\d{4})-(\d{2})-(\d{2})\s+(AM|PM)\s+(\d{1,2}):(\d{2})$/i)
-
-      if (twelveHourMatch) {
-        const [, year, month, day, markerInput, rawHour, minute] = twelveHourMatch
-        const marker = markerInput.toUpperCase()
-        const baseHour = Number(rawHour)
-        const hour = marker === 'PM'
-          ? baseHour === 12 ? 12 : baseHour + 12
-          : baseHour === 12 ? 0 : baseHour
-
-        const parsed = new Date(
-          Number(year),
-          Number(month) - 1,
-          Number(day),
-          hour,
-          Number(minute),
-          0,
-          0
-        ).getTime()
-
-        return Number.isFinite(parsed) ? parsed : fallbackIndex * 1000
-      }
-
-      const direct = Date.parse(normalized)
-
-      if (Number.isFinite(direct)) {
-        return direct
-      }
-
-      return fallbackIndex * 1000
     }
 
     function formatChatMediaDayKey(timeMs: number): string {
@@ -11640,29 +17034,26 @@ async function sendChatMessage(): Promise<void> {
 
     const byUrl = new Map<string, SortableChatMediaItem>()
 
-    chatUiMessages.forEach((message, messageIndex) => {
-      const createdAtMs = parseChatMediaTimeMs(message.createdAtText, messageIndex)
-      const dayKey = formatChatMediaDayKey(createdAtMs)
+    chatMediaItems.forEach((item, itemIndex) => {
+      const url = String(item.url || '').trim()
+      const createdAtMs = Number(item.createdAtMs || 0) || itemIndex * 1000
 
-      message.imageUrls
-        .map(url => String(url || '').trim())
-        .filter(Boolean)
-        .forEach(url => {
-          const current = byUrl.get(url)
+      if (!url) return
 
-          const nextItem: SortableChatMediaItem = {
-            conversationId: activeConversationId || '',
-            messageId: message.id,
-            url,
-            dayKey,
-            createdAtText: message.createdAtText,
-            createdAtMsForSort: createdAtMs
-          }
+      const current = byUrl.get(url)
 
-          if (!current || nextItem.createdAtMsForSort < current.createdAtMsForSort) {
-            byUrl.set(url, nextItem)
-          }
-        })
+      const nextItem: SortableChatMediaItem = {
+        conversationId: item.conversationId,
+        messageId: item.messageId,
+        url,
+        dayKey: formatChatMediaDayKey(createdAtMs),
+        createdAtText: item.createdAtText,
+        createdAtMsForSort: createdAtMs
+      }
+
+      if (!current || nextItem.createdAtMsForSort > current.createdAtMsForSort) {
+        byUrl.set(url, nextItem)
+      }
     })
 
     return Array.from(byUrl.values())
@@ -11681,6 +17072,11 @@ async function sendChatMessage(): Promise<void> {
   }
 
   async function sendChat(): Promise<void> {
+    if (chatPendingAppointment) {
+      await sendPendingAppointmentShare()
+      return
+    }
+
     if (chatPendingProduct) {
       await sendPendingProductShare()
       return
@@ -11695,7 +17091,9 @@ async function sendChatMessage(): Promise<void> {
     setChatMode('Client')
 
     try {
-      if (chatPendingProduct) {
+      if (chatPendingAppointment) {
+        await sendPendingAppointmentShare()
+      } else if (chatPendingProduct) {
         await sendPendingProductShare()
       } else {
         await sendChatMessage()
@@ -11710,6 +17108,11 @@ async function sendChatMessage(): Promise<void> {
 
     const product = chatPendingProduct
     if (!product) return
+
+    if (guardOfflineWriteOperation()) {
+      setChatStatusMessage('You are offline. Please reconnect and try again.')
+      return
+    }
 
     setChatIsSending(true)
     setChatStatusMessage(null)
@@ -11736,10 +17139,12 @@ async function sendChatMessage(): Promise<void> {
 
       if (!sendPlan) return
 
-      setChatMessages(current => [
-        ...current,
-        ...sendPlan.entities.map(entity => chatEntityToCloudMessage(entity))
-      ])
+      setChatMessages(current => mergeChatMessagesForConversation(
+        current,
+        conversation.id,
+        sendPlan.entities.map(entity => chatEntityToCloudMessage(entity))
+      ))
+      triggerChatScrollToBottomForOwnSend()
 
       const results: boolean[] = []
 
@@ -11751,7 +17156,7 @@ async function sendChatMessage(): Promise<void> {
       const operationResult = buildChatSendOperationResult({
         sendPlan,
         results,
-        fallbackProductPushBody: 'Sent you a product card'
+        fallbackProductPushBody: 'Sent you an item card'
       })
 
       if (operationResult.shouldFail) {
@@ -11764,17 +17169,19 @@ async function sendChatMessage(): Promise<void> {
         setChatDraft(clearPlan.draftText)
         setChatDraftImageUrls(clearPlan.draftImageUris)
         setChatPendingProduct(clearPlan.pendingProduct)
+        setChatPendingAppointment(clearPlan.pendingAppointment)
         setChatQuotedMessageId(clearPlan.quoteMessageId)
         updateChatDraftPersistence(
           clearPlan.draftText,
           clearPlan.draftImageUris,
           clearPlan.pendingProduct,
-          clearPlan.quoteMessageId
+          clearPlan.quoteMessageId,
+          clearPlan.pendingAppointment
         )
       }
 
-      const latestLocalMessages = await chatRepository.listLocal(conversation.id)
-      setChatMessages(latestLocalMessages.map(chatEntityToCloudMessage))
+      await mergeLatestLocalChatMessages(conversation.id)
+      triggerChatScrollToBottomForOwnSend()
 
       const senderRole = currentChatRole()
       const targetAudience = senderRole === 'merchant' ? 'chat_client' : 'chat_merchant'
@@ -11840,24 +17247,173 @@ async function sendChatMessage(): Promise<void> {
       setChatStatusMessage(normalizeChatSendErrorMessage(error))
 
       if (activeConversationId.trim()) {
-        const latestLocalMessages = await chatRepository.listLocal(activeConversationId)
-        setChatMessages(latestLocalMessages.map(chatEntityToCloudMessage))
+        await mergeLatestLocalChatMessages(activeConversationId)
       }
     } finally {
       setChatIsSending(false)
     }
   }
+  async function sendPendingAppointmentShare(): Promise<void> {
+    if (chatIsSending || chatIsOpeningRef.current) return
 
+    const appointment = chatPendingAppointment
+    if (!appointment) return
+
+    if (guardOfflineWriteOperation()) {
+      setChatStatusMessage('You are offline. Please reconnect and try again.')
+      return
+    }
+
+    setChatIsSending(true)
+    setChatStatusMessage(null)
+
+    try {
+      const conversation = await ensureActiveConversation()
+      if (!conversation) {
+        throw new Error('Conversation unavailable.')
+      }
+
+      const now = Date.now()
+      const traceId = `VM${now}_${conversation.id.slice(-4)}`
+      const messageClientId = conversation.clientId || clientId
+      const senderRoleForEntity = currentChatRole()
+      const sendPlan = buildPendingAppointmentShareSendPlan({
+        appointment,
+        conversationId: conversation.id,
+        storeId,
+        clientId: messageClientId,
+        senderRole: senderRoleForEntity === 'merchant' ? 'merchant' : 'client',
+        now,
+        createMessageId: () => createId('msg')
+      })
+
+      if (!sendPlan) return
+
+      setChatMessages(current => mergeChatMessagesForConversation(
+        current,
+        conversation.id,
+        sendPlan.entities.map(entity => chatEntityToCloudMessage(entity))
+      ))
+      triggerChatScrollToBottomForOwnSend()
+
+      const results: boolean[] = []
+
+      for (const entity of sendPlan.entities) {
+        const ok = await chatRepository.insertMessageToCloud(entity, traceId)
+        results.push(ok)
+      }
+
+      const operationResult = buildChatSendOperationResult({
+        sendPlan,
+        results
+      })
+
+      if (operationResult.shouldFail) {
+        throw new Error('Message send failed.')
+      }
+
+      if (operationResult.shouldClearDraft) {
+        const clearPlan = buildChatDraftClearPlan()
+
+        setChatDraft(clearPlan.draftText)
+        setChatDraftImageUrls(clearPlan.draftImageUris)
+        setChatPendingProduct(clearPlan.pendingProduct)
+        setChatPendingAppointment(clearPlan.pendingAppointment)
+        setChatQuotedMessageId(clearPlan.quoteMessageId)
+        updateChatDraftPersistence(
+          clearPlan.draftText,
+          clearPlan.draftImageUris,
+          clearPlan.pendingProduct,
+          clearPlan.quoteMessageId,
+          clearPlan.pendingAppointment
+        )
+      }
+
+      await mergeLatestLocalChatMessages(conversation.id)
+      triggerChatScrollToBottomForOwnSend()
+
+      const senderRole = currentChatRole()
+      const targetAudience = senderRole === 'merchant' ? 'chat_client' : 'chat_merchant'
+      const openAs = senderRole === 'merchant' ? 'client' : 'merchant'
+      const targetClientId = conversation.clientId || clientId
+      const senderClientId = senderRole === 'merchant' ? null : targetClientId
+      const suppressLocalVisibleChatPush = shouldSuppressRuntimeChatPush(conversation.id)
+
+      console.log('[NDJC_PUSH] Booking chat push dispatch start.', {
+        storeId,
+        conversationId: conversation.id,
+        senderRole,
+        targetAudience,
+        openAs,
+        targetClientId,
+        senderClientId,
+        suppressLocalVisibleChatPush,
+        pushBody: operationResult.pushBody
+      })
+
+      const chatPushOk = await repository.dispatchChatPush({
+        storeId,
+        conversationId: conversation.id,
+        title: resolveChatPushSenderName(senderRole),
+        body: operationResult.pushBody,
+        senderRole,
+        targetAudience,
+        openAs,
+        targetClientId,
+        senderClientId
+      })
+
+      console.log('[NDJC_PUSH] Booking chat push dispatch result.', {
+        storeId,
+        conversationId: conversation.id,
+        senderRole,
+        targetAudience,
+        openAs,
+        targetClientId,
+        senderClientId,
+        chatPushOk,
+        code: repository.lastAnnouncementPushCode,
+        body: repository.lastAnnouncementPushBody
+      })
+
+      if (!chatPushOk) {
+        console.warn('[NDJC_PUSH] Booking chat push dispatch failed.', {
+          storeId,
+          conversationId: conversation.id,
+          senderRole,
+          targetAudience,
+          openAs,
+          targetClientId,
+          senderClientId,
+          code: repository.lastAnnouncementPushCode,
+          body: repository.lastAnnouncementPushBody
+        })
+      }
+
+      await syncChat()
+      await refreshChatEntryDotOnce()
+    } catch (error) {
+      setChatStatusMessage(normalizeChatSendErrorMessage(error))
+
+      if (activeConversationId.trim()) {
+        await mergeLatestLocalChatMessages(activeConversationId)
+      }
+    } finally {
+      setChatIsSending(false)
+    }
+  }
   function chatCancelQuote(): void {
     const domainState = cancelQuoteInDomain(buildCurrentChatDomainState())
 
     setChatQuotedMessageId(domainState.quoteMessageId)
     setChatPendingProduct(domainState.pendingProduct)
+    setChatPendingAppointment(domainState.pendingAppointment)
     updateChatDraftPersistence(
       domainState.draftText,
       domainState.draftImageUris,
       domainState.pendingProduct,
-      domainState.quoteMessageId
+      domainState.quoteMessageId,
+      domainState.pendingAppointment
     )
   }
 
@@ -11867,8 +17423,14 @@ async function sendChatMessage(): Promise<void> {
   }
 
   function chatCloseMediaGallery(): void {
+    chatMediaLoadSeqRef.current += 1
     setChatMediaPreviewUrls([])
     setChatMediaPreviewIndex(0)
+    setChatMediaPagination({
+      nextOffset: 0,
+      hasMore: true,
+      isLoadingMore: false
+    })
     setPreviousScreen(chatBackTargetRef.current || ShowcaseScreens.Home)
     setScreen(chatMediaBackTargetRef.current)
     void syncChat()
@@ -11885,9 +17447,15 @@ async function sendChatMessage(): Promise<void> {
     })
 
     chatBackTargetRef.current = chatBackTargetBeforeSearchRef.current
+    chatSearchLoadSeqRef.current += 1
 
     applyChatDomainInteractionState(domainState)
     setChatSearchResults([])
+    setChatSearchPagination({
+      nextOffset: 0,
+      hasMore: false,
+      isLoadingMore: false
+    })
     setPreviousScreen(chatBackTargetBeforeSearchRef.current)
     setScreen(chatSearchBackTargetRef.current)
     void syncChat()
@@ -11960,123 +17528,553 @@ async function sendChatMessage(): Promise<void> {
     return 'Conversation'
   }
 
+  function resolveThreadForChatSearchResult(conversationIdInput: string): ChatThreadSummary | null {
+    const conversationId = String(conversationIdInput || '').trim()
 
+    if (!conversationId) return null
+
+    return merchantChatThreads.find(thread => thread.conversationId === conversationId) || null
+  }
+
+  function buildChatSearchResultFromEntity(message: ChatMessageEntity): ChatSearchResult {
+    const thread = resolveThreadForChatSearchResult(message.conversationId)
+    const createdAtMs = Number(message.timeMs || 0)
+    const snippet = extractMainBodyForChatSearch(message.text) || 'Message'
+
+    return {
+      conversationId: message.conversationId,
+      messageId: message.id,
+      senderLabel: resolvedSearchSenderLabelForEntity(message, thread),
+      snippet,
+      createdAtText: formatChatCreatedAtText(createdAtMs) || '',
+      createdAtMs,
+      matchedInName: false
+    }
+  }
+
+  function mergeChatSearchResults(
+    currentItems: ChatSearchResult[],
+    nextItems: ChatSearchResult[]
+  ): ChatSearchResult[] {
+    const merged = new Map<string, ChatSearchResult>()
+
+    currentItems.forEach(item => {
+      const key = `${item.conversationId}:${item.messageId || 'name'}`
+      if (!merged.has(key)) {
+        merged.set(key, item)
+      }
+    })
+
+    nextItems.forEach(item => {
+      const key = `${item.conversationId}:${item.messageId || 'name'}`
+      merged.set(key, item)
+    })
+
+    return Array.from(merged.values())
+      .sort((left, right) => right.createdAtMs - left.createdAtMs)
+  }
+
+  function buildChatMediaItemsFromEntity(message: ChatMessageEntity): ChatMediaItem[] {
+    const parsedPayload = parseNdjcChatPayload(message.text)
+    const createdAtMs = Number(message.timeMs || 0)
+    const createdAtText = formatChatCreatedAtText(createdAtMs) || ''
+    const imageUrls = Array.from(new Set(parsedPayload.imageUris
+      .map(url => String(url || '').trim())
+      .filter(Boolean)
+    ))
+
+    return imageUrls.map(url => ({
+      conversationId: message.conversationId,
+      messageId: message.id,
+      url,
+      createdAtText,
+      createdAtMs
+    }))
+  }
+
+  function mergeChatMediaItems(
+    currentItems: ChatMediaItem[],
+    nextItems: ChatMediaItem[]
+  ): ChatMediaItem[] {
+    const merged = new Map<string, ChatMediaItem>()
+
+    currentItems.forEach(item => {
+      const key = `${item.conversationId}:${item.messageId}:${item.url}`
+      if (!merged.has(key)) {
+        merged.set(key, item)
+      }
+    })
+
+    nextItems.forEach(item => {
+      const key = `${item.conversationId}:${item.messageId}:${item.url}`
+      merged.set(key, item)
+    })
+
+    return Array.from(merged.values())
+      .sort((left, right) => right.createdAtMs - left.createdAtMs)
+  }
 
   async function rebuildChatSearchResultsForQuery(valueInput: string): Promise<void> {
     const query = valueInput.trim()
     const queryLower = query.toLowerCase()
+    const loadSeq = ++chatSearchLoadSeqRef.current
+    const limit = SHOWCASE_PAGE_SIZE.chatSearchResults
 
     if (!queryLower) {
       setChatSearchResults([])
+      setChatSearchPagination({
+        nextOffset: 0,
+        hasMore: false,
+        isLoadingMore: false
+      })
       return
     }
 
-    if (chatSearchScopeRef.current === 'InConversation') {
-      const results = chatUiMessages
-        .map(message => {
-          const body = message.body.trim()
-          const productTitle = message.product?.title?.trim() || ''
-          const searchable = `${body} ${productTitle}`.trim()
-
-          return {
-            message,
-            searchable
-          }
-        })
-        .filter(item => item.searchable.toLowerCase().includes(queryLower))
-        .map(item => {
-          const body = item.message.body.trim()
-          const productTitle = item.message.product?.title?.trim() || ''
-          const snippet = body || productTitle || (item.message.imageUrls.length ? 'Media message' : 'Message')
-
-          return {
-            conversationId: activeConversationId || '',
-            messageId: item.message.id,
-            senderLabel: resolvedSearchSenderLabelForCurrentMessage(item.message),
-            snippet,
-            createdAtText: item.message.createdAtText,
-            matchedInName: false
-          }
-        })
-
-      setChatSearchResults(results)
-      return
-    }
-
-    await ensureMerchantSessionLoadedForCloud()
-
-    const traceId = `VM${Date.now()}_${storeId.slice(-4)}`
-    await chatRepository.syncMerchantThreadMetaFromCloud(storeId, traceId)
-
-    const cloudThreads = await fetchMerchantThreadsFromChatRepository(traceId)
-    const sourceThreads = await buildMerchantThreadsWithLocalMeta(cloudThreads)
-
-    if (sourceThreads.length > 0) {
-      setMerchantChatThreads(sourceThreads)
-    }
-
-    const threadMap = new Map<string, ChatThreadSummary>()
-
-    sourceThreads.forEach(thread => {
-      const conversationId = String(thread.conversationId || '').trim()
-      if (!conversationId) return
-
-      threadMap.set(conversationId, thread)
+    setChatSearchPagination({
+      nextOffset: 0,
+      hasMore: true,
+      isLoadingMore: true
     })
 
-    const localMessages = await chatRepository.listLocalByStore(storeId)
+    try {
+      if (chatSearchScopeRef.current === 'InConversation') {
+        const conversationId = String(activeConversationId || '').trim()
 
-    const messageHits: ChatSearchResult[] = localMessages
-      .filter(message => threadMap.has(message.conversationId))
-      .map(message => {
-        const thread = threadMap.get(message.conversationId) || null
-        const snippet = extractMainBodyForChatSearch(message.text)
+        if (!conversationId) {
+          if (chatSearchLoadSeqRef.current !== loadSeq) return
 
-        return {
-          message,
-          thread,
-          snippet
+          setChatSearchResults([])
+          setChatSearchPagination({
+            nextOffset: 0,
+            hasMore: false,
+            isLoadingMore: false
+          })
+          return
         }
-      })
-      .filter(item => item.snippet.toLowerCase().includes(queryLower))
-      .map(item => ({
-        conversationId: item.message.conversationId,
-        messageId: item.message.id,
-        senderLabel: resolvedSearchSenderLabelForEntity(item.message, item.thread),
-        snippet: item.snippet,
-        createdAtText: formatChatCreatedAtText(item.message.timeMs) || '',
-        matchedInName: false
-      }))
 
-    const nameHits: ChatSearchResult[] = sourceThreads
-      .filter(thread => chatSearchThreadTitle(thread).toLowerCase().includes(queryLower))
-      .map(thread => ({
-        conversationId: thread.conversationId,
-        messageId: null,
-        senderLabel: resolvedCustomerDisplayNameForChatSearch(thread.conversationId),
-        snippet: chatSearchThreadPreview(thread),
-        createdAtText: formatChatCreatedAtText(thread.lastMessageAt) || '',
-        matchedInName: true
-      }))
+        const localResults = await chatRepository.searchLocalMessagesByConversationKeyword(
+          conversationId,
+          query,
+          limit
+        )
 
-    const deduped = new Map<string, ChatSearchResult>()
+        if (chatSearchLoadSeqRef.current !== loadSeq) return
 
-    ;[...messageHits, ...nameHits].forEach(result => {
-      const key = `${result.conversationId}:${result.messageId || 'name'}`
-      if (!deduped.has(key)) {
-        deduped.set(key, result)
+        const localUiResults = localResults.map(buildChatSearchResultFromEntity)
+        setChatSearchResults(localUiResults)
+
+        const effectiveRole = currentChatPerspectiveRole()
+
+        if (effectiveRole === 'merchant') {
+          const validSession = await ensureValidMerchantSessionLoadedForCloud()
+
+          if (!validSession) {
+            if (chatSearchLoadSeqRef.current !== loadSeq) return
+
+            setChatSearchPagination({
+              nextOffset: 0,
+              hasMore: false,
+              isLoadingMore: false
+            })
+            setStatusMessage(merchantSessionEnsureFailureMessage())
+            showSnackbar(merchantSessionEnsureSnackbarMessage())
+            return
+          }
+
+          setStoreMerchantSessionFromAuthSession(validSession)
+          bindMerchantSessionToRepository(repository)
+        }
+
+        const traceId = `VM${Date.now()}_${storeId.slice(-4)}`
+        const effectiveClientId = effectiveRole === 'merchant'
+          ? activeConversation?.clientId || merchantChatThreads.find(thread => thread.conversationId === conversationId)?.clientId || clientId
+          : clientId
+
+        const cloudResults = await chatRepository.searchCloudMessagesByConversationKeyword({
+          storeId,
+          conversationId,
+          keyword: query,
+          perspectiveRole: effectiveRole,
+          clientId: effectiveClientId,
+          limit,
+          offset: 0,
+          traceId
+        })
+
+        if (chatSearchLoadSeqRef.current !== loadSeq) return
+
+        const cloudUiResults = cloudResults.map(buildChatSearchResultFromEntity)
+
+        setChatSearchResults(mergeChatSearchResults(localUiResults, cloudUiResults))
+        setChatSearchPagination({
+          nextOffset: limit,
+          hasMore: cloudResults.length >= limit,
+          isLoadingMore: false
+        })
+        return
       }
+
+      const validSession = await ensureValidMerchantSessionLoadedForCloud()
+
+      if (!validSession) {
+        if (chatSearchLoadSeqRef.current !== loadSeq) return
+
+        setChatSearchResults([])
+        setChatSearchPagination({
+          nextOffset: 0,
+          hasMore: false,
+          isLoadingMore: false
+        })
+        setStatusMessage(merchantSessionEnsureFailureMessage())
+        showSnackbar(merchantSessionEnsureSnackbarMessage())
+        return
+      }
+
+      setStoreMerchantSessionFromAuthSession(validSession)
+      bindMerchantSessionToRepository(repository)
+
+      const localResults = await chatRepository.searchLocalMessagesByStoreKeyword({
+        storeId,
+        keyword: query,
+        limit,
+        maxScan: SHOWCASE_PAGE_SIZE.chatSearchMaxLocalScan
+      })
+
+      if (chatSearchLoadSeqRef.current !== loadSeq) return
+
+      const localUiResults = localResults.map(buildChatSearchResultFromEntity)
+      setChatSearchResults(localUiResults)
+
+      const traceId = `VM${Date.now()}_${storeId.slice(-4)}`
+      const cloudResults = await chatRepository.searchCloudMessagesByStoreKeyword({
+        storeId,
+        keyword: query,
+        perspectiveRole: 'merchant',
+        clientId: null,
+        limit,
+        offset: 0,
+        traceId
+      })
+
+      if (chatSearchLoadSeqRef.current !== loadSeq) return
+
+      const cloudUiResults = cloudResults.map(buildChatSearchResultFromEntity)
+
+      setChatSearchResults(mergeChatSearchResults(localUiResults, cloudUiResults))
+      setChatSearchPagination({
+        nextOffset: limit,
+        hasMore: cloudResults.length >= limit,
+        isLoadingMore: false
+      })
+    } catch {
+      if (chatSearchLoadSeqRef.current !== loadSeq) return
+
+      setChatSearchPagination({
+        nextOffset: 0,
+        hasMore: false,
+        isLoadingMore: false
+      })
+      setStatusMessage('Failed to search messages.')
+    }
+  }
+
+  async function loadMoreChatSearchResults(): Promise<void> {
+    const query = chatFindQuery.trim()
+
+    if (!query || chatSearchPagination.isLoadingMore || !chatSearchPagination.hasMore) return
+
+    const loadSeq = ++chatSearchLoadSeqRef.current
+    const offset = chatSearchPagination.nextOffset
+    const limit = SHOWCASE_PAGE_SIZE.chatSearchResults
+
+    setChatSearchPagination(current => ({
+      ...current,
+      isLoadingMore: true
+    }))
+
+    try {
+      if (chatSearchScopeRef.current === 'InConversation') {
+        const conversationId = String(activeConversationId || '').trim()
+
+        if (!conversationId) {
+          if (chatSearchLoadSeqRef.current !== loadSeq) return
+
+          setChatSearchPagination({
+            nextOffset: 0,
+            hasMore: false,
+            isLoadingMore: false
+          })
+          return
+        }
+
+        const effectiveRole = currentChatPerspectiveRole()
+
+        if (effectiveRole === 'merchant') {
+          const validSession = await ensureValidMerchantSessionLoadedForCloud()
+
+          if (!validSession) {
+            if (chatSearchLoadSeqRef.current !== loadSeq) return
+
+            setChatSearchPagination(current => ({
+              ...current,
+              hasMore: false,
+              isLoadingMore: false
+            }))
+            setStatusMessage(merchantSessionEnsureFailureMessage())
+            showSnackbar(merchantSessionEnsureSnackbarMessage())
+            return
+          }
+
+          setStoreMerchantSessionFromAuthSession(validSession)
+          bindMerchantSessionToRepository(repository)
+        }
+
+        const traceId = `VM${Date.now()}_${storeId.slice(-4)}`
+        const effectiveClientId = effectiveRole === 'merchant'
+          ? activeConversation?.clientId || merchantChatThreads.find(thread => thread.conversationId === conversationId)?.clientId || clientId
+          : clientId
+
+        const nextResults = await chatRepository.searchCloudMessagesByConversationKeyword({
+          storeId,
+          conversationId,
+          keyword: query,
+          perspectiveRole: effectiveRole,
+          clientId: effectiveClientId,
+          limit,
+          offset,
+          traceId
+        })
+
+        if (chatSearchLoadSeqRef.current !== loadSeq) return
+
+        const nextUiResults = nextResults.map(buildChatSearchResultFromEntity)
+
+        setChatSearchResults(current => mergeChatSearchResults(current, nextUiResults))
+        setChatSearchPagination({
+          nextOffset: offset + limit,
+          hasMore: nextResults.length >= limit,
+          isLoadingMore: false
+        })
+        return
+      }
+
+      const validSession = await ensureValidMerchantSessionLoadedForCloud()
+
+      if (!validSession) {
+        if (chatSearchLoadSeqRef.current !== loadSeq) return
+
+        setChatSearchPagination(current => ({
+          ...current,
+          hasMore: false,
+          isLoadingMore: false
+        }))
+        setStatusMessage(merchantSessionEnsureFailureMessage())
+        showSnackbar(merchantSessionEnsureSnackbarMessage())
+        return
+      }
+
+      setStoreMerchantSessionFromAuthSession(validSession)
+      bindMerchantSessionToRepository(repository)
+
+      const traceId = `VM${Date.now()}_${storeId.slice(-4)}`
+      const nextResults = await chatRepository.searchCloudMessagesByStoreKeyword({
+        storeId,
+        keyword: query,
+        perspectiveRole: 'merchant',
+        clientId: null,
+        limit,
+        offset,
+        traceId
+      })
+
+      if (chatSearchLoadSeqRef.current !== loadSeq) return
+
+      const nextUiResults = nextResults.map(buildChatSearchResultFromEntity)
+
+      setChatSearchResults(current => mergeChatSearchResults(current, nextUiResults))
+      setChatSearchPagination({
+        nextOffset: offset + limit,
+        hasMore: nextResults.length >= limit,
+        isLoadingMore: false
+      })
+    } catch {
+      if (chatSearchLoadSeqRef.current !== loadSeq) return
+
+      setChatSearchPagination(current => ({
+        ...current,
+        isLoadingMore: false
+      }))
+      setStatusMessage('Failed to load more search results.')
+    }
+  }
+
+  async function loadInitialChatMediaItems(): Promise<void> {
+    const loadSeq = ++chatMediaLoadSeqRef.current
+    const limit = SHOWCASE_PAGE_SIZE.chatMediaItems
+    const conversationId = String(activeConversationId || '').trim()
+
+    setChatMediaPagination({
+      nextOffset: 0,
+      hasMore: true,
+      isLoadingMore: true
     })
 
-    const results = Array.from(deduped.values())
-      .sort((left, right) => {
-        const leftTime = Date.parse(left.createdAtText) || 0
-        const rightTime = Date.parse(right.createdAtText) || 0
-        return rightTime - leftTime
-      })
-      .slice(0, 100)
+    if (!conversationId) {
+      if (chatMediaLoadSeqRef.current !== loadSeq) return
 
-    setChatSearchResults(results)
+      setChatMediaItems([])
+      setChatMediaPagination({
+        nextOffset: 0,
+        hasMore: false,
+        isLoadingMore: false
+      })
+      return
+    }
+
+    const localMessages = await chatRepository.fetchLocalMediaMessagesByConversation({
+      conversationId,
+      limit,
+      maxScan: SHOWCASE_PAGE_SIZE.chatMediaMaxLocalScan
+    })
+
+    if (chatMediaLoadSeqRef.current !== loadSeq) return
+
+    const localMediaItems = localMessages.flatMap(buildChatMediaItemsFromEntity)
+    setChatMediaItems(localMediaItems)
+
+    try {
+      const validSession = currentChatRole() === 'merchant'
+        ? await ensureValidMerchantSessionLoadedForCloud()
+        : null
+
+      if (currentChatRole() === 'merchant' && !validSession) {
+        if (chatMediaLoadSeqRef.current !== loadSeq) return
+
+        setChatMediaPagination({
+          nextOffset: 0,
+          hasMore: false,
+          isLoadingMore: false
+        })
+        setStatusMessage(merchantSessionEnsureFailureMessage())
+        showSnackbar(merchantSessionEnsureSnackbarMessage())
+        return
+      }
+
+      if (validSession) {
+        setStoreMerchantSessionFromAuthSession(validSession)
+        bindMerchantSessionToRepository(repository)
+      }
+
+      const traceId = `VM${Date.now()}_${storeId.slice(-4)}`
+      const cloudMessages = await chatRepository.fetchCloudMediaMessagesByConversation({
+        storeId,
+        conversationId,
+        perspectiveRole: currentChatPerspectiveRole(),
+        clientId: currentChatRole() === 'merchant' ? null : clientId,
+        limit,
+        offset: 0,
+        traceId
+      })
+
+      if (chatMediaLoadSeqRef.current !== loadSeq) return
+
+      setChatMediaItems(mergeChatMediaItems(
+        localMediaItems,
+        cloudMessages.flatMap(buildChatMediaItemsFromEntity)
+      ))
+      setChatMediaPagination({
+        nextOffset: limit,
+        hasMore: cloudMessages.length >= limit,
+        isLoadingMore: false
+      })
+    } catch {
+      if (chatMediaLoadSeqRef.current !== loadSeq) return
+
+      setChatMediaPagination({
+        nextOffset: 0,
+        hasMore: false,
+        isLoadingMore: false
+      })
+      setStatusMessage('Failed to load media.')
+    }
+  }
+
+  async function loadMoreChatMediaItems(): Promise<void> {
+    if (chatMediaPagination.isLoadingMore || !chatMediaPagination.hasMore) return
+
+    const loadSeq = ++chatMediaLoadSeqRef.current
+    const offset = chatMediaPagination.nextOffset
+    const limit = SHOWCASE_PAGE_SIZE.chatMediaItems
+    const conversationId = String(activeConversationId || '').trim()
+
+    if (!conversationId) {
+      setChatMediaPagination({
+        nextOffset: 0,
+        hasMore: false,
+        isLoadingMore: false
+      })
+      return
+    }
+
+    setChatMediaPagination(current => ({
+      ...current,
+      isLoadingMore: true
+    }))
+
+    try {
+      const validSession = currentChatRole() === 'merchant'
+        ? await ensureValidMerchantSessionLoadedForCloud()
+        : null
+
+      if (currentChatRole() === 'merchant' && !validSession) {
+        if (chatMediaLoadSeqRef.current !== loadSeq) return
+
+        setChatMediaPagination(current => ({
+          ...current,
+          hasMore: false,
+          isLoadingMore: false
+        }))
+        setStatusMessage(merchantSessionEnsureFailureMessage())
+        showSnackbar(merchantSessionEnsureSnackbarMessage())
+        return
+      }
+
+      if (validSession) {
+        setStoreMerchantSessionFromAuthSession(validSession)
+        bindMerchantSessionToRepository(repository)
+      }
+
+      const traceId = `VM${Date.now()}_${storeId.slice(-4)}`
+      const cloudMessages = await chatRepository.fetchCloudMediaMessagesByConversation({
+        storeId,
+        conversationId,
+        perspectiveRole: currentChatPerspectiveRole(),
+        clientId: currentChatRole() === 'merchant' ? null : clientId,
+        limit,
+        offset,
+        traceId
+      })
+
+      if (chatMediaLoadSeqRef.current !== loadSeq) return
+
+      setChatMediaItems(current => mergeChatMediaItems(
+        current,
+        cloudMessages.flatMap(buildChatMediaItemsFromEntity)
+      ))
+      setChatMediaPagination({
+        nextOffset: offset + limit,
+        hasMore: cloudMessages.length >= limit,
+        isLoadingMore: false
+      })
+    } catch {
+      if (chatMediaLoadSeqRef.current !== loadSeq) return
+
+      setChatMediaPagination(current => ({
+        ...current,
+        isLoadingMore: false
+      }))
+      setStatusMessage('Failed to load more media.')
+    }
   }
   function chatFindQueryChange(value: string): void {
     const domainState = onFindQueryChangeInDomain(buildCurrentChatDomainState(), value)
@@ -12140,22 +18138,144 @@ async function sendChatMessage(): Promise<void> {
     openChatSearchResults()
   }
 
+  async function openChatAroundMessageFromSearch(
+    conversationIdInput: string,
+    messageIdInput: string
+  ): Promise<boolean> {
+    const conversationId = String(conversationIdInput || '').trim()
+    const messageId = String(messageIdInput || '').trim()
+
+    if (!conversationId || !messageId) return false
+
+    const role = currentChatRole()
+    const traceId = `VM${Date.now()}_${conversationId.slice(-4)}`
+    const loadSeq = ++chatMessageLoadSeqRef.current
+    const effectiveClientId = role === 'merchant'
+      ? activeConversation?.clientId || merchantChatThreads.find(thread => thread.conversationId === conversationId)?.clientId || clientId
+      : clientId
+
+    setChatStatusMessage(null)
+
+    const result = await chatRepository.listMessagesAroundMessage({
+      storeId,
+      conversationId,
+      messageId,
+      perspectiveRole: role === 'merchant' ? 'merchant' : 'client',
+      clientId: effectiveClientId,
+      beforeLimit: 15,
+      afterLimit: 15,
+      traceId
+    })
+
+    if (
+      chatMessageLoadSeqRef.current !== loadSeq ||
+      activeConversationIdRef.current.trim() !== conversationId ||
+      currentChatRole() !== role
+    ) {
+      return false
+    }
+
+    if (!result.found || !result.targetMessage || result.messages.length === 0) {
+      setChatStatusMessage('Message not found.')
+      return false
+    }
+
+    const messages = limitChatMessagesForActiveWindow(
+      result.messages.map(chatEntityToCloudMessage),
+      {
+        mode: 'aroundMessage',
+        anchorMessageId: messageId,
+        hasOlder: result.hasOlder,
+        hasNewer: result.hasNewer,
+        isLoadingOlder: false,
+        isLoadingNewer: false,
+        oldestTimeMs: result.oldestTimeMs,
+        newestTimeMs: result.newestTimeMs
+      }
+    )
+    const bounds = getChatMessageWindowBounds(messages)
+    const nextWindow: ChatMessageWindowRuntimeState = {
+      mode: 'aroundMessage',
+      anchorMessageId: messageId,
+      hasOlder: result.hasOlder,
+      hasNewer: result.hasNewer,
+      isLoadingOlder: false,
+      isLoadingNewer: false,
+      oldestTimeMs: result.oldestTimeMs ?? bounds.oldestTimeMs,
+      newestTimeMs: result.newestTimeMs ?? bounds.newestTimeMs
+    }
+    const nextPaginationState = {
+      nextOffset: messages.length,
+      hasMore: result.hasOlder,
+      isLoadingMore: false
+    }
+
+    chatMessageWindowRef.current = nextWindow
+    chatMessagesPaginationRef.current = nextPaginationState
+
+    setChatMessages(messages)
+    setChatMessageWindow(nextWindow)
+    setChatMessagesPagination(nextPaginationState)
+
+    const mediaItems = messages.flatMap(message => message.imageUrls
+      .map(url => url.trim())
+      .filter(Boolean)
+      .map(url => ({
+        conversationId,
+        messageId: message.id,
+        url,
+        createdAtText: formatChatCreatedAtText(message.createdAt),
+        createdAtMs: Number(message.createdAt || 0)
+      }))
+    )
+
+    setChatMediaItems(mediaItems)
+
+    const closedFindState = closeFindInDomain(buildCurrentChatDomainState())
+    const domainState = jumpToMessageInDomain({
+      ...closedFindState,
+      windowMode: 'aroundMessage',
+      anchorMessageId: messageId,
+      hasNewerMessages: result.hasNewer,
+      isLoadingNewerMessages: false,
+      oldestMessageTimeMs: nextWindow.oldestTimeMs,
+      newestMessageTimeMs: nextWindow.newestTimeMs
+    }, messageId)
+
+    applyChatDomainInteractionState(domainState)
+
+    return true
+  }
+
   function chatOpenThreadFromSearch(conversationId: string, messageId?: string | null): void {
     const threadId = conversationId.trim()
     const targetMessageId = messageId?.trim() || null
 
     if (chatSearchScopeRef.current === 'InConversation') {
-      const closedFindState = closeFindInDomain(buildCurrentChatDomainState())
-      const domainState = targetMessageId
-        ? jumpToMessageInDomain(closedFindState, targetMessageId)
-        : closedFindState
+      const activeThreadId = threadId || activeConversationIdRef.current.trim()
 
-      chatBackTargetRef.current = chatBackTargetBeforeSearchRef.current
+      chatBackTargetRef.current = ShowcaseScreens.ChatSearchResults
 
-      applyChatDomainInteractionState(domainState)
-      setPreviousScreen(chatBackTargetBeforeSearchRef.current)
-      setScreen(ShowcaseScreens.Chat)
-      void syncChat()
+      void (async () => {
+        const openedAroundMessage = targetMessageId
+          ? await openChatAroundMessageFromSearch(activeThreadId, targetMessageId)
+          : false
+
+        if (!openedAroundMessage) {
+          const closedFindState = closeFindInDomain(buildCurrentChatDomainState())
+          const domainState = targetMessageId
+            ? jumpToMessageInDomain(closedFindState, targetMessageId)
+            : closedFindState
+
+          applyChatDomainInteractionState(domainState)
+        }
+
+        chatBackTargetRef.current = ShowcaseScreens.ChatSearchResults
+        setPreviousScreen(ShowcaseScreens.ChatSearchResults)
+        setScreen(ShowcaseScreens.Chat)
+        void syncChat()
+      })()
+
       return
     }
 
@@ -12175,7 +18295,11 @@ async function sendChatMessage(): Promise<void> {
       setPreviousScreen(ShowcaseScreens.ChatSearchResults)
       setScreen(ShowcaseScreens.Chat)
 
-      if (targetMessageId) {
+      const openedAroundMessage = targetMessageId
+        ? await openChatAroundMessageFromSearch(threadId, targetMessageId)
+        : false
+
+      if (!openedAroundMessage && targetMessageId) {
         const domainState = jumpToMessageInDomain(buildCurrentChatDomainState(), targetMessageId)
         applyChatDomainInteractionState(domainState)
       }
@@ -12230,18 +18354,22 @@ async function sendChatMessage(): Promise<void> {
         dishId: parsedProduct.dishId,
         title: parsedProduct.title,
         price: parsedProduct.price,
-        imageUrl: parsedProduct.imageUrl
+        originalPriceText: parsedProduct.originalPriceText,
+        discountPriceText: parsedProduct.discountPriceText,
+        imageUrl: parsedProduct.imageUrl,
+        isRecommended: parsedProduct.isRecommended
       }
 
       setChatPendingProduct(product)
+      setChatPendingAppointment(null)
       setChatDraft('')
       setChatQuotedMessageId(null)
-      updateChatDraftPersistence('', chatDraftImageUrls, product, null)
+      updateChatDraftPersistence('', chatDraftImageUrls, product, null, null)
       return
     }
 
     setChatDraft(value)
-    updateChatDraftPersistence(value, chatDraftImageUrls, chatPendingProduct, chatQuotedMessageId)
+    updateChatDraftPersistence(value, chatDraftImageUrls, chatPendingProduct, chatQuotedMessageId, chatPendingAppointment)
   }
 
 async function onChatImagesSelected(values: Array<File | Blob | string>): Promise<void> {
@@ -12330,7 +18458,9 @@ function onChatImageLimitReached(): void {
     postChatVisibilityToServiceWorker({
       visible: true,
       conversationId: activeConversationId,
-      screen
+      screen,
+      clientId,
+      chatRole: currentChatRole()
     })
     snapshotCurrentChatContext()
     startChatPolling()
@@ -12344,7 +18474,9 @@ function onChatImageLimitReached(): void {
     postChatVisibilityToServiceWorker({
       visible: false,
       conversationId: activeConversationId,
-      screen
+      screen,
+      clientId,
+      chatRole: currentChatRole()
     })
     stopChatPolling()
     stopChatDbObserve()
@@ -12374,7 +18506,7 @@ function onChatImageLimitReached(): void {
     const dishId = dishIdInput.trim()
     if (!dishId) return
 
-    const dish = dishes.find(item => item.id === dishId)
+    const dish = getAdminEditableDishById(dishId)
     if (!dish) return
 
     fillEditDishForm(dish)
@@ -12591,13 +18723,16 @@ function onChatImageLimitReached(): void {
     return url
   }
 
-  async function uploadStoreImageIfNeeded(value: File | Blob | string, scope: 'logo' | 'cover'): Promise<string | null> {
+  async function uploadStoreImageIfNeeded(value: File | Blob | string, scope: 'logo' | 'cover'): Promise<UploadedShowcaseImage | null> {
     if (typeof value === 'string') {
       const url = value.trim()
       if (!url) return null
 
       if (!isLocalImageUri(url)) {
-        return url
+        return {
+          url,
+          variants: createRemoteOnlyImageVariants(url)
+        }
       }
 
       try {
@@ -12605,7 +18740,7 @@ function onChatImageLimitReached(): void {
         if (!response.ok) return null
 
         const blob = await response.blob()
-        const uploaded = await pickAndUploadImage({
+        const uploaded = await pickAndUploadImageWithVariants({
           bucket: 'store',
           pathPrefix: scope,
           file: blob
@@ -12621,7 +18756,7 @@ function onChatImageLimitReached(): void {
       }
     }
 
-    return pickAndUploadImage({
+    return pickAndUploadImageWithVariants({
       bucket: 'store',
       pathPrefix: scope,
       file: value
@@ -12878,42 +19013,22 @@ function onChatImageLimitReached(): void {
     ? {
         dishId: activeAppointmentDish.id,
         title: getDishTitle(activeAppointmentDish),
-        priceText: formatUsd(getDishPrice(activeAppointmentDish)),
-        imageUrl: resolveDishImage(activeAppointmentDish),
-        categoryText: activeAppointmentDish.category || null
+        priceText: buildDishPriceTextSnapshot(activeAppointmentDish).priceText,
+        originalPriceText: buildDishPriceTextSnapshot(activeAppointmentDish).originalPriceText,
+        discountPriceText: buildDishPriceTextSnapshot(activeAppointmentDish).discountPriceText,
+        imageUrl: selectDishImageUrl(activeAppointmentDish, 'list'),
+        imageVariants: activeAppointmentDish.imageVariants ?? null,
+        categoryText: activeAppointmentDish.category || null,
+        isRecommended: Boolean(activeAppointmentDish.isRecommended)
       }
     : null
 
   const adminTodayDateKey = appointmentLocalDateKey(new Date())
 
-  const adminFutureAppointmentCards = appointmentCards.filter(item => {
-    return item.preferredDate >= adminTodayDateKey
-  })
-
-  const dateFilterOptions = [
-    'All',
-    ...Array.from(
-      new Set(
-        adminFutureAppointmentCards
-          .map(item => item.preferredDate)
-          .filter(Boolean)
-      )
-    ).sort((left, right) => left.localeCompare(right))
-  ]
-
-  const customerFutureAppointmentCards = customerAppointmentCards.filter(item => {
-    return item.preferredDate >= adminTodayDateKey
-  })
+  const dateFilterOptions = appointmentFilterRowsToFutureDateOptions(adminAppointmentFilterRows)
 
   const customerDateFilterOptions = [
-    'All',
-    ...Array.from(
-      new Set(
-        customerFutureAppointmentCards
-          .map(item => item.preferredDate)
-          .filter(Boolean)
-      )
-    ).sort((left, right) => left.localeCompare(right)),
+    ...appointmentFilterRowsToFutureDateOptions(customerAppointmentFilterRows),
     'History'
   ]
 
@@ -12923,60 +19038,22 @@ function onChatImageLimitReached(): void {
   const selectedAdminDateForServiceOptions = selectedAdminHistoryDateForServiceOptions || appointmentAdminDateFilter.trim() || 'All'
   const selectedAdminStatusForServiceOptions = appointmentAdminStatusFilter.trim() || 'All'
 
-  const adminServiceFilterSourceCards = selectedAdminHistoryDateForServiceOptions
-    ? appointmentCards.filter(item => item.preferredDate === selectedAdminHistoryDateForServiceOptions)
-    : adminFutureAppointmentCards
-
-  const adminServiceFilterOptions = [
-    'All',
-    ...Array.from(
-      new Set(
-        adminServiceFilterSourceCards
-          .filter(item => {
-            return selectedAdminDateForServiceOptions === 'All' ||
-              item.preferredDate === selectedAdminDateForServiceOptions
-          })
-          .filter(item => {
-            return selectedAdminStatusForServiceOptions === 'All' ||
-              item.statusLabel === selectedAdminStatusForServiceOptions
-          })
-          .map(item => item.serviceTitle?.trim() || 'General appointment')
-          .filter(Boolean)
-      )
-    )
-  ]
+  const adminServiceFilterOptions = appointmentFilterRowsToServiceOptions(
+    adminAppointmentFilterRows,
+    selectedAdminDateForServiceOptions,
+    selectedAdminStatusForServiceOptions,
+    selectedAdminHistoryDateForServiceOptions || null
+  )
 
   const selectedCustomerDateForServiceOptions = appointmentCustomerDateFilter.trim() || 'All'
   const selectedCustomerStatusForServiceOptions = appointmentCustomerStatusFilter.trim() || 'All'
-  const todayForCustomerServiceOptions = appointmentLocalDateKey(new Date())
 
-  function appointmentMatchesCustomerDateFilterForOptions(item: ShowcaseAppointmentCard): boolean {
-    if (selectedCustomerDateForServiceOptions === 'History') {
-      return item.preferredDate < todayForCustomerServiceOptions
-    }
-
-    if (selectedCustomerDateForServiceOptions === 'All') {
-      return item.preferredDate >= todayForCustomerServiceOptions
-    }
-
-    return item.preferredDate === selectedCustomerDateForServiceOptions
-  }
-
-  const customerServiceFilterOptions = [
-    'All',
-    ...Array.from(
-      new Set(
-        customerAppointmentCards
-          .filter(appointmentMatchesCustomerDateFilterForOptions)
-          .filter(item => {
-            return selectedCustomerStatusForServiceOptions === 'All' ||
-              item.statusLabel === selectedCustomerStatusForServiceOptions
-          })
-          .map(item => item.serviceTitle?.trim() || 'General appointment')
-          .filter(Boolean)
-      )
-    )
-  ]
+  const customerServiceFilterOptions = appointmentFilterRowsToServiceOptions(
+    customerAppointmentFilterRows,
+    selectedCustomerDateForServiceOptions,
+    selectedCustomerStatusForServiceOptions,
+    null
+  )
 
   const filteredCustomerAppointmentCards = filteredCustomerAppointments()
 
@@ -13016,8 +19093,36 @@ function onChatImageLimitReached(): void {
     showAnnouncementsDot: shouldShowAnnouncementsEntryDot()
   }
 
+  const offlineBannerMessage = useMemo(() => {
+    if (!isOffline) {
+      return null
+    }
+
+    const writeHeavyScreens: ShowcaseScreenName[] = [
+      'Admin',
+      'AdminItems',
+      'AdminCategories',
+      'Edit',
+      'StoreProfile',
+      'ChangePassword',
+      'AdminAppointmentManager',
+      'AdminAnnouncementEdit',
+      'Chat',
+      'Appointments'
+    ]
+
+    return writeHeavyScreens.includes(screen)
+      ? 'Offline · Changes need a connection'
+      : 'Offline · Viewing cached data'
+  }, [isOffline, screen])
+
+  const offlineStatus: ShowcaseOfflineStatusUi = {
+    isOffline,
+    bannerMessage: offlineBannerMessage
+  }
+
   const homeState: ShowcaseHomeUiState = {
-    dishes: homeDishesForUi,
+    dishes: effectiveHomeDishesForUi,
     selectedCategory,
     manualCategories,
     isLoading: isLoading || isCloudLoading,
@@ -13046,7 +19151,9 @@ function onChatImageLimitReached(): void {
     showAppointments: bottomBarState.showAppointments,
     showChatDot: bottomBarState.showChatDot,
     showBookingsDot: bottomBarState.showBookingsDot,
-    showAnnouncementsDot: bottomBarState.showAnnouncementsDot
+    showAnnouncementsDot: bottomBarState.showAnnouncementsDot,
+
+    pagination: pageStateForUi(homePagination)
   }
 
   const loginState: ShowcaseLoginUiState = {
@@ -13064,15 +19171,18 @@ function onChatImageLimitReached(): void {
     dishId: selectedDish?.id || '',
     isFavorite: selectedDish ? favoriteIds.includes(selectedDish.id) : false,
     title: selectedDish ? getDishTitle(selectedDish) : 'Item not found',
-    subtitle: selectedDish?.descriptionEn?.trim() || null,
-    price: formatUsd(selectedDishPrice),
+    subtitle: selectedDish?.description?.trim() || null,
+    price: formatUsd(selectedDishOriginalPrice),
     discountPrice: selectedDishHasDiscount ? formatUsd(selectedDishDiscount) : null,
-    description: selectedDish?.descriptionEn || '',
+    description: selectedDish?.description || '',
     category: selectedDish?.category?.trim() || null,
     isRecommended: Boolean(selectedDish?.isRecommended),
     isUnavailable: Boolean(selectedDish?.isSoldOut),
-    imagePreviewUrl: selectedDishImages[safeDetailImageIndex] || null,
+    imagePreviewUrl: selectedDish
+      ? selectImageVariantUrl(selectedDish.imageVariants, 'detail') || selectedDishImages[safeDetailImageIndex] || null
+      : selectedDishImages[safeDetailImageIndex] || null,
     imageUrls: selectedDishImages,
+    imageVariants: selectedDish?.imageVariants ?? null,
     currentImageIndex: detailImageIndex,
     safeImageIndex: safeDetailImageIndex,
     tags: selectedDish?.tags || [],
@@ -13103,8 +19213,16 @@ function onChatImageLimitReached(): void {
 
     draftBusinessStatus,
 
-    logoUrl: storeProfileLogoUrl,
-    coverUrl: storeProfileCoverUrl,
+    logoUrl: selectStoreLogoUrl({
+      logoUrl: storeProfileLogoUrl,
+      logoImageVariants: storeProfileCloud?.logoImageVariants ?? null
+    }) || storeProfileLogoUrl,
+    coverUrl: selectStoreCoverUrl({
+      coverUrl: storeProfileCoverUrl,
+      coverImageVariants: storeProfileCloud?.coverImageVariants ?? null
+    }) || storeProfileCoverUrl,
+    logoImageVariants: storeProfileCloud?.logoImageVariants ?? null,
+    coverImageVariants: storeProfileCloud?.coverImageVariants ?? null,
 
     openStatusText: storeProfileCloud?.businessStatus || draftBusinessStatus || '',
     isOpenNow: null,
@@ -13124,6 +19242,7 @@ function onChatImageLimitReached(): void {
     validationError: storeProfileSaveError,
 
     isSaving: isSavingStoreProfile,
+    isRefreshing: isRefreshingStoreProfile,
     statusMessage,
     errorMessage: storeProfileSaveError,
     successMessage: storeProfileSaveSuccess ? 'Store profile saved.' : null,
@@ -13206,7 +19325,9 @@ function onChatImageLimitReached(): void {
 
     selectedDateFilter: appointmentCustomerDateFilter,
     selectedStatusFilter: appointmentCustomerStatusFilter,
-    selectedServiceFilter: appointmentCustomerServiceFilter
+    selectedServiceFilter: appointmentCustomerServiceFilter,
+
+    pagination: pageStateForUi(customerAppointmentsPagination)
   }
 
   const adminAppointmentsState: ShowcaseAdminAppointmentsUiState = {
@@ -13214,6 +19335,8 @@ function onChatImageLimitReached(): void {
     items: filteredAdminAppointmentCards,
     statusMessage: statusMessage || snackbarMessage,
     isRefreshing: appointmentsRefreshing,
+    statusSubmittingId: appointmentStatusSubmittingId,
+    settingsSubmitting: appointmentSettingsSubmitting,
 
     bookingWindowDays: appointmentBookingWindowDays,
     availableHoursText: appointmentAvailableHoursText,
@@ -13228,7 +19351,9 @@ function onChatImageLimitReached(): void {
     selectedDateFilter: appointmentAdminDateFilter,
     selectedStatusFilter: appointmentAdminStatusFilter,
     selectedServiceFilter: appointmentAdminServiceFilter,
-    historyDateFilter: appointmentAdminHistoryDateFilter
+    historyDateFilter: appointmentAdminHistoryDateFilter,
+
+    pagination: pageStateForUi(adminAppointmentsPagination)
   }
 
   const announcementsState: ShowcaseAnnouncementsUiState = {
@@ -13238,7 +19363,9 @@ function onChatImageLimitReached(): void {
     items: announcementCards,
     isLoading,
     statusMessage: statusMessage || snackbarMessage,
-    focusedAnnouncementId
+    focusedAnnouncementId,
+
+    pagination: pageStateForUi(publicAnnouncementsPagination)
   }
 
   const hasAnnouncementSelection = adminAnnouncementSelectedIds.length > 0
@@ -13256,6 +19383,7 @@ function onChatImageLimitReached(): void {
     statusMessage,
     isSubmitting: adminAnnouncementIsSubmitting,
     isBlockingInput: adminAnnouncementIsBlocking,
+    submittingAction: adminAnnouncementSubmittingAction,
 
     composerExpanded: adminAnnouncementComposerExpanded,
 
@@ -13275,7 +19403,9 @@ function onChatImageLimitReached(): void {
       ? adminAnnouncementCards.find(item => item.id === adminAnnouncementPreviewId) || null
       : null,
     previewVisible: Boolean(adminAnnouncementPreviewId),
-    hasUnsavedChanges: hasUnsavedAdminAnnouncementDraft()
+    hasUnsavedChanges: hasUnsavedAdminAnnouncementDraft(),
+
+    pagination: pageStateForUi(adminAnnouncementsPagination)
   }
 
   const chatRoleForUi = currentChatRole()
@@ -13291,6 +19421,7 @@ function onChatImageLimitReached(): void {
     draft: chatDraft,
     draftImageUrls: chatDraftImageUrls,
     pendingProduct: chatPendingProduct,
+    pendingAppointment: chatPendingAppointment,
     quotedMessageId: chatQuotedMessageId,
     isSending: chatIsSending || chatIsOpening,
     statusMessage: chatStatusMessage || snackbarMessage || (chatPollingEnabled || chatEntryPollingEnabled ? null : null),
@@ -13303,6 +19434,7 @@ function onChatImageLimitReached(): void {
     focusedMessageId: chatFocusedMessageId,
     scrollToMessageId: chatScrollToMessageId,
     scrollToMessageSignal: chatScrollToMessageSignal,
+    scrollToBottomSignal: chatScrollToBottomSignal,
     flashMessageId: chatFlashMessageId,
     flashSignal: chatFlashSignal,
     searchResults: buildChatSearchResultsForUi(),
@@ -13310,7 +19442,21 @@ function onChatImageLimitReached(): void {
     mediaPreviewUrls: chatMediaPreviewUrls,
     mediaPreviewIndex: clampIndex(chatMediaPreviewIndex, chatMediaPreviewUrls.length),
     pinned: chatPinned,
-    canTogglePinned: chatRoleForUi === 'merchant'
+    canTogglePinned: chatRoleForUi === 'merchant',
+
+    windowMode: chatMessageWindow.mode,
+    anchorMessageId: chatMessageWindow.anchorMessageId,
+    hasNewerMessages: chatMessageWindow.hasNewer,
+    isLoadingNewerMessages: chatMessageWindow.isLoadingNewer,
+    oldestMessageTimeMs: chatMessageWindow.oldestTimeMs,
+    newestMessageTimeMs: chatMessageWindow.newestTimeMs,
+
+    pagination: pageStateForUi({
+      hasMore: chatMessageWindow.hasOlder,
+      isLoadingMore: chatMessageWindow.isLoadingOlder || chatMessagesPagination.isLoadingMore
+    }),
+    searchPagination: pageStateForUi(chatSearchPagination),
+    mediaPagination: pageStateForUi(chatMediaPagination)
   }
 
   const adminState: ShowcaseAdminUiState = {
@@ -13330,7 +19476,7 @@ function onChatImageLimitReached(): void {
     appliedMinPrice: adminItemsAppliedMinPrice,
     appliedMaxPrice: adminItemsAppliedMaxPrice,
 
-    selectedCategory,
+    selectedCategory: adminItemsSelectedCategory,
     manualCategories,
     dishes: adminVisibleDishes,
     pendingDeleteDishId,
@@ -13352,13 +19498,16 @@ function onChatImageLimitReached(): void {
 
     pendingDeleteCategory: adminPendingDeleteCategory?.name || null,
     cannotDeleteCategory: adminCannotDeleteCategory,
+    categorySubmittingAction,
 
     appointmentsEnabled,
     appointmentCount: appointmentRequests.length,
     pendingAppointmentCount: appointmentCards.filter(item => {
       return item.preferredDate >= adminTodayDateKey && item.statusLabel === 'Pending'
     }).length,
-    unreadMessageCount: merchantThreadSummaries.reduce((sum, item) => sum + item.unreadCount, 0)
+    unreadMessageCount: merchantThreadSummaries.reduce((sum, item) => sum + item.unreadCount, 0),
+
+    itemsPagination: pageStateForUi(adminItemsPagination)
   }
 
   const editDishRequiredErrorMessages = new Set([
@@ -13375,14 +19524,13 @@ function onChatImageLimitReached(): void {
   )
 
   const editDishNameRequiredError = editDishShowsRequiredFieldErrors &&
-    editDishNameZh.trim().length === 0 &&
-    editDishNameEn.trim().length === 0
+    editDishName.trim().length === 0
 
   const editDishPriceRequiredError = editDishShowsRequiredFieldErrors &&
     editDishOriginalPrice.trim().length === 0
 
   const editDishDescriptionRequiredError = editDishShowsRequiredFieldErrors &&
-    editDishDescriptionEn.trim().length === 0
+    editDishDescription.trim().length === 0
 
   const editDishCategoryRequiredError = editDishShowsRequiredFieldErrors &&
     String(editDishCategory || '').trim().length === 0
@@ -13399,9 +19547,8 @@ console.log('[ImageDrag] render editDishImageUrls', editDishImageUrls)
 
 const editDishState: ShowcaseEditDishUiState = {
     id: editDishId || 'new',
-    nameZh: editDishNameZh,
-    nameEn: editDishNameEn,
-    descriptionEn: editDishDescriptionEn,
+    name: editDishName,
+    description: editDishDescription,
     category: editDishCategory,
     availableCategories: manualCategories,
     originalPrice: editDishOriginalPrice,
@@ -13409,6 +19556,7 @@ const editDishState: ShowcaseEditDishUiState = {
     isRecommended: editDishRecommended,
     isHidden: editDishHidden,
     imageUrls: editDishImageUrls,
+    imageVariants: editDishId ? getDishEntityById(editDishId)?.imageVariants ?? null : null,
     isSaving: isSavingEditDish,
     isBlocking: isBlockingEditDish,
     statusMessage,
@@ -13431,9 +19579,8 @@ const editDishState: ShowcaseEditDishUiState = {
     canAddImageSlot: editDishImageUrls.length < 9,
     maxImages: 9,
     hasUnsavedChanges: Boolean(
-      editDishNameZh.trim() ||
-      editDishNameEn.trim() ||
-      editDishDescriptionEn.trim() ||
+      editDishName.trim() ||
+      editDishDescription.trim() ||
       editDishCategory ||
       editDishOriginalPrice.trim() ||
       editDishDiscountPrice.trim() ||
@@ -13528,6 +19675,7 @@ const editDishState: ShowcaseEditDishUiState = {
     adminPasswordDraft,
     adminPendingDeleteCategory: adminPendingDeleteCategory?.name || null,
     adminCannotDeleteCategory,
+    categorySubmittingAction,
 
     selectedTags,
 
@@ -13552,12 +19700,19 @@ const editDishState: ShowcaseEditDishUiState = {
     draftBusinessStatus,
     isEditingStoreProfile,
     isSavingStoreProfile,
+    isRefreshingStoreProfile,
     storeProfileSaveError,
     storeProfileSaveSuccess,
 
     chat: chatState,
     merchantChatThreads: merchantThreadSummaries,
+    merchantChatListSearchQuery,
     merchantChatListRefreshing,
+    merchantChatListPagination: pageStateForUi(
+      merchantChatListSearchActive
+        ? merchantChatListSearchPagination
+        : merchantChatListPagination
+    ),
 
     announcements: announcementCards,
     adminAnnouncementDraftItems: adminAnnouncementCards,
@@ -13571,11 +19726,13 @@ const editDishState: ShowcaseEditDishUiState = {
     adminAnnouncementSuccess,
     adminAnnouncementIsSubmitting,
     adminAnnouncementIsBlocking,
+    adminAnnouncementSubmittingAction,
     pushTargetAnnouncementId,
 
     appointmentsEnabled,
     appointments: appointmentCards as ShowcaseAppointment[],
     appointmentSourceDishId,
+    appointmentProduct: activeProductForAppointment,
     appointmentServiceDraft,
     appointmentNameDraft,
     appointmentContactDraft,
@@ -13613,6 +19770,10 @@ const editDishState: ShowcaseEditDishUiState = {
       void refresh()
     },
 
+    onLoadMore: () => {
+      void loadMoreHomeDishes()
+    },
+
     onCategorySelected,
 
     onDishSelected: onHomeDishSelected,
@@ -13634,6 +19795,8 @@ const editDishState: ShowcaseEditDishUiState = {
     onFilterRecommendedOnlyChange,
 
     onFilterOnSaleOnlyChange,
+
+    onApplyHomeFilters,
 
     onClearSortAndFilters,
 
@@ -13712,6 +19875,10 @@ const editDishState: ShowcaseEditDishUiState = {
     onBackToHome: closeToHome,
 
     onBack: backFromStoreProfile,
+
+    onRefresh: () => {
+      void refreshStoreProfile()
+    },
 
     onEdit: startEditStoreProfile,
 
@@ -13853,7 +20020,7 @@ const editDishState: ShowcaseEditDishUiState = {
     onOpenProductDetail: openDetail,
 
     onSubmit: () => {
-      void submitAppointmentRequest()
+      return submitAppointmentRequest()
     }
   }
 
@@ -13868,11 +20035,19 @@ const editDishState: ShowcaseEditDishUiState = {
       void refreshCustomerAppointmentsFromCloud()
     },
 
+    onLoadMore: () => {
+      void loadMoreCustomerAppointments()
+    },
+
     onDateFilterChange: onAppointmentCustomerDateFilterChange,
 
     onStatusFilterChange: onAppointmentCustomerStatusFilterChange,
 
     onServiceFilterChange: onAppointmentCustomerServiceFilterChange,
+
+    onContactMerchant: appointmentId => {
+      openChatFromCustomerBooking(appointmentId)
+    },
 
     onOpenAppointmentProductDetail: openDetail
   }
@@ -13886,6 +20061,10 @@ const editDishState: ShowcaseEditDishUiState = {
       void refreshAdminAppointmentsFromCloud()
     },
 
+    onLoadMore: () => {
+      void loadMoreAdminAppointments()
+    },
+
     onEnabledChange: onAppointmentsEnabledChange,
 
     onBookingWindowDaysChange: onAppointmentBookingWindowDaysChange,
@@ -13897,6 +20076,10 @@ const editDishState: ShowcaseEditDishUiState = {
     onClosedDayToggle: onAppointmentClosedDayToggle,
 
     onMinimumNoticeChange: onAppointmentMinimumNoticeChange,
+
+    onSettingsSave: value => {
+      return saveAppointmentSettings(value)
+    },
 
     onDateFilterChange: onAppointmentAdminDateFilterChange,
 
@@ -13915,23 +20098,23 @@ const editDishState: ShowcaseEditDishUiState = {
     onOpenAppointmentProductDetail: openDetail,
 
     onPending: id => {
-      void updateAppointmentStatus(id, 'Pending')
+      return updateAppointmentStatus(id, 'Pending')
     },
 
     onConfirm: id => {
-      void updateAppointmentStatus(id, 'Confirmed')
+      return updateAppointmentStatus(id, 'Confirmed')
     },
 
     onCancel: id => {
-      void updateAppointmentStatus(id, 'Cancelled')
+      return updateAppointmentStatus(id, 'Cancelled')
     },
 
     onComplete: id => {
-      void updateAppointmentStatus(id, 'Completed')
+      return updateAppointmentStatus(id, 'Completed')
     },
 
     onNoShow: id => {
-      void updateAppointmentStatus(id, 'No-show')
+      return updateAppointmentStatus(id, 'No-show')
     }
   }
 
@@ -13944,6 +20127,10 @@ const editDishState: ShowcaseEditDishUiState = {
 
     onRefresh: () => {
       void refreshAnnouncements()
+    },
+
+    onLoadMore: () => {
+      void loadMorePublicAnnouncements()
     },
 
     onOpenAnnouncement: id => {
@@ -13993,13 +20180,19 @@ const editDishState: ShowcaseEditDishUiState = {
 
     onClearSelection: onAdminAnnouncementClearSelection,
 
-    onDeleteSelected: onAdminAnnouncementDeleteSelected
+    onDeleteSelected: onAdminAnnouncementDeleteSelected,
+
+    onLoadMore: () => {
+      void loadMoreAdminAnnouncements()
+    }
   }
 
   const chatActions: ShowcaseChatActions = {
     ...bottomNavigationActions,
 
     onUseProductCardAsPending: chatUseProductCardAsPending,
+
+    onUseAppointmentCardAsPending: setPendingAppointmentForChat,
 
     onJumpToMessage: chatJumpToMessageFromQuote,
 
@@ -14019,6 +20212,14 @@ const editDishState: ShowcaseEditDishUiState = {
 
     onRefresh: () => {
       void refreshChatLatest()
+    },
+
+    onLoadOlderMessages: () => {
+      void loadOlderChatMessages()
+    },
+
+    onLoadNewerMessages: () => {
+      void loadNewerChatMessages()
     },
 
     onQuoteMessage: chatQuoteMessage,
@@ -14046,6 +20247,14 @@ const editDishState: ShowcaseEditDishUiState = {
     onJumpToFoundMessage: chatJumpToFoundMessage,
 
     onOpenThreadFromSearch: chatOpenThreadFromSearch,
+
+    onLoadMoreSearchResults: () => {
+      void loadMoreChatSearchResults()
+    },
+
+    onLoadMoreMediaItems: () => {
+      void loadMoreChatMediaItems()
+    },
 
     onTogglePinned: chatTogglePinned,
 
@@ -14086,7 +20295,18 @@ const editDishState: ShowcaseEditDishUiState = {
       chatUseProductCardAsPending(null)
     },
 
+    onSendPendingAppointment: () => {
+      void sendPendingAppointmentShare()
+    },
+
+    onClearPendingAppointment: () => {
+      setPendingAppointmentForChat(null)
+    },
+
     onOpenProductDetail: openProductFromChat,
+
+    onOpenAppointmentDetail: () => {
+    },
 
     isProductAvailable,
 
@@ -14102,6 +20322,10 @@ const editDishState: ShowcaseEditDishUiState = {
 
     onBack: chatCloseMediaGallery,
 
+    onLoadMoreMediaItems: () => {
+      void loadMoreChatMediaItems()
+    },
+
     onSavePreviewImage: savePreviewImage
   }
 
@@ -14114,23 +20338,29 @@ const editDishState: ShowcaseEditDishUiState = {
       void refreshMerchantChatListByUser()
     },
 
+    onLoadMore: () => {
+      void loadMoreMerchantChatThreads()
+    },
+
+    onSearchQueryChange: value => {
+      setMerchantChatListSearchQuery(value)
+    },
+
     onOpenThread: (threadId, title) => {
       void openMerchantThread(threadId, title)
     },
 
     onDeleteThread: threadId => {
-      void merchantChatListDeleteThread(threadId)
+      return merchantChatListDeleteThread(threadId)
     },
 
     onTogglePin: (threadId, pinned) => {
       void merchantChatListTogglePin(threadId, pinned)
     },
 
-    onMarkRead: threadId => {
-      void merchantChatListMarkRead(threadId)
-    },
-
-    onRenameThread: merchantChatListRenameThread
+    onRenameThread: (threadId, newName) => {
+      return merchantChatListRenameThread(threadId, newName)
+    }
   }
 
   const adminActions: ShowcaseAdminActions = {
@@ -14146,6 +20376,10 @@ const editDishState: ShowcaseEditDishUiState = {
       void refresh()
     },
 
+    onLoadMoreItems: () => {
+      void loadMoreAdminItems()
+    },
+
     onItemsSortModeChange: onAdminItemsSortModeChange,
 
     onItemsSearchQueryChange: onAdminItemsSearchQueryChange,
@@ -14158,6 +20392,8 @@ const editDishState: ShowcaseEditDishUiState = {
 
     onItemsFilterDiscountOnlyChange: onAdminItemsFilterDiscountOnlyChange,
 
+    onApplyItemsFilters: onAdminItemsApplyFilters,
+
     onPriceMinDraftChange: onAdminItemsPriceMinDraftChange,
 
     onPriceMaxDraftChange: onAdminItemsPriceMaxDraftChange,
@@ -14166,7 +20402,7 @@ const editDishState: ShowcaseEditDishUiState = {
 
     onClearPriceRange: onAdminItemsClearPriceRange,
 
-    onSelectCategory: onCategorySelected,
+    onSelectCategory: onAdminItemsCategorySelected,
 
     onAddCategory: value => {
       void addCategory(value)
@@ -14351,6 +20587,7 @@ const editDishState: ShowcaseEditDishUiState = {
   void createTempCameraUri
   void prepareChatCameraCapture
   void deletePendingChatCameraFile
+  void runShowcaseLocalCacheMaintenance
   void clearExpiredLocalTempFiles
   void isLocalImageUri
   void isAppOwnedLocalFileUri
@@ -14723,7 +20960,6 @@ const editDishState: ShowcaseEditDishUiState = {
   void mapCloudPlanType
   void mapCloudServiceStatus
   void merchantChatListDeleteThread
-  void merchantChatListMarkRead
   void merchantChatListRenameThread
   void merchantChatListTogglePin
   void mergeRemoteAndLocal
@@ -14770,6 +21006,7 @@ const editDishState: ShowcaseEditDishUiState = {
   return {
     screen,
     showcaseWiring,
+    offlineStatus,
 
     homeState,
     homeActions,
@@ -14783,7 +21020,7 @@ const editDishState: ShowcaseEditDishUiState = {
     editDishState,
     editDishActions,
 
-    detailState: showcaseWiring.detail || detailState,
+    detailState,
     detailActions,
 
     storeProfileState,

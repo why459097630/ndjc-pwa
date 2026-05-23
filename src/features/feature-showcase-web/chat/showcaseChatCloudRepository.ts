@@ -2,6 +2,7 @@ import {
   ShowcaseCloudAuthActor,
   ShowcaseCloudHeaders,
   SHOWCASE_BUCKETS,
+  SHOWCASE_PAGE_SIZE,
   SHOWCASE_TABLES,
   requestScopeHeaders,
   resolveShowcaseSupabaseAnonKey,
@@ -11,7 +12,10 @@ import {
   storagePublicObjectUrl as buildShowcaseStoragePublicObjectUrl
 } from '../showcaseCloudConfig'
 import {
-  currentMerchantAccessToken,
+  refreshShowcaseAuthSession,
+  requireFreshShowcaseAccessToken
+} from '../showcaseAuthSessionManager'
+import {
   currentStoreId
 } from '../showcaseStoreSession'
 
@@ -22,7 +26,6 @@ export type ChatCloudConfig = {
 
 export type ShowcaseChatCloudRepositoryOptions = {
   logTag?: string
-  refreshMerchantSession?: () => Promise<boolean>
 }
 
 export type ChatCloudRequestMethod = 'GET' | 'POST' | 'PATCH' | 'PUT' | 'DELETE'
@@ -48,6 +51,18 @@ export type ChatCloudHttpResult = {
   ok: boolean
 }
 
+export class ShowcaseChatCloudQueryError extends Error {
+  readonly code: number
+  readonly body: string | null
+
+  constructor(message: string, code: number, body: string | null = null) {
+    super(message)
+    this.name = 'ShowcaseChatCloudQueryError'
+    this.code = code
+    this.body = body
+  }
+}
+
 export type CloudMsg = {
   id: string
   conversationId: string
@@ -65,6 +80,7 @@ export type CloudThreadSummaryRow = {
   storeId: string
   clientId: string
   customerSeq: number | null
+  merchantAlias: string | null
   lastMessageAtIso: string | null
   lastPreview: string | null
   updatedAtIso: string | null
@@ -136,6 +152,36 @@ function encodeFilterValue(value: string): string {
   return encodeURIComponent(String(value || '').trim())
 }
 
+function encodeIlikeFilterValue(value: string): string {
+  return encodeURIComponent(String(value || '').trim().replace(/[*%]/g, ' '))
+}
+
+const CHAT_IMAGE_PAYLOAD_MARKER = '⟪I⟫'
+const CHAT_IMAGE_PAYLOAD_END_MARKER = '⟪/I⟫'
+const CHAT_STRUCTURED_PAYLOAD_PATTERN = /⟪[A-Z]⟫[\s\S]*?⟪\/[A-Z]⟫/g
+
+function extractImageUrlsFromChatText(value: string): string[] {
+  const source = String(value || '')
+  const start = source.indexOf(CHAT_IMAGE_PAYLOAD_MARKER)
+  const end = source.indexOf(CHAT_IMAGE_PAYLOAD_END_MARKER)
+
+  if (start < 0 || end <= start) return []
+
+  return source
+    .slice(start + CHAT_IMAGE_PAYLOAD_MARKER.length, end)
+    .split('|')
+    .map(item => item.trim())
+    .filter(Boolean)
+    .slice(0, 9)
+}
+
+function extractPlainTextFromChatText(value: string): string {
+  return String(value || '')
+    .replace(CHAT_STRUCTURED_PAYLOAD_PATTERN, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
 function normalizeRelayPayload(value: unknown): Record<string, unknown> {
   if (value && typeof value === 'object' && !Array.isArray(value)) {
     return value as Record<string, unknown>
@@ -161,6 +207,7 @@ function parseThreadSummaryRecord(record: Record<string, unknown>): CloudThreadS
     storeId: String(record.store_id ?? '').trim(),
     clientId: String(record.client_id ?? '').trim(),
     customerSeq: normalizePositiveInt(record.customer_seq),
+    merchantAlias: normalizeNullableString(record.merchant_alias),
     lastMessageAtIso: normalizeIsoString(record.last_message_at),
     lastPreview: normalizeNullableString(record.last_preview),
     updatedAtIso: normalizeIsoString(record.updated_at)
@@ -242,7 +289,6 @@ function uploadByteLength(bytes: Blob | ArrayBuffer | Uint8Array | null | undefi
 
 export class ShowcaseChatCloudRepository {
   private readonly logTag: string
-  private readonly refreshMerchantSession: (() => Promise<boolean>) | null
 
   lastChatImageUploadCode: number | null = null
   lastChatImageUploadBody: string | null = null
@@ -250,10 +296,8 @@ export class ShowcaseChatCloudRepository {
   constructor(options: string | ShowcaseChatCloudRepositoryOptions = 'ChatTrace') {
     if (typeof options === 'string') {
       this.logTag = options
-      this.refreshMerchantSession = null
     } else {
       this.logTag = options.logTag || 'ChatTrace'
-      this.refreshMerchantSession = options.refreshMerchantSession || null
     }
   }
 
@@ -296,17 +340,25 @@ export class ShowcaseChatCloudRepository {
     return buildShowcaseStoragePublicObjectUrl(cfg.base, bucket, path)
   }
 
-  private authToken(actor: ShowcaseCloudAuthActor, cfg: ChatCloudConfig): string {
+  private authToken(
+    actor: ShowcaseCloudAuthActor,
+    cfg: ChatCloudConfig,
+    merchantAccessToken?: string | null
+  ): string {
     if (actor === ShowcaseCloudAuthActor.PUBLIC) {
       return cfg.apiKey
     }
 
-    return currentMerchantAccessToken()?.trim() || cfg.apiKey
+    return String(merchantAccessToken || '').trim() || cfg.apiKey
   }
 
-  private buildHeaders(options: ChatCloudRequestOptions, cfg: ChatCloudConfig): Headers {
+  private buildHeaders(
+    options: ChatCloudRequestOptions,
+    cfg: ChatCloudConfig,
+    merchantAccessToken?: string | null
+  ): Headers {
     const headers = new Headers()
-    const token = this.authToken(options.actor, cfg)
+    const token = this.authToken(options.actor, cfg, merchantAccessToken)
 
     headers.set(ShowcaseCloudHeaders.API_KEY, cfg.apiKey)
     headers.set(ShowcaseCloudHeaders.AUTHORIZATION, `Bearer ${token}`)
@@ -336,7 +388,10 @@ export class ShowcaseChatCloudRepository {
     return headers
   }
 
-  private async openRequest(options: ChatCloudRequestOptions): Promise<ChatCloudHttpResult> {
+  private async openRequest(
+    options: ChatCloudRequestOptions,
+    merchantAccessToken?: string | null
+  ): Promise<ChatCloudHttpResult> {
     const cfg = this.requireConfig()
 
     if (!cfg) {
@@ -348,7 +403,7 @@ export class ShowcaseChatCloudRepository {
       }
     }
 
-    const headers = this.buildHeaders(options, cfg)
+    const headers = this.buildHeaders(options, cfg, merchantAccessToken)
     const body = byteBodyToFetchBody(options.body)
 
     try {
@@ -397,16 +452,33 @@ export class ShowcaseChatCloudRepository {
     const status = Number(code || 0)
     const text = String(body || '').trim().toLowerCase()
 
-    if (status === 401 || status === 403) return true
-
-    return (
+    const tokenExpired = (
       text.includes('jwt expired') ||
       text.includes('"exp" claim timestamp check failed') ||
-      text.includes('unauthorized') ||
+      text.includes('exp claim timestamp check failed') ||
+      text.includes('access token expired') ||
+      text.includes('token expired') ||
       text.includes('invalid jwt') ||
-      (text.includes('jwt') && text.includes('expired')) ||
-      (text.includes('token') && text.includes('expired')) ||
-      text.includes('auth')
+      (text.includes('jwt') && text.includes('expired'))
+    )
+
+    if (tokenExpired) {
+      return true
+    }
+
+    if (status !== 401) {
+      return false
+    }
+
+    return (
+      text.includes('unauthorized') ||
+      text.includes('not authenticated') ||
+      text.includes('authentication') ||
+      text.includes('bearer') ||
+      text.includes('jwt') ||
+      text.includes('access token') ||
+      text.includes('auth token') ||
+      text.includes('session')
     )
   }
 
@@ -433,24 +505,11 @@ export class ShowcaseChatCloudRepository {
   }): Promise<ChatCloudHttpResult> {
     const body = options.body == null ? null : JSON.stringify(options.body)
 
-    return this.openRequest({
+    return this.requestRaw({
       ...options,
       body,
       contentType: 'application/json'
     })
-  }
-
-  private async ensureMerchantSessionForRequest(force: boolean): Promise<boolean> {
-    if (!this.refreshMerchantSession) {
-      return Boolean(currentMerchantAccessToken()?.trim())
-    }
-
-    if (!force && currentMerchantAccessToken()?.trim()) {
-      const refreshed = await this.refreshMerchantSession()
-      return refreshed || Boolean(currentMerchantAccessToken()?.trim())
-    }
-
-    return this.refreshMerchantSession()
   }
 
   protected async requestRaw(options: ChatCloudRequestOptions): Promise<ChatCloudHttpResult> {
@@ -458,30 +517,39 @@ export class ShowcaseChatCloudRepository {
       return this.openRequest(options)
     }
 
-    const hasToken = await this.ensureMerchantSessionForRequest(false)
+    let accessToken = ''
 
-    if (!hasToken) {
+    try {
+      accessToken = await requireFreshShowcaseAccessToken()
+    } catch (error) {
       return {
         code: 0,
-        body: 'Merchant session missing',
+        body: error instanceof Error ? error.message : 'Merchant session missing',
         headers: new Headers(),
         ok: false
       }
     }
 
-    const first = await this.openRequest(options)
+    const first = await this.openRequest(options, accessToken)
 
     if (!this.isMerchantAuthExpired(first.code, first.body)) {
       return first
     }
 
-    const refreshed = await this.ensureMerchantSessionForRequest(true)
+    let retryAccessToken = ''
 
-    if (!refreshed) {
+    try {
+      const refreshed = await refreshShowcaseAuthSession()
+      retryAccessToken = refreshed?.accessToken || ''
+    } catch {
       return first
     }
 
-    return this.openRequest(options)
+    if (!retryAccessToken || retryAccessToken === accessToken) {
+      return first
+    }
+
+    return this.openRequest(options, retryAccessToken)
   }
 
   protected parseJsonArray(body: string | null): unknown[] {
@@ -700,30 +768,28 @@ export class ShowcaseChatCloudRepository {
 
   async fetchThreadSummaries(
     storeIdInput: string,
-    limitInput = 30,
-    traceId?: string | null
+    limitInput: number = SHOWCASE_PAGE_SIZE.chatThreads,
+    traceId?: string | null,
+    offsetInput = 0
   ): Promise<CloudThreadSummaryRow[]> {
     const tid = this.effectiveTraceId(traceId)
     const storeId = String(storeIdInput || '').trim()
-    const limit = Math.max(1, Math.min(Math.trunc(Number(limitInput) || 30), 300))
+    const limit = Math.max(1, Math.min(Math.trunc(Number(limitInput) || SHOWCASE_PAGE_SIZE.chatThreads), 300))
+    const offset = Math.max(0, Math.trunc(Number(offsetInput) || 0))
 
     if (!storeId) return []
 
-    const viewSelect = 'conversation_id,store_id,client_id,customer_seq,last_message_at,last_preview,updated_at'
+    const viewSelect = 'conversation_id,store_id,client_id,customer_seq,merchant_alias,display_name,last_message_at,last_preview,updated_at'
     const viewUrl = this.buildRestUrl(
       `${SHOWCASE_TABLES.chatThreadSummariesView}` +
       `?select=${viewSelect}` +
       `&store_id=eq.${encodeFilterValue(storeId)}` +
       '&order=last_message_at.desc.nullslast' +
-      `&limit=${limit}`
+      `&limit=${limit}` +
+      `&offset=${offset}`
     )
 
     console.error(`[${this.logTag}] [${tid}] fetchThreadSummaries VIEW REQ url=${viewUrl}`)
-
-    if (!currentMerchantAccessToken()?.trim()) {
-      console.error(`[${this.logTag}] [${tid}] fetchThreadSummaries VIEW SKIP merchant access token missing`)
-      return []
-    }
 
     try {
       let result = await this.requestRaw({
@@ -733,17 +799,6 @@ export class ShowcaseChatCloudRepository {
         scopeStoreId: storeId,
         scopeClientId: null
       })
-
-      if (this.isMerchantAuthExpired(result.code, result.body)) {
-        console.warn(`[${this.logTag}] [${tid}] fetchThreadSummaries VIEW token expired, try refresh once`)
-        result = await this.requestRaw({
-          url: viewUrl,
-          method: 'GET',
-          actor: ShowcaseCloudAuthActor.MERCHANT,
-          scopeStoreId: storeId,
-          scopeClientId: null
-        })
-      }
 
       if (result.ok) {
         const rows = this.parseJsonArray(result.body)
@@ -772,7 +827,8 @@ export class ShowcaseChatCloudRepository {
       `?select=${convSelect}` +
       `&store_id=eq.${encodeFilterValue(storeId)}` +
       '&order=updated_at.desc.nullslast' +
-      `&limit=${limit}`
+      `&limit=${limit}` +
+      `&offset=${offset}`
     )
 
     console.error(`[${this.logTag}] [${tid}] fetchThreadSummaries FALLBACK REQ url=${convUrl}`)
@@ -785,17 +841,6 @@ export class ShowcaseChatCloudRepository {
         scopeStoreId: storeId,
         scopeClientId: null
       })
-
-      if (this.isMerchantAuthExpired(result.code, result.body)) {
-        console.warn(`[${this.logTag}] [${tid}] fetchThreadSummaries FALLBACK token expired, try refresh once`)
-        result = await this.requestRaw({
-          url: convUrl,
-          method: 'GET',
-          actor: ShowcaseCloudAuthActor.MERCHANT,
-          scopeStoreId: storeId,
-          scopeClientId: null
-        })
-      }
 
       if (!result.ok) {
         console.error(`[${this.logTag}] [${tid}] fetchThreadSummaries FALLBACK FAILED code=${result.code} body=${result.body || ''} url=${convUrl}`)
@@ -813,6 +858,7 @@ export class ShowcaseChatCloudRepository {
             storeId: String(record.store_id ?? '').trim(),
             clientId: String(record.client_id ?? '').trim(),
             customerSeq: normalizePositiveInt(record.customer_seq),
+            merchantAlias: null,
             lastMessageAtIso: null,
             lastPreview: null,
             updatedAtIso: normalizeIsoString(record.updated_at)
@@ -827,7 +873,139 @@ export class ShowcaseChatCloudRepository {
       return []
     }
   }
+  async searchThreadSummariesByCustomerName(
+    storeIdInput: string,
+    keywordInput: string,
+    limitInput: number = SHOWCASE_PAGE_SIZE.chatThreads,
+    traceId?: string | null,
+    offsetInput = 0
+  ): Promise<CloudThreadSummaryRow[]> {
+    const tid = this.effectiveTraceId(traceId)
+    const storeId = String(storeIdInput || '').trim()
+    const keyword = String(keywordInput || '').trim()
+    const limit = Math.max(1, Math.min(Math.trunc(Number(limitInput) || SHOWCASE_PAGE_SIZE.chatThreads), 300))
+    const offset = Math.max(0, Math.trunc(Number(offsetInput) || 0))
 
+    if (!storeId || !keyword) return []
+
+    const normalizedKeyword = keyword.toLowerCase()
+    const numericMatch = keyword.match(/\d+/)
+    const customerSeq = numericMatch ? Math.max(1, Math.trunc(Number(numericMatch[0]) || 0)) : 0
+    const encodedKeyword = encodeIlikeFilterValue(keyword)
+    const viewSelect = 'conversation_id,store_id,client_id,customer_seq,merchant_alias,display_name,last_message_at,last_preview,updated_at'
+
+    const searchFilter = customerSeq > 0
+      ? `&or=(merchant_alias.ilike.*${encodedKeyword}*,display_name.ilike.*${encodedKeyword}*,customer_seq.eq.${customerSeq})`
+      : `&or=(merchant_alias.ilike.*${encodedKeyword}*,display_name.ilike.*${encodedKeyword}*)`
+
+    const viewUrl = this.buildRestUrl(
+      `${SHOWCASE_TABLES.chatThreadSummariesView}` +
+      `?select=${viewSelect}` +
+      `&store_id=eq.${encodeFilterValue(storeId)}` +
+      searchFilter +
+      '&order=last_message_at.desc.nullslast' +
+      `&limit=${limit}` +
+      `&offset=${offset}`
+    )
+
+    console.error(`[${this.logTag}] [${tid}] searchThreadSummariesByCustomerName VIEW REQ url=${viewUrl}`)
+
+    try {
+      const result = await this.requestRaw({
+        url: viewUrl,
+        method: 'GET',
+        actor: ShowcaseCloudAuthActor.MERCHANT,
+        scopeStoreId: storeId,
+        scopeClientId: null
+      })
+
+      if (result.ok) {
+        const rows = this.parseJsonArray(result.body)
+          .map(item => {
+            if (!item || typeof item !== 'object' || Array.isArray(item)) return null
+            return parseThreadSummaryRecord(item as Record<string, unknown>)
+          })
+          .filter((item): item is CloudThreadSummaryRow => Boolean(item?.conversationId && item.storeId))
+
+        if (rows.length > 0) {
+          console.error(`[${this.logTag}] [${tid}] searchThreadSummariesByCustomerName VIEW OK rows=${rows.length}`)
+          return rows
+        }
+
+        console.error(`[${this.logTag}] [${tid}] searchThreadSummariesByCustomerName VIEW EMPTY -> fallback conversations`)
+      } else {
+        console.error(`[${this.logTag}] [${tid}] searchThreadSummariesByCustomerName VIEW FAILED code=${result.code} body=${result.body || ''} -> fallback conversations url=${viewUrl}`)
+      }
+    } catch (error) {
+      console.error(`[${this.logTag}] [${tid}] searchThreadSummariesByCustomerName VIEW ERROR ${error instanceof Error ? error.name : 'Error'}: ${error instanceof Error ? error.message : String(error || '')} -> fallback conversations`)
+    }
+
+    const fallbackSelect = 'conversation_id,store_id,client_id,customer_seq,updated_at'
+    const fallbackShouldReturnCustomerPage =
+      normalizedKeyword === 'customer' ||
+      normalizedKeyword === 'customers' ||
+      normalizedKeyword === 'cust' ||
+      normalizedKeyword === 'cus' ||
+      normalizedKeyword.startsWith('customer #')
+
+    const fallbackSearchFilter = customerSeq > 0
+      ? `&customer_seq=eq.${customerSeq}`
+      : fallbackShouldReturnCustomerPage
+        ? ''
+        : `&client_id=ilike.*${encodedKeyword}*`
+
+    const fallbackUrl = this.buildRestUrl(
+      `${SHOWCASE_TABLES.chatConversations}` +
+      `?select=${fallbackSelect}` +
+      `&store_id=eq.${encodeFilterValue(storeId)}` +
+      fallbackSearchFilter +
+      '&order=updated_at.desc.nullslast' +
+      `&limit=${limit}` +
+      `&offset=${offset}`
+    )
+
+    console.error(`[${this.logTag}] [${tid}] searchThreadSummariesByCustomerName FALLBACK REQ url=${fallbackUrl}`)
+
+    try {
+      const fallbackResult = await this.requestRaw({
+        url: fallbackUrl,
+        method: 'GET',
+        actor: ShowcaseCloudAuthActor.MERCHANT,
+        scopeStoreId: storeId,
+        scopeClientId: null
+      })
+
+      if (!fallbackResult.ok) {
+        console.error(`[${this.logTag}] [${tid}] searchThreadSummariesByCustomerName FALLBACK FAILED code=${fallbackResult.code} body=${fallbackResult.body || ''} url=${fallbackUrl}`)
+        return []
+      }
+
+      const rows = this.parseJsonArray(fallbackResult.body)
+        .map((item): CloudThreadSummaryRow | null => {
+          if (!item || typeof item !== 'object' || Array.isArray(item)) return null
+
+          const record = item as Record<string, unknown>
+
+          return {
+            conversationId: String(record.conversation_id ?? '').trim(),
+            storeId: String(record.store_id ?? '').trim(),
+            clientId: String(record.client_id ?? '').trim(),
+            customerSeq: normalizePositiveInt(record.customer_seq),
+            merchantAlias: null,
+            lastMessageAtIso: null,
+            lastPreview: null,
+            updatedAtIso: normalizeIsoString(record.updated_at)
+          }
+        })
+        .filter((item): item is CloudThreadSummaryRow => Boolean(item?.conversationId && item.storeId))
+
+      console.error(`[${this.logTag}] [${tid}] searchThreadSummariesByCustomerName FALLBACK OK rows=${rows.length}`)
+      return rows
+    } catch (error) {
+      console.error(`[${this.logTag}] [${tid}] searchThreadSummariesByCustomerName FALLBACK ERROR ${error instanceof Error ? error.name : 'Error'}: ${error instanceof Error ? error.message : String(error || '')}`)
+      return []
+    }
+  }
   async countUnreadForUserEntryByStoreAndClient(
     storeIdInput: string,
     clientIdInput: string,
@@ -947,17 +1125,6 @@ export class ShowcaseChatCloudRepository {
         scopeClientId: null
       })
 
-      if (this.isMerchantAuthExpired(result.code, result.body)) {
-        console.warn(`[${this.logTag}] [${tid}] fetchMerchantThreadMetaRows token expired, try refresh once`)
-        result = await this.requestRaw({
-          url,
-          method: 'GET',
-          actor: ShowcaseCloudAuthActor.MERCHANT,
-          scopeStoreId: storeId,
-          scopeClientId: null
-        })
-      }
-
       if (!result.ok) {
         console.error(`[${this.logTag}] [${tid}] fetchMerchantThreadMetaRows FAILED code=${result.code} body=${result.body || ''} url=${url}`)
         return []
@@ -1020,19 +1187,6 @@ export class ShowcaseChatCloudRepository {
       body
     })
 
-    if (this.isMerchantAuthExpired(result.code, result.body)) {
-      console.warn(`[${this.logTag}] [${tid}] upsertMerchantThreadMeta token expired, try refresh once`)
-      result = await this.requestJson({
-        url,
-        method: 'POST',
-        actor: ShowcaseCloudAuthActor.MERCHANT,
-        scopeStoreId: storeId,
-        scopeClientId: null,
-        prefer: 'resolution=merge-duplicates,return=minimal',
-        body
-      })
-    }
-
     console.error(`[${this.logTag}] [${tid}] upsertMerchantThreadMeta RESP code=${result.code} body=${String(result.body || '').slice(0, 1200)}`)
 
     if (!result.ok) {
@@ -1047,14 +1201,16 @@ export class ShowcaseChatCloudRepository {
     conversationIdInput: string,
     clientIdInput: string | null = null,
     asMerchant = false,
-    limitInput = 120,
-    traceId?: string | null
+    limitInput: number = SHOWCASE_PAGE_SIZE.chatMessages,
+    traceId?: string | null,
+    offsetInput = 0
   ): Promise<CloudMsg[]> {
     const tid = this.effectiveTraceId(traceId)
     const storeId = String(storeIdInput || currentStoreId() || '').trim()
     const conversationId = String(conversationIdInput || '').trim()
     const clientId = normalizeNullableString(clientIdInput)
-    const limit = normalizeLimit(limitInput, 120, 500)
+    const limit = normalizeLimit(limitInput, SHOWCASE_PAGE_SIZE.chatMessages, 500)
+    const offset = Math.max(0, Math.trunc(Number(offsetInput) || 0))
 
     if (!storeId || !conversationId) return []
 
@@ -1065,15 +1221,11 @@ export class ShowcaseChatCloudRepository {
       `&store_id=eq.${encodeFilterValue(storeId)}` +
       `&conversation_id=eq.${encodeFilterValue(conversationId)}` +
       '&order=time_ms.desc' +
-      `&limit=${limit}`
+      `&limit=${limit}` +
+      `&offset=${offset}`
     )
 
     console.error(`[${this.logTag}] [${tid}] fetchMessagesByConversation REQ url=${url}`)
-
-    if (asMerchant && !currentMerchantAccessToken()?.trim()) {
-      console.error(`[${this.logTag}] [${tid}] fetchMessagesByConversation SKIP merchant access token missing`)
-      return []
-    }
 
     try {
       let result = await this.requestRaw({
@@ -1083,17 +1235,6 @@ export class ShowcaseChatCloudRepository {
         scopeStoreId: storeId,
         scopeClientId: asMerchant ? null : clientId
       })
-
-      if (asMerchant && this.isMerchantAuthExpired(result.code, result.body)) {
-        console.warn(`[${this.logTag}] [${tid}] fetchMessagesByConversation token expired, try refresh once`)
-        result = await this.requestRaw({
-          url,
-          method: 'GET',
-          actor: ShowcaseCloudAuthActor.MERCHANT,
-          scopeStoreId: storeId,
-          scopeClientId: null
-        })
-      }
 
       if (!result.ok) {
         console.error(`[${this.logTag}] [${tid}] fetchMessagesByConversation FAILED code=${result.code} body=${result.body || ''} url=${url}`)
@@ -1115,6 +1256,445 @@ export class ShowcaseChatCloudRepository {
     }
   }
 
+  async fetchMessageById(
+    storeIdInput: string,
+    conversationIdInput: string,
+    messageIdInput: string,
+    clientIdInput: string | null = null,
+    asMerchant = false,
+    traceId?: string | null
+  ): Promise<CloudMsg | null> {
+    const tid = this.effectiveTraceId(traceId)
+    const storeId = String(storeIdInput || currentStoreId() || '').trim()
+    const conversationId = String(conversationIdInput || '').trim()
+    const messageId = String(messageIdInput || '').trim()
+    const clientId = normalizeNullableString(clientIdInput)
+
+    if (!storeId || !conversationId || !messageId) return null
+
+    const select = 'id,conversation_id,store_id,client_id,role,direction,text,time_ms,is_read'
+    const url = this.buildRestUrl(
+      `${SHOWCASE_TABLES.chatMessages}` +
+      `?select=${select}` +
+      `&store_id=eq.${encodeFilterValue(storeId)}` +
+      `&conversation_id=eq.${encodeFilterValue(conversationId)}` +
+      `&id=eq.${encodeFilterValue(messageId)}` +
+      '&limit=1'
+    )
+
+    console.error(`[${this.logTag}] [${tid}] fetchMessageById REQ url=${url}`)
+
+    try {
+      const result = await this.requestRaw({
+        url,
+        method: 'GET',
+        actor: asMerchant ? ShowcaseCloudAuthActor.MERCHANT : ShowcaseCloudAuthActor.PUBLIC,
+        scopeStoreId: storeId,
+        scopeClientId: asMerchant ? null : clientId
+      })
+
+      if (!result.ok) {
+        console.error(`[${this.logTag}] [${tid}] fetchMessageById FAILED code=${result.code} body=${result.body || ''} url=${url}`)
+        return null
+      }
+
+      const row = this.parseJsonArray(result.body)
+        .map(item => {
+          if (!item || typeof item !== 'object' || Array.isArray(item)) return null
+          return parseCloudMsgRecord(item as Record<string, unknown>)
+        })
+        .filter((item): item is CloudMsg => Boolean(item?.id && item.conversationId && item.storeId))[0] || null
+
+      console.error(`[${this.logTag}] [${tid}] fetchMessageById OK found=${Boolean(row)}`)
+      return row
+    } catch (error) {
+      console.error(`[${this.logTag}] [${tid}] fetchMessageById ERROR ${error instanceof Error ? error.name : 'Error'}: ${error instanceof Error ? error.message : String(error || '')}`)
+      return null
+    }
+  }
+
+  async fetchMessagesBeforeTime(
+    storeIdInput: string,
+    conversationIdInput: string,
+    timeMsInput: number,
+    clientIdInput: string | null = null,
+    asMerchant = false,
+    limitInput: number = 15,
+    traceId?: string | null
+  ): Promise<CloudMsg[]> {
+    const tid = this.effectiveTraceId(traceId)
+    const storeId = String(storeIdInput || currentStoreId() || '').trim()
+    const conversationId = String(conversationIdInput || '').trim()
+    const clientId = normalizeNullableString(clientIdInput)
+    const timeMs = Number(timeMsInput)
+    const limit = normalizeLimit(limitInput, 15, 100)
+
+    if (!storeId || !conversationId || !Number.isFinite(timeMs) || timeMs <= 0) return []
+
+    const select = 'id,conversation_id,store_id,client_id,role,direction,text,time_ms,is_read'
+    const url = this.buildRestUrl(
+      `${SHOWCASE_TABLES.chatMessages}` +
+      `?select=${select}` +
+      `&store_id=eq.${encodeFilterValue(storeId)}` +
+      `&conversation_id=eq.${encodeFilterValue(conversationId)}` +
+      `&time_ms=lt.${Math.trunc(timeMs)}` +
+      '&order=time_ms.desc' +
+      `&limit=${limit}`
+    )
+
+    console.error(`[${this.logTag}] [${tid}] fetchMessagesBeforeTime REQ url=${url}`)
+
+    try {
+      const result = await this.requestRaw({
+        url,
+        method: 'GET',
+        actor: asMerchant ? ShowcaseCloudAuthActor.MERCHANT : ShowcaseCloudAuthActor.PUBLIC,
+        scopeStoreId: storeId,
+        scopeClientId: asMerchant ? null : clientId
+      })
+
+      if (!result.ok) {
+        console.error(`[${this.logTag}] [${tid}] fetchMessagesBeforeTime FAILED code=${result.code} body=${result.body || ''} url=${url}`)
+        return []
+      }
+
+      const rows = this.parseJsonArray(result.body)
+        .map(item => {
+          if (!item || typeof item !== 'object' || Array.isArray(item)) return null
+          return parseCloudMsgRecord(item as Record<string, unknown>)
+        })
+        .filter((item): item is CloudMsg => Boolean(item?.id && item.conversationId && item.storeId))
+
+      console.error(`[${this.logTag}] [${tid}] fetchMessagesBeforeTime OK rows=${rows.length}`)
+      return rows
+    } catch (error) {
+      console.error(`[${this.logTag}] [${tid}] fetchMessagesBeforeTime ERROR ${error instanceof Error ? error.name : 'Error'}: ${error instanceof Error ? error.message : String(error || '')}`)
+      return []
+    }
+  }
+
+  async fetchMessagesAfterTime(
+    storeIdInput: string,
+    conversationIdInput: string,
+    timeMsInput: number,
+    clientIdInput: string | null = null,
+    asMerchant = false,
+    limitInput: number = 15,
+    traceId?: string | null
+  ): Promise<CloudMsg[]> {
+    const tid = this.effectiveTraceId(traceId)
+    const storeId = String(storeIdInput || currentStoreId() || '').trim()
+    const conversationId = String(conversationIdInput || '').trim()
+    const clientId = normalizeNullableString(clientIdInput)
+    const timeMs = Number(timeMsInput)
+    const limit = normalizeLimit(limitInput, 15, 100)
+
+    if (!storeId || !conversationId || !Number.isFinite(timeMs) || timeMs <= 0) return []
+
+    const select = 'id,conversation_id,store_id,client_id,role,direction,text,time_ms,is_read'
+    const url = this.buildRestUrl(
+      `${SHOWCASE_TABLES.chatMessages}` +
+      `?select=${select}` +
+      `&store_id=eq.${encodeFilterValue(storeId)}` +
+      `&conversation_id=eq.${encodeFilterValue(conversationId)}` +
+      `&time_ms=gt.${Math.trunc(timeMs)}` +
+      '&order=time_ms.asc' +
+      `&limit=${limit}`
+    )
+
+    console.error(`[${this.logTag}] [${tid}] fetchMessagesAfterTime REQ url=${url}`)
+
+    try {
+      const result = await this.requestRaw({
+        url,
+        method: 'GET',
+        actor: asMerchant ? ShowcaseCloudAuthActor.MERCHANT : ShowcaseCloudAuthActor.PUBLIC,
+        scopeStoreId: storeId,
+        scopeClientId: asMerchant ? null : clientId
+      })
+
+      if (!result.ok) {
+        console.error(`[${this.logTag}] [${tid}] fetchMessagesAfterTime FAILED code=${result.code} body=${result.body || ''} url=${url}`)
+        return []
+      }
+
+      const rows = this.parseJsonArray(result.body)
+        .map(item => {
+          if (!item || typeof item !== 'object' || Array.isArray(item)) return null
+          return parseCloudMsgRecord(item as Record<string, unknown>)
+        })
+        .filter((item): item is CloudMsg => Boolean(item?.id && item.conversationId && item.storeId))
+
+      console.error(`[${this.logTag}] [${tid}] fetchMessagesAfterTime OK rows=${rows.length}`)
+      return rows
+    } catch (error) {
+      console.error(`[${this.logTag}] [${tid}] fetchMessagesAfterTime ERROR ${error instanceof Error ? error.name : 'Error'}: ${error instanceof Error ? error.message : String(error || '')}`)
+      return []
+    }
+  }
+
+  async searchMessagesByStoreKeyword(
+    storeIdInput: string,
+    keywordInput: string,
+    asMerchant = true,
+    clientIdInput: string | null = null,
+    limitInput: number = SHOWCASE_PAGE_SIZE.chatSearchResults,
+    traceId?: string | null,
+    offsetInput = 0
+  ): Promise<CloudMsg[]> {
+    const tid = this.effectiveTraceId(traceId)
+    const storeId = String(storeIdInput || currentStoreId() || '').trim()
+    const keyword = String(keywordInput || '').trim()
+    const clientId = normalizeNullableString(clientIdInput)
+    const limit = normalizeLimit(limitInput, SHOWCASE_PAGE_SIZE.chatSearchResults, 200)
+    const offset = Math.max(0, Math.trunc(Number(offsetInput) || 0))
+
+    if (!storeId || !keyword) return []
+
+    const select = 'id,conversation_id,store_id,client_id,role,direction,text,plain_text,time_ms,is_read'
+    const url = this.buildRestUrl(
+      `${SHOWCASE_TABLES.chatMessages}` +
+      `?select=${select}` +
+      `&store_id=eq.${encodeFilterValue(storeId)}` +
+      `&plain_text=ilike.*${encodeIlikeFilterValue(keyword)}*` +
+      '&order=time_ms.desc' +
+      `&limit=${limit}` +
+      `&offset=${offset}`
+    )
+
+    console.error(`[${this.logTag}] [${tid}] searchMessagesByStoreKeyword REQ url=${url}`)
+
+    try {
+      const result = await this.requestRaw({
+        url,
+        method: 'GET',
+        actor: asMerchant ? ShowcaseCloudAuthActor.MERCHANT : ShowcaseCloudAuthActor.PUBLIC,
+        scopeStoreId: storeId,
+        scopeClientId: asMerchant ? null : clientId
+      })
+
+      if (!result.ok) {
+        console.error(`[${this.logTag}] [${tid}] searchMessagesByStoreKeyword FAILED code=${result.code} body=${result.body || ''} url=${url}`)
+        throw new ShowcaseChatCloudQueryError('Failed to search store messages.', result.code, result.body)
+      }
+
+      const rows = this.parseJsonArray(result.body)
+        .map(item => {
+          if (!item || typeof item !== 'object' || Array.isArray(item)) return null
+          return parseCloudMsgRecord(item as Record<string, unknown>)
+        })
+        .filter((item): item is CloudMsg => Boolean(item?.id && item.conversationId && item.storeId))
+
+      console.error(`[${this.logTag}] [${tid}] searchMessagesByStoreKeyword OK rows=${rows.length}`)
+      return rows
+    } catch (error) {
+      console.error(`[${this.logTag}] [${tid}] searchMessagesByStoreKeyword ERROR ${error instanceof Error ? error.name : 'Error'}: ${error instanceof Error ? error.message : String(error || '')}`)
+      if (error instanceof ShowcaseChatCloudQueryError) throw error
+      throw new ShowcaseChatCloudQueryError(
+        error instanceof Error ? error.message : 'Failed to search store messages.',
+        0,
+        null
+      )
+    }
+  }
+
+  async searchMessagesByConversationKeyword(
+    storeIdInput: string,
+    conversationIdInput: string,
+    keywordInput: string,
+    asMerchant = true,
+    clientIdInput: string | null = null,
+    limitInput: number = SHOWCASE_PAGE_SIZE.chatSearchResults,
+    traceId?: string | null,
+    offsetInput = 0
+  ): Promise<CloudMsg[]> {
+    const tid = this.effectiveTraceId(traceId)
+    const storeId = String(storeIdInput || currentStoreId() || '').trim()
+    const conversationId = String(conversationIdInput || '').trim()
+    const keyword = String(keywordInput || '').trim()
+    const clientId = normalizeNullableString(clientIdInput)
+    const limit = normalizeLimit(limitInput, SHOWCASE_PAGE_SIZE.chatSearchResults, 200)
+    const offset = Math.max(0, Math.trunc(Number(offsetInput) || 0))
+
+    if (!storeId || !conversationId || !keyword) return []
+
+    const select = 'id,conversation_id,store_id,client_id,role,direction,text,plain_text,time_ms,is_read'
+    const url = this.buildRestUrl(
+      `${SHOWCASE_TABLES.chatMessages}` +
+      `?select=${select}` +
+      `&store_id=eq.${encodeFilterValue(storeId)}` +
+      `&conversation_id=eq.${encodeFilterValue(conversationId)}` +
+      `&plain_text=ilike.*${encodeIlikeFilterValue(keyword)}*` +
+      '&order=time_ms.desc' +
+      `&limit=${limit}` +
+      `&offset=${offset}`
+    )
+
+    console.error(`[${this.logTag}] [${tid}] searchMessagesByConversationKeyword REQ url=${url}`)
+
+    try {
+      const result = await this.requestRaw({
+        url,
+        method: 'GET',
+        actor: asMerchant ? ShowcaseCloudAuthActor.MERCHANT : ShowcaseCloudAuthActor.PUBLIC,
+        scopeStoreId: storeId,
+        scopeClientId: asMerchant ? null : clientId
+      })
+
+      if (!result.ok) {
+        console.error(`[${this.logTag}] [${tid}] searchMessagesByConversationKeyword FAILED code=${result.code} body=${result.body || ''} url=${url}`)
+        throw new ShowcaseChatCloudQueryError('Failed to search conversation messages.', result.code, result.body)
+      }
+
+      const rows = this.parseJsonArray(result.body)
+        .map(item => {
+          if (!item || typeof item !== 'object' || Array.isArray(item)) return null
+          return parseCloudMsgRecord(item as Record<string, unknown>)
+        })
+        .filter((item): item is CloudMsg => Boolean(item?.id && item.conversationId && item.storeId))
+
+      console.error(`[${this.logTag}] [${tid}] searchMessagesByConversationKeyword OK rows=${rows.length}`)
+      return rows
+    } catch (error) {
+      console.error(`[${this.logTag}] [${tid}] searchMessagesByConversationKeyword ERROR ${error instanceof Error ? error.name : 'Error'}: ${error instanceof Error ? error.message : String(error || '')}`)
+      if (error instanceof ShowcaseChatCloudQueryError) throw error
+      throw new ShowcaseChatCloudQueryError(
+        error instanceof Error ? error.message : 'Failed to search conversation messages.',
+        0,
+        null
+      )
+    }
+  }
+
+  async fetchMediaMessagesByStore(
+    storeIdInput: string,
+    asMerchant = true,
+    clientIdInput: string | null = null,
+    limitInput: number = SHOWCASE_PAGE_SIZE.chatMediaItems,
+    traceId?: string | null,
+    offsetInput = 0
+  ): Promise<CloudMsg[]> {
+    const tid = this.effectiveTraceId(traceId)
+    const storeId = String(storeIdInput || currentStoreId() || '').trim()
+    const clientId = normalizeNullableString(clientIdInput)
+    const limit = normalizeLimit(limitInput, SHOWCASE_PAGE_SIZE.chatMediaItems, 200)
+    const offset = Math.max(0, Math.trunc(Number(offsetInput) || 0))
+
+    if (!storeId) return []
+
+    const select = 'id,conversation_id,store_id,client_id,role,direction,text,has_images,image_urls,time_ms,is_read'
+    const url = this.buildRestUrl(
+      `${SHOWCASE_TABLES.chatMessages}` +
+      `?select=${select}` +
+      `&store_id=eq.${encodeFilterValue(storeId)}` +
+      '&has_images=eq.true' +
+      '&order=time_ms.desc' +
+      `&limit=${limit}` +
+      `&offset=${offset}`
+    )
+
+    console.error(`[${this.logTag}] [${tid}] fetchMediaMessagesByStore REQ url=${url}`)
+
+    try {
+      const result = await this.requestRaw({
+        url,
+        method: 'GET',
+        actor: asMerchant ? ShowcaseCloudAuthActor.MERCHANT : ShowcaseCloudAuthActor.PUBLIC,
+        scopeStoreId: storeId,
+        scopeClientId: asMerchant ? null : clientId
+      })
+
+      if (!result.ok) {
+        console.error(`[${this.logTag}] [${tid}] fetchMediaMessagesByStore FAILED code=${result.code} body=${result.body || ''} url=${url}`)
+        throw new ShowcaseChatCloudQueryError('Failed to fetch store media messages.', result.code, result.body)
+      }
+
+      const rows = this.parseJsonArray(result.body)
+        .map(item => {
+          if (!item || typeof item !== 'object' || Array.isArray(item)) return null
+          return parseCloudMsgRecord(item as Record<string, unknown>)
+        })
+        .filter((item): item is CloudMsg => Boolean(item?.id && item.conversationId && item.storeId))
+
+      console.error(`[${this.logTag}] [${tid}] fetchMediaMessagesByStore OK rows=${rows.length}`)
+      return rows
+    } catch (error) {
+      console.error(`[${this.logTag}] [${tid}] fetchMediaMessagesByStore ERROR ${error instanceof Error ? error.name : 'Error'}: ${error instanceof Error ? error.message : String(error || '')}`)
+      if (error instanceof ShowcaseChatCloudQueryError) throw error
+      throw new ShowcaseChatCloudQueryError(
+        error instanceof Error ? error.message : 'Failed to fetch store media messages.',
+        0,
+        null
+      )
+    }
+  }
+
+  async fetchMediaMessagesByConversation(
+    storeIdInput: string,
+    conversationIdInput: string,
+    asMerchant = true,
+    clientIdInput: string | null = null,
+    limitInput: number = SHOWCASE_PAGE_SIZE.chatMediaItems,
+    traceId?: string | null,
+    offsetInput = 0
+  ): Promise<CloudMsg[]> {
+    const tid = this.effectiveTraceId(traceId)
+    const storeId = String(storeIdInput || currentStoreId() || '').trim()
+    const conversationId = String(conversationIdInput || '').trim()
+    const clientId = normalizeNullableString(clientIdInput)
+    const limit = normalizeLimit(limitInput, SHOWCASE_PAGE_SIZE.chatMediaItems, 200)
+    const offset = Math.max(0, Math.trunc(Number(offsetInput) || 0))
+
+    if (!storeId || !conversationId) return []
+
+    const select = 'id,conversation_id,store_id,client_id,role,direction,text,has_images,image_urls,time_ms,is_read'
+    const url = this.buildRestUrl(
+      `${SHOWCASE_TABLES.chatMessages}` +
+      `?select=${select}` +
+      `&store_id=eq.${encodeFilterValue(storeId)}` +
+      `&conversation_id=eq.${encodeFilterValue(conversationId)}` +
+      '&has_images=eq.true' +
+      '&order=time_ms.desc' +
+      `&limit=${limit}` +
+      `&offset=${offset}`
+    )
+
+    console.error(`[${this.logTag}] [${tid}] fetchMediaMessagesByConversation REQ url=${url}`)
+
+    try {
+      const result = await this.requestRaw({
+        url,
+        method: 'GET',
+        actor: asMerchant ? ShowcaseCloudAuthActor.MERCHANT : ShowcaseCloudAuthActor.PUBLIC,
+        scopeStoreId: storeId,
+        scopeClientId: asMerchant ? null : clientId
+      })
+
+      if (!result.ok) {
+        console.error(`[${this.logTag}] [${tid}] fetchMediaMessagesByConversation FAILED code=${result.code} body=${result.body || ''} url=${url}`)
+        throw new ShowcaseChatCloudQueryError('Failed to fetch conversation media messages.', result.code, result.body)
+      }
+
+      const rows = this.parseJsonArray(result.body)
+        .map(item => {
+          if (!item || typeof item !== 'object' || Array.isArray(item)) return null
+          return parseCloudMsgRecord(item as Record<string, unknown>)
+        })
+        .filter((item): item is CloudMsg => Boolean(item?.id && item.conversationId && item.storeId))
+
+      console.error(`[${this.logTag}] [${tid}] fetchMediaMessagesByConversation OK rows=${rows.length}`)
+      return rows
+    } catch (error) {
+      console.error(`[${this.logTag}] [${tid}] fetchMediaMessagesByConversation ERROR ${error instanceof Error ? error.name : 'Error'}: ${error instanceof Error ? error.message : String(error || '')}`)
+      if (error instanceof ShowcaseChatCloudQueryError) throw error
+      throw new ShowcaseChatCloudQueryError(
+        error instanceof Error ? error.message : 'Failed to fetch conversation media messages.',
+        0,
+        null
+      )
+    }
+  }
+
   async insertMessage(msg: CloudMsg, traceId?: string | null): Promise<boolean> {
     const tid = this.effectiveTraceId(traceId)
     const id = String(msg.id || '').trim()
@@ -1127,6 +1707,9 @@ export class ShowcaseChatCloudRepository {
       return false
     }
 
+    const messageText = String(msg.text || '')
+    const imageUrls = extractImageUrlsFromChatText(messageText)
+    const plainText = extractPlainTextFromChatText(messageText)
     const url = this.buildRestUrl(`${SHOWCASE_TABLES.chatMessages}?on_conflict=id`)
     const body = [
       {
@@ -1136,8 +1719,11 @@ export class ShowcaseChatCloudRepository {
         client_id: clientId,
         role: String(msg.role || '').trim(),
         direction: String(msg.direction || '').trim(),
-        content: String(msg.text || ''),
-        text: String(msg.text || ''),
+        content: messageText,
+        text: messageText,
+        plain_text: plainText,
+        has_images: imageUrls.length > 0,
+        image_urls: imageUrls,
         time_ms: Number.isFinite(Number(msg.timeMs)) ? Number(msg.timeMs) : Date.now(),
         is_read: Boolean(msg.isRead)
       }
@@ -1158,19 +1744,6 @@ export class ShowcaseChatCloudRepository {
       prefer: 'resolution=merge-duplicates,return=minimal',
       body
     })
-
-    if (actor === ShowcaseCloudAuthActor.MERCHANT && this.isMerchantAuthExpired(result.code, result.body)) {
-      console.warn(`[${this.logTag}] [${tid}] insertMessage token expired, try refresh once`)
-      result = await this.requestJson({
-        url,
-        method: 'POST',
-        actor: ShowcaseCloudAuthActor.MERCHANT,
-        scopeStoreId: storeId,
-        scopeClientId: null,
-        prefer: 'resolution=merge-duplicates,return=minimal',
-        body
-      })
-    }
 
     console.error(`[${this.logTag}] [${tid}] cloud insertMessage RESP code=${result.code} body=${String(result.body || '').slice(0, 1200)}`)
 
@@ -1220,19 +1793,6 @@ export class ShowcaseChatCloudRepository {
       prefer: 'return=minimal',
       body
     })
-
-    if (this.isMerchantAuthExpired(result.code, result.body)) {
-      console.warn(`[${this.logTag}] [${tid}] markUserMessagesRead token expired, try refresh once`)
-      result = await this.requestJson({
-        url,
-        method: 'PATCH',
-        actor: ShowcaseCloudAuthActor.MERCHANT,
-        scopeStoreId: storeId,
-        scopeClientId: null,
-        prefer: 'return=minimal',
-        body
-      })
-    }
 
     console.error(`[${this.logTag}] [${tid}] cloud markUserMessagesRead RESP code=${result.code} body=${String(result.body || '').slice(0, 1200)}`)
 

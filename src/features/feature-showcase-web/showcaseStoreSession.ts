@@ -1,9 +1,8 @@
 import type { MerchantAuthSession, ShowcaseCloudRepository } from './showcaseCloudRepository'
 import {
   normalizeMerchantSession,
-  shouldRefreshMerchantSession,
   updateMerchantLoginName as updateMerchantLoginNameInSession
-} from './showcaseMerchantSessionManager'
+} from './showcaseMerchantAuthPreferences'
 
 const LOCAL_FALLBACK_STORE_ID = 'store_showcase_trial_000001'
 
@@ -21,7 +20,6 @@ function resolveDefaultStoreId(): string {
 
 let currentStoreIdValue: string = resolveDefaultStoreId()
 let merchantAccessTokenValue: string | null = null
-let merchantRefreshTokenValue: string | null = null
 let merchantAuthUserIdValue: string | null = null
 let merchantLoginNameValue: string | null = null
 let merchantExpiresAtValue: number | null = null
@@ -57,13 +55,11 @@ export function requireStoreId(): string {
 
 export function setMerchantSession(
   accessToken: string,
-  refreshToken: string | null | undefined,
   authUserId: string,
   loginName: string,
   expiresAt: number
 ): void {
   merchantAccessTokenValue = String(accessToken || '').trim()
-  merchantRefreshTokenValue = normalizeNullableString(refreshToken)
   merchantAuthUserIdValue = String(authUserId || '').trim()
   merchantLoginNameValue = String(loginName || '').trim()
   merchantExpiresAtValue = normalizeExpiresAt(expiresAt)
@@ -79,7 +75,6 @@ export function setMerchantSessionFromAuthSession(session: MerchantAuthSession |
 
   setMerchantSession(
     normalized.accessToken,
-    normalized.refreshToken,
     normalized.authUserId,
     normalized.loginName,
     normalized.expiresAt
@@ -88,7 +83,6 @@ export function setMerchantSessionFromAuthSession(session: MerchantAuthSession |
 
 export function clearMerchantSession(): void {
   merchantAccessTokenValue = null
-  merchantRefreshTokenValue = null
   merchantAuthUserIdValue = null
   merchantLoginNameValue = null
   merchantExpiresAtValue = null
@@ -111,14 +105,6 @@ export function requireMerchantAccessToken(): string {
   return value
 }
 
-export function currentMerchantAccessToken(): string | null {
-  return normalizeNullableString(merchantAccessTokenValue)
-}
-
-export function currentMerchantRefreshToken(): string | null {
-  return normalizeNullableString(merchantRefreshTokenValue)
-}
-
 export function currentMerchantAuthUserId(): string | null {
   return normalizeNullableString(merchantAuthUserIdValue)
 }
@@ -132,7 +118,7 @@ export function currentMerchantExpiresAt(): number | null {
 }
 
 export function currentMerchantSession(): MerchantAuthSession | null {
-  const accessToken = currentMerchantAccessToken()
+  const accessToken = normalizeNullableString(merchantAccessTokenValue)
   const authUserId = currentMerchantAuthUserId()
   const loginName = currentMerchantLoginName()
 
@@ -140,15 +126,11 @@ export function currentMerchantSession(): MerchantAuthSession | null {
 
   return {
     accessToken,
-    refreshToken: currentMerchantRefreshToken(),
+    refreshToken: null,
     authUserId,
     loginName,
     expiresAt: merchantExpiresAtValue || 0
   }
-}
-
-export function shouldRefresh(refreshWindowSeconds = 120): boolean {
-  return shouldRefreshMerchantSession(currentMerchantSession(), refreshWindowSeconds)
 }
 
 export function updateMerchantLoginName(loginName: string): void {

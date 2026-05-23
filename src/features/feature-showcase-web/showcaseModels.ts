@@ -1,3 +1,5 @@
+import { pickDisplayText } from './showcaseI18n'
+
 export type ShowcaseHomeSortMode = 'Default' | 'PriceAsc' | 'PriceDesc'
 
 export type ShowcaseSortMode = 'Price' | 'Name'
@@ -23,6 +25,24 @@ export type ExtraContact = {
   value: string
 }
 
+export type ShowcaseImageVariants = {
+  originalUrl: string | null
+  largeUrl: string | null
+  mediumUrl: string | null
+  thumbUrl: string | null
+  blurDataUrl: string | null
+}
+
+export function createDefaultShowcaseImageVariants(input: Partial<ShowcaseImageVariants> = {}): ShowcaseImageVariants {
+  return {
+    originalUrl: input.originalUrl ?? null,
+    largeUrl: input.largeUrl ?? null,
+    mediumUrl: input.mediumUrl ?? null,
+    thumbUrl: input.thumbUrl ?? null,
+    blurDataUrl: input.blurDataUrl ?? null
+  }
+}
+
 export type StoreProfile = {
   title: string
   subtitle: string
@@ -34,6 +54,8 @@ export type StoreProfile = {
   extraContacts: ExtraContact[]
   coverUrl: string
   logoUrl: string
+  coverImageVariants?: ShowcaseImageVariants | null
+  logoImageVariants?: ShowcaseImageVariants | null
   businessStatus: string
 }
 
@@ -75,11 +97,13 @@ export type ShowcaseFavoriteSnapshot = {
   discountPriceText: string | null
   priceText: string
   imageUrl: string | null
+  imageVariants?: ShowcaseImageVariants | null
 }
 
 export type CachedPublishedAnnouncement = {
   id: string
   coverUrl: string | null
+  coverImageVariants?: ShowcaseImageVariants | null
   body: string
   updatedAt: number
   viewCount: number
@@ -105,10 +129,9 @@ export type CachedItemEditorDraft = {
 export type DemoDish = {
   clickCount: number
   id: string
-  nameZh: string
-  nameEn: string
+  name: string
   title?: string | null
-  descriptionEn?: string | null
+  description?: string | null
   category?: string | null
   originalPrice: number
   discountPrice?: number | null
@@ -117,6 +140,7 @@ export type DemoDish = {
   isHidden: boolean
   imageUri?: string | null
   imageUrls: string[]
+  imageVariants?: ShowcaseImageVariants | null
   tags: string[]
   externalLink?: string | null
   updatedAt: number
@@ -151,6 +175,8 @@ export function createDefaultStoreProfile(input: Partial<StoreProfile> = {}): St
     extraContacts: Array.isArray(input.extraContacts) ? input.extraContacts : [],
     coverUrl: input.coverUrl || '',
     logoUrl: input.logoUrl || '',
+    coverImageVariants: normalizeShowcaseImageVariants(input.coverImageVariants),
+    logoImageVariants: normalizeShowcaseImageVariants(input.logoImageVariants),
     businessStatus: input.businessStatus || ''
   }
 }
@@ -188,10 +214,9 @@ export function createDefaultDemoDish(input: Partial<DemoDish> & Pick<DemoDish, 
   return {
     clickCount: Number.isFinite(Number(input.clickCount)) ? Number(input.clickCount) : 0,
     id: input.id,
-    nameZh: input.nameZh || '',
-    nameEn: input.nameEn || '',
+    name: input.name || '',
     title: input.title ?? null,
-    descriptionEn: input.descriptionEn || '',
+    description: input.description || '',
     category: input.category || '',
     originalPrice: Number.isFinite(Number(input.originalPrice)) ? Number(input.originalPrice) : 0,
     discountPrice: rawDiscountPrice != null && Number.isFinite(rawDiscountPrice) ? rawDiscountPrice : null,
@@ -200,6 +225,7 @@ export function createDefaultDemoDish(input: Partial<DemoDish> & Pick<DemoDish, 
     isHidden: Boolean(input.isHidden),
     imageUri: input.imageUri ?? null,
     imageUrls: normalizeStringList(input.imageUrls),
+    imageVariants: normalizeShowcaseImageVariants(input.imageVariants),
     tags: normalizeStringList(input.tags),
     externalLink: input.externalLink ?? null,
     updatedAt: Number.isFinite(Number(input.updatedAt)) ? Number(input.updatedAt) : 0,
@@ -221,17 +247,36 @@ export function normalizeStringList(items: unknown): string[] {
   )
 }
 
+export function normalizeShowcaseImageVariants(input: unknown): ShowcaseImageVariants | null {
+  if (!input || typeof input !== 'object' || Array.isArray(input)) return null
+
+  const record = input as Record<string, unknown>
+  const variants = createDefaultShowcaseImageVariants({
+    originalUrl: normalizeStorageNullableString(record.originalUrl) ?? normalizeStorageNullableString(record.original_url),
+    largeUrl: normalizeStorageNullableString(record.largeUrl) ?? normalizeStorageNullableString(record.large_url),
+    mediumUrl: normalizeStorageNullableString(record.mediumUrl) ?? normalizeStorageNullableString(record.medium_url),
+    thumbUrl: normalizeStorageNullableString(record.thumbUrl) ?? normalizeStorageNullableString(record.thumb_url),
+    blurDataUrl: normalizeStorageNullableString(record.blurDataUrl) ?? normalizeStorageNullableString(record.blur_data_url)
+  })
+
+  if (
+    !variants.originalUrl &&
+    !variants.largeUrl &&
+    !variants.mediumUrl &&
+    !variants.thumbUrl &&
+    !variants.blurDataUrl
+  ) {
+    return null
+  }
+
+  return variants
+}
+
 export function getDishTitle(dish: DemoDish): string {
-  const title = String(dish.title || '').trim()
-  if (title) return title
-
-  const nameEn = String(dish.nameEn || '').trim()
-  if (nameEn) return nameEn
-
-  const nameZh = String(dish.nameZh || '').trim()
-  if (nameZh) return nameZh
-
-  return ''
+  return pickDisplayText([
+    dish.title,
+    dish.name
+  ])
 }
 
 export function getDishPrice(dish: DemoDish): number {
@@ -327,6 +372,7 @@ const SHOWCASE_APPOINTMENTS_STORAGE_KEY = `${SHOWCASE_STORAGE_PREFIX}_appointmen
 type StoreScopedStorageRecord<T> = {
   storeId: string
   value: T
+  updatedAt?: number
 }
 
 function canUseLocalStorage(): boolean {
@@ -389,7 +435,8 @@ function writeStoreScopedValue<T>(key: string, storeId: string, value: T): void 
     ...all.filter(item => item.storeId !== normalizedStoreId),
     {
       storeId: normalizedStoreId,
-      value
+      value,
+      updatedAt: Date.now()
     }
   ])
 }
@@ -436,15 +483,21 @@ export function loadDishesFromStorage(storeId: string): DemoDish[] {
       if (!id) return null
 
       const imageUrls = normalizeStringList(record.imageUrls)
+      const imageVariants = normalizeShowcaseImageVariants(record.imageVariants)
       const legacyImageUri = normalizeStorageNullableString(record.imageUri)
+      const name = pickDisplayText([
+        record.name,
+        record.title
+      ])
 
       return createDefaultDemoDish({
         id,
         clickCount: normalizeStorageNumber(record.clickCount, 0),
-        nameZh: String(record.nameZh || '').trim(),
-        nameEn: String(record.nameEn || '').trim(),
+        name,
         title: normalizeStorageNullableString(record.title),
-        descriptionEn: String(record.descriptionEn || '').trim(),
+        description: pickDisplayText([
+          record.description
+        ]),
         category: String(record.category || '').trim(),
         originalPrice: normalizeStorageNumber(record.originalPrice, 0),
         discountPrice: record.discountPrice == null ? null : normalizeStorageNumber(record.discountPrice, 0),
@@ -453,6 +506,7 @@ export function loadDishesFromStorage(storeId: string): DemoDish[] {
         isHidden: normalizeStorageBoolean(record.isHidden, false),
         imageUri: legacyImageUri,
         imageUrls: imageUrls.length ? imageUrls : legacyImageUri ? [legacyImageUri] : [],
+        imageVariants,
         tags: normalizeStringList(record.tags),
         externalLink: normalizeStorageNullableString(record.externalLink),
         updatedAt: normalizeStorageNumber(record.updatedAt, 0),
@@ -471,10 +525,9 @@ export function saveDishesToStorage(storeId: string, dishes: DemoDish[]): void {
     return {
       clickCount: normalizeStorageNumber(dish.clickCount, 0),
       id: String(dish.id || '').trim(),
-      nameZh: String(dish.nameZh || '').trim(),
-      nameEn: String(dish.nameEn || '').trim(),
+      name: String(dish.name || '').trim(),
       title: dish.title ?? null,
-      descriptionEn: String(dish.descriptionEn || '').trim(),
+      description: String(dish.description || '').trim(),
       category: String(dish.category || '').trim(),
       originalPrice: normalizeStorageNumber(dish.originalPrice, 0),
       discountPrice: dish.discountPrice == null ? null : normalizeStorageNumber(dish.discountPrice, 0),
@@ -483,6 +536,7 @@ export function saveDishesToStorage(storeId: string, dishes: DemoDish[]): void {
       isHidden: Boolean(dish.isHidden),
       imageUri,
       imageUrls,
+      imageVariants: normalizeShowcaseImageVariants(dish.imageVariants),
       tags: normalizeStringList(dish.tags),
       externalLink: dish.externalLink ?? null,
       updatedAt: normalizeStorageNumber(dish.updatedAt, 0),
@@ -502,13 +556,15 @@ export function loadStoreProfileFromStorage(storeId: string): StoreProfile | nul
     title: String(raw.title || '').trim(),
     subtitle: String(raw.subtitle || '').trim(),
     description: String(raw.description || '').trim(),
-    services: [],
+    services: normalizeStringList(raw.services),
     address: String(raw.address || '').trim(),
     hours: String(raw.hours || '').trim(),
     mapUrl: String(raw.mapUrl || '').trim(),
     extraContacts: decodeExtraContactsJson(String(raw.extraContactsJson || '[]')),
     coverUrl: String(raw.coverUrl || '').trim(),
     logoUrl: String(raw.logoUrl || '').trim(),
+    coverImageVariants: normalizeShowcaseImageVariants(raw.coverImageVariants),
+    logoImageVariants: normalizeShowcaseImageVariants(raw.logoImageVariants),
     businessStatus: String(raw.businessStatus || '').trim()
   })
 }
@@ -518,12 +574,15 @@ export function saveStoreProfileToStorage(storeId: string, profile: StoreProfile
     title: profile.title,
     subtitle: profile.subtitle,
     description: profile.description,
+    services: normalizeStringList(profile.services),
     address: profile.address,
     hours: profile.hours,
     mapUrl: profile.mapUrl,
     extraContactsJson: encodeExtraContactsJson(profile.extraContacts),
     coverUrl: profile.coverUrl,
     logoUrl: profile.logoUrl,
+    coverImageVariants: normalizeShowcaseImageVariants(profile.coverImageVariants),
+    logoImageVariants: normalizeShowcaseImageVariants(profile.logoImageVariants),
     businessStatus: profile.businessStatus
   })
 }
@@ -540,37 +599,48 @@ export function loadPublishedAnnouncementsFromStorage(storeId: string): CachedPu
   const raw = readStoreScopedValue<unknown[]>(SHOWCASE_PUBLISHED_ANNOUNCEMENTS_STORAGE_KEY, storeId, [])
   if (!Array.isArray(raw)) return []
 
-  return raw
-    .map(item => {
-      const record = item && typeof item === 'object'
-        ? item as Record<string, unknown>
-        : {}
+return raw
+  .map((item): CachedPublishedAnnouncement | null => {
+    if (!item || typeof item !== 'object' || Array.isArray(item)) return null
 
-      const id = String(record.id || '').trim()
-      const body = String(record.body || '').trim()
-      if (!id || !body) return null
+    const record = item as Record<string, unknown>
+    const id = String(record.id || '').trim()
+    const body = String(record.body || '').trim()
+    if (!id || !body) return null
 
-      return {
-        id,
-        coverUrl: normalizeStorageNullableString(record.coverUrl),
-        body,
-        updatedAt: normalizeStorageNumber(record.updatedAt, 0),
-        viewCount: normalizeStorageNumber(record.viewCount, 0)
-      }
-    })
-    .filter((item): item is CachedPublishedAnnouncement => Boolean(item))
+    return {
+      id,
+      coverUrl: normalizeStorageNullableString(record.coverUrl),
+      coverImageVariants: normalizeShowcaseImageVariants(record.coverImageVariants) ?? null,
+      body,
+      updatedAt: normalizeStorageNumber(record.updatedAt, 0),
+      viewCount: normalizeStorageNumber(record.viewCount, 0)
+    }
+  })
+  .filter((item): item is CachedPublishedAnnouncement => item !== null)
 }
 
 export function savePublishedAnnouncementsToStorage(storeId: string, items: CachedPublishedAnnouncement[]): void {
+  const now = Date.now()
+  const maxAgeMs = 30 * 24 * 60 * 60 * 1000
+  const maxItems = 100
+
   const normalized = items
     .map(item => ({
       id: String(item.id || '').trim(),
       coverUrl: item.coverUrl ?? null,
+      coverImageVariants: normalizeShowcaseImageVariants(item.coverImageVariants),
       body: String(item.body || '').trim(),
       updatedAt: normalizeStorageNumber(item.updatedAt, 0),
       viewCount: normalizeStorageNumber(item.viewCount, 0)
     }))
-    .filter(item => item.id && item.body)
+    .filter(item => {
+      if (!item.id || !item.body) return false
+      if (item.updatedAt <= 0) return true
+      return now - item.updatedAt <= maxAgeMs
+    })
+    .sort((left, right) => right.updatedAt - left.updatedAt)
+    .slice(0, maxItems)
 
   writeStoreScopedValue(SHOWCASE_PUBLISHED_ANNOUNCEMENTS_STORAGE_KEY, storeId, normalized)
 }
@@ -650,7 +720,8 @@ export function loadFavoriteSnapshotsFromStorage(storeId: string): Record<string
       originalPriceText: String(record.originalPriceText || '').trim(),
       discountPriceText: normalizeStorageNullableString(record.discountPriceText),
       priceText: String(record.priceText || '').trim(),
-      imageUrl: normalizeStorageNullableString(record.imageUrl)
+      imageUrl: normalizeStorageNullableString(record.imageUrl),
+      imageVariants: normalizeShowcaseImageVariants(record.imageVariants)
     }
   })
 
@@ -663,20 +734,23 @@ export function saveFavoriteSnapshotsToStorage(
 ): void {
   const normalized: Record<string, ShowcaseFavoriteSnapshot> = {}
 
-  Object.entries(value || {}).forEach(([key, snapshot]) => {
-    const id = key.trim()
-    if (!id) return
+  Object.entries(value || {})
+    .slice(-300)
+    .forEach(([key, snapshot]) => {
+      const id = key.trim()
+      if (!id) return
 
-    normalized[id] = {
-      dishId: id,
-      title: snapshot.title,
-      category: snapshot.category ?? null,
-      originalPriceText: snapshot.originalPriceText,
-      discountPriceText: snapshot.discountPriceText ?? null,
-      priceText: snapshot.priceText,
-      imageUrl: snapshot.imageUrl ?? null
-    }
-  })
+      normalized[id] = {
+        dishId: id,
+        title: snapshot.title,
+        category: snapshot.category ?? null,
+        originalPriceText: snapshot.originalPriceText,
+        discountPriceText: snapshot.discountPriceText ?? null,
+        priceText: snapshot.priceText,
+        imageUrl: snapshot.imageUrl ?? null,
+        imageVariants: normalizeShowcaseImageVariants(snapshot.imageVariants)
+      }
+    })
 
   writeStoreScopedValue(SHOWCASE_FAVORITE_SNAPSHOTS_STORAGE_KEY, storeId, normalized)
 }

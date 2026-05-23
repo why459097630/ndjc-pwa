@@ -145,7 +145,9 @@ export function renderShowcaseHostScreen(
   if (viewModel.screen === 'MerchantChatList') {
     return ui.MerchantChatList({
       threads: viewModel.showcaseWiring.merchantChatList.visibleThreads,
+      searchQuery: viewModel.showcaseWiring.merchantChatList.searchQuery,
       refreshing: viewModel.showcaseWiring.merchantChatList.refreshing,
+      pagination: viewModel.showcaseWiring.merchantChatList.pagination,
       actions: viewModel.merchantChatListActions
     })
   }

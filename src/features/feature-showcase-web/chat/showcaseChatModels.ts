@@ -1,5 +1,9 @@
 import { SHOWCASE_TABLES } from '../showcaseCloudConfig'
-import type { ShowcaseChatProductShare } from '../showcaseUiContract'
+import type {
+  ShowcaseChatAppointmentShare,
+  ShowcaseChatProductShare,
+  ShowcaseChatWindowMode
+} from '../showcaseUiContract'
 
 export const ShowcaseChatTables = {
   TABLE_CONVERSATIONS: SHOWCASE_TABLES.chatConversations,
@@ -141,6 +145,7 @@ export type ShowcaseChatUiStateDomain = {
   quoteMessageId: string | null
   quotePreviewText: string
   quoteProduct: ShowcaseChatProductShare | null
+  quoteAppointment: ShowcaseChatAppointmentShare | null
 
   isSearchResults: boolean
   isFindOpen: boolean
@@ -158,9 +163,17 @@ export type ShowcaseChatUiStateDomain = {
   scrollToMessageSignal: number
 
   pendingProduct: ShowcaseChatProductShare | null
+  pendingAppointment: ShowcaseChatAppointmentShare | null
 
   newestCreatedAt: string | null
   oldestCreatedAt: string | null
+
+  windowMode: ShowcaseChatWindowMode
+  anchorMessageId: string | null
+  hasNewerMessages: boolean
+  isLoadingNewerMessages: boolean
+  oldestMessageTimeMs: number | null
+  newestMessageTimeMs: number | null
 
   unreadCount: number
   scrollToBottomSignal: number
@@ -203,6 +216,7 @@ export function createDefaultShowcaseChatUiStateDomain(
     quoteMessageId: input.quoteMessageId ?? null,
     quotePreviewText: input.quotePreviewText || '',
     quoteProduct: input.quoteProduct ?? null,
+    quoteAppointment: input.quoteAppointment ?? null,
 
     isSearchResults: input.isSearchResults ?? false,
     isFindOpen: input.isFindOpen ?? false,
@@ -228,9 +242,21 @@ export function createDefaultShowcaseChatUiStateDomain(
       : 0,
 
     pendingProduct: input.pendingProduct ?? null,
+    pendingAppointment: input.pendingAppointment ?? null,
 
     newestCreatedAt: input.newestCreatedAt ?? null,
     oldestCreatedAt: input.oldestCreatedAt ?? null,
+
+    windowMode: input.windowMode ?? 'latest',
+    anchorMessageId: input.anchorMessageId ?? null,
+    hasNewerMessages: input.hasNewerMessages ?? false,
+    isLoadingNewerMessages: input.isLoadingNewerMessages ?? false,
+    oldestMessageTimeMs: Number.isFinite(Number(input.oldestMessageTimeMs))
+      ? Number(input.oldestMessageTimeMs)
+      : null,
+    newestMessageTimeMs: Number.isFinite(Number(input.newestMessageTimeMs))
+      ? Number(input.newestMessageTimeMs)
+      : null,
 
     unreadCount: Number.isFinite(Number(input.unreadCount))
       ? Number(input.unreadCount)

@@ -1,10 +1,13 @@
 'use client'
 
 
-
 import {
   DetailScreen,
   LoginScreen,
+  NdjcNotificationOptInFloatingButton,
+  NdjcNotificationOptInPanel,
+  NdjcOfflineStatusBanner,
+  NdjcPwaUpdateBanner,
   PlaceholderScreen,
   ShowcaseAdmin,
   ShowcaseAdminAnnouncementEdit,
@@ -29,6 +32,47 @@ import {
 import type { ShowcaseUiRenderer } from './ShowcaseUiRenderer'
 
 export const GreenpinkShowcaseUiRenderer: ShowcaseUiRenderer = {
+  OfflineStatusBanner: ({ message }) => (
+    <NdjcOfflineStatusBanner message={message} />
+  ),
+
+  PwaUpdateBanner: ({ refreshing, onRefresh, onDismiss }) => (
+    <NdjcPwaUpdateBanner
+      refreshing={refreshing}
+      onRefresh={onRefresh}
+      onDismiss={onDismiss}
+    />
+  ),
+
+  NotificationOptInPanel: ({
+    open,
+    busy,
+    registered,
+    permissionState,
+    registrationState,
+    messageCode,
+    onRegister
+  }) => (
+    <NdjcNotificationOptInPanel
+      open={open}
+      busy={busy}
+      registered={registered}
+      permissionState={permissionState}
+      registrationState={registrationState}
+      messageCode={messageCode}
+      onRegister={onRegister}
+    />
+  ),
+
+  NotificationOptInFloatingButton: ({ open, permissionState, registrationState, onToggle }) => (
+    <NdjcNotificationOptInFloatingButton
+      open={open}
+      permissionState={permissionState}
+      registrationState={registrationState}
+      onToggle={onToggle}
+    />
+  ),
+
   Home: ({ state, actions }) => (
     <ShowcaseHome state={state} actions={actions} />
   ),
@@ -122,10 +166,12 @@ export const GreenpinkShowcaseUiRenderer: ShowcaseUiRenderer = {
     <ShowcaseAdminAnnouncementEdit state={state} actions={actions} />
   ),
 
-  MerchantChatList: ({ threads, refreshing, actions }) => (
+  MerchantChatList: ({ threads, searchQuery, refreshing, pagination, actions }) => (
     <ShowcaseMerchantChatList
       threads={threads}
+      searchQuery={searchQuery}
       refreshing={refreshing}
+      pagination={pagination}
       actions={actions}
     />
   ),

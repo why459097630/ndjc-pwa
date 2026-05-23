@@ -1,5 +1,10 @@
 import type { ReactNode } from 'react'
 import type {
+  ShowcaseNotificationMessageCode,
+  ShowcaseNotificationPermissionState,
+  ShowcaseNotificationRegistrationState
+} from '@/features/feature-showcase-web/showcasePushRegistrationService'
+import type {
   ShowcaseAdminActions,
   ShowcaseAdminAppointmentsActions,
   ShowcaseAdminAppointmentsUiState,
@@ -30,6 +35,7 @@ import type {
   ShowcaseBottomNavigationActions,
   ShowcaseLoginUiState,
   ShowcaseMerchantChatListActions,
+  ShowcasePaginationUiState,
   ShowcaseStoreProfileActions,
   ShowcaseStoreProfileUiState
 } from '@/features/feature-showcase-web/showcaseUiContract'
@@ -41,6 +47,27 @@ export type ShowcaseRendererBottomBarTab =
   | 'Announcements'
 
 export type ShowcaseUiRenderer = {
+  OfflineStatusBanner: (input: { message?: string | null }) => ReactNode
+  PwaUpdateBanner: (input: {
+    refreshing: boolean
+    onRefresh: () => void
+    onDismiss: () => void
+  }) => ReactNode
+  NotificationOptInPanel: (input: {
+    open: boolean
+    busy: boolean
+    registered: boolean
+    permissionState: ShowcaseNotificationPermissionState
+    registrationState: ShowcaseNotificationRegistrationState
+    messageCode: ShowcaseNotificationMessageCode
+    onRegister: () => void
+  }) => ReactNode
+  NotificationOptInFloatingButton: (input: {
+    open: boolean
+    permissionState: ShowcaseNotificationPermissionState
+    registrationState: ShowcaseNotificationRegistrationState
+    onToggle: () => void
+  }) => ReactNode
   Home: (input: { state: ShowcaseHomeUiState; actions: ShowcaseHomeActions }) => ReactNode
   BottomBarHost: (input: {
     children: ReactNode
@@ -79,7 +106,13 @@ export type ShowcaseUiRenderer = {
   AdminAppointmentManager: (input: { state: ShowcaseAdminAppointmentsUiState; actions: ShowcaseAdminAppointmentsActions }) => ReactNode
   AdminAnnouncementEdit: (input: { state: ShowcaseAnnouncementEditUiState; actions: ShowcaseAnnouncementEditActions }) => ReactNode
 
-  MerchantChatList: (input: { threads: ShowcaseChatThreadSummaryUi[]; refreshing: boolean; actions: ShowcaseMerchantChatListActions }) => ReactNode
+  MerchantChatList: (input: {
+    threads: ShowcaseChatThreadSummaryUi[]
+    searchQuery: string
+    refreshing: boolean
+    pagination: ShowcasePaginationUiState
+    actions: ShowcaseMerchantChatListActions
+  }) => ReactNode
   ChatSearchResults: (input: { state: ShowcaseChatUiState; actions: ShowcaseChatActions }) => ReactNode
 
   Placeholder: (input: { title: string; actions?: any }) => ReactNode

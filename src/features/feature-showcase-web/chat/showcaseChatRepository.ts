@@ -3,6 +3,12 @@ import type {
   ShowcaseCloudRepository
 } from '../showcaseCloudRepository'
 import {
+  SHOWCASE_PAGE_SIZE
+} from '../showcaseCloudConfig'
+import {
+  pruneShowcaseChatTombstones
+} from '../showcaseLocalCacheMaintenance'
+import {
   createShowcaseChatCloudRepository,
   type ChatImageUploadInput,
   type CloudMsg as ChatCloudMsg,
@@ -38,9 +44,21 @@ export type CloudThreadSummary = {
   storeId: string
   clientId: string | null
   customerSeq: number | null
+  merchantAlias: string | null
   lastMessageAtIso: string | null
   lastPreview: string | null
   updatedAtIso: string | null
+}
+
+export type ChatMessagesAroundMessageResult = {
+  messages: ChatMessageEntity[]
+  targetMessage: ChatMessageEntity | null
+  found: boolean
+  source: 'local' | 'cloud' | 'none'
+  hasOlder: boolean
+  hasNewer: boolean
+  oldestTimeMs: number | null
+  newestTimeMs: number | null
 }
 
 export type ShowcaseChatRepositoryOptions = {
@@ -178,6 +196,7 @@ export class ShowcaseChatRepository {
     })
 
     this.writeJson(this.deletedMessageTombstonesKey(), Array.from(latestByKey.values()))
+    pruneShowcaseChatTombstones()
   }
 
   private normalizeDeletedMessageTombstone(
@@ -314,25 +333,136 @@ export class ShowcaseChatRepository {
     const normalized = this.normalizeMessageEntity(entity)
     if (!normalized) return
 
-    const messages = this.readMessages()
-
-    this.writeMessages([
-      ...messages.filter(item => item.id !== normalized.id),
-      normalized
-    ])
+    this.localDb.upsertSync(normalized)
   }
 
   // --------------------
   // Local messages
   // --------------------
 
-  async listLocal(conversationId: string): Promise<ChatMessageEntity[]> {
+  async listLocal(
+    conversationId: string,
+    limitInput = SHOWCASE_PAGE_SIZE.chatMessages,
+    offsetInput = 0
+  ): Promise<ChatMessageEntity[]> {
     const id = conversationId.trim()
+    const limit = Math.max(1, Math.min(Math.trunc(Number(limitInput) || SHOWCASE_PAGE_SIZE.chatMessages), 300))
+    const offset = Math.max(0, Math.trunc(Number(offsetInput) || 0))
+
     if (!id) return []
 
-    return this.readMessages()
-      .filter(item => item.conversationId === id)
-      .sort((left, right) => left.timeMs - right.timeMs)
+    if (offset > 0) {
+      return this.readMessages()
+        .filter(item => item.conversationId === id)
+        .sort((left, right) => right.timeMs - left.timeMs)
+        .slice(offset, offset + limit)
+        .sort((left, right) => {
+          const byTime = Number(left.timeMs || 0) - Number(right.timeMs || 0)
+          if (byTime !== 0) return byTime
+          return left.id.localeCompare(right.id)
+        })
+    }
+
+    return this.localDb.listLatestByConversation(id, limit)
+  }
+
+  async listLocalMessagesAroundMessage(input: {
+    conversationId: string
+    messageId: string
+    beforeLimit?: number
+    afterLimit?: number
+  }): Promise<ChatMessagesAroundMessageResult> {
+    const conversationId = String(input.conversationId || '').trim()
+    const messageId = String(input.messageId || '').trim()
+    const beforeLimit = Math.max(0, Math.min(Math.trunc(Number(input.beforeLimit) || 15), 100))
+    const afterLimit = Math.max(0, Math.min(Math.trunc(Number(input.afterLimit) || 15), 100))
+
+    if (!conversationId || !messageId) {
+      return {
+        messages: [],
+        targetMessage: null,
+        found: false,
+        source: 'none',
+        hasOlder: false,
+        hasNewer: false,
+        oldestTimeMs: null,
+        newestTimeMs: null
+      }
+    }
+
+    const target = await this.localDb.findByConversationMessageId(conversationId, messageId)
+
+    if (!target) {
+      return {
+        messages: [],
+        targetMessage: null,
+        found: false,
+        source: 'none',
+        hasOlder: false,
+        hasNewer: false,
+        oldestTimeMs: null,
+        newestTimeMs: null
+      }
+    }
+
+    const rawMessages = await this.localDb.listAroundConversationMessage(
+      conversationId,
+      messageId,
+      beforeLimit,
+      afterLimit
+    )
+
+    const messages = rawMessages
+      .filter(item => !this.isMessageLocallyDeleted(item.storeId, item.conversationId, item.id))
+      .sort((left, right) => {
+        const byTime = Number(left.timeMs || 0) - Number(right.timeMs || 0)
+        if (byTime !== 0) return byTime
+        return left.id.localeCompare(right.id)
+      })
+
+    const oldestTimeMs = messages.length > 0 ? Number(messages[0].timeMs || 0) : null
+    const newestTimeMs = messages.length > 0 ? Number(messages[messages.length - 1].timeMs || 0) : null
+
+    return {
+      messages,
+      targetMessage: messages.find(item => item.id === messageId) || target,
+      found: true,
+      source: 'local',
+      hasOlder: messages.length > 0 && messages[0].id !== target.id,
+      hasNewer: messages.length > 0 && messages[messages.length - 1].id !== target.id,
+      oldestTimeMs: Number.isFinite(Number(oldestTimeMs)) && Number(oldestTimeMs) > 0 ? Number(oldestTimeMs) : null,
+      newestTimeMs: Number.isFinite(Number(newestTimeMs)) && Number(newestTimeMs) > 0 ? Number(newestTimeMs) : null
+    }
+  }
+
+  async listLocalMessagesAfterTime(input: {
+    conversationId: string
+    afterTimeMs: number
+    limit?: number
+  }): Promise<ChatMessageEntity[]> {
+    const conversationId = String(input.conversationId || '').trim()
+    const afterTimeMs = Number(input.afterTimeMs || 0)
+    const limit = Math.max(1, Math.min(Math.trunc(Number(input.limit) || SHOWCASE_PAGE_SIZE.chatMessages), 100))
+
+    if (!conversationId || !Number.isFinite(afterTimeMs) || afterTimeMs <= 0) return []
+
+    return this.localDb.listAfterTimeByConversation(conversationId, afterTimeMs, limit)
+      .then(items => items.filter(item => !this.isMessageLocallyDeleted(item.storeId, item.conversationId, item.id)))
+  }
+
+  async listLocalMessagesBeforeTime(input: {
+    conversationId: string
+    beforeTimeMs: number
+    limit?: number
+  }): Promise<ChatMessageEntity[]> {
+    const conversationId = String(input.conversationId || '').trim()
+    const beforeTimeMs = Number(input.beforeTimeMs || 0)
+    const limit = Math.max(1, Math.min(Math.trunc(Number(input.limit) || SHOWCASE_PAGE_SIZE.chatMessages), 100))
+
+    if (!conversationId || !Number.isFinite(beforeTimeMs) || beforeTimeMs <= 0) return []
+
+    return this.localDb.listBeforeTimeByConversation(conversationId, beforeTimeMs, limit)
+      .then(items => items.filter(item => !this.isMessageLocallyDeleted(item.storeId, item.conversationId, item.id)))
   }
 
   async upsertLocal(entity: ChatMessageEntity): Promise<void> {
@@ -348,37 +478,29 @@ export class ShowcaseChatRepository {
     const id = idInput.trim()
     if (!id) return null
 
-    return this.readMessages().find(item => item.id === id) || null
+    return this.localDb.findById(id)
   }
 
   async updateLocalStatus(idsInput: string[], statusInput: string): Promise<void> {
-    const ids = new Set(idsInput.map(id => id.trim()).filter(Boolean))
-    if (!ids.size) return
+    const ids = idsInput.map(id => id.trim()).filter(Boolean)
+    if (!ids.length) return
 
     const status = statusInput === 'sending' || statusInput === 'failed'
       ? statusInput
       : 'sent'
 
-    this.writeMessages(this.readMessages().map(item => {
-      if (!ids.has(item.id)) return item
-
-      return {
-        ...item,
-        status
-      }
-    }))
+    await this.localDb.updateStatusByIds(ids, status)
   }
 
   async clearLocal(storeIdInput: string): Promise<void> {
     const storeId = storeIdInput.trim()
     if (!storeId) return
 
-    this.writeMessages(this.readMessages().filter(item => item.storeId !== storeId))
+    await this.localDb.clearStore(storeId)
     this.writeDeletedMessageTombstones(
       this.readDeletedMessageTombstones().filter(item => item.storeId !== storeId)
     )
   }
-
   async markAllRead(conversationIdInput: string): Promise<void> {
     const conversationId = conversationIdInput.trim()
     if (!conversationId) return
@@ -460,47 +582,49 @@ export class ShowcaseChatRepository {
 
   async deleteLocalByIds(storeIdOrIds: string | string[], idsInput?: string[]): Promise<void> {
     if (Array.isArray(storeIdOrIds)) {
-      const ids = new Set(storeIdOrIds.map(id => id.trim()).filter(Boolean))
-      if (!ids.size) return
+      const ids = Array.from(new Set(storeIdOrIds.map(id => id.trim()).filter(Boolean)))
+      if (!ids.length) return
 
-      const messages = this.readMessages()
-      const deletedMessages = messages.filter(item => ids.has(item.id))
+      const deletedMessages = (await Promise.all(ids.map(id => this.localDb.findById(id))))
+        .filter((item): item is ChatMessageEntity => Boolean(item))
 
       this.markMessagesLocallyDeleted(deletedMessages)
-      this.writeMessages(messages.filter(item => !ids.has(item.id)))
+      await this.localDb.deleteByIds(ids)
       return
     }
 
     const storeId = storeIdOrIds.trim()
-    const ids = new Set((idsInput || []).map(id => id.trim()).filter(Boolean))
+    const ids = Array.from(new Set((idsInput || []).map(id => id.trim()).filter(Boolean)))
 
-    if (!storeId || !ids.size) return
+    if (!storeId || !ids.length) return
 
-    const messages = this.readMessages()
-    const deletedMessages = messages.filter(item => item.storeId === storeId && ids.has(item.id))
+    const deletedMessages = (await Promise.all(ids.map(id => this.localDb.findById(id))))
+      .filter((item): item is ChatMessageEntity => Boolean(item))
+      .filter(item => item.storeId === storeId)
 
     this.markMessagesLocallyDeleted(deletedMessages)
-    this.writeMessages(messages.filter(item => !(item.storeId === storeId && ids.has(item.id))))
+    await this.localDb.deleteByIds(storeId, ids)
   }
 
   async deleteLocalById(idInput: string): Promise<void> {
     const id = idInput.trim()
     if (!id) return
 
-    const messages = this.readMessages()
-    const deletedMessages = messages.filter(item => item.id === id)
+    const deletedMessage = await this.localDb.findById(id)
 
-    this.markMessagesLocallyDeleted(deletedMessages)
-    this.writeMessages(messages.filter(item => item.id !== id))
+    if (deletedMessage) {
+      this.markMessagesLocallyDeleted([deletedMessage])
+    }
+
+    await this.localDb.deleteById(id)
   }
 
   async listLocalByStore(storeIdInput: string): Promise<ChatMessageEntity[]> {
     const storeId = storeIdInput.trim()
     if (!storeId) return []
 
-    return this.readMessages()
-      .filter(item => item.storeId === storeId)
-      .sort((left, right) => left.timeMs - right.timeMs)
+    return this.localDb.listByStore(storeId)
+      .then(items => items.sort((left, right) => right.timeMs - left.timeMs))
   }
 
   async searchLocalMessagesByConversationKeyword(
@@ -509,15 +633,455 @@ export class ShowcaseChatRepository {
     limitInput = 80
   ): Promise<ChatMessageEntity[]> {
     const conversationId = conversationIdInput.trim()
-    const keyword = keywordInput.trim().toLowerCase()
+    const keyword = keywordInput.trim()
     const limit = Math.max(1, Math.min(Math.trunc(Number(limitInput) || 80), 200))
 
     if (!conversationId || !keyword) return []
 
-    return this.readMessages()
-      .filter(item => item.conversationId === conversationId && item.text.toLowerCase().includes(keyword))
-      .sort((left, right) => right.timeMs - left.timeMs)
-      .slice(0, limit)
+    return this.localDb.searchByConversationKeyword(conversationId, keyword, limit)
+      .then(items => items.filter(item => !this.isMessageLocallyDeleted(item.storeId, item.conversationId, item.id)))
+  }
+
+  async searchLocalMessagesByStoreKeyword(input: {
+    storeId: string
+    keyword: string
+    limit?: number
+    maxScan?: number
+  }): Promise<ChatMessageEntity[]> {
+    const storeId = String(input.storeId || '').trim()
+    const keyword = String(input.keyword || '').trim()
+    const limit = Math.max(1, Math.min(Math.trunc(Number(input.limit) || SHOWCASE_PAGE_SIZE.chatSearchResults), 200))
+    const maxScan = Math.max(limit, Math.min(Math.trunc(Number(input.maxScan) || SHOWCASE_PAGE_SIZE.chatSearchMaxLocalScan), 2000))
+
+    if (!storeId || !keyword) return []
+
+    return this.localDb.searchByStoreKeyword(storeId, keyword, limit, maxScan)
+      .then(items => items.filter(item => !this.isMessageLocallyDeleted(item.storeId, item.conversationId, item.id)))
+  }
+
+  async fetchLocalMediaMessagesByStore(input: {
+    storeId: string
+    limit?: number
+    maxScan?: number
+  }): Promise<ChatMessageEntity[]> {
+    const storeId = String(input.storeId || '').trim()
+    const limit = Math.max(1, Math.min(Math.trunc(Number(input.limit) || SHOWCASE_PAGE_SIZE.chatMediaItems), 200))
+    const maxScan = Math.max(limit, Math.min(Math.trunc(Number(input.maxScan) || SHOWCASE_PAGE_SIZE.chatMediaMaxLocalScan), 3000))
+
+    if (!storeId) return []
+
+    return this.localDb.listMediaByStore(storeId, limit, maxScan)
+      .then(items => items.filter(item => !this.isMessageLocallyDeleted(item.storeId, item.conversationId, item.id)))
+  }
+
+  async fetchLocalMediaMessagesByConversation(input: {
+    conversationId: string
+    limit?: number
+    maxScan?: number
+  }): Promise<ChatMessageEntity[]> {
+    const conversationId = String(input.conversationId || '').trim()
+    const limit = Math.max(1, Math.min(Math.trunc(Number(input.limit) || SHOWCASE_PAGE_SIZE.chatMediaItems), 200))
+    const maxScan = Math.max(limit, Math.min(Math.trunc(Number(input.maxScan) || SHOWCASE_PAGE_SIZE.chatMediaMaxLocalScan), 3000))
+
+    if (!conversationId) return []
+
+    return this.localDb.listMediaByConversation(conversationId, limit, maxScan)
+      .then(items => items.filter(item => !this.isMessageLocallyDeleted(item.storeId, item.conversationId, item.id)))
+  }
+
+  async searchCloudMessagesByStoreKeyword(input: {
+    storeId: string
+    keyword: string
+    perspectiveRole: string
+    clientId?: string | null
+    limit?: number
+    offset?: number
+    traceId?: string | null
+  }): Promise<ChatMessageEntity[]> {
+    const storeId = String(input.storeId || '').trim()
+    const keyword = String(input.keyword || '').trim()
+    const perspectiveRole = String(input.perspectiveRole || '').trim()
+    const clientId = String(input.clientId || '').trim() || null
+    const asMerchant = perspectiveRole === 'merchant'
+    const limit = Math.max(1, Math.min(Math.trunc(Number(input.limit) || SHOWCASE_PAGE_SIZE.chatSearchResults), 200))
+    const offset = Math.max(0, Math.trunc(Number(input.offset) || 0))
+
+    if (!storeId || !keyword) return []
+    if (!this.isChatCloudEnabled() || !this.chatCloud) return []
+
+    const cloudMessages = await this.chatCloud.searchMessagesByStoreKeyword(
+      storeId,
+      keyword,
+      asMerchant,
+      clientId,
+      limit,
+      this.effectiveTraceId(input.traceId),
+      offset
+    )
+
+    const entities = cloudMessages
+      .map(message => this.cloudMessageToLocalEntity(message, perspectiveRole))
+      .filter(item => !this.isMessageLocallyDeleted(item.storeId, item.conversationId, item.id))
+
+    entities.forEach(item => {
+      this.upsertMessageEntity(item)
+    })
+
+    return entities
+  }
+
+  async searchCloudMessagesByConversationKeyword(input: {
+    storeId: string
+    conversationId: string
+    keyword: string
+    perspectiveRole: string
+    clientId?: string | null
+    limit?: number
+    offset?: number
+    traceId?: string | null
+  }): Promise<ChatMessageEntity[]> {
+    const storeId = String(input.storeId || '').trim()
+    const conversationId = String(input.conversationId || '').trim()
+    const keyword = String(input.keyword || '').trim()
+    const perspectiveRole = String(input.perspectiveRole || '').trim()
+    const clientId = String(input.clientId || '').trim() || null
+    const asMerchant = perspectiveRole === 'merchant'
+    const limit = Math.max(1, Math.min(Math.trunc(Number(input.limit) || SHOWCASE_PAGE_SIZE.chatSearchResults), 200))
+    const offset = Math.max(0, Math.trunc(Number(input.offset) || 0))
+
+    if (!storeId || !conversationId || !keyword) return []
+    if (!this.isChatCloudEnabled() || !this.chatCloud) return []
+
+    const cloudMessages = await this.chatCloud.searchMessagesByConversationKeyword(
+      storeId,
+      conversationId,
+      keyword,
+      asMerchant,
+      clientId,
+      limit,
+      this.effectiveTraceId(input.traceId),
+      offset
+    )
+
+    const entities = cloudMessages
+      .map(message => this.cloudMessageToLocalEntity(message, perspectiveRole))
+      .filter(item => !this.isMessageLocallyDeleted(item.storeId, item.conversationId, item.id))
+
+    entities.forEach(item => {
+      this.upsertMessageEntity(item)
+    })
+
+    return entities
+  }
+
+  async fetchCloudMessagesAroundMessage(input: {
+    storeId: string
+    conversationId: string
+    messageId: string
+    perspectiveRole: string
+    clientId?: string | null
+    beforeLimit?: number
+    afterLimit?: number
+    traceId?: string | null
+  }): Promise<ChatMessagesAroundMessageResult> {
+    const storeId = String(input.storeId || '').trim()
+    const conversationId = String(input.conversationId || '').trim()
+    const messageId = String(input.messageId || '').trim()
+    const perspectiveRole = String(input.perspectiveRole || '').trim()
+    const clientId = String(input.clientId || '').trim() || null
+    const asMerchant = perspectiveRole === 'merchant'
+    const beforeLimit = Math.max(0, Math.min(Math.trunc(Number(input.beforeLimit) || 15), 100))
+    const afterLimit = Math.max(0, Math.min(Math.trunc(Number(input.afterLimit) || 15), 100))
+    const traceId = this.effectiveTraceId(input.traceId)
+
+    if (!storeId || !conversationId || !messageId) {
+      return {
+        messages: [],
+        targetMessage: null,
+        found: false,
+        source: 'none',
+        hasOlder: false,
+        hasNewer: false,
+        oldestTimeMs: null,
+        newestTimeMs: null
+      }
+    }
+
+    if (!this.isChatCloudEnabled() || !this.chatCloud) {
+      return {
+        messages: [],
+        targetMessage: null,
+        found: false,
+        source: 'none',
+        hasOlder: false,
+        hasNewer: false,
+        oldestTimeMs: null,
+        newestTimeMs: null
+      }
+    }
+
+    const targetCloudMessage = await this.chatCloud.fetchMessageById(
+      storeId,
+      conversationId,
+      messageId,
+      clientId,
+      asMerchant,
+      traceId
+    )
+
+    if (!targetCloudMessage) {
+      return {
+        messages: [],
+        targetMessage: null,
+        found: false,
+        source: 'none',
+        hasOlder: false,
+        hasNewer: false,
+        oldestTimeMs: null,
+        newestTimeMs: null
+      }
+    }
+
+    const targetTimeMs = Number(targetCloudMessage.timeMs || 0)
+
+    const olderCloudMessages = await this.chatCloud.fetchMessagesBeforeTime(
+      storeId,
+      conversationId,
+      targetTimeMs,
+      clientId,
+      asMerchant,
+      beforeLimit,
+      traceId
+    )
+
+    const newerCloudMessages = await this.chatCloud.fetchMessagesAfterTime(
+      storeId,
+      conversationId,
+      targetTimeMs,
+      clientId,
+      asMerchant,
+      afterLimit,
+      traceId
+    )
+
+    const latestById = new Map<string, ChatMessageEntity>()
+
+    olderCloudMessages
+      .map(message => this.cloudMessageToLocalEntity(message, perspectiveRole))
+      .forEach(item => {
+        latestById.set(item.id, item)
+      })
+
+    latestById.set(
+      targetCloudMessage.id,
+      this.cloudMessageToLocalEntity(targetCloudMessage, perspectiveRole)
+    )
+
+    newerCloudMessages
+      .map(message => this.cloudMessageToLocalEntity(message, perspectiveRole))
+      .forEach(item => {
+        latestById.set(item.id, item)
+      })
+
+    const messages = Array.from(latestById.values())
+      .filter(item => !this.isMessageLocallyDeleted(item.storeId, item.conversationId, item.id))
+      .sort((left, right) => {
+        const byTime = Number(left.timeMs || 0) - Number(right.timeMs || 0)
+        if (byTime !== 0) return byTime
+        return left.id.localeCompare(right.id)
+      })
+
+    messages.forEach(item => {
+      this.upsertMessageEntity(item)
+    })
+
+    const targetMessage = messages.find(item => item.id === messageId) || null
+    const oldestTimeMs = messages.length > 0 ? Number(messages[0].timeMs || 0) : null
+    const newestTimeMs = messages.length > 0 ? Number(messages[messages.length - 1].timeMs || 0) : null
+
+    return {
+      messages,
+      targetMessage,
+      found: Boolean(targetMessage),
+      source: targetMessage ? 'cloud' : 'none',
+      hasOlder: olderCloudMessages.length >= beforeLimit,
+      hasNewer: newerCloudMessages.length >= afterLimit,
+      oldestTimeMs: Number.isFinite(Number(oldestTimeMs)) && Number(oldestTimeMs) > 0 ? Number(oldestTimeMs) : null,
+      newestTimeMs: Number.isFinite(Number(newestTimeMs)) && Number(newestTimeMs) > 0 ? Number(newestTimeMs) : null
+    }
+  }
+
+  async fetchCloudMessagesAfterTime(input: {
+    storeId: string
+    conversationId: string
+    afterTimeMs: number
+    perspectiveRole: string
+    clientId?: string | null
+    limit?: number
+    traceId?: string | null
+  }): Promise<ChatMessageEntity[]> {
+    const storeId = String(input.storeId || '').trim()
+    const conversationId = String(input.conversationId || '').trim()
+    const afterTimeMs = Number(input.afterTimeMs || 0)
+    const perspectiveRole = String(input.perspectiveRole || '').trim()
+    const clientId = String(input.clientId || '').trim() || null
+    const asMerchant = perspectiveRole === 'merchant'
+    const limit = Math.max(1, Math.min(Math.trunc(Number(input.limit) || SHOWCASE_PAGE_SIZE.chatMessages), 100))
+    const traceId = this.effectiveTraceId(input.traceId)
+
+    if (!storeId || !conversationId || !Number.isFinite(afterTimeMs) || afterTimeMs <= 0) return []
+    if (!this.isChatCloudEnabled() || !this.chatCloud) return []
+
+    const cloudMessages = await this.chatCloud.fetchMessagesAfterTime(
+      storeId,
+      conversationId,
+      afterTimeMs,
+      clientId,
+      asMerchant,
+      limit,
+      traceId
+    )
+
+    const messages = cloudMessages
+      .map(message => this.cloudMessageToLocalEntity(message, perspectiveRole))
+      .filter(item => !this.isMessageLocallyDeleted(item.storeId, item.conversationId, item.id))
+      .sort((left, right) => {
+        const byTime = Number(left.timeMs || 0) - Number(right.timeMs || 0)
+        if (byTime !== 0) return byTime
+        return left.id.localeCompare(right.id)
+      })
+
+    messages.forEach(item => {
+      this.upsertMessageEntity(item)
+    })
+
+    return messages
+  }
+
+  async fetchCloudMessagesBeforeTime(input: {
+    storeId: string
+    conversationId: string
+    beforeTimeMs: number
+    perspectiveRole: string
+    clientId?: string | null
+    limit?: number
+    traceId?: string | null
+  }): Promise<ChatMessageEntity[]> {
+    const storeId = String(input.storeId || '').trim()
+    const conversationId = String(input.conversationId || '').trim()
+    const beforeTimeMs = Number(input.beforeTimeMs || 0)
+    const perspectiveRole = String(input.perspectiveRole || '').trim()
+    const clientId = String(input.clientId || '').trim() || null
+    const asMerchant = perspectiveRole === 'merchant'
+    const limit = Math.max(1, Math.min(Math.trunc(Number(input.limit) || SHOWCASE_PAGE_SIZE.chatMessages), 100))
+    const traceId = this.effectiveTraceId(input.traceId)
+
+    if (!storeId || !conversationId || !Number.isFinite(beforeTimeMs) || beforeTimeMs <= 0) return []
+    if (!this.isChatCloudEnabled() || !this.chatCloud) return []
+
+    const cloudMessages = await this.chatCloud.fetchMessagesBeforeTime(
+      storeId,
+      conversationId,
+      beforeTimeMs,
+      clientId,
+      asMerchant,
+      limit,
+      traceId
+    )
+
+    const messages = cloudMessages
+      .map(message => this.cloudMessageToLocalEntity(message, perspectiveRole))
+      .filter(item => !this.isMessageLocallyDeleted(item.storeId, item.conversationId, item.id))
+      .sort((left, right) => {
+        const byTime = Number(left.timeMs || 0) - Number(right.timeMs || 0)
+        if (byTime !== 0) return byTime
+        return left.id.localeCompare(right.id)
+      })
+
+    messages.forEach(item => {
+      this.upsertMessageEntity(item)
+    })
+
+    return messages
+  }
+
+  async fetchCloudMediaMessagesByStore(input: {
+    storeId: string
+    perspectiveRole: string
+    clientId?: string | null
+    limit?: number
+    offset?: number
+    traceId?: string | null
+  }): Promise<ChatMessageEntity[]> {
+    const storeId = String(input.storeId || '').trim()
+    const perspectiveRole = String(input.perspectiveRole || '').trim()
+    const clientId = String(input.clientId || '').trim() || null
+    const asMerchant = perspectiveRole === 'merchant'
+    const limit = Math.max(1, Math.min(Math.trunc(Number(input.limit) || SHOWCASE_PAGE_SIZE.chatMediaItems), 200))
+    const offset = Math.max(0, Math.trunc(Number(input.offset) || 0))
+
+    if (!storeId) return []
+    if (!this.isChatCloudEnabled() || !this.chatCloud) return []
+
+    const cloudMessages = await this.chatCloud.fetchMediaMessagesByStore(
+      storeId,
+      asMerchant,
+      clientId,
+      limit,
+      this.effectiveTraceId(input.traceId),
+      offset
+    )
+
+    const entities = cloudMessages
+      .map(message => this.cloudMessageToLocalEntity(message, perspectiveRole))
+      .filter(item => !this.isMessageLocallyDeleted(item.storeId, item.conversationId, item.id))
+
+    entities.forEach(item => {
+      this.upsertMessageEntity(item)
+    })
+
+    return entities
+  }
+
+  async fetchCloudMediaMessagesByConversation(input: {
+    storeId: string
+    conversationId: string
+    perspectiveRole: string
+    clientId?: string | null
+    limit?: number
+    offset?: number
+    traceId?: string | null
+  }): Promise<ChatMessageEntity[]> {
+    const storeId = String(input.storeId || '').trim()
+    const conversationId = String(input.conversationId || '').trim()
+    const perspectiveRole = String(input.perspectiveRole || '').trim()
+    const clientId = String(input.clientId || '').trim() || null
+    const asMerchant = perspectiveRole === 'merchant'
+    const limit = Math.max(1, Math.min(Math.trunc(Number(input.limit) || SHOWCASE_PAGE_SIZE.chatMediaItems), 200))
+    const offset = Math.max(0, Math.trunc(Number(input.offset) || 0))
+
+    if (!storeId || !conversationId) return []
+    if (!this.isChatCloudEnabled() || !this.chatCloud) return []
+
+    const cloudMessages = await this.chatCloud.fetchMediaMessagesByConversation(
+      storeId,
+      conversationId,
+      asMerchant,
+      clientId,
+      limit,
+      this.effectiveTraceId(input.traceId),
+      offset
+    )
+
+    const entities = cloudMessages
+      .map(message => this.cloudMessageToLocalEntity(message, perspectiveRole))
+      .filter(item => !this.isMessageLocallyDeleted(item.storeId, item.conversationId, item.id))
+
+    entities.forEach(item => {
+      this.upsertMessageEntity(item)
+    })
+
+    return entities
   }
 
   // --------------------
@@ -744,11 +1308,11 @@ export class ShowcaseChatRepository {
     const keepAlias = this.normalizeNullableString(oldMeta?.alias)
     const deletedAtMs = Date.now()
 
-    const messages = this.readMessages()
-    const deletedMessages = messages.filter(item => item.storeId === storeId && item.conversationId === conversationId)
+    const deletedMessages = (await this.localDb.listByConversation(conversationId))
+      .filter(item => item.storeId === storeId)
 
     this.markMessagesLocallyDeleted(deletedMessages)
-    this.writeMessages(messages.filter(item => !(item.storeId === storeId && item.conversationId === conversationId)))
+    await this.localDb.deleteByIds(storeId, deletedMessages.map(item => item.id))
 
     this.writeMetas(this.readMetas().filter(item => !(item.storeId === storeId && item.conversationId === conversationId)))
 
@@ -801,15 +1365,21 @@ export class ShowcaseChatRepository {
 
   async fetchCloudThreadSummaries(
     storeIdInput: string,
-    traceId?: string | null
+    traceId?: string | null,
+    limitInput: number = SHOWCASE_PAGE_SIZE.chatThreads,
+    offsetInput = 0
   ): Promise<CloudThreadSummary[]> {
     const storeId = storeIdInput.trim()
+    const limit = Math.max(1, Math.min(Math.trunc(Number(limitInput) || SHOWCASE_PAGE_SIZE.chatThreads), 300))
+    const offset = Math.max(0, Math.trunc(Number(offsetInput) || 0))
+
     if (!storeId || !this.isChatCloudEnabled() || !this.chatCloud) return []
 
     const rows: MerchantThreadSummaryCloudRow[] = await this.chatCloud.fetchThreadSummaries(
       storeId,
-      200,
-      this.effectiveTraceId(traceId)
+      limit,
+      this.effectiveTraceId(traceId),
+      offset
     )
 
     return rows.map(item => ({
@@ -817,10 +1387,241 @@ export class ShowcaseChatRepository {
       storeId: item.storeId,
       clientId: item.clientId,
       customerSeq: item.customerSeq,
+      merchantAlias: item.merchantAlias,
       lastMessageAtIso: item.lastMessageAtIso,
       lastPreview: item.lastPreview,
       updatedAtIso: item.updatedAtIso
     }))
+  }
+  async searchCloudThreadSummariesByCustomerName(
+    storeIdInput: string,
+    keywordInput: string,
+    traceId?: string | null,
+    limitInput: number = SHOWCASE_PAGE_SIZE.chatThreads,
+    offsetInput = 0
+  ): Promise<CloudThreadSummary[]> {
+    const storeId = storeIdInput.trim()
+    const keyword = String(keywordInput || '').trim()
+    const limit = Math.max(1, Math.min(Math.trunc(Number(limitInput) || SHOWCASE_PAGE_SIZE.chatThreads), 300))
+    const offset = Math.max(0, Math.trunc(Number(offsetInput) || 0))
+
+    if (!storeId || !keyword || !this.isChatCloudEnabled() || !this.chatCloud) return []
+
+    const rows: MerchantThreadSummaryCloudRow[] = await this.chatCloud.searchThreadSummariesByCustomerName(
+      storeId,
+      keyword,
+      limit,
+      this.effectiveTraceId(traceId),
+      offset
+    )
+
+    return rows.map(item => ({
+      conversationId: item.conversationId,
+      storeId: item.storeId,
+      clientId: item.clientId,
+      customerSeq: item.customerSeq,
+      merchantAlias: item.merchantAlias,
+      lastMessageAtIso: item.lastMessageAtIso,
+      lastPreview: item.lastPreview,
+      updatedAtIso: item.updatedAtIso
+    }))
+  }
+  async listMessagesAroundMessage(input: {
+    storeId: string
+    conversationId: string
+    messageId: string
+    perspectiveRole: string
+    clientId?: string | null
+    beforeLimit?: number
+    afterLimit?: number
+    traceId?: string | null
+  }): Promise<ChatMessagesAroundMessageResult> {
+    const storeId = String(input.storeId || '').trim()
+    const conversationId = String(input.conversationId || '').trim()
+    const messageId = String(input.messageId || '').trim()
+    const perspectiveRole = String(input.perspectiveRole || '').trim()
+    const clientId = String(input.clientId || '').trim() || null
+    const beforeLimit = Math.max(0, Math.min(Math.trunc(Number(input.beforeLimit) || 15), 100))
+    const afterLimit = Math.max(0, Math.min(Math.trunc(Number(input.afterLimit) || 15), 100))
+
+    if (!storeId || !conversationId || !messageId) {
+      return {
+        messages: [],
+        targetMessage: null,
+        found: false,
+        source: 'none',
+        hasOlder: false,
+        hasNewer: false,
+        oldestTimeMs: null,
+        newestTimeMs: null
+      }
+    }
+
+    const localResult = await this.listLocalMessagesAroundMessage({
+      conversationId,
+      messageId,
+      beforeLimit,
+      afterLimit
+    })
+
+    if (localResult.found && localResult.targetMessage) {
+      return localResult
+    }
+
+    const cloudResult = await this.fetchCloudMessagesAroundMessage({
+      storeId,
+      conversationId,
+      messageId,
+      perspectiveRole,
+      clientId,
+      beforeLimit,
+      afterLimit,
+      traceId: this.effectiveTraceId(input.traceId)
+    })
+
+    if (cloudResult.found && cloudResult.targetMessage) {
+      return cloudResult
+    }
+
+    return {
+      messages: [],
+      targetMessage: null,
+      found: false,
+      source: 'none',
+      hasOlder: false,
+      hasNewer: false,
+      oldestTimeMs: null,
+      newestTimeMs: null
+    }
+  }
+
+  async listNewerMessagesAfterTime(input: {
+    storeId: string
+    conversationId: string
+    afterTimeMs: number
+    perspectiveRole: string
+    clientId?: string | null
+    limit?: number
+    traceId?: string | null
+  }): Promise<ChatMessageEntity[]> {
+    const storeId = String(input.storeId || '').trim()
+    const conversationId = String(input.conversationId || '').trim()
+    const afterTimeMs = Number(input.afterTimeMs || 0)
+    const perspectiveRole = String(input.perspectiveRole || '').trim()
+    const clientId = String(input.clientId || '').trim() || null
+    const limit = Math.max(1, Math.min(Math.trunc(Number(input.limit) || SHOWCASE_PAGE_SIZE.chatMessages), 100))
+
+    if (!storeId || !conversationId || !Number.isFinite(afterTimeMs) || afterTimeMs <= 0) return []
+
+    const localMessages = await this.listLocalMessagesAfterTime({
+      conversationId,
+      afterTimeMs,
+      limit
+    })
+
+    if (localMessages.length >= limit) {
+      return localMessages
+    }
+
+    const cloudMessages = await this.fetchCloudMessagesAfterTime({
+      storeId,
+      conversationId,
+      afterTimeMs,
+      perspectiveRole,
+      clientId,
+      limit,
+      traceId: this.effectiveTraceId(input.traceId)
+    })
+
+    const merged = new Map<string, ChatMessageEntity>()
+
+    localMessages.forEach(item => {
+      if (item.id.trim()) merged.set(item.id, item)
+    })
+
+    cloudMessages.forEach(item => {
+      if (item.id.trim()) merged.set(item.id, item)
+    })
+
+    return Array.from(merged.values())
+      .filter(item => !this.isMessageLocallyDeleted(item.storeId, item.conversationId, item.id))
+      .sort((left, right) => {
+        const byTime = Number(left.timeMs || 0) - Number(right.timeMs || 0)
+        if (byTime !== 0) return byTime
+        return left.id.localeCompare(right.id)
+      })
+      .slice(0, limit)
+  }
+
+  async listOlderMessagesBeforeTime(input: {
+    storeId: string
+    conversationId: string
+    beforeTimeMs: number
+    perspectiveRole: string
+    clientId?: string | null
+    limit?: number
+    traceId?: string | null
+  }): Promise<ChatMessageEntity[]> {
+    const storeId = String(input.storeId || '').trim()
+    const conversationId = String(input.conversationId || '').trim()
+    const beforeTimeMs = Number(input.beforeTimeMs || 0)
+    const perspectiveRole = String(input.perspectiveRole || '').trim()
+    const clientId = String(input.clientId || '').trim() || null
+    const limit = Math.max(1, Math.min(Math.trunc(Number(input.limit) || SHOWCASE_PAGE_SIZE.chatMessages), 100))
+
+    if (!storeId || !conversationId || !Number.isFinite(beforeTimeMs) || beforeTimeMs <= 0) return []
+
+    const localMessages = await this.listLocalMessagesBeforeTime({
+      conversationId,
+      beforeTimeMs,
+      limit
+    })
+
+    if (localMessages.length >= limit) {
+      return localMessages
+    }
+
+    const cloudMessages = await this.fetchCloudMessagesBeforeTime({
+      storeId,
+      conversationId,
+      beforeTimeMs,
+      perspectiveRole,
+      clientId,
+      limit,
+      traceId: this.effectiveTraceId(input.traceId)
+    })
+
+    const merged = new Map<string, ChatMessageEntity>()
+
+    localMessages.forEach(item => {
+      if (item.id.trim()) merged.set(item.id, item)
+    })
+
+    cloudMessages.forEach(item => {
+      if (item.id.trim()) merged.set(item.id, item)
+    })
+
+    return Array.from(merged.values())
+      .filter(item => !this.isMessageLocallyDeleted(item.storeId, item.conversationId, item.id))
+      .sort((left, right) => {
+        const byTime = Number(left.timeMs || 0) - Number(right.timeMs || 0)
+        if (byTime !== 0) return byTime
+        return left.id.localeCompare(right.id)
+      })
+      .slice(0, limit)
+  }
+
+  async pruneLocalChatCache(input: {
+    storeId: string
+    protectedMessageIds?: string[]
+  }): Promise<number> {
+    const storeId = String(input.storeId || '').trim()
+    if (!storeId) return 0
+
+    return this.localDb.pruneMessagesForStore(
+      storeId,
+      input.protectedMessageIds || []
+    )
   }
 
   async syncConversationFromCloud(input: {
@@ -829,6 +1630,8 @@ export class ShowcaseChatRepository {
     perspectiveRole: string
     clientId?: string | null
     traceId?: string | null
+    limit?: number
+    offset?: number
   }): Promise<number> {
     const storeId = input.storeId.trim()
     const conversationId = input.conversationId.trim()
@@ -844,8 +1647,9 @@ export class ShowcaseChatRepository {
       conversationId,
       clientId,
       asMerchant,
-      120,
-      this.effectiveTraceId(input.traceId)
+      Math.max(1, Math.min(Math.trunc(Number(input.limit) || SHOWCASE_PAGE_SIZE.chatMessages), 500)),
+      this.effectiveTraceId(input.traceId),
+      Math.max(0, Math.trunc(Number(input.offset) || 0))
     )
 
     if (!cloudMessages.length) return 0
@@ -1012,6 +1816,22 @@ export class ShowcaseChatRepository {
     })
 
     return ok
+  }
+
+  async retryMessageToCloud(
+    messageIdInput: string,
+    traceId?: string | null
+  ): Promise<boolean> {
+    const messageId = String(messageIdInput || '').trim()
+    if (!messageId) return false
+
+    const entity = await this.localDb.findById(messageId)
+    if (!entity) return false
+
+    return this.insertMessageToCloud({
+      ...entity,
+      status: 'sending'
+    }, traceId)
   }
 
   async consumeRelayForMerchant(): Promise<number> {

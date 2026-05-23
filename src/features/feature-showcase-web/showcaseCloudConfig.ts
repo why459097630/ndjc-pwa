@@ -26,6 +26,22 @@ export const ShowcaseCloudQuery = {
   OFFSET: 'offset'
 } as const
 
+export const SHOWCASE_PAGE_SIZE = {
+  homeDishes: 2,
+  adminItems: 2,
+  chatMessages: 3,
+  chatThreads: 2,
+  chatSearchResults: 30,
+  chatSearchMaxLocalScan: 300,
+  chatMediaItems: 40,
+  chatMediaMaxLocalScan: 500,
+  clientAppointments: 2,
+  merchantAppointments: 2,
+  publicAnnouncements: 2,
+  adminAnnouncements: 2,
+  categories: 100
+} as const
+
 export const SHOWCASE_SUPABASE_SCHEMA = 'public'
 
 export const SHOWCASE_TABLES = {

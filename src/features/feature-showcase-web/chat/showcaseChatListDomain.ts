@@ -1,4 +1,8 @@
 import type { ChatMessage, ChatThreadSummary } from '../showcaseCloudRepository'
+import {
+  formatShowcaseDateAndTimeParts,
+  formatShowcaseDateTime
+} from '../showcaseDateTime'
 import type { ChatThreadMetaEntity, CloudThreadSummary } from './showcaseChatRepository'
 import type { ShowcaseChatThreadSummaryUi } from '../showcaseUiContract'
 import type { ShowcaseChatGlobalSearchResultUi } from './showcaseChatModels'
@@ -12,25 +16,103 @@ const NDJC_IMG_END = '⟪/I⟫'
 const NDJC_PRODUCT_START = '⟪P⟫'
 const NDJC_PRODUCT_END = '⟪/P⟫'
 
+const NDJC_APPOINTMENT_START = '⟪B⟫'
+const NDJC_APPOINTMENT_END = '⟪/B⟫'
+
+function normalizeThreadPreviewText(input: string): string {
+  return String(input || '')
+    .replace(/\n/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, 60)
+}
+
+function extractProductPreviewFromThreadText(rawText: string): string | null {
+  const source = String(rawText || '')
+  const start = source.indexOf(NDJC_PRODUCT_START)
+  const end = source.indexOf(NDJC_PRODUCT_END)
+
+  if (start < 0 || end < 0 || end <= start) return null
+
+  const inner = source
+    .slice(start + NDJC_PRODUCT_START.length, end)
+    .trim()
+
+  const line = inner
+    .split(/\r?\n/)
+    .find(item => item.trim())
+
+  if (!line) return '[Item]'
+
+  const parts = line.split('|')
+  const title = normalizeThreadPreviewText(parts[1] || '')
+
+  return title ? `[Item] ${title}` : '[Item]'
+}
+
+function formatAppointmentPreviewDate(dateInput: string, timeInput: string): string {
+  return formatShowcaseDateAndTimeParts(dateInput, timeInput)
+}
+
+function shortenAppointmentPreviewTitle(titleInput: string): string {
+  const title = normalizeThreadPreviewText(titleInput)
+
+  if (!title) return ''
+
+  return title.length > 14 ? `${title.slice(0, 14)}...` : title
+}
+
+function extractAppointmentPreviewFromThreadText(rawText: string): string | null {
+  const source = String(rawText || '')
+  const start = source.indexOf(NDJC_APPOINTMENT_START)
+  const end = source.indexOf(NDJC_APPOINTMENT_END)
+
+  if (start < 0 || end < 0 || end <= start) return null
+
+  const inner = source
+    .slice(start + NDJC_APPOINTMENT_START.length, end)
+    .trim()
+
+  const line = inner
+    .split(/\r?\n/)
+    .find(item => item.trim())
+
+  if (!line) return '[Booking]'
+
+  const parts = line.split('|')
+  const title = shortenAppointmentPreviewTitle(parts[1] || '')
+  const dateText = formatAppointmentPreviewDate(parts[2] || '', parts[3] || '')
+
+  if (title && dateText) return `[Booking] ${title} · ${dateText}`
+  if (title) return `[Booking] ${title}`
+  if (dateText) return `[Booking] ${dateText}`
+
+  return '[Booking]'
+}
+
 export function buildThreadPreview(rawText: string): string {
   const raw = String(rawText || '')
   if (!raw.trim()) return ''
-  if (raw.includes(NDJC_PRODUCT_START)) return ''
+
+  const appointmentPreview = extractAppointmentPreviewFromThreadText(raw)
+  if (appointmentPreview) {
+    return appointmentPreview
+  }
+
+  const productPreview = extractProductPreviewFromThreadText(raw)
+  if (productPreview) {
+    return productPreview
+  }
+
+  if (raw.includes(NDJC_IMG_START)) {
+    return '[Photo]'
+  }
 
   let text = raw.trim()
 
   const firstMarker = text.indexOf('⟪')
   if (firstMarker >= 0 && firstMarker <= 3) {
     text = text.slice(firstMarker)
-  }
-
-  if (text.startsWith(NDJC_IMG_START)) {
-    const end = text.indexOf(NDJC_IMG_END)
-    if (end > 0) {
-      text = text.slice(end + NDJC_IMG_END.length).replace(/^[\n ]+/, '')
-    } else {
-      return ''
-    }
   }
 
   if (text.startsWith(NDJC_QUOTE_START)) {
@@ -42,26 +124,14 @@ export function buildThreadPreview(rawText: string): string {
     }
   }
 
-  if (text.startsWith(NDJC_PRODUCT_START)) {
-    const end = text.indexOf(NDJC_PRODUCT_END)
-    if (end > 0) {
-      text = text.slice(end + NDJC_PRODUCT_END.length).replace(/^[\n ]+/, '')
-    } else {
-      return ''
-    }
-  }
-
-  return text
-    .replace(/\n/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim()
-    .slice(0, 60)
+  return normalizeThreadPreviewText(text)
 }
 
 export function extractMainBodyForChatListSearch(rawText: string): string {
   const raw = String(rawText || '')
   if (!raw.trim()) return ''
   if (raw.includes(NDJC_PRODUCT_START)) return ''
+  if (raw.includes(NDJC_APPOINTMENT_START)) return ''
 
   let text = raw.trim()
 
@@ -73,6 +143,7 @@ export function extractMainBodyForChatListSearch(rawText: string): string {
   text = stripMarkedBlock(text, NDJC_IMG_START, NDJC_IMG_END)
   text = stripMarkedBlock(text, NDJC_QUOTE_START, NDJC_QUOTE_END)
   text = stripMarkedBlock(text, NDJC_PRODUCT_START, NDJC_PRODUCT_END)
+  text = stripMarkedBlock(text, NDJC_APPOINTMENT_START, NDJC_APPOINTMENT_END)
 
   return text
     .replace(/\n/g, ' ')
@@ -81,21 +152,7 @@ export function extractMainBodyForChatListSearch(rawText: string): string {
 }
 
 export function formatChatListTimeMs(value: number | null | undefined): string {
-  const ms = Number(value)
-  if (!Number.isFinite(ms) || ms <= 0) return ''
-
-  const date = new Date(ms)
-  if (Number.isNaN(date.getTime())) return ''
-
-  const year = date.getFullYear()
-  const month = String(date.getMonth() + 1).padStart(2, '0')
-  const day = String(date.getDate()).padStart(2, '0')
-  const hour24 = date.getHours()
-  const minute = String(date.getMinutes()).padStart(2, '0')
-  const ampm = hour24 < 12 ? 'AM' : 'PM'
-  const hour12 = hour24 % 12 === 0 ? 12 : hour24 % 12
-
-  return `${year}-${month}-${day} ${ampm} ${String(hour12).padStart(2, '0')}:${minute}`
+  return formatShowcaseDateTime(value)
 }
 
 export function normalizeChatThreadTitle(input: {
@@ -326,6 +383,7 @@ export function parseCloudIsoToMs(iso: string | null | undefined): number | null
 
 export function cloudThreadSummaryToLegacyChatThread(thread: CloudThreadSummary): ChatThreadSummary {
   const seq = Number(thread.customerSeq || 0)
+  const titleFromAlias = String(thread.merchantAlias || '').trim()
   const titleFromSeq = Number.isFinite(seq) && seq > 0
     ? `Customer #${Math.trunc(seq)}`
     : ''
@@ -338,7 +396,7 @@ export function cloudThreadSummaryToLegacyChatThread(thread: CloudThreadSummary)
     conversationId: String(thread.conversationId || '').trim(),
     storeId: String(thread.storeId || '').trim(),
     clientId: thread.clientId == null ? null : String(thread.clientId).trim() || null,
-    title: titleFromSeq || String(thread.clientId || '').trim() || 'Customer',
+    title: titleFromAlias || titleFromSeq || String(thread.clientId || '').trim() || 'Customer',
     lastMessage: String(thread.lastPreview || ''),
     lastMessageAt: lastMs,
     unreadCount: 0,

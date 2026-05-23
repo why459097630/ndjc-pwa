@@ -92,6 +92,7 @@ export function createDefaultShowcaseChatUiState(
     draft: '',
     draftImageUrls: [],
     pendingProduct: null,
+    pendingAppointment: null,
     quotedMessageId: null,
     isSending: false,
     statusMessage: null,
@@ -104,6 +105,7 @@ export function createDefaultShowcaseChatUiState(
     focusedMessageId: null,
     scrollToMessageId: null,
     scrollToMessageSignal: 0,
+    scrollToBottomSignal: 0,
     flashMessageId: null,
     flashSignal: 0,
     searchResults: [],
@@ -112,6 +114,24 @@ export function createDefaultShowcaseChatUiState(
     mediaPreviewIndex: 0,
     pinned: false,
     canTogglePinned: false,
+    windowMode: 'latest',
+    anchorMessageId: null,
+    hasNewerMessages: false,
+    isLoadingNewerMessages: false,
+    oldestMessageTimeMs: null,
+    newestMessageTimeMs: null,
+    pagination: {
+      hasMore: false,
+      isLoadingMore: false
+    },
+    searchPagination: {
+      hasMore: false,
+      isLoadingMore: false
+    },
+    mediaPagination: {
+      hasMore: false,
+      isLoadingMore: false
+    },
     ...overrides
   }
 }
@@ -197,6 +217,7 @@ export function createDefaultShowcaseUiState(
     adminPasswordDraft: '',
     adminPendingDeleteCategory: null,
     adminCannotDeleteCategory: null,
+    categorySubmittingAction: null,
 
     selectedTags: [],
 
@@ -221,12 +242,18 @@ export function createDefaultShowcaseUiState(
     draftBusinessStatus: '',
     isEditingStoreProfile: false,
     isSavingStoreProfile: false,
+    isRefreshingStoreProfile: false,
     storeProfileSaveError: null,
     storeProfileSaveSuccess: false,
 
     chat: createDefaultShowcaseChatUiState(),
     merchantChatThreads: [],
+    merchantChatListSearchQuery: '',
     merchantChatListRefreshing: false,
+    merchantChatListPagination: {
+      hasMore: false,
+      isLoadingMore: false
+    },
 
     announcements: [],
     adminAnnouncementDraftItems: [],
@@ -240,11 +267,13 @@ export function createDefaultShowcaseUiState(
     adminAnnouncementSuccess: null,
     adminAnnouncementIsSubmitting: false,
     adminAnnouncementIsBlocking: false,
+    adminAnnouncementSubmittingAction: null,
     pushTargetAnnouncementId: null,
 
     appointmentsEnabled: false,
     appointments: [],
     appointmentSourceDishId: null,
+    appointmentProduct: null,
     appointmentServiceDraft: '',
     appointmentNameDraft: '',
     appointmentContactDraft: '',

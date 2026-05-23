@@ -13,11 +13,13 @@ import type {
   ShowcaseAppointmentCard,
   ShowcaseAppointmentDateOption,
   ShowcaseAppointmentProductCard,
+  ShowcaseAppointmentSettingsSaveInput,
   ShowcaseAppointmentsActions,
   ShowcaseAppointmentsUiState,
   ShowcaseBottomBarUiState,
   ShowcaseBottomNavigationActions,
   ShowcaseChatActions,
+  ShowcaseChatAppointmentShare,
   ShowcaseChatMediaActions,
   ShowcaseChatMediaItemUi,
   ShowcaseChatMessage,
@@ -58,8 +60,14 @@ import {
   SyncOverviewStates,
   createDefaultShowcaseUiState
 } from './showcaseUiState'
+import { pickDisplayText } from './showcaseI18n'
 
 export type ShowcaseUiWiringState = ShowcaseUiState
+
+const DEFAULT_PAGINATION = {
+  hasMore: false,
+  isLoadingMore: false
+}
 
 export type ShowcaseBottomNavigationTab =
   | 'Home'
@@ -115,10 +123,15 @@ export type ShowcaseUiWiringActions = {
 export type ShowcaseMerchantChatListWiringState = {
   threads: ShowcaseChatThreadSummaryUi[]
   visibleThreads: ShowcaseChatThreadSummaryUi[]
+  searchQuery: string
   refreshing: boolean
   unreadTotal: number
   pinnedCount: number
   empty: boolean
+  pagination: {
+    hasMore: boolean
+    isLoadingMore: boolean
+  }
 }
 
 export type ShowcaseChatMediaWiringState = {
@@ -186,6 +199,10 @@ function noopBoolean(_value: boolean): void {
 }
 
 function noopNumber(_value: number): void {
+  // Intentionally empty.
+}
+
+function noopAppointmentSettingsSave(_value: ShowcaseAppointmentSettingsSaveInput): void {
   // Intentionally empty.
 }
 
@@ -449,11 +466,16 @@ function formatPriceText(value: number | null | undefined): string {
 }
 
 function getDishTitle(dish: ShowcaseUiState['dishes'][number]): string {
-  return normalizeText(dish.title) || normalizeText(dish.nameEn) || normalizeText(dish.nameZh) || 'Untitled'
+  return pickDisplayText([
+    dish.title,
+    dish.name
+  ], 'Untitled')
 }
 
 function getDishSubtitle(dish: ShowcaseUiState['dishes'][number]): string | null {
-  return normalizeNullableText(dish.descriptionEn)
+  return normalizeNullableText(pickDisplayText([
+    dish.description
+  ]))
 }
 
 function getDishPrimaryImageUrl(dish: ShowcaseUiState['dishes'][number]): string | null {
@@ -513,10 +535,9 @@ function matchesSearchQuery(dish: ShowcaseUiState['dishes'][number], queryInput:
   if (!query) return true
 
   const haystack = [
-    dish.nameZh,
-    dish.nameEn,
+    dish.name,
     dish.title,
-    dish.descriptionEn,
+    dish.description,
     dish.category
   ]
     .map(item => String(item || '').toLowerCase())
@@ -650,7 +671,9 @@ export function buildHomeWiringState(uiState: ShowcaseUiState): ShowcaseHomeUiSt
     showAppointments: buildBottomBarUiState(uiState).showAppointments,
     showChatDot: buildBottomBarUiState(uiState).showChatDot,
     showBookingsDot: buildBottomBarUiState(uiState).showBookingsDot,
-    showAnnouncementsDot: buildBottomBarUiState(uiState).showAnnouncementsDot
+    showAnnouncementsDot: buildBottomBarUiState(uiState).showAnnouncementsDot,
+
+    pagination: DEFAULT_PAGINATION
   }
 }
 
@@ -681,7 +704,7 @@ export function buildDetailWiringState(uiState: ShowcaseUiState): ShowcaseDetail
     subtitle: normalizeNullableText(dish.category),
     price: formatPriceText(getDishEffectivePrice(dish)),
     discountPrice: isDishOnSale(dish) ? formatPriceText(Number(dish.discountPrice)) : null,
-    description: normalizeText(dish.descriptionEn),
+    description: normalizeText(dish.description),
     category: normalizeNullableText(dish.category),
     isRecommended: Boolean(dish.isRecommended),
     isUnavailable: Boolean(dish.isSoldOut || dish.isHidden),
@@ -704,6 +727,8 @@ function buildFavoriteCard(dish: ShowcaseUiState['dishes'][number]): ShowcaseFav
     discountPriceText: isDishOnSale(dish) ? formatPriceText(Number(dish.discountPrice)) : null,
     priceText: formatPriceText(getDishEffectivePrice(dish)),
     imageUrl: getDishPrimaryImageUrl(dish),
+    isRecommended: Boolean(dish.isRecommended),
+    isHidden: Boolean(dish.isHidden),
     itemAvailable: Boolean(!dish.isSoldOut && !dish.isHidden)
   }
 }
@@ -854,6 +879,7 @@ export function buildStoreProfileWiringState(uiState: ShowcaseUiState): Showcase
     draftExtraContacts: uiState.draftStoreProfileExtraContacts,
     validationError: uiState.storeProfileSaveError,
     isSaving: uiState.isSavingStoreProfile,
+    isRefreshing: Boolean(uiState.isRefreshingStoreProfile),
     statusMessage: uiState.statusMessage,
     errorMessage: uiState.storeProfileSaveError,
     successMessage: uiState.storeProfileSaveSuccess ? 'Store profile saved.' : null,
@@ -865,8 +891,14 @@ function matchesAdminItemsQuery(dish: ShowcaseUiState['dishes'][number], queryIn
   const query = queryInput.trim().toLowerCase()
   if (!query) return true
 
-  return String(dish.nameZh || '').toLowerCase().includes(query) ||
-    String(dish.nameEn || '').toLowerCase().includes(query)
+  const searchableText = [
+    getDishTitle(dish),
+    dish.name,
+    dish.description,
+    dish.category
+  ].map(item => String(item || '').toLowerCase()).join('\n')
+
+  return searchableText.includes(query)
 }
 
 function matchesAdminItemsPriceRange(
@@ -981,11 +1013,14 @@ export function buildAdminWiringState(uiState: ShowcaseUiState): ShowcaseAdminUi
 
     pendingDeleteCategory: uiState.adminPendingDeleteCategory,
     cannotDeleteCategory: uiState.adminCannotDeleteCategory,
+    categorySubmittingAction: uiState.categorySubmittingAction,
 
     appointmentsEnabled: uiState.appointmentsEnabled,
     appointmentCount: uiState.appointments.length,
     pendingAppointmentCount: countPendingAppointments(uiState),
-    unreadMessageCount: countUnreadMerchantThreads(uiState)
+    unreadMessageCount: countUnreadMerchantThreads(uiState),
+
+    itemsPagination: DEFAULT_PAGINATION
   }
 }
 
@@ -1002,9 +1037,8 @@ function stringifyPriceForEditor(value: number | null | undefined): string {
 function buildEmptyEditDishState(uiState: ShowcaseUiState): ShowcaseEditDishUiState {
   return {
     id: '',
-    nameZh: '',
-    nameEn: '',
-    descriptionEn: '',
+    name: '',
+    description: '',
     category: uiState.selectedCategory,
     availableCategories: buildHomeCategories(uiState),
     originalPrice: '',
@@ -1065,9 +1099,8 @@ export function buildEditDishWiringState(uiState: ShowcaseUiState): ShowcaseEdit
   const dish = uiState.selectedDish
   if (!dish) return buildEmptyEditDishState(uiState)
 
-  const nameZh = normalizeText(dish.nameZh)
-  const nameEn = normalizeText(dish.nameEn)
-  const title = getDishTitle(dish)
+  const name = getDishTitle(dish)
+  const description = normalizeText(dish.description)
   const originalPrice = stringifyPriceForEditor(dish.originalPrice)
   const discountPrice = stringifyPriceForEditor(dish.discountPrice)
   const imageUrls = Array.from(
@@ -1080,13 +1113,12 @@ export function buildEditDishWiringState(uiState: ShowcaseUiState): ShowcaseEdit
         .filter(Boolean)
     )
   )
-  const validation = buildEditDishValidationState(originalPrice, discountPrice, title)
+  const validation = buildEditDishValidationState(originalPrice, discountPrice, name)
 
   return {
     id: dish.id,
-    nameZh,
-    nameEn,
-    descriptionEn: normalizeText(dish.descriptionEn),
+    name,
+    description,
     category: normalizeNullableText(dish.category),
     availableCategories: buildHomeCategories(uiState),
     originalPrice,
@@ -1156,10 +1188,12 @@ export function buildMerchantChatListWiringState(
   return {
     threads,
     visibleThreads,
+    searchQuery: uiState.merchantChatListSearchQuery || '',
     refreshing: uiState.merchantChatListRefreshing,
     unreadTotal,
     pinnedCount,
-    empty: visibleThreads.length === 0
+    empty: visibleThreads.length === 0,
+    pagination: uiState.merchantChatListPagination || DEFAULT_PAGINATION
   }
 }
 
@@ -1171,6 +1205,8 @@ function normalizeChatProductShare(
   const dishId = normalizeText(product.dishId)
   const title = normalizeText(product.title)
   const price = normalizeText(product.price)
+  const originalPriceText = normalizeNullableText(product.originalPriceText) || price || null
+  const discountPriceText = normalizeNullableText(product.discountPriceText)
 
   if (!dishId && !title) return null
 
@@ -1178,7 +1214,44 @@ function normalizeChatProductShare(
     dishId,
     title: title || 'Product',
     price,
-    imageUrl: normalizeNullableText(product.imageUrl)
+    originalPriceText,
+    discountPriceText,
+    imageUrl: normalizeNullableText(product.imageUrl),
+    isRecommended: Boolean(product.isRecommended)
+  }
+}
+
+function normalizeChatAppointmentShare(
+  appointment: ShowcaseChatAppointmentShare | null | undefined
+): ShowcaseChatAppointmentShare | null {
+  if (!appointment) return null
+
+  const appointmentId = normalizeText(appointment.appointmentId)
+  const title = normalizeText(appointment.title)
+  const preferredDate = normalizeText(appointment.preferredDate)
+  const preferredTime = normalizeText(appointment.preferredTime)
+  const statusLabel = normalizeText(appointment.statusLabel)
+  const priceText = normalizeNullableText(appointment.priceText)
+
+  if (!appointmentId && !title) return null
+
+  return {
+    appointmentId,
+    title: title || 'General appointment',
+    preferredDate,
+    preferredTime,
+    statusLabel: statusLabel || 'Pending',
+    imageUrl: normalizeNullableText(appointment.imageUrl),
+    customerName: normalizeText(appointment.customerName) || 'Customer',
+    customerContact: normalizeText(appointment.customerContact),
+    note: normalizeText(appointment.note),
+    sourceDishId: normalizeNullableText(appointment.sourceDishId),
+    priceText,
+    originalPriceText: normalizeNullableText(appointment.originalPriceText) || priceText,
+    discountPriceText: normalizeNullableText(appointment.discountPriceText),
+    categoryText: normalizeNullableText(appointment.categoryText),
+    itemAvailable: appointment.itemAvailable !== false,
+    createdAtText: normalizeText(appointment.createdAtText)
   }
 }
 
@@ -1198,6 +1271,7 @@ function normalizeChatMessage(
     statusText: normalizeNullableText(message.statusText),
     imageUrls,
     product: normalizeChatProductShare(message.product),
+    appointment: normalizeChatAppointmentShare(message.appointment),
     quotedMessageId: normalizeNullableText(message.quotedMessageId),
     failed: Boolean(message.failed),
     selected: selectedIds.has(message.id)
@@ -1315,6 +1389,7 @@ export function buildChatWiringState(uiState: ShowcaseUiState): ShowcaseChatUiSt
     draft: uiState.chat.draft,
     draftImageUrls: uiState.chat.draftImageUrls,
     pendingProduct: normalizeChatProductShare(uiState.chat.pendingProduct),
+    pendingAppointment: normalizeChatAppointmentShare(uiState.chat.pendingAppointment),
     quotedMessageId: normalizeNullableText(uiState.chat.quotedMessageId),
     isSending: uiState.chat.isSending,
     statusMessage: uiState.chat.statusMessage,
@@ -1326,6 +1401,7 @@ export function buildChatWiringState(uiState: ShowcaseUiState): ShowcaseChatUiSt
     focusedMessageId: normalizeNullableText(uiState.chat.focusedMessageId),
     scrollToMessageId: null,
     scrollToMessageSignal: 0,
+    scrollToBottomSignal: uiState.chat.scrollToBottomSignal || 0,
     flashMessageId: null,
     flashSignal: 0,
     searchResults: buildChatSearchResultsForWiring(
@@ -1338,7 +1414,18 @@ export function buildChatWiringState(uiState: ShowcaseUiState): ShowcaseChatUiSt
     mediaPreviewUrls,
     mediaPreviewIndex,
     pinned: uiState.chat.pinned,
-    canTogglePinned: uiState.chat.canTogglePinned
+    canTogglePinned: uiState.chat.canTogglePinned,
+
+    windowMode: uiState.chat.windowMode,
+    anchorMessageId: uiState.chat.anchorMessageId,
+    hasNewerMessages: uiState.chat.hasNewerMessages,
+    isLoadingNewerMessages: uiState.chat.isLoadingNewerMessages,
+    oldestMessageTimeMs: uiState.chat.oldestMessageTimeMs,
+    newestMessageTimeMs: uiState.chat.newestMessageTimeMs,
+
+    pagination: uiState.chat.pagination || DEFAULT_PAGINATION,
+    searchPagination: uiState.chat.searchPagination || DEFAULT_PAGINATION,
+    mediaPagination: uiState.chat.mediaPagination || DEFAULT_PAGINATION
   }
 }
 
@@ -1357,28 +1444,29 @@ export function buildChatMediaWiringState(uiState: ShowcaseUiState): ShowcaseCha
   }
 }
 
-function buildAppointmentProductCardFromDish(
-  dish: ShowcaseUiState['dishes'][number] | null | undefined
+function normalizeAppointmentProductCard(
+  product: ShowcaseAppointmentProductCard | null | undefined
 ): ShowcaseAppointmentProductCard | null {
-  if (!dish) return null
+  if (!product) return null
+
+  const dishId = normalizeText(product.dishId)
+  const title = normalizeText(product.title)
+
+  if (!dishId || !title) return null
 
   return {
-    dishId: dish.id,
-    title: getDishTitle(dish),
-    priceText: formatPriceText(getDishEffectivePrice(dish)),
-    imageUrl: getDishPrimaryImageUrl(dish),
-    categoryText: normalizeNullableText(dish.category)
+    dishId,
+    title,
+    priceText: normalizeText(product.priceText),
+    imageUrl: normalizeNullableText(product.imageUrl),
+    categoryText: normalizeNullableText(product.categoryText),
+    isRecommended: Boolean(product.isRecommended)
   }
 }
 
-function findAppointmentSourceDish(uiState: ShowcaseUiState): ShowcaseUiState['dishes'][number] | null {
-  const sourceDishId = normalizeText(uiState.appointmentSourceDishId)
-  if (!sourceDishId) return null
-
-  return uiState.dishes.find(dish => dish.id === sourceDishId) || null
-}
-
 function normalizeAppointmentCard(item: ShowcaseAppointmentCard): ShowcaseAppointmentCard {
+  const priceText = normalizeNullableText(item.priceText)
+
   return {
     id: normalizeText(item.id),
     customerName: normalizeText(item.customerName),
@@ -1391,8 +1479,11 @@ function normalizeAppointmentCard(item: ShowcaseAppointmentCard): ShowcaseAppoin
     createdAtText: normalizeText(item.createdAtText),
     imageUrl: normalizeNullableText(item.imageUrl),
     sourceDishId: normalizeNullableText(item.sourceDishId),
-    priceText: normalizeNullableText(item.priceText),
+    priceText,
+    originalPriceText: normalizeNullableText(item.originalPriceText) || priceText,
+    discountPriceText: normalizeNullableText(item.discountPriceText),
     categoryText: normalizeNullableText(item.categoryText),
+    isRecommended: Boolean(item.isRecommended),
     itemAvailable: Boolean(item.itemAvailable)
   }
 }
@@ -1630,9 +1721,11 @@ function buildBookingRuleSummary(uiState: ShowcaseUiState): string {
 }
 
 export function buildAppointmentsWiringState(uiState: ShowcaseUiState): ShowcaseAppointmentsUiState {
-  const sourceDish = findAppointmentSourceDish(uiState)
+  const product = normalizeAppointmentProductCard(uiState.appointmentProduct)
   const canSubmit = Boolean(
     uiState.appointmentsEnabled &&
+    product &&
+    uiState.appointmentSourceDishId &&
     uiState.appointmentServiceDraft.trim() &&
     uiState.appointmentNameDraft.trim() &&
     uiState.appointmentContactDraft.trim() &&
@@ -1643,7 +1736,7 @@ export function buildAppointmentsWiringState(uiState: ShowcaseUiState): Showcase
 
   return {
     enabled: uiState.appointmentsEnabled,
-    product: buildAppointmentProductCardFromDish(sourceDish),
+    product,
     serviceDraft: uiState.appointmentServiceDraft,
     nameDraft: uiState.appointmentNameDraft,
     contactDraft: uiState.appointmentContactDraft,
@@ -1677,6 +1770,8 @@ export function buildAdminAppointmentsWiringState(uiState: ShowcaseUiState): Sho
     items,
     statusMessage: uiState.statusMessage,
     isRefreshing: uiState.appointmentsRefreshing,
+    statusSubmittingId: null,
+    settingsSubmitting: false,
     bookingWindowDays: uiState.appointmentBookingWindowDays,
     availableHoursText: uiState.appointmentAvailableHoursText,
     slotIntervalMinutes: uiState.appointmentSlotIntervalMinutes,
@@ -1688,7 +1783,9 @@ serviceFilterOptions: buildAppointmentServiceFilterOptions(uiState.appointments)
     selectedDateFilter: uiState.appointmentAdminDateFilter,
     selectedStatusFilter: uiState.appointmentAdminStatusFilter,
     selectedServiceFilter: uiState.appointmentAdminServiceFilter,
-    historyDateFilter: uiState.appointmentAdminHistoryDateFilter
+    historyDateFilter: uiState.appointmentAdminHistoryDateFilter,
+
+    pagination: DEFAULT_PAGINATION
   }
 }
 
@@ -1724,7 +1821,9 @@ export function buildCustomerBookingsWiringState(uiState: ShowcaseUiState): Show
     serviceFilterOptions: buildCustomerAppointmentServiceFilterOptions(uiState, appointmentCards),
     selectedDateFilter: selectedDate,
     selectedStatusFilter: selectedStatus,
-    selectedServiceFilter: selectedService
+    selectedServiceFilter: selectedService,
+
+    pagination: DEFAULT_PAGINATION
   }
 }
 
@@ -1756,7 +1855,9 @@ export function buildAnnouncementsWiringState(uiState: ShowcaseUiState): Showcas
     items,
     isLoading: uiState.isLoading,
     statusMessage: uiState.statusMessage,
-    focusedAnnouncementId: normalizeNullableText(uiState.pushTargetAnnouncementId)
+    focusedAnnouncementId: normalizeNullableText(uiState.pushTargetAnnouncementId),
+
+    pagination: DEFAULT_PAGINATION
   }
 }
 
@@ -1779,6 +1880,7 @@ export function buildAnnouncementEditWiringState(uiState: ShowcaseUiState): Show
     statusMessage: uiState.statusMessage,
     isSubmitting: uiState.adminAnnouncementIsSubmitting,
     isBlockingInput: uiState.adminAnnouncementIsBlocking,
+    submittingAction: uiState.adminAnnouncementSubmittingAction,
     composerExpanded: uiState.adminAnnouncementComposerExpanded,
     canStartNew: Boolean(bodyDraft.trim() || coverDraftUrl || uiState.adminAnnouncementEditingId),
     canDeleteSelected: selectedIds.length > 0,
@@ -1788,7 +1890,9 @@ export function buildAnnouncementEditWiringState(uiState: ShowcaseUiState): Show
     selectedIds,
     previewItem,
     previewVisible: Boolean(previewItem),
-    hasUnsavedChanges
+    hasUnsavedChanges,
+
+    pagination: DEFAULT_PAGINATION
   }
 }
 
@@ -1813,6 +1917,7 @@ export function createNoopHomeActions(
   return {
     ...bottomNavigation,
     onRefresh: noopAsync,
+    onLoadMore: noopAsync,
     onCategorySelected: noopNullableString,
     onDishSelected: noopString,
     onProfileClick: noop,
@@ -1824,6 +1929,7 @@ export function createNoopHomeActions(
     onSortModeChange: noopSortMode,
     onFilterRecommendedOnlyChange: noopBoolean,
     onFilterOnSaleOnlyChange: noopBoolean,
+    onApplyHomeFilters: noop,
     onClearSortAndFilters: noop,
     onClearAll: noop,
     onShowSortMenuChange: noopBoolean,
@@ -1859,12 +1965,14 @@ export function createNoopAdminActions(
     onBack: noop,
     onLogout: noop,
     onRefresh: noop,
+    onLoadMoreItems: noopAsync,
     onItemsSortModeChange: noopSortMode,
     onItemsSearchQueryChange: noopString,
     onClearItemsSearchQuery: noop,
     onItemsFilterRecommendedChange: noopBoolean,
     onItemsFilterHiddenOnlyChange: noopBoolean,
     onItemsFilterDiscountOnlyChange: noopBoolean,
+    onApplyItemsFilters: noop,
     onPriceMinDraftChange: noopString,
     onPriceMaxDraftChange: noopString,
     onApplyPriceRange: noop,
@@ -1907,10 +2015,11 @@ export function createNoopMerchantChatListActions(
     onBackToHome: noop,
     onBack: noop,
     onRefresh: noop,
+    onLoadMore: noopAsync,
+    onSearchQueryChange: noopString,
     onOpenThread: noopStringString,
     onDeleteThread: noopString,
     onTogglePin: noopStringBoolean,
-    onMarkRead: noopString,
     onRenameThread: noopStringString,
     ...overrides
   }
@@ -1931,6 +2040,8 @@ export function createNoopChatActions(
     onSend: noop,
     onRetry: noopString,
     onRefresh: noop,
+    onLoadOlderMessages: noopAsync,
+    onLoadNewerMessages: noopAsync,
     onQuoteMessage: noopString,
     onCancelQuote: noop,
     onEnterSelection: noopString,
@@ -1944,6 +2055,8 @@ export function createNoopChatActions(
     onOpenImagePreview: noop,
     onJumpToFoundMessage: noopString,
     onOpenThreadFromSearch: noop,
+    onLoadMoreSearchResults: noopAsync,
+    onLoadMoreMediaItems: noopAsync,
     onTogglePinned: noop,
     onOpenFind: noop,
     onCloseFind: noop,
@@ -1957,7 +2070,11 @@ export function createNoopChatActions(
     onSavePreviewImage: noopString,
     onSendPendingProduct: noop,
     onClearPendingProduct: noop,
+    onUseAppointmentCardAsPending: (_appointment: ShowcaseChatAppointmentShare) => {},
+    onSendPendingAppointment: noop,
+    onClearPendingAppointment: noop,
     onOpenProductDetail: noopString,
+    onOpenAppointmentDetail: noop,
     isProductAvailable: returnFalse,
     buildProductClipboardPayload: buildEmptyProductClipboardPayload,
     ...overrides
@@ -1970,6 +2087,7 @@ export function createNoopChatMediaActions(
   return {
     onBackToHome: noop,
     onBack: noop,
+    onLoadMoreMediaItems: noopAsync,
     onSavePreviewImage: noopString,
     ...overrides
   }
@@ -2033,6 +2151,7 @@ export function createNoopStoreProfileActions(
     ...bottomNavigation,
     onBackToHome: noop,
     onBack: noop,
+    onRefresh: noop,
     onEdit: noop,
     onCancelEdit: noop,
     onDiscardDraftAndGoHome: noop,
@@ -2129,6 +2248,7 @@ export function createNoopAdminAppointmentsActions(
     onSlotIntervalMinutesChange: noopNumber,
     onClosedDayToggle: noopString,
     onMinimumNoticeChange: noopString,
+    onSettingsSave: noopAppointmentSettingsSave,
     onDateFilterChange: noopString,
     onStatusFilterChange: noopString,
     onServiceFilterChange: noopString,
@@ -2136,6 +2256,7 @@ export function createNoopAdminAppointmentsActions(
     onHistoryDateClear: noop,
     onContactCustomer: noopString,
     onOpenAppointmentProductDetail: noopString,
+    onLoadMore: noopAsync,
     onPending: noopString,
     onConfirm: noopString,
     onCancel: noopString,
@@ -2158,7 +2279,9 @@ export function createNoopCustomerBookingsActions(
     onDateFilterChange: noopString,
     onStatusFilterChange: noopString,
     onServiceFilterChange: noopString,
+    onContactMerchant: noopString,
     onOpenAppointmentProductDetail: noopString,
+    onLoadMore: noopAsync,
     ...overrides
   }
 }
@@ -2177,6 +2300,7 @@ export function createNoopAnnouncementsActions(
     onTrackAnnouncementView: noopString,
     onOpenAnnouncementImage: noopString,
     onConsumeFocusedAnnouncement: noop,
+    onLoadMore: noopAsync,
     ...overrides
   }
 }
@@ -2200,6 +2324,7 @@ export function createNoopAnnouncementEditActions(
     onToggleSelect: noopString,
     onClearSelection: noop,
     onDeleteSelected: noop,
+    onLoadMore: noopAsync,
     ...overrides
   }
 }

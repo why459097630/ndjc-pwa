@@ -1,4 +1,4 @@
-import type { DemoDish } from './showcaseModels'
+import type { DemoDish, ShowcaseImageVariants } from './showcaseModels'
 import type { ShowcaseUiWiring } from './showcaseUiWiring'
 
 export type ShowcaseHomeSortMode =
@@ -117,6 +117,7 @@ export type ShowcaseHomeDish = {
   isFavorite: boolean
   isHidden: boolean
   imagePreviewUrl: string | null
+  imageVariants?: ShowcaseImageVariants | null
 }
 
 export type ShowcaseBottomBarUiState = {
@@ -125,6 +126,15 @@ export type ShowcaseBottomBarUiState = {
   showBookingsDot: boolean
   showAnnouncementsDot: boolean
 }
+
+export type ShowcasePaginationUiState = {
+  hasMore: boolean
+  isLoadingMore: boolean
+}
+
+export type ShowcaseChatWindowMode =
+  | 'latest'
+  | 'aroundMessage'
 
 export type ShowcaseHomeUiState = {
   dishes: ShowcaseHomeDish[]
@@ -157,6 +167,8 @@ export type ShowcaseHomeUiState = {
   showChatDot: boolean
   showBookingsDot: boolean
   showAnnouncementsDot: boolean
+
+  pagination: ShowcasePaginationUiState
 }
 
 export type ShowcaseBottomNavigationActions = {
@@ -169,6 +181,7 @@ export type ShowcaseBottomNavigationActions = {
 
 export type ShowcaseHomeActions = ShowcaseBottomNavigationActions & {
   onRefresh: () => Promise<void> | void
+  onLoadMore: () => Promise<void> | void
   onCategorySelected: (value: string | null) => void
   onDishSelected: (id: string) => void
 
@@ -182,6 +195,12 @@ export type ShowcaseHomeActions = ShowcaseBottomNavigationActions & {
   onSortModeChange: (value: ShowcaseHomeSortMode) => void
   onFilterRecommendedOnlyChange: (value: boolean) => void
   onFilterOnSaleOnlyChange: (value: boolean) => void
+  onApplyHomeFilters: (value: {
+    recommendedOnly: boolean
+    onSaleOnly: boolean
+    minPriceDraft: string
+    maxPriceDraft: string
+  }) => void
   onClearSortAndFilters: () => void
   onClearAll: () => void
 
@@ -201,18 +220,43 @@ export type ShowcaseMerchantChatListActions = {
   onBackToHome: () => void
   onBack: () => void
   onRefresh: () => void
+  onLoadMore: () => Promise<void> | void
+  onSearchQueryChange: (value: string) => void
   onOpenThread: (threadId: string, title: string) => void
-  onDeleteThread: (threadId: string) => void
+  onDeleteThread: (threadId: string) => void | Promise<void>
   onTogglePin: (threadId: string, pinned: boolean) => void
-  onMarkRead: (threadId: string) => void
-  onRenameThread: (threadId: string, newName: string) => void
+  onRenameThread: (threadId: string, newName: string) => void | Promise<void>
 }
 
 export type ShowcaseChatProductShare = {
   dishId: string
   title: string
   price: string
+  originalPriceText: string | null
+  discountPriceText: string | null
   imageUrl: string | null
+  imageVariants?: ShowcaseImageVariants | null
+  isRecommended: boolean
+}
+
+export type ShowcaseChatAppointmentShare = {
+  appointmentId: string
+  title: string
+  preferredDate: string
+  preferredTime: string
+  statusLabel: string
+  imageUrl: string | null
+  imageVariants?: ShowcaseImageVariants | null
+  customerName: string
+  customerContact: string
+  note: string
+  sourceDishId: string | null
+  priceText: string | null
+  originalPriceText: string | null
+  discountPriceText: string | null
+  categoryText: string | null
+  itemAvailable: boolean
+  createdAtText: string
 }
 
 export type ShowcaseChatMessage = {
@@ -222,8 +266,11 @@ export type ShowcaseChatMessage = {
   outgoing: boolean
   statusText: string | null
   imageUrls: string[]
+  imageVariants?: ShowcaseImageVariants[] | null
   product: ShowcaseChatProductShare | null
+  appointment: ShowcaseChatAppointmentShare | null
   quotedMessageId?: string | null
+  quotePreviewText?: string | null
   failed?: boolean
   selected?: boolean
 }
@@ -262,6 +309,7 @@ export type ShowcaseChatUiState = {
   draft: string
   draftImageUrls: string[]
   pendingProduct: ShowcaseChatProductShare | null
+  pendingAppointment: ShowcaseChatAppointmentShare | null
   quotedMessageId: string | null
   isSending: boolean
   statusMessage: string | null
@@ -274,6 +322,7 @@ export type ShowcaseChatUiState = {
   focusedMessageId: string | null
   scrollToMessageId: string | null
   scrollToMessageSignal: number
+  scrollToBottomSignal: number
   flashMessageId: string | null
   flashSignal: number
   searchResults: ShowcaseChatSearchResultUi[]
@@ -282,10 +331,22 @@ export type ShowcaseChatUiState = {
   mediaPreviewIndex: number
   pinned: boolean
   canTogglePinned: boolean
+
+  windowMode: ShowcaseChatWindowMode
+  anchorMessageId: string | null
+  hasNewerMessages: boolean
+  isLoadingNewerMessages: boolean
+  oldestMessageTimeMs: number | null
+  newestMessageTimeMs: number | null
+
+  pagination: ShowcasePaginationUiState
+  searchPagination: ShowcasePaginationUiState
+  mediaPagination: ShowcasePaginationUiState
 }
 
 export type ShowcaseChatActions = ShowcaseBottomNavigationActions & {
   onUseProductCardAsPending: (product: ShowcaseChatProductShare) => void
+  onUseAppointmentCardAsPending: (appointment: ShowcaseChatAppointmentShare) => void
   onJumpToMessage: (messageId: string) => void
   onBackToHome: () => void
   onBack: () => void
@@ -293,6 +354,8 @@ export type ShowcaseChatActions = ShowcaseBottomNavigationActions & {
   onSend: () => void
   onRetry: (messageId: string) => void
   onRefresh: () => void
+  onLoadOlderMessages: () => Promise<void> | void
+  onLoadNewerMessages: () => Promise<void> | void
   onQuoteMessage: (messageId: string) => void
   onCancelQuote: () => void
   onEnterSelection: (messageId: string) => void
@@ -306,6 +369,8 @@ export type ShowcaseChatActions = ShowcaseBottomNavigationActions & {
   onOpenImagePreview: (url: string, pool: string[]) => void
   onJumpToFoundMessage: (messageId: string) => void
   onOpenThreadFromSearch: (conversationId: string, messageId: string | null) => void
+  onLoadMoreSearchResults: () => Promise<void> | void
+  onLoadMoreMediaItems: () => Promise<void> | void
   onTogglePinned: () => void
   onOpenFind: () => void
   onCloseFind: () => void
@@ -319,7 +384,10 @@ export type ShowcaseChatActions = ShowcaseBottomNavigationActions & {
   onSavePreviewImage: (url: string) => void
   onSendPendingProduct: () => void
   onClearPendingProduct: () => void
+  onSendPendingAppointment: () => void
+  onClearPendingAppointment: () => void
   onOpenProductDetail: (dishId: string) => void
+  onOpenAppointmentDetail: (appointment: ShowcaseChatAppointmentShare) => void
   isProductAvailable: (dishId: string) => boolean
   buildProductClipboardPayload: (product: ShowcaseChatProductShare) => string
 }
@@ -327,6 +395,7 @@ export type ShowcaseChatActions = ShowcaseBottomNavigationActions & {
 export type ShowcaseChatMediaActions = {
   onBackToHome: () => void
   onBack: () => void
+  onLoadMoreMediaItems: () => Promise<void> | void
   onSavePreviewImage: (url: string) => void
 }
 
@@ -386,11 +455,14 @@ export type ShowcaseAdminUiState = {
 
   pendingDeleteCategory: string | null
   cannotDeleteCategory: string | null
+  categorySubmittingAction: 'add' | 'rename' | 'delete' | 'reorder' | null
 
   appointmentsEnabled: boolean
   appointmentCount: number
   pendingAppointmentCount: number
   unreadMessageCount: number
+
+  itemsPagination: ShowcasePaginationUiState
 }
 
 export type ShowcaseAdminActions = {
@@ -398,6 +470,7 @@ export type ShowcaseAdminActions = {
   onBack: () => void
   onLogout: () => void
   onRefresh: () => void
+  onLoadMoreItems: () => Promise<void> | void
 
   onItemsSortModeChange: (value: ShowcaseHomeSortMode) => void
   onItemsSearchQueryChange: (value: string) => void
@@ -405,6 +478,13 @@ export type ShowcaseAdminActions = {
   onItemsFilterRecommendedChange: (value: boolean) => void
   onItemsFilterHiddenOnlyChange: (value: boolean) => void
   onItemsFilterDiscountOnlyChange: (value: boolean) => void
+  onApplyItemsFilters: (value: {
+    recommendedOnly: boolean
+    hiddenOnly: boolean
+    discountOnly: boolean
+    minPriceDraft: string
+    maxPriceDraft: string
+  }) => void
 
   onPriceMinDraftChange: (value: string) => void
   onPriceMaxDraftChange: (value: string) => void
@@ -448,9 +528,8 @@ export type ShowcaseAdminActions = {
 
 export type ShowcaseEditDishUiState = {
   id: string
-  nameZh: string
-  nameEn: string
-  descriptionEn: string
+  name: string
+  description: string
   category: string | null
   availableCategories: string[]
   originalPrice: string
@@ -458,6 +537,7 @@ export type ShowcaseEditDishUiState = {
   isRecommended: boolean
   isHidden: boolean
   imageUrls: string[]
+  imageVariants?: ShowcaseImageVariants | null
   isSaving: boolean
   isBlocking: boolean
   statusMessage: string | null
@@ -512,6 +592,7 @@ export type ShowcaseDetailUiState = {
   isUnavailable: boolean
   imagePreviewUrl: string | null
   imageUrls: string[]
+  imageVariants?: ShowcaseImageVariants | null
   currentImageIndex: number
   safeImageIndex: number
   tags: string[]
@@ -594,6 +675,8 @@ export type ShowcaseStoreProfileUiState = {
 
   logoUrl: string
   coverUrl: string
+  logoImageVariants?: ShowcaseImageVariants | null
+  coverImageVariants?: ShowcaseImageVariants | null
 
   openStatusText: string
   isOpenNow: boolean | null
@@ -613,6 +696,7 @@ export type ShowcaseStoreProfileUiState = {
   validationError: string | null
 
   isSaving: boolean
+  isRefreshing: boolean
   statusMessage: string | null
   errorMessage: string | null
   successMessage: string | null
@@ -622,6 +706,7 @@ export type ShowcaseStoreProfileUiState = {
 export type ShowcaseStoreProfileActions = ShowcaseBottomNavigationActions & {
   onBackToHome: () => void
   onBack: () => void
+  onRefresh: () => void
   onEdit: () => void
   onCancelEdit: () => void
   onDiscardDraftAndGoHome: () => void
@@ -673,6 +758,9 @@ export type ShowcaseFavoriteCard = {
   discountPriceText: string | null
   priceText: string
   imageUrl: string | null
+  imageVariants?: ShowcaseImageVariants | null
+  isRecommended: boolean
+  isHidden: boolean
   itemAvailable: boolean
 }
 
@@ -730,7 +818,9 @@ export type ShowcaseAppointmentProductCard = {
   title: string
   priceText: string | null
   imageUrl: string | null
+  imageVariants?: ShowcaseImageVariants | null
   categoryText: string | null
+  isRecommended: boolean
 }
 
 export type ShowcaseAppointmentCard = {
@@ -744,9 +834,13 @@ export type ShowcaseAppointmentCard = {
   statusLabel: string
   createdAtText: string
   imageUrl: string | null
+  imageVariants?: ShowcaseImageVariants | null
   sourceDishId: string | null
   priceText: string | null
+  originalPriceText: string | null
+  discountPriceText: string | null
   categoryText: string | null
+  isRecommended: boolean
   itemAvailable: boolean
 }
 
@@ -789,7 +883,7 @@ export type ShowcaseAppointmentsActions = {
   onTimeChange: (value: string) => void
   onNoteChange: (value: string) => void
   onOpenProductDetail: (dishId: string) => void
-  onSubmit: () => void
+  onSubmit: () => void | Promise<void>
 }
 
 export type ShowcaseAdminAppointmentsUiState = {
@@ -797,6 +891,8 @@ export type ShowcaseAdminAppointmentsUiState = {
   items: ShowcaseAppointmentCard[]
   statusMessage: string | null
   isRefreshing: boolean
+  statusSubmittingId: string | null
+  settingsSubmitting: boolean
 
   bookingWindowDays: number
   availableHoursText: string
@@ -812,6 +908,17 @@ export type ShowcaseAdminAppointmentsUiState = {
   selectedStatusFilter: string
   selectedServiceFilter: string
   historyDateFilter: string | null
+
+  pagination: ShowcasePaginationUiState
+}
+
+export type ShowcaseAppointmentSettingsSaveInput = {
+  enabled: boolean
+  bookingWindowDays: number
+  availableHoursText: string
+  slotIntervalMinutes: number
+  closedDays: string[]
+  minimumNotice: string
 }
 
 export type ShowcaseCustomerBookingsUiState = {
@@ -829,6 +936,8 @@ export type ShowcaseCustomerBookingsUiState = {
   selectedDateFilter: string
   selectedStatusFilter: string
   selectedServiceFilter: string
+
+  pagination: ShowcasePaginationUiState
 }
 
 export type ShowcaseAdminAppointmentsActions = {
@@ -842,6 +951,7 @@ export type ShowcaseAdminAppointmentsActions = {
   onSlotIntervalMinutesChange: (value: number) => void
   onClosedDayToggle: (value: string) => void
   onMinimumNoticeChange: (value: string) => void
+  onSettingsSave: (value: ShowcaseAppointmentSettingsSaveInput) => void | Promise<void>
 
   onDateFilterChange: (value: string) => void
   onStatusFilterChange: (value: string) => void
@@ -851,12 +961,13 @@ export type ShowcaseAdminAppointmentsActions = {
 
   onContactCustomer: (id: string) => void
   onOpenAppointmentProductDetail: (dishId: string) => void
+  onLoadMore: () => Promise<void> | void
 
-  onPending: (id: string) => void
-  onConfirm: (id: string) => void
-  onCancel: (id: string) => void
-  onComplete: (id: string) => void
-  onNoShow: (id: string) => void
+  onPending: (id: string) => void | Promise<void>
+  onConfirm: (id: string) => void | Promise<void>
+  onCancel: (id: string) => void | Promise<void>
+  onComplete: (id: string) => void | Promise<void>
+  onNoShow: (id: string) => void | Promise<void>
 }
 
 export type ShowcaseCustomerBookingsActions = ShowcaseBottomNavigationActions & {
@@ -866,12 +977,15 @@ export type ShowcaseCustomerBookingsActions = ShowcaseBottomNavigationActions & 
   onDateFilterChange: (value: string) => void
   onStatusFilterChange: (value: string) => void
   onServiceFilterChange: (value: string) => void
+  onContactMerchant: (id: string) => void
   onOpenAppointmentProductDetail: (dishId: string) => void
+  onLoadMore: () => Promise<void> | void
 }
 
 export type ShowcaseAnnouncementCard = {
   id: string
   coverUrl: string | null
+  coverImageVariants?: ShowcaseImageVariants | null
   bodyPreview: string
   bodyText: string
   timeText: string
@@ -886,6 +1000,8 @@ export type ShowcaseAnnouncementsUiState = {
   isLoading: boolean
   statusMessage: string | null
   focusedAnnouncementId: string | null
+
+  pagination: ShowcasePaginationUiState
 }
 
 export type ShowcaseAnnouncementsActions = ShowcaseBottomNavigationActions & {
@@ -896,6 +1012,7 @@ export type ShowcaseAnnouncementsActions = ShowcaseBottomNavigationActions & {
   onTrackAnnouncementView: (id: string) => void
   onOpenAnnouncementImage: (id: string) => void
   onConsumeFocusedAnnouncement: () => void
+  onLoadMore: () => Promise<void> | void
 }
 
 export type ShowcaseAnnouncementEditUiState = {
@@ -907,6 +1024,7 @@ export type ShowcaseAnnouncementEditUiState = {
   statusMessage: string | null
   isSubmitting: boolean
   isBlockingInput: boolean
+  submittingAction: 'save' | 'publish' | 'delete' | null
 
   composerExpanded: boolean
 
@@ -922,6 +1040,8 @@ export type ShowcaseAnnouncementEditUiState = {
   previewItem: ShowcaseAnnouncementCard | null
   previewVisible: boolean
   hasUnsavedChanges: boolean
+
+  pagination: ShowcasePaginationUiState
 }
 
 export type ShowcaseAnnouncementEditActions = {
@@ -935,15 +1055,16 @@ export type ShowcaseAnnouncementEditActions = {
   onOpenCoverPreview: () => void
   onBodyChange: (value: string) => void
 
-  onSaveDraft: () => void
-  onPushNow: () => void
+  onSaveDraft: () => void | Promise<void>
+  onPushNow: () => void | Promise<void>
 
   onOpenItem: (id: string) => void
   onPreviewItem: (id: string) => void
   onDismissPreview: () => void
   onToggleSelect: (id: string) => void
   onClearSelection: () => void
-  onDeleteSelected: () => void
+  onDeleteSelected: () => void | Promise<void>
+  onLoadMore: () => Promise<void> | void
 }
 
 export type ShowcaseUiState = {
@@ -1024,6 +1145,7 @@ export type ShowcaseUiState = {
   adminPasswordDraft: string
   adminPendingDeleteCategory: string | null
   adminCannotDeleteCategory: string | null
+  categorySubmittingAction: 'add' | 'rename' | 'delete' | 'reorder' | null
 
   selectedTags: string[]
 
@@ -1048,12 +1170,15 @@ export type ShowcaseUiState = {
   draftBusinessStatus: string
   isEditingStoreProfile: boolean
   isSavingStoreProfile: boolean
+  isRefreshingStoreProfile: boolean
   storeProfileSaveError: string | null
   storeProfileSaveSuccess: boolean
 
   chat: ShowcaseChatUiState
   merchantChatThreads: ShowcaseChatThreadSummaryUi[]
+  merchantChatListSearchQuery: string
   merchantChatListRefreshing: boolean
+  merchantChatListPagination: ShowcasePaginationUiState
 
   announcements: ShowcaseAnnouncementCard[]
   adminAnnouncementDraftItems: ShowcaseAnnouncementCard[]
@@ -1067,11 +1192,13 @@ export type ShowcaseUiState = {
   adminAnnouncementSuccess: string | null
   adminAnnouncementIsSubmitting: boolean
   adminAnnouncementIsBlocking: boolean
+  adminAnnouncementSubmittingAction: 'save' | 'publish' | 'delete' | null
   pushTargetAnnouncementId: string | null
 
   appointmentsEnabled: boolean
   appointments: ShowcaseAppointment[]
   appointmentSourceDishId: string | null
+  appointmentProduct: ShowcaseAppointmentProductCard | null
   appointmentServiceDraft: string
   appointmentNameDraft: string
   appointmentContactDraft: string
@@ -1098,9 +1225,15 @@ export type ShowcaseUiState = {
   appointmentCustomerServiceFilter: string
 }
 
+export type ShowcaseOfflineStatusUi = {
+  isOffline: boolean
+  bannerMessage: string | null
+}
+
 export type ShowcaseUiModel = {
   screen: ShowcaseScreenName
   showcaseWiring: ShowcaseUiWiring
+  offlineStatus: ShowcaseOfflineStatusUi
 
   homeState: ShowcaseHomeUiState
   homeActions: ShowcaseHomeActions
