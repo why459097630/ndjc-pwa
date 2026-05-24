@@ -184,10 +184,6 @@ function encodeStorePathPart(storeId: string): string {
   return encodeURIComponent(storeId)
 }
 
-function buildStoreIconPath(storeId: string, iconFileName: string): string {
-  return `/pwa/${encodeStorePathPart(storeId)}/icons/${iconFileName}`
-}
-
 function pickI18nText(value: unknown, fallback: string): string {
   if (!value || typeof value !== 'object') return fallback
 
@@ -310,19 +306,19 @@ export async function resolveStorePwaPageMetadata(storeIdInput: unknown): Promis
     icons: {
       icon: [
         {
-          url: buildStoreIconPath(profile.storeId, 'pwa-icon-192.png'),
+          url: profile.iconVariants.icon192,
           sizes: '192x192',
           type: 'image/png'
         },
         {
-          url: buildStoreIconPath(profile.storeId, 'pwa-icon-512.png'),
+          url: profile.iconVariants.icon512,
           sizes: '512x512',
           type: 'image/png'
         }
       ],
       apple: [
         {
-          url: buildStoreIconPath(profile.storeId, 'apple-touch-icon.png'),
+          url: profile.iconVariants.appleTouchIcon,
           sizes: '180x180',
           type: 'image/png'
         }
@@ -359,25 +355,25 @@ export async function buildStorePwaManifest(storeIdInput: unknown) {
 
   const icons = [
     {
-      src: buildStoreIconPath(profile.storeId, 'pwa-icon-192.png'),
+      src: profile.iconVariants.icon192,
       sizes: '192x192',
       type: 'image/png',
       purpose: 'any'
     },
     {
-      src: buildStoreIconPath(profile.storeId, 'pwa-icon-512.png'),
+      src: profile.iconVariants.icon512,
       sizes: '512x512',
       type: 'image/png',
       purpose: 'any'
     },
     {
-      src: buildStoreIconPath(profile.storeId, 'pwa-maskable-192.png'),
+      src: profile.iconVariants.maskable192,
       sizes: '192x192',
       type: 'image/png',
       purpose: 'maskable'
     },
     {
-      src: buildStoreIconPath(profile.storeId, 'pwa-maskable-512.png'),
+      src: profile.iconVariants.maskable512,
       sizes: '512x512',
       type: 'image/png',
       purpose: 'maskable'
@@ -404,7 +400,7 @@ export async function buildStorePwaManifest(storeIdInput: unknown) {
         url: startUrl,
         icons: [
           {
-            src: buildStoreIconPath(profile.storeId, 'pwa-icon-192.png'),
+            src: profile.iconVariants.icon192,
             sizes: '192x192',
             type: 'image/png'
           }
