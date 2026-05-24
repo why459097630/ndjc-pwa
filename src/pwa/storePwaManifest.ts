@@ -127,7 +127,35 @@ function pickLogoVariant(
 }
 
 function buildIconVariantsFromRow(row: StoreProfileRow | null): StorePwaIconVariants {
-  return DEFAULT_ICON_VARIANTS
+  if (!row) return DEFAULT_ICON_VARIANTS
+
+  return {
+    icon192: pickLogoVariant(
+      row.logo_image_variants,
+      ['icon192', 'pwaIcon192', 'pwa_icon_192'],
+      DEFAULT_ICON_192
+    ),
+    icon512: pickLogoVariant(
+      row.logo_image_variants,
+      ['icon512', 'pwaIcon512', 'pwa_icon_512'],
+      DEFAULT_ICON_512
+    ),
+    maskable192: pickLogoVariant(
+      row.logo_image_variants,
+      ['maskable192', 'pwaMaskable192', 'pwa_maskable_192'],
+      DEFAULT_MASKABLE_192
+    ),
+    maskable512: pickLogoVariant(
+      row.logo_image_variants,
+      ['maskable512', 'pwaMaskable512', 'pwa_maskable_512'],
+      DEFAULT_MASKABLE_512
+    ),
+    appleTouchIcon: pickLogoVariant(
+      row.logo_image_variants,
+      ['appleTouchIcon', 'apple_touch_icon', 'appleIcon'],
+      DEFAULT_APPLE_ICON
+    )
+  }
 }
 
 function normalizeSupabaseBaseUrl(value: string): string {
