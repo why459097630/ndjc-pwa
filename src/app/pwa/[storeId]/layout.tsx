@@ -1,6 +1,8 @@
 import type { Metadata } from 'next'
 import { resolveStorePwaPageMetadata } from '@/pwa/storePwaManifest'
 
+export const dynamic = 'force-dynamic'
+
 export async function generateMetadata({
   params
 }: {
