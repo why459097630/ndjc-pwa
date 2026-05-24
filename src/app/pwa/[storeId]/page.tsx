@@ -1,5 +1,6 @@
 import { loadAssemblyFromPublic, mergeAssemblyRuntimeValues } from '@/core/assembly/loader'
 import { AppRoot } from '@/core/runtime/AppRoot'
+import { PwaHeadLinks } from './PwaHeadLinks'
 
 export default async function StorePwaPage({ params }: { params: Promise<{ storeId: string }> }) {
   const { storeId } = await params
@@ -9,5 +10,10 @@ export default async function StorePwaPage({ params }: { params: Promise<{ store
     privacyUrl: `/privacy/${encodeURIComponent(storeId)}`
   })
 
-  return <AppRoot assembly={runtimeAssembly} />
+  return (
+    <>
+      <PwaHeadLinks storeId={storeId} />
+      <AppRoot assembly={runtimeAssembly} />
+    </>
+  )
 }
