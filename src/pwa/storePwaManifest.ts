@@ -126,33 +126,51 @@ function pickLogoVariant(
   return fallback
 }
 
+function hasCompleteStandardIconVariants(value: unknown): boolean {
+  if (!value || typeof value !== 'object') return false
+
+  const record = value as Record<string, unknown>
+
+  const icon192 = normalizeAbsoluteOrRootUrl(record.icon192, '')
+  const icon512 = normalizeAbsoluteOrRootUrl(record.icon512, '')
+  const maskable192 = normalizeAbsoluteOrRootUrl(record.maskable192, '')
+  const maskable512 = normalizeAbsoluteOrRootUrl(record.maskable512, '')
+  const appleTouchIcon = normalizeAbsoluteOrRootUrl(record.appleTouchIcon, '')
+
+  return Boolean(icon192 && icon512 && maskable192 && maskable512 && appleTouchIcon)
+}
+
 function buildIconVariantsFromRow(row: StoreProfileRow | null): StorePwaIconVariants {
   if (!row) return DEFAULT_ICON_VARIANTS
+
+  if (!hasCompleteStandardIconVariants(row.logo_image_variants)) {
+    return DEFAULT_ICON_VARIANTS
+  }
 
   return {
     icon192: pickLogoVariant(
       row.logo_image_variants,
-      ['icon192', 'pwaIcon192', 'pwa_icon_192'],
+      ['icon192'],
       DEFAULT_ICON_192
     ),
     icon512: pickLogoVariant(
       row.logo_image_variants,
-      ['icon512', 'pwaIcon512', 'pwa_icon_512'],
+      ['icon512'],
       DEFAULT_ICON_512
     ),
     maskable192: pickLogoVariant(
       row.logo_image_variants,
-      ['maskable192', 'pwaMaskable192', 'pwa_maskable_192'],
+      ['maskable192'],
       DEFAULT_MASKABLE_192
     ),
     maskable512: pickLogoVariant(
       row.logo_image_variants,
-      ['maskable512', 'pwaMaskable512', 'pwa_maskable_512'],
+      ['maskable512'],
       DEFAULT_MASKABLE_512
     ),
     appleTouchIcon: pickLogoVariant(
       row.logo_image_variants,
-      ['appleTouchIcon', 'apple_touch_icon', 'appleIcon'],
+      ['appleTouchIcon'],
       DEFAULT_APPLE_ICON
     )
   }
