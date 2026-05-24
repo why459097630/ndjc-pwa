@@ -1,12 +1,6 @@
-import type { Metadata } from 'next'
 import { loadAssemblyFromPublic, mergeAssemblyRuntimeValues } from '@/core/assembly/loader'
 import { AppRoot } from '@/core/runtime/AppRoot'
-import { resolveStorePwaPageMetadata } from '@/pwa/storePwaManifest'
-
-export async function generateMetadata({ params }: { params: Promise<{ storeId: string }> }): Promise<Metadata> {
-  const { storeId } = await params
-  return resolveStorePwaPageMetadata(storeId)
-}
+import { PwaHeadLinks } from './PwaHeadLinks'
 
 export default async function StorePwaPage({ params }: { params: Promise<{ storeId: string }> }) {
   const { storeId } = await params
@@ -16,5 +10,10 @@ export default async function StorePwaPage({ params }: { params: Promise<{ store
     privacyUrl: `/privacy/${encodeURIComponent(storeId)}`
   })
 
-  return <AppRoot assembly={runtimeAssembly} />
+  return (
+    <>
+      <PwaHeadLinks storeId={storeId} />
+      <AppRoot assembly={runtimeAssembly} />
+    </>
+  )
 }

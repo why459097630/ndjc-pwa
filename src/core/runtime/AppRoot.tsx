@@ -13,8 +13,74 @@ import {
   type ShowcaseNotificationPermissionState,
   type ShowcaseNotificationRegistrationState
 } from '@/features/feature-showcase-web/showcasePushRegistrationService'
+import type { ShowcasePwaInstallState } from '@/ui-packs/ui-pack-showcase-greenpink-web/ShowcaseUiRenderer'
+
+type NdjcBeforeInstallPromptChoice = {
+  outcome: 'accepted' | 'dismissed'
+  platform: string
+}
+
+type NdjcBeforeInstallPromptEvent = Event & {
+  prompt: () => Promise<void>
+  userChoice: Promise<NdjcBeforeInstallPromptChoice>
+}
 
 const LOCAL_FALLBACK_STORE_ID = 'store_showcase_trial_000001'
+
+function isShowcaseRunningStandalone(): boolean {
+  if (typeof window === 'undefined') return false
+
+  const navigatorWithStandalone = window.navigator as Navigator & {
+    standalone?: boolean
+  }
+
+  return (
+    window.matchMedia('(display-mode: standalone)').matches ||
+    navigatorWithStandalone.standalone === true
+  )
+}
+
+function isShowcaseIosDevice(): boolean {
+  if (typeof window === 'undefined') return false
+
+  const userAgent = window.navigator.userAgent || ''
+  const platform = window.navigator.platform || ''
+  const maxTouchPoints = window.navigator.maxTouchPoints || 0
+
+  return (
+    /iPad|iPhone|iPod/i.test(userAgent) ||
+    (platform === 'MacIntel' && maxTouchPoints > 1)
+  )
+}
+
+function isShowcaseSafariBrowser(): boolean {
+  if (typeof window === 'undefined') return false
+
+  const userAgent = window.navigator.userAgent || ''
+
+  return (
+    /Safari/i.test(userAgent) &&
+    !/Chrome|Chromium|CriOS|FxiOS|EdgiOS|OPiOS|DuckDuckGo/i.test(userAgent)
+  )
+}
+
+function inspectShowcasePwaInstallState(hasInstallPrompt: boolean): ShowcasePwaInstallState {
+  if (typeof window === 'undefined') return 'unknown'
+
+  if (isShowcaseRunningStandalone()) {
+    return 'installed'
+  }
+
+  if (hasInstallPrompt) {
+    return 'available'
+  }
+
+  if (isShowcaseIosDevice()) {
+    return isShowcaseSafariBrowser() ? 'manual-ios' : 'manual-safari-required'
+  }
+
+  return 'unsupported'
+}
 
 function normalizeStoreId(value: unknown): string | null {
   const text = String(value ?? '').trim()
@@ -58,6 +124,9 @@ export function AppRoot({ assembly }: { assembly: Assembly }) {
   const [notificationPermissionState, setNotificationPermissionState] = useState<ShowcaseNotificationPermissionState>('default')
   const [notificationRegistrationState, setNotificationRegistrationState] = useState<ShowcaseNotificationRegistrationState>('idle')
   const [notificationDisplayScreen, setNotificationDisplayScreen] = useState('')
+  const [pwaInstallPromptEvent, setPwaInstallPromptEvent] = useState<NdjcBeforeInstallPromptEvent | null>(null)
+  const [pwaInstallState, setPwaInstallState] = useState<ShowcasePwaInstallState>('unknown')
+  const [pwaInstallBusy, setPwaInstallBusy] = useState(false)
 
   useEffect(() => {
     if (typeof window === 'undefined') return
@@ -67,6 +136,34 @@ export function AppRoot({ assembly }: { assembly: Assembly }) {
     setNotificationPermissionState(inspected.permissionState)
     setNotificationOptInVisible(true)
     setNotificationOptInMessageCode(inspected.messageCode)
+  }, [])
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+
+    setPwaInstallState(inspectShowcasePwaInstallState(false))
+
+    const handleBeforeInstallPrompt = (event: Event) => {
+      event.preventDefault()
+      const installPromptEvent = event as NdjcBeforeInstallPromptEvent
+
+      setPwaInstallPromptEvent(installPromptEvent)
+      setPwaInstallState(inspectShowcasePwaInstallState(true))
+    }
+
+    const handleAppInstalled = () => {
+      setPwaInstallPromptEvent(null)
+      setPwaInstallBusy(false)
+      setPwaInstallState('installed')
+    }
+
+    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt)
+    window.addEventListener('appinstalled', handleAppInstalled)
+
+    return () => {
+      window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt)
+      window.removeEventListener('appinstalled', handleAppInstalled)
+    }
   }, [])
 
   useEffect(() => {
@@ -171,6 +268,30 @@ export function AppRoot({ assembly }: { assembly: Assembly }) {
     void registerPushDeviceForCurrentStore('startup')
   }, [runtimeStoreId])
 
+  async function promptInstallCurrentPwa(): Promise<void> {
+    if (!pwaInstallPromptEvent) {
+      setPwaInstallState(inspectShowcasePwaInstallState(false))
+      return
+    }
+
+    setPwaInstallBusy(true)
+
+    try {
+      await pwaInstallPromptEvent.prompt()
+      const choice = await pwaInstallPromptEvent.userChoice
+
+      setPwaInstallPromptEvent(null)
+
+      if (choice.outcome === 'accepted') {
+        setPwaInstallState('installed')
+      } else {
+        setPwaInstallState(inspectShowcasePwaInstallState(false))
+      }
+    } finally {
+      setPwaInstallBusy(false)
+    }
+  }
+
   return (
     <>
       {pwaUpdateRegistration && !pwaUpdateDismissed
@@ -194,8 +315,13 @@ export function AppRoot({ assembly }: { assembly: Assembly }) {
             permissionState: notificationPermissionState,
             registrationState: notificationRegistrationState,
             messageCode: notificationOptInMessageCode,
+            installState: pwaInstallState,
+            installBusy: pwaInstallBusy,
             onRegister: () => {
               void registerPushDeviceForCurrentStore('manual')
+            },
+            onInstall: () => {
+              void promptInstallCurrentPwa()
             }
           })
         : null}

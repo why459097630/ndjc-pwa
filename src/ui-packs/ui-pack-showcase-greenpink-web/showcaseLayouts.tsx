@@ -2,6 +2,7 @@
 
 import React from 'react'
 import { createPortal } from 'react-dom'
+import type { ShowcasePwaInstallState } from './ShowcaseUiRenderer'
 import type {
   ShowcaseNotificationMessageCode,
   ShowcaseNotificationPermissionState,
@@ -6974,7 +6975,10 @@ export function NdjcNotificationOptInPanel({
   permissionState,
   registrationState,
   messageCode,
-  onRegister
+  installState,
+  installBusy,
+  onRegister,
+  onInstall
 }: {
   open: boolean
   busy: boolean
@@ -6982,7 +6986,10 @@ export function NdjcNotificationOptInPanel({
   permissionState: ShowcaseNotificationPermissionState
   registrationState: ShowcaseNotificationRegistrationState
   messageCode: ShowcaseNotificationMessageCode
+  installState: ShowcasePwaInstallState
+  installBusy: boolean
   onRegister: () => void
+  onInstall: () => void
 }) {
   const messageText = notificationOptInMessageText(messageCode)
   const blocked = permissionState === 'denied'
@@ -7026,16 +7033,42 @@ export function NdjcNotificationOptInPanel({
           : ready
             ? 'Turn on'
             : 'Enable'
+  const installAvailable = installState === 'available'
+  const installManualIos = installState === 'manual-ios'
+  const installSafariRequired = installState === 'manual-safari-required'
+  const installInstalled = installState === 'installed'
+  const installStatusLabel = installInstalled
+    ? 'Installed'
+    : installAvailable
+      ? 'Available'
+      : installManualIos
+        ? 'Manual setup'
+        : installSafariRequired
+          ? 'Safari required'
+          : 'Not available'
+  const installTitle = installInstalled
+    ? 'Added to Home Screen'
+    : 'Add to Home Screen'
+  const installDescription = installInstalled
+    ? 'This app is already available from your home screen.'
+    : installAvailable
+      ? 'Install this app for faster access from your device.'
+      : installManualIos
+        ? 'In Safari, tap Share, then Add to Home Screen.'
+        : installSafariRequired
+          ? 'Open this page in Safari, then tap Share and Add to Home Screen.'
+          : 'Your browser may show install options from its menu.'
+  const installActionLabel = installBusy ? 'Opening...' : 'Install App'
 
   return (
     <div
       aria-hidden={!open}
       style={{
         position: 'fixed',
-        left: 'calc(50vw + min(50vw, 240px) - min(220px, calc(100vw - 32px)) - 16px)',
+        left: 'calc(50vw + min(50vw, 240px) - min(280px, calc(100vw - 32px)) - 16px)',
         bottom: open ? 'calc(121px + env(safe-area-inset-bottom))' : -1000,
         zIndex: 999999,
-        width: 'min(220px, calc(100vw - 32px))',
+        width: 'min(280px, calc(100vw - 32px))',
         pointerEvents: open ? 'auto' : 'none',
         transition: 'bottom 180ms ease, opacity 160ms ease, transform 160ms ease',
         opacity: open ? 1 : 0,
@@ -7080,9 +7113,60 @@ export function NdjcNotificationOptInPanel({
         <div
           style={{
             display: 'grid',
-            gap: 8
+            gap: 10
           }}
         >
+          <div
+            style={{
+              display: 'grid',
+              gap: 2
+            }}
+          >
+            <h2
+              style={{
+                margin: 0,
+                color: '#111827',
+                fontSize: 16,
+                lineHeight: 1.18,
+                fontWeight: 900,
+                letterSpacing: '-0.02em'
+              }}
+            >
+              App setup
+            </h2>
+            <p
+              style={{
+                margin: 0,
+                color: 'rgba(17, 24, 39, 0.58)',
+                fontSize: 11,
+                lineHeight: 1.35,
+                fontWeight: 700
+              }}
+            >
+              Set up alerts and quick access for this app.
+            </p>
+          </div>
+
+          <div
+            style={{
+              height: 1,
+              background: 'rgba(15, 23, 42, 0.08)'
+            }}
+          />
+
+          <div
+            style={{
+              color: '#64748b',
+              fontSize: 11,
+              lineHeight: 1,
+              fontWeight: 900,
+              letterSpacing: '0.04em',
+              textTransform: 'uppercase'
+            }}
+          >
+            Notifications
+          </div>
+
           <div
             style={{
               display: 'grid',
@@ -7309,6 +7393,218 @@ export function NdjcNotificationOptInPanel({
               </NdjcPrimaryActionButton>
             </div>
           </div>
+
+          <div
+            style={{
+              height: 1,
+              background: 'rgba(15, 23, 42, 0.08)'
+            }}
+          />
+
+          <div
+            style={{
+              color: '#64748b',
+              fontSize: 11,
+              lineHeight: 1,
+              fontWeight: 900,
+              letterSpacing: '0.04em',
+              textTransform: 'uppercase'
+            }}
+          >
+            Home screen
+          </div>
+
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: '30px 1fr',
+              gap: 8,
+              alignItems: 'start'
+            }}
+          >
+            <div
+              aria-hidden="true"
+              style={{
+                width: 32,
+                height: 32,
+                borderRadius: 16,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                background: installInstalled
+                  ? 'linear-gradient(135deg, rgba(236, 253, 245, 0.98), rgba(209, 250, 229, 0.92))'
+                  : installAvailable
+                    ? 'linear-gradient(135deg, rgba(239, 246, 255, 0.98), rgba(219, 234, 254, 0.92))'
+                    : 'linear-gradient(135deg, rgba(248, 250, 252, 0.98), rgba(241, 245, 249, 0.92))',
+                color: installInstalled
+                  ? '#047857'
+                  : installAvailable
+                    ? '#1d4ed8'
+                    : '#475569',
+                boxShadow: installInstalled
+                  ? 'inset 0 0 0 1px rgba(4, 120, 87, 0.14), 0 6px 14px rgba(4, 120, 87, 0.10)'
+                  : installAvailable
+                    ? 'inset 0 0 0 1px rgba(29, 78, 216, 0.14), 0 6px 14px rgba(29, 78, 216, 0.08)'
+                    : 'inset 0 0 0 1px rgba(17, 24, 39, 0.08), 0 6px 14px rgba(15, 23, 42, 0.08)',
+                flexShrink: 0,
+                position: 'relative',
+                marginTop: 1
+              }}
+            >
+              <svg
+                width="17"
+                height="17"
+                viewBox="0 0 24 24"
+                fill="none"
+                aria-hidden="true"
+                focusable="false"
+                style={{
+                  display: 'block'
+                }}
+              >
+                <rect
+                  x="7"
+                  y="2.75"
+                  width="10"
+                  height="18.5"
+                  rx="2.5"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                />
+                <path
+                  d="M10.25 17.75h3.5"
+                  stroke="currentColor"
+                  strokeWidth="1.75"
+                  strokeLinecap="round"
+                />
+                <path
+                  d="M9.5 6.25h5"
+                  stroke="currentColor"
+                  strokeWidth="1.75"
+                  strokeLinecap="round"
+                  opacity="0.6"
+                />
+              </svg>
+
+              {installInstalled ? (
+                <span
+                  aria-hidden="true"
+                  style={{
+                    position: 'absolute',
+                    right: 4,
+                    top: 4,
+                    width: 6,
+                    height: 6,
+                    borderRadius: 999,
+                    background: '#10b981',
+                    boxShadow: '0 0 0 2px rgba(236, 253, 245, 0.98)'
+                  }}
+                />
+              ) : null}
+            </div>
+
+            <div
+              style={{
+                minWidth: 0,
+                display: 'grid',
+                gap: 4
+              }}
+            >
+              <span
+                style={{
+                  width: 'fit-content',
+                  height: 22,
+                  padding: '0 9px',
+                  borderRadius: 999,
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: 6,
+                  background: installInstalled
+                    ? 'rgba(236, 253, 245, 0.92)'
+                    : installAvailable
+                      ? 'rgba(239, 246, 255, 0.92)'
+                      : '#f8fafc',
+                  color: installInstalled
+                    ? '#047857'
+                    : installAvailable
+                      ? '#1d4ed8'
+                      : '#475569',
+                  border: installInstalled
+                    ? '1px solid rgba(4, 120, 87, 0.14)'
+                    : installAvailable
+                      ? '1px solid rgba(29, 78, 216, 0.14)'
+                      : '1px solid rgba(71, 85, 105, 0.14)',
+                  fontSize: 11,
+                  lineHeight: 1,
+                  fontWeight: 900,
+                  whiteSpace: 'nowrap',
+                  flexShrink: 0
+                }}
+              >
+                <span
+                  aria-hidden="true"
+                  style={{
+                    width: 6,
+                    height: 6,
+                    borderRadius: 999,
+                    background: installInstalled
+                      ? '#10b981'
+                      : installAvailable
+                        ? '#3b82f6'
+                        : '#94a3b8',
+                    flexShrink: 0
+                  }}
+                />
+                {installStatusLabel}
+              </span>
+
+              <h2
+                style={{
+                  margin: 0,
+                  color: '#111827',
+                  fontSize: 16,
+                  lineHeight: 1.18,
+                  fontWeight: 900,
+                  letterSpacing: '-0.02em'
+                }}
+              >
+                {installTitle}
+              </h2>
+
+              <p
+                style={{
+                  margin: 0,
+                  color: 'rgba(17, 24, 39, 0.66)',
+                  fontSize: 12,
+                  lineHeight: 1.35,
+                  fontWeight: 600
+                }}
+              >
+                {installDescription}
+              </p>
+            </div>
+          </div>
+
+          {installAvailable ? (
+            <div
+              style={{
+                display: 'flex',
+                justifyContent: 'flex-end'
+              }}
+            >
+              <div style={{ width: 116 }}>
+                <NdjcPrimaryActionButton
+                  className="ndjc-notification-action-button"
+                  onClick={onInstall}
+                  disabled={installBusy}
+                  isLoading={installBusy}
+                >
+                  {installActionLabel}
+                </NdjcPrimaryActionButton>
+              </div>
+            </div>
+          ) : null}
         </div>
       </NdjcWhiteCard>
     </div>
@@ -7330,7 +7626,7 @@ export function NdjcNotificationOptInFloatingButton({
   const blocked = permissionState === 'denied'
   const failed = registrationState === 'failed'
   const hasProblem = failed || blocked
-  const ariaLabel = open ? 'Close notification settings' : 'Open notification settings'
+  const ariaLabel = open ? 'Close app setup' : 'Open app setup'
   const iconTint = APK_SHELL_UI.white
 
   const notificationIcon = open ? (

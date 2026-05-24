@@ -51,7 +51,10 @@ export const GreenpinkShowcaseUiRenderer: ShowcaseUiRenderer = {
     permissionState,
     registrationState,
     messageCode,
-    onRegister
+    installState,
+    installBusy,
+    onRegister,
+    onInstall
   }) => (
     <NdjcNotificationOptInPanel
       open={open}
@@ -60,7 +63,10 @@ export const GreenpinkShowcaseUiRenderer: ShowcaseUiRenderer = {
       permissionState={permissionState}
       registrationState={registrationState}
       messageCode={messageCode}
+      installState={installState}
+      installBusy={installBusy}
       onRegister={onRegister}
+      onInstall={onInstall}
     />
   ),
 

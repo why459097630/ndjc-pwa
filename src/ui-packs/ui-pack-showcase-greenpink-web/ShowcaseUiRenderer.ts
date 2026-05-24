@@ -46,6 +46,14 @@ export type ShowcaseRendererBottomBarTab =
   | 'Favorites'
   | 'Announcements'
 
+export type ShowcasePwaInstallState =
+  | 'unknown'
+  | 'installed'
+  | 'available'
+  | 'manual-ios'
+  | 'manual-safari-required'
+  | 'unsupported'
+
 export type ShowcaseUiRenderer = {
   OfflineStatusBanner: (input: { message?: string | null }) => ReactNode
   PwaUpdateBanner: (input: {
@@ -60,7 +68,10 @@ export type ShowcaseUiRenderer = {
     permissionState: ShowcaseNotificationPermissionState
     registrationState: ShowcaseNotificationRegistrationState
     messageCode: ShowcaseNotificationMessageCode
+    installState: ShowcasePwaInstallState
+    installBusy: boolean
     onRegister: () => void
+    onInstall: () => void
   }) => ReactNode
   NotificationOptInFloatingButton: (input: {
     open: boolean
