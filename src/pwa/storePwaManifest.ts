@@ -1,11 +1,20 @@
 import type { Metadata } from 'next'
 
+type StorePwaIconVariants = {
+  icon192: string
+  icon512: string
+  maskable192: string
+  maskable512: string
+  appleTouchIcon: string
+}
+
 type StorePwaProfile = {
   storeId: string
   appName: string
   shortName: string
   description: string
   iconUrl: string
+  iconVariants: StorePwaIconVariants
   themeColor: string
   backgroundColor: string
 }
@@ -16,6 +25,7 @@ type StoreProfileRow = {
   subtitle?: unknown
   description?: unknown
   logo_url?: unknown
+  logo_image_variants?: unknown
   cover_url?: unknown
   title_i18n?: unknown
   subtitle_i18n?: unknown
@@ -32,6 +42,13 @@ const DEFAULT_ICON_512 = '/icons/icon-512.png'
 const DEFAULT_MASKABLE_192 = '/icons/maskable-192.png'
 const DEFAULT_MASKABLE_512 = '/icons/maskable-512.png'
 const DEFAULT_APPLE_ICON = '/icons/apple-touch-icon.png'
+const DEFAULT_ICON_VARIANTS: StorePwaIconVariants = {
+  icon192: DEFAULT_ICON_192,
+  icon512: DEFAULT_ICON_512,
+  maskable192: DEFAULT_MASKABLE_192,
+  maskable512: DEFAULT_MASKABLE_512,
+  appleTouchIcon: DEFAULT_APPLE_ICON
+}
 const STORE_PROFILES_TABLE = 'store_profiles'
 
 function readEnv(name: string): string {
@@ -92,6 +109,55 @@ function normalizeAbsoluteOrRootUrl(value: unknown, fallback: string): string {
   return fallback
 }
 
+function pickLogoVariant(
+  value: unknown,
+  keys: string[],
+  fallback: string
+): string {
+  if (!value || typeof value !== 'object') return fallback
+
+  const record = value as Record<string, unknown>
+
+  for (const key of keys) {
+    const picked = normalizeAbsoluteOrRootUrl(record[key], '')
+    if (picked) return picked
+  }
+
+  return fallback
+}
+
+function buildIconVariantsFromRow(row: StoreProfileRow | null): StorePwaIconVariants {
+  if (!row) return DEFAULT_ICON_VARIANTS
+
+  return {
+    icon192: pickLogoVariant(
+      row.logo_image_variants,
+      ['icon192', 'pwaIcon192', 'pwa_icon_192'],
+      DEFAULT_ICON_192
+    ),
+    icon512: pickLogoVariant(
+      row.logo_image_variants,
+      ['icon512', 'pwaIcon512', 'pwa_icon_512'],
+      DEFAULT_ICON_512
+    ),
+    maskable192: pickLogoVariant(
+      row.logo_image_variants,
+      ['maskable192', 'pwaMaskable192', 'pwa_maskable_192'],
+      DEFAULT_MASKABLE_192
+    ),
+    maskable512: pickLogoVariant(
+      row.logo_image_variants,
+      ['maskable512', 'pwaMaskable512', 'pwa_maskable_512'],
+      DEFAULT_MASKABLE_512
+    ),
+    appleTouchIcon: pickLogoVariant(
+      row.logo_image_variants,
+      ['appleTouchIcon', 'apple_touch_icon', 'appleIcon'],
+      DEFAULT_APPLE_ICON
+    )
+  }
+}
+
 function normalizeSupabaseBaseUrl(value: string): string {
   return value.replace(/\/+$/, '')
 }
@@ -122,7 +188,7 @@ async function fetchStoreProfileRow(storeId: string): Promise<StoreProfileRow | 
 
   const baseUrl = normalizeSupabaseBaseUrl(supabaseUrl)
   const query = [
-    'select=store_id,title,title_i18n,subtitle,subtitle_i18n,description,description_i18n,logo_url,cover_url',
+    'select=store_id,title,title_i18n,subtitle,subtitle_i18n,description,description_i18n,logo_url,logo_image_variants,cover_url',
     `store_id=eq.${encodeURIComponent(storeId)}`,
     'limit=1'
   ].join('&')
@@ -157,6 +223,7 @@ function buildFallbackProfile(storeIdInput: unknown): StorePwaProfile {
     shortName: DEFAULT_SHORT_NAME,
     description: DEFAULT_DESCRIPTION,
     iconUrl: DEFAULT_ICON_512,
+    iconVariants: DEFAULT_ICON_VARIANTS,
     themeColor: DEFAULT_THEME_COLOR,
     backgroundColor: DEFAULT_BACKGROUND_COLOR
   }
@@ -182,7 +249,8 @@ function buildProfileFromRow(storeIdInput: unknown, row: StoreProfileRow | null)
     DEFAULT_DESCRIPTION
   )
 
-  const iconUrl = normalizeAbsoluteOrRootUrl(row.logo_url, DEFAULT_ICON_512)
+  const iconVariants = buildIconVariantsFromRow(row)
+  const iconUrl = normalizeAbsoluteOrRootUrl(row.logo_url, iconVariants.icon512)
 
   return {
     storeId: normalizeStoreId(row.store_id || storeIdInput),
@@ -190,6 +258,7 @@ function buildProfileFromRow(storeIdInput: unknown, row: StoreProfileRow | null)
     shortName: normalizeShortName(appName),
     description,
     iconUrl,
+    iconVariants,
     themeColor: DEFAULT_THEME_COLOR,
     backgroundColor: DEFAULT_BACKGROUND_COLOR
   }
@@ -210,8 +279,6 @@ export async function resolveStorePwaPageMetadata(storeIdInput: unknown): Promis
   const profile = await resolveStorePwaProfile(storeIdInput)
   const encodedStoreId = encodeStorePathPart(profile.storeId)
   const manifestUrl = `/pwa/${encodedStoreId}/manifest.webmanifest`
-  const iconUrl = profile.iconUrl || DEFAULT_ICON_512
-  const appleIconUrl = profile.iconUrl || DEFAULT_APPLE_ICON
 
   return {
     title: profile.appName,
@@ -221,19 +288,19 @@ export async function resolveStorePwaPageMetadata(storeIdInput: unknown): Promis
     icons: {
       icon: [
         {
-          url: iconUrl,
-          sizes: '512x512',
+          url: profile.iconVariants.icon192,
+          sizes: '192x192',
           type: 'image/png'
         },
         {
-          url: DEFAULT_ICON_192,
-          sizes: '192x192',
+          url: profile.iconVariants.icon512,
+          sizes: '512x512',
           type: 'image/png'
         }
       ],
       apple: [
         {
-          url: appleIconUrl,
+          url: profile.iconVariants.appleTouchIcon,
           sizes: '180x180',
           type: 'image/png'
         }
@@ -268,59 +335,32 @@ export async function buildStorePwaManifest(storeIdInput: unknown) {
   const startUrl = `/pwa/${encodedStoreId}`
   const scope = `/pwa/${encodedStoreId}`
 
-  const icons = profile.iconUrl && profile.iconUrl !== DEFAULT_ICON_512
-    ? [
-        {
-          src: profile.iconUrl,
-          sizes: '512x512',
-          type: 'image/png',
-          purpose: 'any'
-        },
-        {
-          src: DEFAULT_ICON_192,
-          sizes: '192x192',
-          type: 'image/png',
-          purpose: 'any'
-        },
-        {
-          src: DEFAULT_MASKABLE_192,
-          sizes: '192x192',
-          type: 'image/png',
-          purpose: 'maskable'
-        },
-        {
-          src: DEFAULT_MASKABLE_512,
-          sizes: '512x512',
-          type: 'image/png',
-          purpose: 'maskable'
-        }
-      ]
-    : [
-        {
-          src: DEFAULT_ICON_192,
-          sizes: '192x192',
-          type: 'image/png',
-          purpose: 'any'
-        },
-        {
-          src: DEFAULT_ICON_512,
-          sizes: '512x512',
-          type: 'image/png',
-          purpose: 'any'
-        },
-        {
-          src: DEFAULT_MASKABLE_192,
-          sizes: '192x192',
-          type: 'image/png',
-          purpose: 'maskable'
-        },
-        {
-          src: DEFAULT_MASKABLE_512,
-          sizes: '512x512',
-          type: 'image/png',
-          purpose: 'maskable'
-        }
-      ]
+  const icons = [
+    {
+      src: profile.iconVariants.icon192,
+      sizes: '192x192',
+      type: 'image/png',
+      purpose: 'any'
+    },
+    {
+      src: profile.iconVariants.icon512,
+      sizes: '512x512',
+      type: 'image/png',
+      purpose: 'any'
+    },
+    {
+      src: profile.iconVariants.maskable192,
+      sizes: '192x192',
+      type: 'image/png',
+      purpose: 'maskable'
+    },
+    {
+      src: profile.iconVariants.maskable512,
+      sizes: '512x512',
+      type: 'image/png',
+      purpose: 'maskable'
+    }
+  ]
 
   return {
     id: startUrl,
@@ -334,15 +374,6 @@ export async function buildStorePwaManifest(storeIdInput: unknown) {
     background_color: profile.backgroundColor,
     theme_color: profile.themeColor,
     icons,
-    screenshots: [
-      {
-        src: profile.iconUrl || DEFAULT_ICON_512,
-        sizes: '512x512',
-        type: 'image/png',
-        form_factor: 'narrow',
-        label: profile.appName
-      }
-    ],
     shortcuts: [
       {
         name: 'Home',
@@ -351,7 +382,7 @@ export async function buildStorePwaManifest(storeIdInput: unknown) {
         url: startUrl,
         icons: [
           {
-            src: DEFAULT_ICON_192,
+            src: profile.iconVariants.icon192,
             sizes: '192x192',
             type: 'image/png'
           }
