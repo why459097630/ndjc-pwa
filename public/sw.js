@@ -1,5 +1,5 @@
 const NDJC_DEV_KILL_SERVICE_WORKER = false
-const NDJC_SW_VERSION = 'ndjc-pwa-v4'
+const NDJC_SW_VERSION = 'ndjc-pwa-v5'
 const NDJC_STATIC_CACHE = `${NDJC_SW_VERSION}-static`
 const NDJC_NAVIGATION_CACHE = `${NDJC_SW_VERSION}-navigation`
 const NDJC_CACHE_PREFIX = 'ndjc-pwa-'
@@ -7,7 +7,6 @@ const NDJC_OFFLINE_URL = '/offline.html'
 
 const NDJC_APP_SHELL_URLS = [
   NDJC_OFFLINE_URL,
-  '/manifest.webmanifest',
   '/icons/icon-192.png',
   '/icons/icon-512.png',
   '/icons/maskable-192.png',
@@ -50,7 +49,6 @@ function ndjcIsStaticAssetRequest(url) {
   return (
     pathname.startsWith('/_next/static/') ||
     pathname.startsWith('/icons/') ||
-    pathname === '/manifest.webmanifest' ||
     ndjcIsStoreManifestRequest(url) ||
     pathname === NDJC_OFFLINE_URL ||
     pathname === '/favicon.ico'
