@@ -1,10 +1,25 @@
 export type PushRoutePayload = {
   route?: string
   type?: string
+  push_type?: string
+  pushType?: string
+  store_id?: string
   storeId?: string
+  conversation_id?: string
   conversationId?: string
+  announcement_id?: string
   announcementId?: string
+  appointment_id?: string
   appointmentId?: string
+  open_as?: string
+  openAs?: string
+  target_client_id?: string
+  targetClientId?: string
+  sender_client_id?: string
+  senderClientId?: string
+  target_audience?: string
+  targetAudience?: string
+  audience?: string
   [key: string]: unknown
 }
 
@@ -24,9 +39,18 @@ export function dispatchPushRoute(payload: PushRoutePayload) {
 let pushRouteListenerInstalled = false
 
 function handlePushRouteMessage(event: MessageEvent): void {
-  if (event.data?.type === 'NDJC_PUSH_ROUTE') {
-    dispatchPushRoute(event.data.payload || { route: event.data.route })
+  if (event.data?.type !== 'NDJC_PUSH_ROUTE') {
+    return
   }
+
+  const payload = event.data.payload && typeof event.data.payload === 'object'
+    ? event.data.payload
+    : {}
+
+  dispatchPushRoute({
+    ...payload,
+    route: String(event.data.route || payload.route || '').trim()
+  })
 }
 
 export function installPushRouteListener(): () => void {

@@ -401,7 +401,6 @@ const SHOWCASE_LOCAL_TEMP_IMAGES_KEY = 'ndjc_showcase_local_temp_images'
 const SHOWCASE_PENDING_CHAT_CAMERA_KEY = 'ndjc_showcase_pending_chat_camera'
 const NDJC_PWA_DEVICE_INSTALL_ID_STORAGE_KEY = 'ndjc_pwa_device_install_id'
 
-const DEFAULT_STORE_ID = 'store_showcase_trial_000001'
 const DEFAULT_CUSTOMER_NAME = 'Customer'
 const DEFAULT_CHAT_INPUT_PLACEHOLDER = 'Message'
 const DEFAULT_APPOINTMENT_STATUS = 'Pending'
@@ -496,7 +495,12 @@ function getOrCreatePwaDeviceInstallId(): string {
 
 function normalizeStoreId(storeId: string | null | undefined): string {
   const value = String(storeId || '').trim()
-  return value || DEFAULT_STORE_ID
+
+  if (!value) {
+    throw new Error('storeId is required for showcase view model.')
+  }
+
+  return value
 }
 
 function normalizeText(value: unknown, fallback = ''): string {
@@ -3528,7 +3532,7 @@ export function useShowcaseViewModel(input: UseShowcaseViewModelInput = {}): Sho
 
     if (!conversationId) return
 
-    const latestLocalMessages = await chatRepository.listLocal(conversationId)
+    const latestLocalMessages = await chatRepository.listLocal(storeId, conversationId)
     const latestMessages = latestLocalMessages.map(chatEntityToCloudMessage)
 
     setChatMessages(current => mergeChatMessagesForConversation(
@@ -3548,6 +3552,7 @@ export function useShowcaseViewModel(input: UseShowcaseViewModelInput = {}): Sho
     if (!conversationId) return false
 
     const localMessages = await chatRepository.listLocal(
+      storeId,
       conversationId,
       SHOWCASE_PAGE_SIZE.chatMessages,
       0
@@ -4680,6 +4685,10 @@ function backFromAppointments(): void {
     }
 
     setBookingsEntryDotVisible(false)
+
+    if (!isAdminLoggedIn && currentChatRole() !== 'merchant') {
+      void ensurePushRegistration({ audience: 'appointment_client' })
+    }
 
     if (screen === ShowcaseScreens.CustomerBookings) {
       setStatusMessage(appointmentsEnabled
@@ -6199,12 +6208,12 @@ function backFromAppointments(): void {
             continue
           }
 
-          let ok = await repository.deleteDishById(dishId)
+          let ok = await repository.deleteDishById(storeId, dishId)
 
           if (!ok) {
             const retry = await retryMerchantCloudOperationAfterAuthRefresh({
               errorInput: new Error('Cloud delete failed.'),
-              operation: () => repository.deleteDishById(dishId),
+              operation: () => repository.deleteDishById(storeId, dishId),
               isSuccess: value => value
             })
 
@@ -9766,16 +9775,16 @@ function backFromAppointments(): void {
 
       for (const url of imageUrls) {
         if (!isLocalImageUri(url)) {
-          await repository.deleteDishImageByUrl(url)
+          await repository.deleteDishImageByUrl(storeId, url)
         }
       }
 
-      let ok = await repository.deleteDishById(dish.id)
+      let ok = await repository.deleteDishById(storeId, dish.id)
 
       if (!ok) {
         const retry = await retryMerchantCloudOperationAfterAuthRefresh({
           errorInput: new Error('Cloud delete failed.'),
-          operation: () => repository.deleteDishById(dish.id),
+          operation: () => repository.deleteDishById(storeId, dish.id),
           isSuccess: value => value
         })
 
@@ -9923,16 +9932,16 @@ function backFromAppointments(): void {
 
         for (const url of imageUrls) {
           if (!isLocalImageUri(url)) {
-            await repository.deleteDishImageByUrl(url)
+            await repository.deleteDishImageByUrl(storeId, url)
           }
         }
 
-        let ok = await repository.deleteDishById(dish.id)
+        let ok = await repository.deleteDishById(storeId, dish.id)
 
         if (!ok) {
           const retry = await retryMerchantCloudOperationAfterAuthRefresh({
             errorInput: new Error('Cloud delete failed.'),
-            operation: () => repository.deleteDishById(dish.id),
+            operation: () => repository.deleteDishById(storeId, dish.id),
             isSuccess: value => value
           })
 
@@ -10321,7 +10330,7 @@ function backFromAppointments(): void {
     setStoreMerchantSessionFromAuthSession(validSession)
     bindMerchantSessionToRepository(repository)
 
-    let ok = await repository.deleteDishImageByUrl(clean)
+    let ok = await repository.deleteDishImageByUrl(storeId, clean)
 
     if (!ok) {
       const detail = [
@@ -10331,7 +10340,7 @@ function backFromAppointments(): void {
 
       const retry = await retryMerchantCloudOperationAfterAuthRefresh({
         errorInput: new Error(detail || 'Delete image failed.'),
-        operation: () => repository.deleteDishImageByUrl(clean),
+        operation: () => repository.deleteDishImageByUrl(storeId, clean),
         isSuccess: value => value
       })
 
@@ -10540,6 +10549,7 @@ function backFromAppointments(): void {
         pushedConversationId,
         screen,
         activeConversationId: activeChatConversationId,
+        openAs: String(payload.open_as || payload.openAs || '').trim(),
         isCurrentConversationVisible
       })
 
@@ -11672,6 +11682,7 @@ async function uploadChatDraftImageForSend(input: {
       setAppointmentSuccess(null)
       setStatusMessage('Booking request sent. Check the status here.')
 
+      await ensurePushRegistration({ audience: 'appointment_client' })
       await dispatchNewAppointmentPushToMerchant(created)
       await refreshCustomerAppointmentsFromCloud()
     } catch {
@@ -14502,7 +14513,7 @@ async function refreshCustomerAppointmentsFromCloud(
       return
     }
 
-    const localMessages = await chatRepository.listLocal(conversationId)
+    const localMessages = await chatRepository.listLocal(storeId, conversationId)
     const messages = localMessages.map(chatEntityToCloudMessage)
 
     if (
@@ -14586,7 +14597,7 @@ async function refreshCustomerAppointmentsFromCloud(
       return
     }
 
-    const unreadCount = await chatRepository.countUnreadForUserEntry(conversationId)
+    const unreadCount = await chatRepository.countUnreadForUserEntry(storeId, conversationId)
 
     setChatEntryDotVisible(
       screen === ShowcaseScreens.Chat
@@ -14837,7 +14848,7 @@ async function refreshCustomerAppointmentsFromCloud(
 
     const traceId = `VM${Date.now()}_${conversationId.slice(-4)}`
 
-    await chatRepository.markMerchantMessagesRead(conversationId)
+    await chatRepository.markMerchantMessagesRead(storeId, conversationId)
 
     await chatRepository.markMerchantMessagesReadToCloud(
       storeId,
@@ -14846,7 +14857,7 @@ async function refreshCustomerAppointmentsFromCloud(
       traceId
     )
 
-    await chatRepository.markMerchantMessagesRead(conversationId)
+    await chatRepository.markMerchantMessagesRead(storeId, conversationId)
 
     setChatEntryDotVisible(false)
   }
@@ -15221,7 +15232,7 @@ async function refreshCustomerAppointmentsFromCloud(
 
     try {
       const traceId = `VM${Date.now()}_${conversationId.slice(-4)}`
-      const ok = await chatRepository.retryMessageToCloud(messageId, traceId)
+      const ok = await chatRepository.retryMessageToCloud(storeId, messageId, traceId)
 
       await mergeLatestLocalChatMessages(conversationId)
 
@@ -15269,7 +15280,12 @@ async function refreshCustomerAppointmentsFromCloud(
   }
 
   async function ensurePushRegistration(options?: {
-    audience?: 'chat_merchant' | 'chat_client' | 'announcement_subscriber'
+    audience?:
+      | 'chat_merchant'
+      | 'chat_client'
+      | 'announcement_subscriber'
+      | 'appointment_client'
+      | 'appointment_merchant'
     conversationId?: string | null
   }): Promise<boolean> {
     const token = await awaitFcmToken()
@@ -15290,7 +15306,21 @@ async function refreshCustomerAppointmentsFromCloud(
         ? explicitConversationId || activeConversationId
         : audience === 'chat_merchant'
           ? '__merchant__'
-          : '__announcement__'
+          : audience === 'appointment_merchant'
+            ? '__appointment_merchant__'
+            : audience === 'appointment_client'
+              ? '__appointment_client__'
+              : '__announcement__'
+
+    const registrationClientId =
+      audience === 'chat_merchant' || audience === 'appointment_merchant'
+        ? null
+        : clientId
+
+    const registrationMerchantId =
+      audience === 'chat_merchant' || audience === 'appointment_merchant'
+        ? merchantSession?.authUserId || null
+        : null
 
     const deviceInstallId = getOrCreatePwaDeviceInstallId()
 
@@ -15299,7 +15329,8 @@ async function refreshCustomerAppointmentsFromCloud(
       audience,
       token,
       conversationId: registrationConversationId,
-      clientId: audience === 'chat_merchant' ? null : clientId,
+      clientId: registrationClientId,
+      merchantId: registrationMerchantId,
       platform: 'web',
       appVersion: 'pwa',
       deviceInstallId
@@ -15310,7 +15341,8 @@ async function refreshCustomerAppointmentsFromCloud(
         storeId,
         audience,
         conversationId: registrationConversationId,
-        clientId: audience === 'chat_merchant' ? null : clientId,
+        clientId: registrationClientId,
+        merchantId: registrationMerchantId,
         deviceInstallId,
         code: repository.lastUpsertCode,
         body: repository.lastUpsertBody
@@ -15464,11 +15496,15 @@ async function refreshCustomerAppointmentsFromCloud(
       loginName: merchantSession?.loginName || null
     })
 
-    const registered = await ensurePushRegistration({ audience: 'chat_merchant' })
+    const chatRegistered = await ensurePushRegistration({ audience: 'chat_merchant' })
+    const appointmentRegistered = await ensurePushRegistration({ audience: 'appointment_merchant' })
+    const registered = chatRegistered || appointmentRegistered
 
     console.log('[NDJC_PUSH] Register merchant push device result.', {
       reason,
       registered,
+      chatRegistered,
+      appointmentRegistered,
       storeId,
       deviceInstallId: canUseLocalStorage()
         ? window.localStorage.getItem(NDJC_PWA_DEVICE_INSTALL_ID_STORAGE_KEY)
@@ -15496,12 +15532,21 @@ async function refreshCustomerAppointmentsFromCloud(
       conversationId: '__merchant__'
     })
 
-    const unregistered = await repository.unregisterPushDevice({
+    const chatUnregistered = await repository.unregisterPushDevice({
       storeId,
       audience: 'chat_merchant',
       conversationId: '__merchant__',
       deviceInstallId
     })
+
+    const appointmentUnregistered = await repository.unregisterPushDevice({
+      storeId,
+      audience: 'appointment_merchant',
+      conversationId: '__appointment_merchant__',
+      deviceInstallId
+    })
+
+    const unregistered = chatUnregistered || appointmentUnregistered
 
     const merchantKeyPrefix = [
       storeId,
@@ -15644,7 +15689,11 @@ async function refreshCustomerAppointmentsFromCloud(
   } | null {
     const pushType = route.pushType.trim().toLowerCase()
 
-    if (pushType === 'chat' || pushType === 'message') {
+    if (
+      pushType === 'chat' ||
+      pushType === 'message' ||
+      pushType === 'chat_message'
+    ) {
       return {
         type: 'chat',
         conversationId: route.conversationId,
@@ -15660,7 +15709,13 @@ async function refreshCustomerAppointmentsFromCloud(
       }
     }
 
-    if (pushType === 'appointment' || pushType === 'booking' || pushType === 'bookings') {
+    if (
+      pushType === 'appointment' ||
+      pushType === 'booking' ||
+      pushType === 'bookings' ||
+      pushType === 'appointment_created' ||
+      pushType === 'appointment_status'
+    ) {
       return {
         type: 'appointment',
         appointmentId: route.appointmentId,
@@ -15691,7 +15746,7 @@ async function refreshCustomerAppointmentsFromCloud(
     }
 
     if (routeInput.type === 'chat') {
-      if (openAs === 'customer') {
+      if (openAs === 'customer' || openAs === 'client') {
         chatBackTargetRef.current = ShowcaseScreens.Home
         setPreviousScreen(ShowcaseScreens.Home)
         stopMerchantChatListPolling()
@@ -15755,7 +15810,7 @@ async function refreshCustomerAppointmentsFromCloud(
         return
       }
 
-      if (openAs === 'customer') {
+      if (openAs === 'customer' || openAs === 'client') {
         setScreen('CustomerBookings')
         return
       }
@@ -15801,10 +15856,11 @@ async function refreshCustomerAppointmentsFromCloud(
     const pushOk = await repository.dispatchAppointmentPush({
       storeId,
       appointmentId: appointment.id,
-      targetAudience: 'chat_merchant',
+      targetAudience: 'appointment_merchant',
       openAs: 'merchant',
       actor: 'public',
       scopeClientId: appointment.clientId,
+      targetClientId: appointment.clientId,
       title: 'New booking request',
       body,
       bodyPreview: body
@@ -15829,7 +15885,7 @@ async function refreshCustomerAppointmentsFromCloud(
     let pushOk = await repository.dispatchAppointmentPush({
       storeId,
       appointmentId: appointment.id,
-      targetAudience: 'announcement_subscriber',
+      targetAudience: 'appointment_client',
       openAs: 'client',
       targetClientId,
       actor: 'merchant',
@@ -15849,7 +15905,7 @@ async function refreshCustomerAppointmentsFromCloud(
         operation: () => repository.dispatchAppointmentPush({
           storeId,
           appointmentId: appointment.id,
-          targetAudience: 'announcement_subscriber',
+          targetAudience: 'appointment_client',
           openAs: 'client',
           targetClientId,
           actor: 'merchant',
@@ -16420,7 +16476,7 @@ async function sendChatMessage(): Promise<void> {
     const messageId = messageIdInput.trim()
     if (!messageId) return
 
-    await chatRepository.deleteLocalById(messageId)
+    await chatRepository.deleteLocalById(storeId, messageId)
 
     setChatMessages(current => current.filter(message => message.id !== messageId))
     setChatSelectedMessageIds(current => current.filter(id => id !== messageId))
@@ -16719,6 +16775,7 @@ async function sendChatMessage(): Promise<void> {
     if (!conversationId) return []
 
     const localMessages = await chatRepository.listLocal(
+      storeId,
       conversationId,
       SHOWCASE_PAGE_SIZE.chatMessages,
       0
@@ -16745,6 +16802,7 @@ async function sendChatMessage(): Promise<void> {
     })
 
     const syncedLocalMessages = await chatRepository.listLocal(
+      storeId,
       conversationId,
       SHOWCASE_PAGE_SIZE.chatMessages,
       0
@@ -17653,6 +17711,7 @@ async function sendChatMessage(): Promise<void> {
         }
 
         const localResults = await chatRepository.searchLocalMessagesByConversationKeyword(
+          storeId,
           conversationId,
           query,
           limit
@@ -17932,6 +17991,7 @@ async function sendChatMessage(): Promise<void> {
     }
 
     const localMessages = await chatRepository.fetchLocalMediaMessagesByConversation({
+      storeId,
       conversationId,
       limit,
       maxScan: SHOWCASE_PAGE_SIZE.chatMediaMaxLocalScan

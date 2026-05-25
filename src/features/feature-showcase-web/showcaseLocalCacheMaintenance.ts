@@ -94,8 +94,6 @@ type StoreScopedStorageRecord<T> = {
   updatedAt?: number | null
 }
 
-const DEFAULT_STORE_ID = 'store_showcase_trial_000001'
-
 const MAINTENANCE_LAST_RUN_KEY = 'ndjc_showcase_cache_maintenance_last_run'
 const SHOWCASE_LOCAL_TEMP_IMAGES_KEY = 'ndjc_showcase_local_temp_images'
 const SHOWCASE_PENDING_CHAT_CAMERA_KEY = 'ndjc_showcase_pending_chat_camera'
@@ -172,7 +170,12 @@ function canUseLocalStorage(): boolean {
 
 function normalizeStoreId(storeId: string | null | undefined): string {
   const value = String(storeId || '').trim()
-  return value || DEFAULT_STORE_ID
+
+  if (!value) {
+    throw new Error('storeId is required for local cache maintenance.')
+  }
+
+  return value
 }
 
 function normalizeText(value: unknown): string {
@@ -890,7 +893,7 @@ export function pruneShowcaseStoreScopedModelCaches(): number {
 function readStoreScopedStringList(key: string, storeId: string): string[] {
   const normalizedStoreId = normalizeStoreId(storeId)
   const records = readStoreScopedRecords<string[]>(key)
-  const record = records.find(item => normalizeStoreId(item.storeId) === normalizedStoreId)
+  const record = records.find(item => normalizeText(item.storeId) === normalizedStoreId)
 
   if (!record || !Array.isArray(record.value)) return []
 
@@ -904,7 +907,7 @@ function writeStoreScopedStringList(key: string, storeId: string, value: string[
   const records = readStoreScopedRecords<string[]>(key)
   const nextValue = Array.from(new Set(value.map(item => normalizeText(item)).filter(Boolean))).sort()
   const nextRecords = [
-    ...records.filter(item => normalizeStoreId(item.storeId) !== normalizedStoreId),
+    ...records.filter(item => normalizeText(item.storeId) !== normalizedStoreId),
     {
       storeId: normalizedStoreId,
       value: nextValue,

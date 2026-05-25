@@ -5,6 +5,12 @@ export const metadata: Metadata = {
   title: 'NDJC PWA',
   description: 'NDJC generated PWA shell',
   applicationName: 'NDJC PWA',
+  manifest: '/manifest.webmanifest',
+  appleWebApp: {
+    capable: true,
+    title: 'NDJC PWA',
+    statusBarStyle: 'default'
+  },
   formatDetection: {
     telephone: false,
     date: false,
@@ -13,6 +19,10 @@ export const metadata: Metadata = {
     url: false
   },
   other: {
+    'mobile-web-app-capable': 'yes',
+    'apple-mobile-web-app-capable': 'yes',
+    'apple-mobile-web-app-title': 'NDJC PWA',
+    'apple-mobile-web-app-status-bar-style': 'default',
     'msapplication-TileColor': '#ffffff',
     'msapplication-tap-highlight': 'no'
   }

@@ -4,21 +4,32 @@ import {
   updateMerchantLoginName as updateMerchantLoginNameInSession
 } from './showcaseMerchantAuthPreferences'
 
-const LOCAL_FALLBACK_STORE_ID = 'store_showcase_trial_000001'
+const LOCAL_DEVELOPMENT_STORE_ID = 'store_showcase_trial_000001'
 
 function normalizeStoreId(value: unknown): string | null {
   const text = String(value ?? '').trim()
   return text && text.toLowerCase() !== 'null' ? text : null
 }
 
-function resolveDefaultStoreId(): string {
-  return (
-    normalizeStoreId(process.env.NEXT_PUBLIC_APP_DEFAULT_STORE_ID) ||
-    LOCAL_FALLBACK_STORE_ID
-  )
+function canUseDevelopmentDefaultStoreId(): boolean {
+  return process.env.NODE_ENV !== 'production'
 }
 
-let currentStoreIdValue: string = resolveDefaultStoreId()
+function resolveDefaultStoreId(): string | null {
+  const configuredStoreId = normalizeStoreId(process.env.NEXT_PUBLIC_APP_DEFAULT_STORE_ID)
+
+  if (configuredStoreId) {
+    return configuredStoreId
+  }
+
+  if (canUseDevelopmentDefaultStoreId()) {
+    return LOCAL_DEVELOPMENT_STORE_ID
+  }
+
+  return null
+}
+
+let currentStoreIdValue: string | null = resolveDefaultStoreId()
 let merchantAccessTokenValue: string | null = null
 let merchantAuthUserIdValue: string | null = null
 let merchantLoginNameValue: string | null = null
@@ -36,11 +47,17 @@ function normalizeExpiresAt(value: unknown): number | null {
 }
 
 export function currentStoreId(): string {
-  return currentStoreIdValue
+  return currentStoreIdValue || ''
 }
 
 export function setCurrentStoreId(storeId: string): void {
-  currentStoreIdValue = normalizeStoreId(storeId) || resolveDefaultStoreId()
+  const normalizedStoreId = normalizeStoreId(storeId) || resolveDefaultStoreId()
+
+  if (!normalizedStoreId) {
+    throw new Error('storeId is required')
+  }
+
+  currentStoreIdValue = normalizedStoreId
 }
 
 export function requireStoreId(): string {

@@ -386,7 +386,13 @@ function canUseLocalStorage(): boolean {
 }
 
 function normalizeStorageStoreId(storeId: string | null | undefined): string {
-  return String(storeId || '').trim() || 'store_showcase_trial_000001'
+  const value = String(storeId || '').trim()
+
+  if (!value) {
+    throw new Error('storeId is required for store-scoped local storage.')
+  }
+
+  return value
 }
 
 function readStorageJson<T>(key: string, fallback: T): T {

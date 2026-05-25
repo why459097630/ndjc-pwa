@@ -32,7 +32,7 @@ export type ChatLocalDbSnapshot = {
 
 export type ChatLocalUnsubscribe = () => void
 
-export const SHOWCASE_CHAT_DB_VERSION = 9
+export const SHOWCASE_CHAT_DB_VERSION = 10
 
 const SHOWCASE_CHAT_DB_NAME = 'showcase_chat_db'
 const SHOWCASE_CHAT_MESSAGES_KEY = `${SHOWCASE_CHAT_DB_NAME}_chat_messages`
@@ -91,7 +91,7 @@ function normalizeStatus(value: unknown): ShowcaseChatLocalStatus {
   const text = String(value ?? '').trim().toLowerCase()
 
   if (text === 'sending' || text === 'sent' || text === 'failed') {
-    return text
+    return text as ShowcaseChatLocalStatus
   }
 
   return 'sent'
@@ -136,6 +136,16 @@ function normalizeMessageEntity(input: Partial<ChatMessageEntity> | null | undef
     conversationId,
     clientId: String(input.clientId || '').trim()
   }
+}
+
+function isSameChatMessageIdentity(
+  left: Pick<ChatMessageEntity, 'storeId' | 'id'>,
+  right: Pick<ChatMessageEntity, 'storeId' | 'id'>
+): boolean {
+  return (
+    String(left.storeId || '').trim() === String(right.storeId || '').trim() &&
+    String(left.id || '').trim() === String(right.id || '').trim()
+  )
 }
 
 function normalizeThreadMetaEntity(input: Partial<ChatThreadMetaEntity> | null | undefined): ChatThreadMetaEntity | null {
@@ -234,10 +244,26 @@ function createChatIndexedDb(): Promise<IDBDatabase | null> {
       let messagesStore: IDBObjectStore
 
       if (db.objectStoreNames.contains(SHOWCASE_CHAT_MESSAGES_STORE) && transaction) {
-        messagesStore = transaction.objectStore(SHOWCASE_CHAT_MESSAGES_STORE)
+        const existingMessagesStore = transaction.objectStore(SHOWCASE_CHAT_MESSAGES_STORE)
+        const keyPath = existingMessagesStore.keyPath
+        const isStoreScopedMessageKey = (
+          Array.isArray(keyPath) &&
+          keyPath.length === 2 &&
+          keyPath[0] === 'storeId' &&
+          keyPath[1] === 'id'
+        )
+
+        if (isStoreScopedMessageKey) {
+          messagesStore = existingMessagesStore
+        } else {
+          db.deleteObjectStore(SHOWCASE_CHAT_MESSAGES_STORE)
+          messagesStore = db.createObjectStore(SHOWCASE_CHAT_MESSAGES_STORE, {
+            keyPath: ['storeId', 'id']
+          })
+        }
       } else {
         messagesStore = db.createObjectStore(SHOWCASE_CHAT_MESSAGES_STORE, {
-          keyPath: 'id'
+          keyPath: ['storeId', 'id']
         })
       }
 
@@ -249,6 +275,12 @@ function createChatIndexedDb(): Promise<IDBDatabase | null> {
 
       if (!messagesStore.indexNames.contains('storeId')) {
         messagesStore.createIndex('storeId', 'storeId', {
+          unique: false
+        })
+      }
+
+      if (!messagesStore.indexNames.contains('messageId')) {
+        messagesStore.createIndex('messageId', 'id', {
           unique: false
         })
       }
@@ -355,6 +387,47 @@ async function deleteManyFromStore(db: IDBDatabase, storeName: string, keys: IDB
   await transactionDone(transaction)
 }
 
+async function deleteMessagesByStoreScopedIds(
+  db: IDBDatabase,
+  storeIdInput: string,
+  idsInput: string[]
+): Promise<void> {
+  const storeId = String(storeIdInput || '').trim()
+  const ids = new Set(idsInput.map(id => String(id || '').trim()).filter(Boolean))
+
+  if (!storeId || !ids.size) return
+
+  const transaction = db.transaction(SHOWCASE_CHAT_MESSAGES_STORE, 'readwrite')
+  const store = transaction.objectStore(SHOWCASE_CHAT_MESSAGES_STORE)
+  const index = store.index('storeId')
+  const cursorRequest = index.openCursor(IDBKeyRange.only(storeId))
+
+  await new Promise<void>((resolve, reject) => {
+    cursorRequest.onerror = () => {
+      reject(cursorRequest.error || new Error('Failed to delete store scoped chat messages.'))
+    }
+
+    cursorRequest.onsuccess = () => {
+      const cursor = cursorRequest.result
+
+      if (!cursor) {
+        resolve()
+        return
+      }
+
+      const value = cursor.value as ChatMessageEntity | null
+
+      if (value && ids.has(String(value.id || '').trim())) {
+        cursor.delete()
+      }
+
+      cursor.continue()
+    }
+  })
+
+  await transactionDone(transaction)
+}
+
 async function getOneFromStore<T>(db: IDBDatabase, storeName: string, key: IDBValidKey): Promise<T | null> {
   const transaction = db.transaction(storeName, 'readonly')
   const store = transaction.objectStore(storeName)
@@ -393,6 +466,7 @@ async function collectCursorValues<T>(
 
 async function listMessagesByConversationCursor(input: {
   db: IDBDatabase
+  storeId: string
   conversationId: string
   lowerTimeMs: number
   upperTimeMs: number
@@ -401,19 +475,20 @@ async function listMessagesByConversationCursor(input: {
   direction: IDBCursorDirection
   limit: number
 }): Promise<ChatMessageEntity[]> {
+  const storeId = String(input.storeId || '').trim()
   const conversationId = String(input.conversationId || '').trim()
   const lowerTimeMs = Math.max(0, Math.trunc(Number(input.lowerTimeMs) || 0))
   const upperTimeMs = Math.max(0, Math.trunc(Number(input.upperTimeMs) || 0))
   const limit = Math.max(1, Math.min(Math.trunc(Number(input.limit) || 1), 500))
 
-  if (!conversationId || upperTimeMs <= 0 || lowerTimeMs > upperTimeMs) return []
+  if (!storeId || !conversationId || upperTimeMs <= 0 || lowerTimeMs > upperTimeMs) return []
 
   const transaction = input.db.transaction(SHOWCASE_CHAT_MESSAGES_STORE, 'readonly')
   const store = transaction.objectStore(SHOWCASE_CHAT_MESSAGES_STORE)
-  const index = store.index('conversationTime')
+  const index = store.index('storeConversationTime')
   const range = IDBKeyRange.bound(
-    [conversationId, lowerTimeMs],
-    [conversationId, upperTimeMs],
+    [storeId, conversationId, lowerTimeMs],
+    [storeId, conversationId, upperTimeMs],
     input.lowerOpen,
     input.upperOpen
   )
@@ -664,20 +739,25 @@ export class ShowcaseChatLocalDb {
   }
 
   async listLatestByConversation(
+    storeIdInput: string,
     conversationIdInput: string,
     limitInput = 30
   ): Promise<ChatMessageEntity[]> {
     await this.ensureReady()
 
+    const storeId = storeIdInput.trim()
     const conversationId = conversationIdInput.trim()
     const limit = Math.max(1, Math.min(Math.trunc(Number(limitInput) || 30), 300))
 
-    if (!conversationId) return []
+    if (!storeId || !conversationId) return []
 
     const db = await this.openDb()
 
     if (!db) {
-      return sortMessagesDesc(this.readMessages().filter(item => item.conversationId === conversationId))
+      return sortMessagesDesc(this.readMessages().filter(item => (
+        item.storeId === storeId &&
+        item.conversationId === conversationId
+      )))
         .slice(0, limit)
         .sort((left, right) => {
           const byTime = Number(left.timeMs || 0) - Number(right.timeMs || 0)
@@ -688,6 +768,7 @@ export class ShowcaseChatLocalDb {
 
     const result = await listMessagesByConversationCursor({
       db,
+      storeId,
       conversationId,
       lowerTimeMs: 0,
       upperTimeMs: Number.MAX_SAFE_INTEGER,
@@ -699,7 +780,7 @@ export class ShowcaseChatLocalDb {
 
     result.forEach(entity => {
       this.messageCache = [
-        ...this.messageCache.filter(item => item.id !== entity.id),
+        ...this.messageCache.filter(item => !isSameChatMessageIdentity(item, entity)),
         entity
       ]
     })
@@ -707,20 +788,28 @@ export class ShowcaseChatLocalDb {
     return sortMessagesAsc(result)
   }
 
-  async listByConversation(conversationIdInput: string): Promise<ChatMessageEntity[]> {
+  async listByConversation(
+    storeIdInput: string,
+    conversationIdInput: string
+  ): Promise<ChatMessageEntity[]> {
     await this.ensureReady()
 
+    const storeId = storeIdInput.trim()
     const conversationId = conversationIdInput.trim()
-    if (!conversationId) return []
+    if (!storeId || !conversationId) return []
 
     const db = await this.openDb()
 
     if (!db) {
-      return sortMessagesAsc(this.readMessages().filter(item => item.conversationId === conversationId))
+      return sortMessagesAsc(this.readMessages().filter(item => (
+        item.storeId === storeId &&
+        item.conversationId === conversationId
+      )))
     }
 
     const result = await listMessagesByConversationCursor({
       db,
+      storeId,
       conversationId,
       lowerTimeMs: 0,
       upperTimeMs: Number.MAX_SAFE_INTEGER,
@@ -732,7 +821,7 @@ export class ShowcaseChatLocalDb {
 
     result.forEach(entity => {
       this.messageCache = [
-        ...this.messageCache.filter(item => item.id !== entity.id),
+        ...this.messageCache.filter(item => !isSameChatMessageIdentity(item, entity)),
         entity
       ]
     })
@@ -741,17 +830,19 @@ export class ShowcaseChatLocalDb {
   }
 
   async findByConversationMessageId(
+    storeIdInput: string,
     conversationIdInput: string,
     messageIdInput: string
   ): Promise<ChatMessageEntity | null> {
     await this.ensureReady()
 
+    const storeId = storeIdInput.trim()
     const conversationId = conversationIdInput.trim()
     const messageId = messageIdInput.trim()
 
-    if (!conversationId || !messageId) return null
+    if (!storeId || !conversationId || !messageId) return null
 
-    const entity = await this.findById(messageId)
+    const entity = await this.findById(storeId, messageId)
 
     if (!entity || entity.conversationId !== conversationId) return null
 
@@ -759,6 +850,7 @@ export class ShowcaseChatLocalDb {
   }
 
   async listAroundConversationMessage(
+    storeIdInput: string,
     conversationIdInput: string,
     messageIdInput: string,
     beforeLimitInput = 15,
@@ -766,45 +858,49 @@ export class ShowcaseChatLocalDb {
   ): Promise<ChatMessageEntity[]> {
     await this.ensureReady()
 
+    const storeId = storeIdInput.trim()
     const conversationId = conversationIdInput.trim()
     const messageId = messageIdInput.trim()
     const beforeLimit = Math.max(0, Math.min(Math.trunc(Number(beforeLimitInput) || 15), 100))
     const afterLimit = Math.max(0, Math.min(Math.trunc(Number(afterLimitInput) || 15), 100))
 
-    if (!conversationId || !messageId) return []
+    if (!storeId || !conversationId || !messageId) return []
 
-    const target = await this.findByConversationMessageId(conversationId, messageId)
+    const target = await this.findByConversationMessageId(storeId, conversationId, messageId)
 
     if (!target) return []
 
     const older = beforeLimit > 0
-      ? await this.listBeforeTimeByConversation(conversationId, Number(target.timeMs || 0), beforeLimit)
+      ? await this.listBeforeTimeByConversation(storeId, conversationId, Number(target.timeMs || 0), beforeLimit)
       : []
 
     const newer = afterLimit > 0
-      ? await this.listAfterTimeByConversation(conversationId, Number(target.timeMs || 0), afterLimit)
+      ? await this.listAfterTimeByConversation(storeId, conversationId, Number(target.timeMs || 0), afterLimit)
       : []
 
     return sortMessagesAsc([...older, target, ...newer])
   }
 
   async listBeforeTimeByConversation(
+    storeIdInput: string,
     conversationIdInput: string,
     beforeTimeMsInput: number,
     limitInput = 30
   ): Promise<ChatMessageEntity[]> {
     await this.ensureReady()
 
+    const storeId = storeIdInput.trim()
     const conversationId = conversationIdInput.trim()
     const beforeTimeMs = Number(beforeTimeMsInput || 0)
     const limit = Math.max(1, Math.min(Math.trunc(Number(limitInput) || 30), 300))
 
-    if (!conversationId || !Number.isFinite(beforeTimeMs) || beforeTimeMs <= 0) return []
+    if (!storeId || !conversationId || !Number.isFinite(beforeTimeMs) || beforeTimeMs <= 0) return []
 
     const db = await this.openDb()
 
     if (!db) {
       return sortMessagesDesc(this.readMessages().filter(item => (
+        item.storeId === storeId &&
         item.conversationId === conversationId &&
         Number(item.timeMs || 0) < beforeTimeMs
       )))
@@ -818,6 +914,7 @@ export class ShowcaseChatLocalDb {
 
     const result = await listMessagesByConversationCursor({
       db,
+      storeId,
       conversationId,
       lowerTimeMs: 0,
       upperTimeMs: Math.trunc(beforeTimeMs),
@@ -829,7 +926,7 @@ export class ShowcaseChatLocalDb {
 
     result.forEach(entity => {
       this.messageCache = [
-        ...this.messageCache.filter(item => item.id !== entity.id),
+        ...this.messageCache.filter(item => !isSameChatMessageIdentity(item, entity)),
         entity
       ]
     })
@@ -838,22 +935,25 @@ export class ShowcaseChatLocalDb {
   }
 
   async listAfterTimeByConversation(
+    storeIdInput: string,
     conversationIdInput: string,
     afterTimeMsInput: number,
     limitInput = 30
   ): Promise<ChatMessageEntity[]> {
     await this.ensureReady()
 
+    const storeId = storeIdInput.trim()
     const conversationId = conversationIdInput.trim()
     const afterTimeMs = Number(afterTimeMsInput || 0)
     const limit = Math.max(1, Math.min(Math.trunc(Number(limitInput) || 30), 300))
 
-    if (!conversationId || !Number.isFinite(afterTimeMs) || afterTimeMs <= 0) return []
+    if (!storeId || !conversationId || !Number.isFinite(afterTimeMs) || afterTimeMs <= 0) return []
 
     const db = await this.openDb()
 
     if (!db) {
       return sortMessagesAsc(this.readMessages().filter(item => (
+        item.storeId === storeId &&
         item.conversationId === conversationId &&
         Number(item.timeMs || 0) > afterTimeMs
       ))).slice(0, limit)
@@ -861,6 +961,7 @@ export class ShowcaseChatLocalDb {
 
     const result = await listMessagesByConversationCursor({
       db,
+      storeId,
       conversationId,
       lowerTimeMs: Math.trunc(afterTimeMs),
       upperTimeMs: Number.MAX_SAFE_INTEGER,
@@ -872,7 +973,7 @@ export class ShowcaseChatLocalDb {
 
     result.forEach(entity => {
       this.messageCache = [
-        ...this.messageCache.filter(item => item.id !== entity.id),
+        ...this.messageCache.filter(item => !isSameChatMessageIdentity(item, entity)),
         entity
       ]
     })
@@ -881,38 +982,46 @@ export class ShowcaseChatLocalDb {
   }
 
   async searchByConversationKeyword(
+    storeIdInput: string,
     conversationIdInput: string,
     keywordInput: string,
     limitInput = 80
   ): Promise<ChatMessageEntity[]> {
     await this.ensureReady()
 
+    const storeId = storeIdInput.trim()
     const conversationId = conversationIdInput.trim()
     const keyword = keywordInput.trim()
     const limit = Math.max(1, Math.trunc(Number(limitInput) || 80))
 
-    if (!conversationId || !keyword) return []
+    if (!storeId || !conversationId || !keyword) return []
 
     return sortMessagesDesc(this.readMessages().filter(item => (
+      item.storeId === storeId &&
       item.conversationId === conversationId &&
       includesPlainTextKeyword(item.text, keyword)
     ))).slice(0, limit)
   }
 
   async listMediaByConversation(
+    storeIdInput: string,
     conversationIdInput: string,
     limitInput = 80,
     maxScanInput = 500
   ): Promise<ChatMessageEntity[]> {
     await this.ensureReady()
 
+    const storeId = storeIdInput.trim()
     const conversationId = conversationIdInput.trim()
     const limit = Math.max(1, Math.min(Math.trunc(Number(limitInput) || 80), 200))
     const maxScan = Math.max(limit, Math.min(Math.trunc(Number(maxScanInput) || 500), 3000))
 
-    if (!conversationId) return []
+    if (!storeId || !conversationId) return []
 
-    const recentMessages = sortMessagesDesc(this.readMessages().filter(item => item.conversationId === conversationId))
+    const recentMessages = sortMessagesDesc(this.readMessages().filter(item => (
+      item.storeId === storeId &&
+      item.conversationId === conversationId
+    )))
       .slice(0, maxScan)
 
     return recentMessages
@@ -921,11 +1030,12 @@ export class ShowcaseChatLocalDb {
   }
 
   async observeByConversation(
+    storeIdInput: string,
     conversationIdInput: string,
     listener: (items: ChatMessageEntity[]) => void
   ): Promise<ChatLocalUnsubscribe> {
     const emit = async () => {
-      listener(await this.listByConversation(conversationIdInput))
+      listener(await this.listByConversation(storeIdInput, conversationIdInput))
     }
 
     await emit()
@@ -936,11 +1046,12 @@ export class ShowcaseChatLocalDb {
   }
 
   async observeUnread(
+    storeIdInput: string,
     conversationIdInput: string,
     listener: (count: number) => void
   ): Promise<ChatLocalUnsubscribe> {
     const emit = async () => {
-      listener(await this.countUnread(conversationIdInput))
+      listener(await this.countUnread(storeIdInput, conversationIdInput))
     }
 
     await emit()
@@ -955,7 +1066,7 @@ export class ShowcaseChatLocalDb {
     if (!entity) return
 
     this.messageCache = [
-      ...this.messageCache.filter(item => item.id !== entity.id),
+      ...this.messageCache.filter(item => !isSameChatMessageIdentity(item, entity)),
       entity
     ]
 
@@ -981,7 +1092,7 @@ export class ShowcaseChatLocalDb {
     if (!entity) return
 
     this.messageCache = [
-      ...this.messageCache.filter(item => item.id !== entity.id),
+      ...this.messageCache.filter(item => !isSameChatMessageIdentity(item, entity)),
       entity
     ]
 
@@ -1005,40 +1116,42 @@ export class ShowcaseChatLocalDb {
     return sortMessagesDesc(this.readMessages())[0] || null
   }
 
-  async findById(idInput: string): Promise<ChatMessageEntity | null> {
+  async findById(storeIdInput: string, idInput: string): Promise<ChatMessageEntity | null> {
     await this.ensureReady()
 
+    const storeId = storeIdInput.trim()
     const id = idInput.trim()
-    if (!id) return null
+    if (!storeId || !id) return null
 
-    const cached = this.messageCache.find(item => item.id === id)
+    const cached = this.messageCache.find(item => item.storeId === storeId && item.id === id)
     if (cached) return normalizeMessageEntity(cached)
 
     const db = await this.openDb()
     if (!db) return null
 
     const entity = normalizeMessageEntity(
-      await getOneFromStore<ChatMessageEntity>(db, SHOWCASE_CHAT_MESSAGES_STORE, id)
+      await getOneFromStore<ChatMessageEntity>(db, SHOWCASE_CHAT_MESSAGES_STORE, [storeId, id])
     )
 
     if (!entity) return null
 
     this.messageCache = [
-      ...this.messageCache.filter(item => item.id !== entity.id),
+      ...this.messageCache.filter(item => !isSameChatMessageIdentity(item, entity)),
       entity
     ]
 
     return entity
   }
 
-  async updateStatus(idInput: string, statusInput: string): Promise<void> {
+  async updateStatus(storeIdInput: string, idInput: string, statusInput: string): Promise<void> {
     await this.ensureReady()
 
+    const storeId = storeIdInput.trim()
     const id = idInput.trim()
-    if (!id) return
+    if (!storeId || !id) return
 
     const status = normalizeStatus(statusInput)
-    const entity = await this.findById(id)
+    const entity = await this.findById(storeId, id)
 
     if (!entity) return
 
@@ -1048,14 +1161,15 @@ export class ShowcaseChatLocalDb {
     })
   }
 
-  async updateStatusByIds(idsInput: string[], statusInput: string): Promise<void> {
+  async updateStatusByIds(storeIdInput: string, idsInput: string[], statusInput: string): Promise<void> {
     await this.ensureReady()
 
+    const storeId = storeIdInput.trim()
     const ids = Array.from(new Set(idsInput.map(id => id.trim()).filter(Boolean)))
-    if (!ids.length) return
+    if (!storeId || !ids.length) return
 
     const status = normalizeStatus(statusInput)
-    const entities = await Promise.all(ids.map(id => this.findById(id)))
+    const entities = await Promise.all(ids.map(id => this.findById(storeId, id)))
     const updated = entities
       .filter((item): item is ChatMessageEntity => Boolean(item))
       .map(item => ({
@@ -1084,13 +1198,14 @@ export class ShowcaseChatLocalDb {
     await this.deleteByIds(storeId, ids)
   }
 
-  async markAllRead(conversationIdInput: string): Promise<void> {
+  async markAllRead(storeIdInput: string, conversationIdInput: string): Promise<void> {
     await this.ensureReady()
 
+    const storeId = storeIdInput.trim()
     const conversationId = conversationIdInput.trim()
-    if (!conversationId) return
+    if (!storeId || !conversationId) return
 
-    const messages = await this.listByConversation(conversationId)
+    const messages = await this.listByConversation(storeId, conversationId)
     const updated = messages
       .filter(item => item.role === 'client' && !item.isRead)
       .map(item => ({
@@ -1103,13 +1218,14 @@ export class ShowcaseChatLocalDb {
     }
   }
 
-  async markAllOutgoingRead(conversationIdInput: string): Promise<void> {
+  async markAllOutgoingRead(storeIdInput: string, conversationIdInput: string): Promise<void> {
     await this.ensureReady()
 
+    const storeId = storeIdInput.trim()
     const conversationId = conversationIdInput.trim()
-    if (!conversationId) return
+    if (!storeId || !conversationId) return
 
-    const messages = await this.listByConversation(conversationId)
+    const messages = await this.listByConversation(storeId, conversationId)
     const updated = messages
       .filter(item => item.direction === 'out' && !item.isRead)
       .map(item => ({
@@ -1122,13 +1238,14 @@ export class ShowcaseChatLocalDb {
     }
   }
 
-  async markMerchantMessagesRead(conversationIdInput: string): Promise<void> {
+  async markMerchantMessagesRead(storeIdInput: string, conversationIdInput: string): Promise<void> {
     await this.ensureReady()
 
+    const storeId = storeIdInput.trim()
     const conversationId = conversationIdInput.trim()
-    if (!conversationId) return
+    if (!storeId || !conversationId) return
 
-    const messages = await this.listByConversation(conversationId)
+    const messages = await this.listByConversation(storeId, conversationId)
     const updated = messages
       .filter(item => item.role === 'merchant' && !item.isRead)
       .map(item => ({
@@ -1165,26 +1282,30 @@ export class ShowcaseChatLocalDb {
     }
   }
 
-  async countUnread(conversationIdInput: string): Promise<number> {
+  async countUnread(storeIdInput: string, conversationIdInput: string): Promise<number> {
     await this.ensureReady()
 
+    const storeId = storeIdInput.trim()
     const conversationId = conversationIdInput.trim()
-    if (!conversationId) return 0
+    if (!storeId || !conversationId) return 0
 
     return this.readMessages().filter(item => (
+      item.storeId === storeId &&
       item.conversationId === conversationId &&
       item.role === 'client' &&
       !item.isRead
     )).length
   }
 
-  async countUnreadForUserEntry(conversationIdInput: string): Promise<number> {
+  async countUnreadForUserEntry(storeIdInput: string, conversationIdInput: string): Promise<number> {
     await this.ensureReady()
 
+    const storeId = storeIdInput.trim()
     const conversationId = conversationIdInput.trim()
-    if (!conversationId) return 0
+    if (!storeId || !conversationId) return 0
 
     return this.readMessages().filter(item => (
+      item.storeId === storeId &&
       item.conversationId === conversationId &&
       item.role === 'merchant' &&
       !item.isRead
@@ -1250,7 +1371,7 @@ export class ShowcaseChatLocalDb {
 
     result.forEach(entity => {
       this.messageCache = [
-        ...this.messageCache.filter(item => item.id !== entity.id),
+        ...this.messageCache.filter(item => !isSameChatMessageIdentity(item, entity)),
         entity
       ]
     })
@@ -1273,25 +1394,10 @@ export class ShowcaseChatLocalDb {
     })
   }
 
-  async deleteByIds(storeIdOrIds: string | string[], idsInput?: string[]): Promise<void> {
+  async deleteByIds(storeIdInput: string, idsInput: string[]): Promise<void> {
     await this.ensureReady()
 
-    if (Array.isArray(storeIdOrIds)) {
-      const ids = Array.from(new Set(storeIdOrIds.map(id => id.trim()).filter(Boolean)))
-      if (!ids.length) return
-
-      this.messageCache = this.messageCache.filter(item => !ids.includes(item.id))
-
-      const db = await this.openDb()
-      if (db) {
-        await deleteManyFromStore(db, SHOWCASE_CHAT_MESSAGES_STORE, ids)
-      }
-
-      this.notifyMessagesChanged()
-      return
-    }
-
-    const storeId = storeIdOrIds.trim()
+    const storeId = storeIdInput.trim()
     const ids = Array.from(new Set((idsInput || []).map(id => id.trim()).filter(Boolean)))
 
     if (!storeId || !ids.length) return
@@ -1300,33 +1406,35 @@ export class ShowcaseChatLocalDb {
 
     const db = await this.openDb()
     if (db) {
-      await deleteManyFromStore(db, SHOWCASE_CHAT_MESSAGES_STORE, ids)
+      await deleteMessagesByStoreScopedIds(db, storeId, ids)
     }
 
     this.notifyMessagesChanged()
   }
 
-  async deleteById(idInput: string): Promise<void> {
+  async deleteById(storeIdInput: string, idInput: string): Promise<void> {
     await this.ensureReady()
 
+    const storeId = storeIdInput.trim()
     const id = idInput.trim()
-    if (!id) return
+    if (!storeId || !id) return
 
-    await this.deleteByIds([id])
+    await this.deleteByIds(storeId, [id])
   }
 
-  async deleteByConversation(conversationIdInput: string): Promise<void> {
+  async deleteByConversation(storeIdInput: string, conversationIdInput: string): Promise<void> {
     await this.ensureReady()
 
+    const storeId = storeIdInput.trim()
     const conversationId = conversationIdInput.trim()
-    if (!conversationId) return
+    if (!storeId || !conversationId) return
 
-    const messages = await this.listByConversation(conversationId)
+    const messages = await this.listByConversation(storeId, conversationId)
     const ids = messages.map(item => item.id.trim()).filter(Boolean)
 
     if (!ids.length) return
 
-    await this.deleteByIds(ids)
+    await this.deleteByIds(storeId, ids)
   }
 
   async searchByStoreKeyword(

@@ -4,21 +4,14 @@ import {
   SHOWCASE_BUCKETS,
   SHOWCASE_PAGE_SIZE,
   SHOWCASE_TABLES,
-  requestScopeHeaders,
   resolveShowcaseSupabaseAnonKey,
-  resolveShowcaseSupabaseUrl,
-  restUrl as buildShowcaseRestUrl,
-  storageObjectUrl as buildShowcaseStorageObjectUrl,
-  storagePublicObjectUrl as buildShowcaseStoragePublicObjectUrl
+  resolveShowcaseSupabaseUrl
 } from '../showcaseCloudConfig'
+import { StoreScopedCloudClient } from '../showcaseStoreScopedCloudClient'
 import {
   refreshShowcaseAuthSession,
   requireFreshShowcaseAccessToken
 } from '../showcaseAuthSessionManager'
-import {
-  currentStoreId
-} from '../showcaseStoreSession'
-
 export type ChatCloudConfig = {
   base: string
   apiKey: string
@@ -289,6 +282,7 @@ function uploadByteLength(bytes: Blob | ArrayBuffer | Uint8Array | null | undefi
 
 export class ShowcaseChatCloudRepository {
   private readonly logTag: string
+  private readonly scopedCloud: StoreScopedCloudClient
 
   lastChatImageUploadCode: number | null = null
   lastChatImageUploadBody: string | null = null
@@ -299,6 +293,16 @@ export class ShowcaseChatCloudRepository {
     } else {
       this.logTag = options.logTag || 'ChatTrace'
     }
+
+    const base = resolveShowcaseSupabaseUrl().trim().replace(/\/+$/, '')
+    const apiKey = resolveShowcaseSupabaseAnonKey().trim()
+
+    this.scopedCloud = new StoreScopedCloudClient({
+      supabaseUrl: base,
+      supabaseAnonKey: apiKey,
+      edgeFunctionBaseUrl: base,
+      defaultStoreId: null
+    })
   }
 
   private requireConfig(): ChatCloudConfig | null {
@@ -319,7 +323,7 @@ export class ShowcaseChatCloudRepository {
       throw new Error('SUPABASE_URL / SUPABASE_ANON_KEY blank')
     }
 
-    return buildShowcaseRestUrl(cfg.base, trimLeadingSlashes(path))
+    return this.scopedCloud.restUrl(trimLeadingSlashes(path))
   }
 
   private storageObjectUrl(bucket: string, path: string): string {
@@ -328,7 +332,7 @@ export class ShowcaseChatCloudRepository {
       throw new Error('SUPABASE_URL / SUPABASE_ANON_KEY blank')
     }
 
-    return buildShowcaseStorageObjectUrl(cfg.base, bucket, path)
+    return this.scopedCloud.storageObjectUrl(bucket, path)
   }
 
   private storagePublicObjectUrl(bucket: string, path: string): string {
@@ -337,7 +341,7 @@ export class ShowcaseChatCloudRepository {
       throw new Error('SUPABASE_URL / SUPABASE_ANON_KEY blank')
     }
 
-    return buildShowcaseStoragePublicObjectUrl(cfg.base, bucket, path)
+    return this.scopedCloud.storagePublicObjectUrl(bucket, path)
   }
 
   private authToken(
@@ -357,32 +361,21 @@ export class ShowcaseChatCloudRepository {
     cfg: ChatCloudConfig,
     merchantAccessToken?: string | null
   ): Headers {
-    const headers = new Headers()
     const token = this.authToken(options.actor, cfg, merchantAccessToken)
 
-    headers.set(ShowcaseCloudHeaders.API_KEY, cfg.apiKey)
-    headers.set(ShowcaseCloudHeaders.AUTHORIZATION, `Bearer ${token}`)
-
-    Object.entries(requestScopeHeaders(options.scopeStoreId, options.scopeClientId || null)).forEach(([key, value]) => {
-      headers.set(key, value)
+    const headers = this.scopedCloud.buildHeaders({
+      authorization: `Bearer ${token}`,
+      prefer: normalizeHeaderValue(options.prefer),
+      contentType: options.method !== 'GET' && options.method !== 'DELETE'
+        ? options.contentType || 'application/json'
+        : null,
+      extraHeaders: options.extraHeaders
     })
 
     headers.set(ShowcaseCloudHeaders.ACCEPT, options.accept || 'application/json')
 
-    if (options.method !== 'GET' && options.method !== 'DELETE') {
-      headers.set(ShowcaseCloudHeaders.CONTENT_TYPE, options.contentType || 'application/json')
-    }
-
-    const prefer = normalizeHeaderValue(options.prefer)
-    if (prefer) {
-      headers.set(ShowcaseCloudHeaders.PREFER_RETURN_REPRESENTATION, prefer)
-    }
-
-    Object.entries(options.extraHeaders || {}).forEach(([key, value]) => {
-      const normalized = normalizeHeaderValue(value)
-      if (normalized) {
-        headers.set(key, normalized)
-      }
+    Object.entries(this.scopedCloud.buildScopeHeaders(options.scopeStoreId, options.scopeClientId || null)).forEach(([key, value]) => {
+      headers.set(key, value)
     })
 
     return headers
@@ -403,24 +396,31 @@ export class ShowcaseChatCloudRepository {
       }
     }
 
-    const headers = this.buildHeaders(options, cfg, merchantAccessToken)
-    const body = byteBodyToFetchBody(options.body)
+    const token = this.authToken(options.actor, cfg, merchantAccessToken)
+    const accept = options.accept || 'application/json'
+    const shouldSendBody = options.method !== 'GET' && options.method !== 'DELETE'
 
     try {
-      const response = await fetch(options.url, {
+      const result = await this.scopedCloud.request(options.url, {
         method: options.method,
-        headers,
-        body: options.method === 'GET' || options.method === 'DELETE' ? null : body,
-        signal: options.signal || undefined
+        authorization: `Bearer ${token}`,
+        prefer: normalizeHeaderValue(options.prefer),
+        contentType: shouldSendBody ? options.contentType || 'application/json' : null,
+        extraHeaders: {
+          ...options.extraHeaders,
+          [ShowcaseCloudHeaders.ACCEPT]: accept
+        },
+        scopeStoreId: options.scopeStoreId,
+        scopeClientId: options.scopeClientId || null,
+        body: shouldSendBody ? options.body || null : null,
+        signal: options.signal || null
       })
 
-      const responseBody = await this.readBody(response)
-
       return {
-        code: response.status,
-        body: responseBody,
-        headers: response.headers,
-        ok: response.ok
+        code: result.code,
+        body: result.body,
+        headers: result.headers,
+        ok: result.code >= 200 && result.code <= 299
       }
     } catch (error) {
       return {
@@ -616,7 +616,7 @@ export class ShowcaseChatCloudRepository {
       return false
     }
 
-    const url = this.buildRestUrl(`${SHOWCASE_TABLES.chatConversations}?on_conflict=conversation_id`)
+    const url = this.buildRestUrl(`${SHOWCASE_TABLES.chatConversations}?on_conflict=store_id,conversation_id`)
     const body = [
       {
         conversation_id: conversationId,
@@ -743,22 +743,29 @@ export class ShowcaseChatCloudRepository {
       .filter((item): item is RelayRow => Boolean(item?.id && item.conversationId && item.storeId))
   }
 
-  async deleteRelay(idsInput: string[], traceId?: string | null): Promise<boolean> {
+  async deleteRelay(
+    storeIdInput: string,
+    idsInput: string[],
+    traceId?: string | null
+  ): Promise<boolean> {
     const tid = this.effectiveTraceId(traceId)
+    const storeId = String(storeIdInput || '').trim()
     const ids = idsInput.map(id => String(id || '').trim()).filter(Boolean)
 
-    if (!ids.length) return true
+    if (!storeId || !ids.length) return true
 
     const inList = ids.join(',')
-    const url = this.buildRestUrl(`${SHOWCASE_TABLES.chatRelay}?id=in.(${encodeFilterValue(inList)})`)
+    const url = this.buildRestUrl(
+      `${SHOWCASE_TABLES.chatRelay}?store_id=eq.${encodeFilterValue(storeId)}&id=in.(${encodeFilterValue(inList)})`
+    )
 
-    console.error(`[${this.logTag}] [${tid}] relay delete REQ url=${url} ids=${ids.length}`)
+    console.error(`[${this.logTag}] [${tid}] relay delete REQ url=${url} store=${storeId} ids=${ids.length}`)
 
     const result = await this.requestRaw({
       url,
       method: 'DELETE',
       actor: ShowcaseCloudAuthActor.MERCHANT,
-      scopeStoreId: currentStoreId(),
+      scopeStoreId: storeId,
       scopeClientId: null
     })
 
@@ -1103,7 +1110,7 @@ export class ShowcaseChatCloudRepository {
     traceId?: string | null
   ): Promise<CloudThreadMetaRow[]> {
     const tid = this.effectiveTraceId(traceId)
-    const storeId = String(storeIdInput || currentStoreId() || '').trim()
+    const storeId = String(storeIdInput || '').trim()
 
     if (!storeId) return []
 
@@ -1154,7 +1161,7 @@ export class ShowcaseChatCloudRepository {
     traceId?: string | null
   ): Promise<boolean> {
     const tid = this.effectiveTraceId(traceId)
-    const storeId = String(storeIdInput || currentStoreId() || '').trim()
+    const storeId = String(storeIdInput || '').trim()
     const conversationId = String(conversationIdInput || '').trim()
 
     if (!storeId || !conversationId) {
@@ -1206,7 +1213,7 @@ export class ShowcaseChatCloudRepository {
     offsetInput = 0
   ): Promise<CloudMsg[]> {
     const tid = this.effectiveTraceId(traceId)
-    const storeId = String(storeIdInput || currentStoreId() || '').trim()
+    const storeId = String(storeIdInput || '').trim()
     const conversationId = String(conversationIdInput || '').trim()
     const clientId = normalizeNullableString(clientIdInput)
     const limit = normalizeLimit(limitInput, SHOWCASE_PAGE_SIZE.chatMessages, 500)
@@ -1265,7 +1272,7 @@ export class ShowcaseChatCloudRepository {
     traceId?: string | null
   ): Promise<CloudMsg | null> {
     const tid = this.effectiveTraceId(traceId)
-    const storeId = String(storeIdInput || currentStoreId() || '').trim()
+    const storeId = String(storeIdInput || '').trim()
     const conversationId = String(conversationIdInput || '').trim()
     const messageId = String(messageIdInput || '').trim()
     const clientId = normalizeNullableString(clientIdInput)
@@ -1323,7 +1330,7 @@ export class ShowcaseChatCloudRepository {
     traceId?: string | null
   ): Promise<CloudMsg[]> {
     const tid = this.effectiveTraceId(traceId)
-    const storeId = String(storeIdInput || currentStoreId() || '').trim()
+    const storeId = String(storeIdInput || '').trim()
     const conversationId = String(conversationIdInput || '').trim()
     const clientId = normalizeNullableString(clientIdInput)
     const timeMs = Number(timeMsInput)
@@ -1383,7 +1390,7 @@ export class ShowcaseChatCloudRepository {
     traceId?: string | null
   ): Promise<CloudMsg[]> {
     const tid = this.effectiveTraceId(traceId)
-    const storeId = String(storeIdInput || currentStoreId() || '').trim()
+    const storeId = String(storeIdInput || '').trim()
     const conversationId = String(conversationIdInput || '').trim()
     const clientId = normalizeNullableString(clientIdInput)
     const timeMs = Number(timeMsInput)
@@ -1443,7 +1450,7 @@ export class ShowcaseChatCloudRepository {
     offsetInput = 0
   ): Promise<CloudMsg[]> {
     const tid = this.effectiveTraceId(traceId)
-    const storeId = String(storeIdInput || currentStoreId() || '').trim()
+    const storeId = String(storeIdInput || '').trim()
     const keyword = String(keywordInput || '').trim()
     const clientId = normalizeNullableString(clientIdInput)
     const limit = normalizeLimit(limitInput, SHOWCASE_PAGE_SIZE.chatSearchResults, 200)
@@ -1509,7 +1516,7 @@ export class ShowcaseChatCloudRepository {
     offsetInput = 0
   ): Promise<CloudMsg[]> {
     const tid = this.effectiveTraceId(traceId)
-    const storeId = String(storeIdInput || currentStoreId() || '').trim()
+    const storeId = String(storeIdInput || '').trim()
     const conversationId = String(conversationIdInput || '').trim()
     const keyword = String(keywordInput || '').trim()
     const clientId = normalizeNullableString(clientIdInput)
@@ -1575,7 +1582,7 @@ export class ShowcaseChatCloudRepository {
     offsetInput = 0
   ): Promise<CloudMsg[]> {
     const tid = this.effectiveTraceId(traceId)
-    const storeId = String(storeIdInput || currentStoreId() || '').trim()
+    const storeId = String(storeIdInput || '').trim()
     const clientId = normalizeNullableString(clientIdInput)
     const limit = normalizeLimit(limitInput, SHOWCASE_PAGE_SIZE.chatMediaItems, 200)
     const offset = Math.max(0, Math.trunc(Number(offsetInput) || 0))
@@ -1639,7 +1646,7 @@ export class ShowcaseChatCloudRepository {
     offsetInput = 0
   ): Promise<CloudMsg[]> {
     const tid = this.effectiveTraceId(traceId)
-    const storeId = String(storeIdInput || currentStoreId() || '').trim()
+    const storeId = String(storeIdInput || '').trim()
     const conversationId = String(conversationIdInput || '').trim()
     const clientId = normalizeNullableString(clientIdInput)
     const limit = normalizeLimit(limitInput, SHOWCASE_PAGE_SIZE.chatMediaItems, 200)
@@ -1699,7 +1706,7 @@ export class ShowcaseChatCloudRepository {
     const tid = this.effectiveTraceId(traceId)
     const id = String(msg.id || '').trim()
     const conversationId = String(msg.conversationId || '').trim()
-    const storeId = String(msg.storeId || currentStoreId() || '').trim()
+    const storeId = String(msg.storeId || '').trim()
     const clientId = String(msg.clientId || '').trim()
 
     if (!id || !conversationId || !storeId || !clientId) {
@@ -1710,7 +1717,7 @@ export class ShowcaseChatCloudRepository {
     const messageText = String(msg.text || '')
     const imageUrls = extractImageUrlsFromChatText(messageText)
     const plainText = extractPlainTextFromChatText(messageText)
-    const url = this.buildRestUrl(`${SHOWCASE_TABLES.chatMessages}?on_conflict=id`)
+    const url = this.buildRestUrl(`${SHOWCASE_TABLES.chatMessages}?on_conflict=store_id,id`)
     const body = [
       {
         id,
@@ -1763,7 +1770,7 @@ export class ShowcaseChatCloudRepository {
     traceId?: string | null
   ): Promise<boolean> {
     const tid = this.effectiveTraceId(traceId)
-    const storeId = String(storeIdInput || currentStoreId() || '').trim()
+    const storeId = String(storeIdInput || '').trim()
     const conversationId = String(conversationIdInput || '').trim()
 
     if (!storeId || !conversationId) {
@@ -1810,7 +1817,7 @@ export class ShowcaseChatCloudRepository {
     traceId?: string | null
   ): Promise<boolean> {
     const tid = this.effectiveTraceId(traceId)
-    const storeId = String(storeIdInput || currentStoreId() || '').trim()
+    const storeId = String(storeIdInput || '').trim()
     const conversationId = String(conversationIdInput || '').trim()
     const clientId = String(clientIdInput || '').trim()
 
@@ -1854,7 +1861,7 @@ export class ShowcaseChatCloudRepository {
     traceId?: string | null
   ): Promise<boolean> {
     const tid = this.effectiveTraceId(traceId)
-    const storeId = String(storeIdInput || currentStoreId() || '').trim()
+    const storeId = String(storeIdInput || '').trim()
     const clientId = String(clientIdInput || '').trim()
 
     if (!storeId) {
@@ -1892,7 +1899,7 @@ export class ShowcaseChatCloudRepository {
 
   async uploadChatImageToPublicUrl(input: ChatImageUploadInput): Promise<string | null> {
     const tid = this.effectiveTraceId(input.traceId)
-    const storeId = String(input.storeId || currentStoreId() || '').trim()
+    const storeId = String(input.storeId || '').trim()
     const conversationId = String(input.conversationId || '').trim()
     const msgId = String(input.msgId || '').trim()
     const clientId = normalizeNullableString(input.clientId)

@@ -4,15 +4,10 @@ import {
   SHOWCASE_EDGE_FUNCTIONS,
   SHOWCASE_PAGE_SIZE,
   SHOWCASE_TABLES,
-  authUrl as buildShowcaseAuthUrl,
-  functionUrl as buildShowcaseFunctionUrl,
-  requestScopeHeaders,
   resolveShowcaseSupabaseAnonKey,
-  resolveShowcaseSupabaseUrl,
-  restUrl as buildShowcaseRestUrl,
-  storageObjectUrl as buildShowcaseStorageObjectUrl,
-  storagePublicObjectUrl as buildShowcaseStoragePublicObjectUrl
+  resolveShowcaseSupabaseUrl
 } from './showcaseCloudConfig'
+import { StoreScopedCloudClient } from './showcaseStoreScopedCloudClient'
 import {
   getFreshShowcaseAccessToken,
   refreshShowcaseAuthSession,
@@ -181,12 +176,20 @@ export type CategoryWriteResult = {
   errorBody: string | null
 }
 
+export type PushDeviceAudience =
+  | 'announcement_subscriber'
+  | 'chat_client'
+  | 'chat_merchant'
+  | 'appointment_client'
+  | 'appointment_merchant'
+
 export type PushDeviceUpsert = {
   storeId: string
-  audience: string
+  audience: PushDeviceAudience | string
   token: string
   conversationId?: string | null
   clientId?: string | null
+  merchantId?: string | null
   platform?: string
   appVersion?: string | null
   deviceInstallId?: string | null
@@ -194,10 +197,11 @@ export type PushDeviceUpsert = {
 
 export type PushDeviceUnregister = {
   storeId: string
-  audience: string
+  audience: PushDeviceAudience | string
   token?: string | null
   conversationId?: string | null
   clientId?: string | null
+  merchantId?: string | null
   deviceInstallId?: string | null
 }
 
@@ -209,12 +213,30 @@ function normalizePushAudience(value: string | null | undefined): string {
   if (audience === 'merchant') return 'chat_merchant'
   if (audience === 'customer') return 'announcement_subscriber'
   if (audience === 'client') return 'chat_client'
+  if (audience === 'appointment') return 'appointment_client'
+  if (audience === 'booking') return 'appointment_client'
+  if (audience === 'booking_client') return 'appointment_client'
+  if (audience === 'appointment_customer') return 'appointment_client'
+  if (audience === 'appointment_merchant') return 'appointment_merchant'
+  if (audience === 'booking_merchant') return 'appointment_merchant'
 
   if (audience === 'chat_merchant') return 'chat_merchant'
   if (audience === 'chat_client') return 'chat_client'
   if (audience === 'announcement_subscriber') return 'announcement_subscriber'
+  if (audience === 'appointment_client') return 'appointment_client'
+  if (audience === 'appointment_merchant') return 'appointment_merchant'
 
   return audience
+}
+
+function isSupportedPushAudience(value: string): value is PushDeviceAudience {
+  return (
+    value === 'announcement_subscriber' ||
+    value === 'chat_client' ||
+    value === 'chat_merchant' ||
+    value === 'appointment_client' ||
+    value === 'appointment_merchant'
+  )
 }
 
 function normalizePushActor(value: string | null | undefined): PushRequestActor {
@@ -349,6 +371,12 @@ function resolveSupabaseAnonKey(explicit?: string | null): string {
   return resolveShowcaseSupabaseAnonKey(explicit)
 }
 
+const LOCAL_DEVELOPMENT_STORE_ID = 'store_showcase_trial_000001'
+
+function canUseDevelopmentDefaultStoreId(): boolean {
+  return process.env.NODE_ENV !== 'production'
+}
+
 function normalizeStoreId(storeId: string | null | undefined, fallback: string | null): string {
   const value = String(storeId || '').trim()
   if (value) return value
@@ -356,7 +384,11 @@ function normalizeStoreId(storeId: string | null | undefined, fallback: string |
   const defaultValue = String(fallback || '').trim()
   if (defaultValue) return defaultValue
 
-  return 'store_showcase_trial_000001'
+  if (canUseDevelopmentDefaultStoreId()) {
+    return LOCAL_DEVELOPMENT_STORE_ID
+  }
+
+  throw new Error('storeId is required for cloud repository operation.')
 }
 
 function ensureLeadingSlash(value: string): string {
@@ -704,6 +736,7 @@ export class ShowcaseCloudRepository {
   private readonly tables: RepositoryTableNames
   private readonly buckets: RepositoryBucketNames
   private readonly edgeFunctions: RepositoryEdgeFunctionNames
+  private readonly scopedCloud: StoreScopedCloudClient
 
   private merchantSession: MerchantAuthSession | null = null
 
@@ -756,6 +789,13 @@ export class ShowcaseCloudRepository {
       ...DEFAULT_EDGE_FUNCTIONS,
       ...(config.edgeFunctions || {})
     }
+
+    this.scopedCloud = new StoreScopedCloudClient({
+      supabaseUrl: this.supabaseUrl,
+      supabaseAnonKey: this.supabaseAnonKey,
+      edgeFunctionBaseUrl: this.edgeFunctionBaseUrl,
+      defaultStoreId: this.defaultStoreId
+    })
   }
 
   private markReadFailure(input: {
@@ -781,31 +821,8 @@ export class ShowcaseCloudRepository {
     this.merchantSession = null
   }
 
-  private requireApiKey(): string {
-    return this.supabaseAnonKey || ''
-  }
-
   private requireStoreId(storeId: string | null | undefined): string {
     return normalizeStoreId(storeId, this.defaultStoreId)
-  }
-
-  private shouldAttachScopeHeaders(url: string): boolean {
-    const text = String(url || '')
-    return (
-      text.includes('/rest/v1/') ||
-      text.includes('/storage/v1/') ||
-      text.includes('/functions/v1/')
-    )
-  }
-
-  private buildScopeHeaders(
-    storeIdInput?: string | null,
-    clientIdInput?: string | null
-  ): Record<string, string> {
-    return requestScopeHeaders(
-      this.requireStoreId(storeIdInput || this.defaultStoreId),
-      clientIdInput || null
-    )
   }
 
   private dishesTable(): string {
@@ -877,23 +894,23 @@ export class ShowcaseCloudRepository {
   }
 
   private restUrl(path: string): string {
-    return buildShowcaseRestUrl(this.supabaseUrl, path)
+    return this.scopedCloud.restUrl(path)
   }
 
   private authUrl(path: string): string {
-    return buildShowcaseAuthUrl(this.supabaseUrl, path)
+    return this.scopedCloud.authUrl(path)
   }
 
   private storageObjectUrl(bucket: string, path: string): string {
-    return buildShowcaseStorageObjectUrl(this.supabaseUrl, bucket, path)
+    return this.scopedCloud.storageObjectUrl(bucket, path)
   }
 
   private storagePublicUrl(bucket: string, path: string): string {
-    return buildShowcaseStoragePublicObjectUrl(this.supabaseUrl, bucket, path)
+    return this.scopedCloud.storagePublicObjectUrl(bucket, path)
   }
 
   private functionUrl(name: string): string {
-    return buildShowcaseFunctionUrl(this.edgeFunctionBaseUrl, name)
+    return this.scopedCloud.functionUrl(name)
   }
 
   private urlEncode(value: string): string {
@@ -908,65 +925,8 @@ export class ShowcaseCloudRepository {
     return encodeURIComponent(`*${value}*`)
   }
 
-  private buildHeaders(options: {
-    authorization?: string | null
-    prefer?: string | null
-    contentType?: string | null
-    scopeHeaders?: Record<string, string | null | undefined>
-    extraHeaders?: Record<string, string | null | undefined>
-  } = {}): Headers {
-    const headers = new Headers()
-
-    const apiKey = this.requireApiKey()
-    if (apiKey) {
-      headers.set('apikey', apiKey)
-      headers.set('Authorization', options.authorization || `Bearer ${apiKey}`)
-    } else if (options.authorization) {
-      headers.set('Authorization', options.authorization)
-    }
-
-    if (options.prefer) {
-      headers.set('Prefer', options.prefer)
-    }
-
-    if (options.contentType !== null) {
-      headers.set('Content-Type', options.contentType || 'application/json')
-    }
-
-    Object.entries(options.scopeHeaders || {}).forEach(([key, value]) => {
-      if (value == null) return
-      headers.set(key, value)
-    })
-
-    Object.entries(options.extraHeaders || {}).forEach(([key, value]) => {
-      if (value == null) return
-      headers.set(key, value)
-    })
-
-    return headers
-  }
-
   private async openConnection(url: string, options: ShowcaseRepositoryRequestOptions = {}): Promise<Response> {
-    const method = options.method || 'GET'
-    const contentType = options.contentType === undefined ? 'application/json' : options.contentType
-    const body = stringifyRequestBody(options.body)
-
-    const scopeHeaders = this.shouldAttachScopeHeaders(url)
-      ? this.buildScopeHeaders(options.scopeStoreId || this.defaultStoreId, options.scopeClientId || null)
-      : {}
-
-    return fetch(url, {
-      method,
-      headers: this.buildHeaders({
-        authorization: options.authorization,
-        prefer: options.prefer,
-        contentType: body == null ? null : contentType,
-        scopeHeaders,
-        extraHeaders: options.extraHeaders
-      }),
-      body,
-      signal: options.signal || undefined
-    })
+    return this.scopedCloud.openConnection(url, options)
   }
 
   private async readResponseBody(response: Response): Promise<string | null> {
@@ -2095,8 +2055,10 @@ async resolveOrCreateCategoryId(storeIdInput: string | null | undefined, categor
     const dishId = String(input.dishId || '').trim()
     if (!dishId) return false
 
-    const deleteUrl = this.restUrl(`${this.dishImagesTable()}?dish_id=${this.encodeEq(dishId)}`)
-    const [deleteCode, deleteBody] = await this.httpAuthDelete(deleteUrl)
+    const deleteUrl = this.restUrl(
+      `${this.dishImagesTable()}?store_id=${this.encodeEq(storeId)}&dish_id=${this.encodeEq(dishId)}`
+    )
+    const [deleteCode, deleteBody] = await this.httpAuthDelete(deleteUrl, storeId)
 
     if (deleteCode < 200 || deleteCode > 299) {
       this.lastDeleteCode = deleteCode
@@ -2125,7 +2087,9 @@ async resolveOrCreateCategoryId(storeIdInput: string | null | undefined, categor
     return insertCode >= 200 && insertCode <= 299
   }
 
-  async deleteDishImageByUrl(imageUrlInput: string): Promise<boolean> {
+  async deleteDishImageByUrl(storeIdInput: string | null | undefined, imageUrlInput: string): Promise<boolean> {
+    const storeId = this.requireStoreId(storeIdInput)
+    const safeStorePathPrefix = `${normalizePathPart(storeId)}/`
     const imageUrl = String(imageUrlInput || '').trim()
     if (!imageUrl) return false
 
@@ -2143,12 +2107,18 @@ async resolveOrCreateCategoryId(storeIdInput: string | null | undefined, categor
 
     const parts = objectPart.split('/').filter(Boolean)
     const bucket = parts.shift()
-    const objectPath = parts.join('/')
+    const objectPath = decodeURIComponent(parts.join('/'))
 
     if (!bucket || !objectPath) return false
 
-    const url = this.storageObjectUrl(decodeURIComponent(bucket), decodeURIComponent(objectPath))
-    const [code, body] = await this.httpDelete(url)
+    if (!objectPath.startsWith(safeStorePathPrefix)) {
+      this.lastDeleteCode = 403
+      this.lastDeleteBody = 'Storage object does not belong to current store.'
+      return false
+    }
+
+    const url = this.storageObjectUrl(decodeURIComponent(bucket), objectPath)
+    const [code, body] = await this.httpAuthDelete(url, storeId)
 
     this.lastDeleteCode = code
     this.lastDeleteBody = body
@@ -2247,15 +2217,20 @@ async resolveOrCreateCategoryId(storeIdInput: string | null | undefined, categor
     return dishId
   }
 
-  async deleteDishById(dishIdInput: string): Promise<boolean> {
+  async deleteDishById(storeIdInput: string | null | undefined, dishIdInput: string): Promise<boolean> {
+    const storeId = this.requireStoreId(storeIdInput)
     const dishId = String(dishIdInput || '').trim()
     if (!dishId) return false
 
-    const imageDeleteUrl = this.restUrl(`${this.dishImagesTable()}?dish_id=${this.encodeEq(dishId)}`)
-    await this.httpAuthDelete(imageDeleteUrl)
+    const imageDeleteUrl = this.restUrl(
+      `${this.dishImagesTable()}?store_id=${this.encodeEq(storeId)}&dish_id=${this.encodeEq(dishId)}`
+    )
+    await this.httpAuthDelete(imageDeleteUrl, storeId)
 
-    const dishDeleteUrl = this.restUrl(`${this.dishesTable()}?id=${this.encodeEq(dishId)}`)
-    const [code, body] = await this.httpAuthDelete(dishDeleteUrl)
+    const dishDeleteUrl = this.restUrl(
+      `${this.dishesTable()}?store_id=${this.encodeEq(storeId)}&id=${this.encodeEq(dishId)}`
+    )
+    const [code, body] = await this.httpAuthDelete(dishDeleteUrl, storeId)
 
     this.lastDeleteCode = code
     this.lastDeleteBody = body
@@ -2291,7 +2266,7 @@ async resolveOrCreateCategoryId(storeIdInput: string | null | undefined, categor
       `${this.categoriesTable()}?store_id=${this.encodeEq(storeId)}&id=${this.encodeEq(categoryId)}`
     )
 
-    const [code, body] = await this.httpAuthDelete(url)
+    const [code, body] = await this.httpAuthDelete(url, storeId)
 
     const ok = code >= 200 && code <= 299
 
@@ -2366,7 +2341,7 @@ async renameCategoryById(input: {
 
     const [code, body] = await this.httpAuthPatch(url, {
       sort_order: sortOrder
-    }, 'return=representation')
+    }, 'return=representation', storeId)
 
     const ok = code >= 200 && code <= 299
 
@@ -2891,7 +2866,7 @@ async updateAppointmentStatus(input: {
   const url = this.restUrl(`${this.appointmentRequestsTable()}?${query}`)
   const [code, body] = await this.httpAuthPatch(url, {
     status
-  }, 'return=representation')
+  }, 'return=representation', storeId)
 
   this.lastUpsertCode = code
   this.lastUpsertBody = body
@@ -3032,7 +3007,7 @@ const legacyQuery = [
       __raw_array__: JSON.stringify(rows)
     }
 
-    const url = this.restUrl(`${this.announcementsTable()}?on_conflict=id&select=*`)
+    const url = this.restUrl(`${this.announcementsTable()}?on_conflict=store_id,id&select=*`)
     let [code, body] = await this.httpAuthPost(
       url,
       rawPayload,
@@ -3068,14 +3043,15 @@ const legacyQuery = [
     return this.parseAnnouncement(row, storeId)
   }
 
-  async deleteAnnouncement(idInput: string): Promise<boolean> {
+  async deleteAnnouncement(storeIdInput: string | null | undefined, idInput: string): Promise<boolean> {
+    const storeId = this.requireStoreId(storeIdInput)
     const id = String(idInput || '').trim()
     if (!id) return false
 
     const url = this.restUrl(
-      `${this.announcementsTable()}?id=${this.encodeEq(id)}&status=${this.encodeEq('draft')}`
+      `${this.announcementsTable()}?store_id=${this.encodeEq(storeId)}&id=${this.encodeEq(id)}&status=${this.encodeEq('draft')}`
     )
-    const [code, body] = await this.httpAuthDelete(url)
+    const [code, body] = await this.httpAuthDelete(url, storeId)
 
     this.lastDeleteCode = code
     this.lastDeleteBody = body
@@ -3094,7 +3070,7 @@ const legacyQuery = [
       `${this.announcementsTable()}?store_id=${this.encodeEq(storeId)}&status=${this.encodeEq('draft')}&id=${encodeURIComponent(inValue)}`
     )
 
-    const [code, body] = await this.httpAuthDelete(url)
+    const [code, body] = await this.httpAuthDelete(url, storeId)
 
     this.lastDeleteCode = code
     this.lastDeleteBody = body
@@ -3222,7 +3198,7 @@ const legacyQuery = [
       __raw_array__: JSON.stringify(rows)
     }
 
-    const url = this.restUrl(`${this.chatConversationsTable()}?on_conflict=conversation_id`)
+    const url = this.restUrl(`${this.chatConversationsTable()}?on_conflict=store_id,conversation_id`)
     const [code, body] = await this.httpPost(
       url,
       payload,
@@ -3280,7 +3256,7 @@ const legacyQuery = [
       __raw_array__: JSON.stringify(rows)
     }
 
-    const createUrl = this.restUrl(`${this.chatConversationsTable()}?on_conflict=conversation_id&select=*`)
+    const createUrl = this.restUrl(`${this.chatConversationsTable()}?on_conflict=store_id,conversation_id&select=*`)
     const [code, body] = await this.httpPost(
       createUrl,
       payload,
@@ -3488,7 +3464,7 @@ const legacyQuery = [
     const conversationId = String(input.conversationId || '').trim()
     if (!conversationId) return false
 
-    const url = this.restUrl(`${this.chatConversationsTable()}?store_id=${this.encodeEq(storeId)}&id=${this.encodeEq(conversationId)}`)
+    const url = this.restUrl(`${this.chatConversationsTable()}?store_id=${this.encodeEq(storeId)}&conversation_id=${this.encodeEq(conversationId)}`)
     const [code, body] = await this.httpAuthPatch(url, {
       pinned: input.pinned,
       updated_at: new Date().toISOString()
@@ -3514,7 +3490,7 @@ const legacyQuery = [
     await this.httpAuthDelete(messagesUrl, storeId)
 
     const threadUrl = this.restUrl(
-      `${this.chatConversationsTable()}?store_id=${this.encodeEq(storeId)}&id=${this.encodeEq(conversationId)}`
+      `${this.chatConversationsTable()}?store_id=${this.encodeEq(storeId)}&conversation_id=${this.encodeEq(conversationId)}`
     )
     const [code, body] = await this.httpAuthDelete(threadUrl, storeId)
 
@@ -3551,41 +3527,76 @@ const legacyQuery = [
     const token = String(input.token || '').trim()
     const audience = normalizePushAudience(input.audience)
     const clientId = String(input.clientId || '').trim()
-    const conversationId = String(input.conversationId || '').trim()
-
-    if (!token || !audience) return false
-
-    const usePublicActor =
-      audience === 'announcement_subscriber' ||
-      audience === 'chat_merchant' ||
-      (audience === 'chat_client' && Boolean(clientId))
-
-    if (audience === 'chat_client' && !clientId) return false
-
-    const nowIso = new Date().toISOString()
+    const merchantId = String(input.merchantId || '').trim()
+    const rawConversationId = String(input.conversationId || '').trim()
     const deviceInstallId = String(input.deviceInstallId || '').trim()
 
-    const payload: Record<string, ShowcaseRepositoryJson> = {
+    if (!token || !isSupportedPushAudience(audience)) return false
+    if (!deviceInstallId) return false
+
+    if ((audience === 'chat_client' || audience === 'appointment_client') && !clientId) {
+      return false
+    }
+
+    if (audience === 'chat_client' && !rawConversationId) {
+      return false
+    }
+
+    const conversationId =
+      rawConversationId ||
+      (audience === 'announcement_subscriber'
+        ? '__announcement__'
+        : audience === 'chat_merchant'
+          ? '__merchant__'
+          : audience === 'appointment_merchant'
+            ? '__appointment_merchant__'
+            : audience === 'appointment_client'
+              ? '__appointment_client__'
+              : null)
+
+    const nowIso = new Date().toISOString()
+
+    const edgePayload: Record<string, ShowcaseRepositoryJson> = {
       action: 'register_push_device',
       store_id: storeId,
       audience,
       token,
       conversation_id: conversationId || null,
       client_id: clientId || null,
+      merchant_id: merchantId || null,
       platform: input.platform || 'web',
       app_version: input.appVersion || null,
-      device_install_id: deviceInstallId || null,
+      device_install_id: deviceInstallId,
       updated_at: nowIso,
-      created_at: nowIso
+      last_seen_at: nowIso
     }
 
-    if (usePublicActor) {
+    const restPayload: Record<string, ShowcaseRepositoryJson> = {
+      store_id: storeId,
+      audience,
+      token,
+      conversation_id: conversationId || null,
+      client_id: clientId || null,
+      merchant_id: merchantId || null,
+      platform: input.platform || 'web',
+      app_version: input.appVersion || null,
+      device_install_id: deviceInstallId,
+      updated_at: nowIso,
+      last_seen_at: nowIso
+    }
+
+    const useEdgeFunctionRegistration =
+      audience === 'announcement_subscriber' ||
+      audience === 'chat_client' ||
+      audience === 'appointment_client'
+
+    if (useEdgeFunctionRegistration) {
       const url = this.functionUrl(this.edgeFunctions.sendPush)
       const scopeClientId = clientId || null
 
       const [code, body] = await this.httpPost(
         url,
-        payload,
+        edgePayload,
         null,
         storeId,
         scopeClientId
@@ -3598,12 +3609,12 @@ const legacyQuery = [
     }
 
     const upsertUrl = this.restUrl(
-      `${this.pushDevicesTable()}?on_conflict=store_id,token,audience,conversation_scope`
+      `${this.pushDevicesTable()}?on_conflict=store_id,device_install_id,audience,conversation_scope`
     )
 
     const [code, body] = await this.httpAuthPost(
       upsertUrl,
-      payload,
+      restPayload,
       'resolution=merge-duplicates,return=minimal',
       storeId
     )
@@ -3620,9 +3631,10 @@ const legacyQuery = [
     const token = String(input.token || '').trim()
     const conversationId = String(input.conversationId || '').trim()
     const clientId = String(input.clientId || '').trim()
+    const merchantId = String(input.merchantId || '').trim()
     const deviceInstallId = String(input.deviceInstallId || '').trim()
 
-    if (!audience) return false
+    if (!isSupportedPushAudience(audience)) return false
     if (!deviceInstallId && !token) return false
 
     const payload: Record<string, ShowcaseRepositoryJson> = {
@@ -3632,6 +3644,7 @@ const legacyQuery = [
       token: token || null,
       conversation_id: conversationId || null,
       client_id: clientId || null,
+      merchant_id: merchantId || null,
       device_install_id: deviceInstallId || null
     }
 
@@ -3686,33 +3699,53 @@ const legacyQuery = [
     senderClientId?: string | null
   }): Promise<boolean> {
     const storeId = this.requireStoreId(input.storeId)
-    const targetAudience = normalizePushAudience(input.targetAudience)
     const senderRole = String(input.senderRole || '').trim().toLowerCase()
     const actor: PushRequestActor = senderRole === 'merchant' ? 'merchant' : 'public'
+    const normalizedTargetAudience = normalizePushAudience(input.targetAudience)
+    const targetAudience = normalizedTargetAudience || (
+      actor === 'merchant'
+        ? 'chat_client'
+        : 'chat_merchant'
+    )
     const openAs = String(input.openAs || '').trim() || (
       targetAudience === 'chat_merchant'
         ? 'merchant'
-        : targetAudience === 'chat_client'
-          ? 'client'
-          : ''
+        : 'client'
     )
     const scopeClientId = actor === 'public'
       ? String(input.senderClientId || input.targetClientId || '').trim()
       : null
 
     return this.dispatchPush({
-      type: 'chat',
-      push_type: 'chat',
-      audience: targetAudience || null,
-      target_audience: targetAudience || null,
+      type: 'chat_message',
+      push_type: 'chat_message',
+      audience: targetAudience,
+      target_audience: targetAudience,
       store_id: storeId,
       conversation_id: input.conversationId,
       title: input.title,
       body: input.body,
+      actor,
       sender_role: input.senderRole,
-      open_as: openAs || null,
+      open_as: openAs,
       target_client_id: input.targetClientId || null,
-      sender_client_id: input.senderClientId || null
+      sender_client_id: input.senderClientId || null,
+      data: {
+        type: 'chat_message',
+        push_type: 'chat_message',
+        store_id: storeId,
+        storeId,
+        conversation_id: input.conversationId,
+        conversationId: input.conversationId,
+        audience: targetAudience,
+        target_audience: targetAudience,
+        open_as: openAs,
+        openAs,
+        target_client_id: input.targetClientId || '',
+        targetClientId: input.targetClientId || '',
+        sender_client_id: input.senderClientId || '',
+        senderClientId: input.senderClientId || ''
+      }
     }, {
       storeId,
       actor,
@@ -3734,25 +3767,50 @@ const legacyQuery = [
   }): Promise<boolean> {
     const storeId = this.requireStoreId(input.storeId)
     const actor = normalizePushActor(input.actor || 'merchant')
-    const targetAudience = normalizePushAudience(input.targetAudience)
+    const pushType = actor === 'public' ? 'appointment_created' : 'appointment_status'
+    const normalizedTargetAudience = normalizePushAudience(input.targetAudience)
+    const targetAudience = normalizedTargetAudience || (
+      actor === 'public'
+        ? 'appointment_merchant'
+        : 'appointment_client'
+    )
+    const openAs = String(input.openAs || '').trim() || (
+      actor === 'public'
+        ? 'merchant'
+        : 'client'
+    )
     const scopeClientId = actor === 'public'
       ? String(input.scopeClientId || input.targetClientId || '').trim()
       : null
 
     return this.dispatchPush({
-      type: 'appointment',
-      push_type: 'appointment',
-      audience: targetAudience || null,
-      target_audience: targetAudience || null,
+      type: pushType,
+      push_type: pushType,
+      audience: targetAudience,
+      target_audience: targetAudience,
       store_id: storeId,
       appointment_id: input.appointmentId,
-      open_as: input.openAs || null,
+      open_as: openAs,
       target_client_id: input.targetClientId || null,
       scope_client_id: input.scopeClientId || null,
       actor,
       title: input.title,
       body: input.body,
-      body_preview: input.bodyPreview || input.body
+      body_preview: input.bodyPreview || input.body,
+      data: {
+        type: pushType,
+        push_type: pushType,
+        store_id: storeId,
+        storeId,
+        appointment_id: input.appointmentId,
+        appointmentId: input.appointmentId,
+        audience: targetAudience,
+        target_audience: targetAudience,
+        open_as: openAs,
+        openAs,
+        target_client_id: input.targetClientId || '',
+        targetClientId: input.targetClientId || ''
+      }
     }, {
       storeId,
       actor,
@@ -3790,11 +3848,27 @@ const legacyQuery = [
 
     return this.dispatchPush({
       type: 'announcement',
+      push_type: 'announcement',
       audience: 'announcement_subscriber',
+      target_audience: 'announcement_subscriber',
       store_id: storeId,
       announcement_id: input.announcementId,
+      actor: 'merchant',
+      open_as: 'client',
       title: 'New announcement',
-      body: bodyPreview
+      body: bodyPreview,
+      data: {
+        type: 'announcement',
+        push_type: 'announcement',
+        store_id: storeId,
+        storeId,
+        announcement_id: input.announcementId,
+        announcementId: input.announcementId,
+        audience: 'announcement_subscriber',
+        target_audience: 'announcement_subscriber',
+        open_as: 'client',
+        openAs: 'client'
+      }
     }, {
       storeId,
       actor: 'merchant',

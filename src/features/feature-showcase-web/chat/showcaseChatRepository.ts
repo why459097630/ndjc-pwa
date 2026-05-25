@@ -341,19 +341,21 @@ export class ShowcaseChatRepository {
   // --------------------
 
   async listLocal(
+    storeIdInput: string,
     conversationId: string,
     limitInput = SHOWCASE_PAGE_SIZE.chatMessages,
     offsetInput = 0
   ): Promise<ChatMessageEntity[]> {
+    const storeId = storeIdInput.trim()
     const id = conversationId.trim()
     const limit = Math.max(1, Math.min(Math.trunc(Number(limitInput) || SHOWCASE_PAGE_SIZE.chatMessages), 300))
     const offset = Math.max(0, Math.trunc(Number(offsetInput) || 0))
 
-    if (!id) return []
+    if (!storeId || !id) return []
 
     if (offset > 0) {
       return this.readMessages()
-        .filter(item => item.conversationId === id)
+        .filter(item => item.storeId === storeId && item.conversationId === id)
         .sort((left, right) => right.timeMs - left.timeMs)
         .slice(offset, offset + limit)
         .sort((left, right) => {
@@ -363,21 +365,23 @@ export class ShowcaseChatRepository {
         })
     }
 
-    return this.localDb.listLatestByConversation(id, limit)
+    return this.localDb.listLatestByConversation(storeId, id, limit)
   }
 
   async listLocalMessagesAroundMessage(input: {
+    storeId: string
     conversationId: string
     messageId: string
     beforeLimit?: number
     afterLimit?: number
   }): Promise<ChatMessagesAroundMessageResult> {
+    const storeId = String(input.storeId || '').trim()
     const conversationId = String(input.conversationId || '').trim()
     const messageId = String(input.messageId || '').trim()
     const beforeLimit = Math.max(0, Math.min(Math.trunc(Number(input.beforeLimit) || 15), 100))
     const afterLimit = Math.max(0, Math.min(Math.trunc(Number(input.afterLimit) || 15), 100))
 
-    if (!conversationId || !messageId) {
+    if (!storeId || !conversationId || !messageId) {
       return {
         messages: [],
         targetMessage: null,
@@ -390,7 +394,7 @@ export class ShowcaseChatRepository {
       }
     }
 
-    const target = await this.localDb.findByConversationMessageId(conversationId, messageId)
+    const target = await this.localDb.findByConversationMessageId(storeId, conversationId, messageId)
 
     if (!target) {
       return {
@@ -406,6 +410,7 @@ export class ShowcaseChatRepository {
     }
 
     const rawMessages = await this.localDb.listAroundConversationMessage(
+      storeId,
       conversationId,
       messageId,
       beforeLimit,
@@ -436,32 +441,36 @@ export class ShowcaseChatRepository {
   }
 
   async listLocalMessagesAfterTime(input: {
+    storeId: string
     conversationId: string
     afterTimeMs: number
     limit?: number
   }): Promise<ChatMessageEntity[]> {
+    const storeId = String(input.storeId || '').trim()
     const conversationId = String(input.conversationId || '').trim()
     const afterTimeMs = Number(input.afterTimeMs || 0)
     const limit = Math.max(1, Math.min(Math.trunc(Number(input.limit) || SHOWCASE_PAGE_SIZE.chatMessages), 100))
 
-    if (!conversationId || !Number.isFinite(afterTimeMs) || afterTimeMs <= 0) return []
+    if (!storeId || !conversationId || !Number.isFinite(afterTimeMs) || afterTimeMs <= 0) return []
 
-    return this.localDb.listAfterTimeByConversation(conversationId, afterTimeMs, limit)
+    return this.localDb.listAfterTimeByConversation(storeId, conversationId, afterTimeMs, limit)
       .then(items => items.filter(item => !this.isMessageLocallyDeleted(item.storeId, item.conversationId, item.id)))
   }
 
   async listLocalMessagesBeforeTime(input: {
+    storeId: string
     conversationId: string
     beforeTimeMs: number
     limit?: number
   }): Promise<ChatMessageEntity[]> {
+    const storeId = String(input.storeId || '').trim()
     const conversationId = String(input.conversationId || '').trim()
     const beforeTimeMs = Number(input.beforeTimeMs || 0)
     const limit = Math.max(1, Math.min(Math.trunc(Number(input.limit) || SHOWCASE_PAGE_SIZE.chatMessages), 100))
 
-    if (!conversationId || !Number.isFinite(beforeTimeMs) || beforeTimeMs <= 0) return []
+    if (!storeId || !conversationId || !Number.isFinite(beforeTimeMs) || beforeTimeMs <= 0) return []
 
-    return this.localDb.listBeforeTimeByConversation(conversationId, beforeTimeMs, limit)
+    return this.localDb.listBeforeTimeByConversation(storeId, conversationId, beforeTimeMs, limit)
       .then(items => items.filter(item => !this.isMessageLocallyDeleted(item.storeId, item.conversationId, item.id)))
   }
 
@@ -474,22 +483,24 @@ export class ShowcaseChatRepository {
     return [snapshot.count, snapshot.latest]
   }
 
-  async findLocalMessageById(idInput: string): Promise<ChatMessageEntity | null> {
+  async findLocalMessageById(storeIdInput: string, idInput: string): Promise<ChatMessageEntity | null> {
+    const storeId = storeIdInput.trim()
     const id = idInput.trim()
-    if (!id) return null
+    if (!storeId || !id) return null
 
-    return this.localDb.findById(id)
+    return this.localDb.findById(storeId, id)
   }
 
-  async updateLocalStatus(idsInput: string[], statusInput: string): Promise<void> {
+  async updateLocalStatus(storeIdInput: string, idsInput: string[], statusInput: string): Promise<void> {
+    const storeId = storeIdInput.trim()
     const ids = idsInput.map(id => id.trim()).filter(Boolean)
-    if (!ids.length) return
+    if (!storeId || !ids.length) return
 
     const status = statusInput === 'sending' || statusInput === 'failed'
       ? statusInput
       : 'sent'
 
-    await this.localDb.updateStatusByIds(ids, status)
+    await this.localDb.updateStatusByIds(storeId, ids, status)
   }
 
   async clearLocal(storeIdInput: string): Promise<void> {
@@ -501,25 +512,28 @@ export class ShowcaseChatRepository {
       this.readDeletedMessageTombstones().filter(item => item.storeId !== storeId)
     )
   }
-  async markAllRead(conversationIdInput: string): Promise<void> {
+  async markAllRead(storeIdInput: string, conversationIdInput: string): Promise<void> {
+    const storeId = storeIdInput.trim()
     const conversationId = conversationIdInput.trim()
-    if (!conversationId) return
+    if (!storeId || !conversationId) return
 
-    await this.localDb.markAllRead(conversationId)
+    await this.localDb.markAllRead(storeId, conversationId)
   }
 
-  async countUnread(conversationIdInput: string): Promise<number> {
+  async countUnread(storeIdInput: string, conversationIdInput: string): Promise<number> {
+    const storeId = storeIdInput.trim()
     const conversationId = conversationIdInput.trim()
-    if (!conversationId) return 0
+    if (!storeId || !conversationId) return 0
 
-    return this.localDb.countUnread(conversationId)
+    return this.localDb.countUnread(storeId, conversationId)
   }
 
-  async countUnreadForUserEntry(conversationIdInput: string): Promise<number> {
+  async countUnreadForUserEntry(storeIdInput: string, conversationIdInput: string): Promise<number> {
+    const storeId = storeIdInput.trim()
     const conversationId = conversationIdInput.trim()
-    if (!conversationId) return 0
+    if (!storeId || !conversationId) return 0
 
-    return this.localDb.countUnreadForUserEntry(conversationId)
+    return this.localDb.countUnreadForUserEntry(storeId, conversationId)
   }
 
   async findLatestConversationIdByStoreAndClient(
@@ -577,46 +591,36 @@ export class ShowcaseChatRepository {
       )
     }
 
-    return this.localDb.countUnread(conversationId)
+    return this.localDb.countUnread(storeId, conversationId)
   }
 
-  async deleteLocalByIds(storeIdOrIds: string | string[], idsInput?: string[]): Promise<void> {
-    if (Array.isArray(storeIdOrIds)) {
-      const ids = Array.from(new Set(storeIdOrIds.map(id => id.trim()).filter(Boolean)))
-      if (!ids.length) return
-
-      const deletedMessages = (await Promise.all(ids.map(id => this.localDb.findById(id))))
-        .filter((item): item is ChatMessageEntity => Boolean(item))
-
-      this.markMessagesLocallyDeleted(deletedMessages)
-      await this.localDb.deleteByIds(ids)
-      return
-    }
-
-    const storeId = storeIdOrIds.trim()
+  async deleteLocalByIds(storeIdInput: string, idsInput: string[]): Promise<void> {
+    const storeId = storeIdInput.trim()
     const ids = Array.from(new Set((idsInput || []).map(id => id.trim()).filter(Boolean)))
 
     if (!storeId || !ids.length) return
 
-    const deletedMessages = (await Promise.all(ids.map(id => this.localDb.findById(id))))
+    const deletedMessages = (await Promise.all(ids.map(id => this.localDb.findById(storeId, id))))
       .filter((item): item is ChatMessageEntity => Boolean(item))
-      .filter(item => item.storeId === storeId)
 
     this.markMessagesLocallyDeleted(deletedMessages)
     await this.localDb.deleteByIds(storeId, ids)
   }
 
-  async deleteLocalById(idInput: string): Promise<void> {
+  async deleteLocalById(storeIdInput: string, idInput: string): Promise<void> {
+    const storeId = storeIdInput.trim()
     const id = idInput.trim()
-    if (!id) return
+    if (!storeId || !id) return
 
-    const deletedMessage = await this.localDb.findById(id)
+    const deletedMessage = await this.localDb.findById(storeId, id)
 
-    if (deletedMessage) {
-      this.markMessagesLocallyDeleted([deletedMessage])
+    if (!deletedMessage) {
+      await this.localDb.deleteById(storeId, id)
+      return
     }
 
-    await this.localDb.deleteById(id)
+    this.markMessagesLocallyDeleted([deletedMessage])
+    await this.localDb.deleteById(storeId, id)
   }
 
   async listLocalByStore(storeIdInput: string): Promise<ChatMessageEntity[]> {
@@ -628,17 +632,19 @@ export class ShowcaseChatRepository {
   }
 
   async searchLocalMessagesByConversationKeyword(
+    storeIdInput: string,
     conversationIdInput: string,
     keywordInput: string,
     limitInput = 80
   ): Promise<ChatMessageEntity[]> {
+    const storeId = storeIdInput.trim()
     const conversationId = conversationIdInput.trim()
     const keyword = keywordInput.trim()
     const limit = Math.max(1, Math.min(Math.trunc(Number(limitInput) || 80), 200))
 
-    if (!conversationId || !keyword) return []
+    if (!storeId || !conversationId || !keyword) return []
 
-    return this.localDb.searchByConversationKeyword(conversationId, keyword, limit)
+    return this.localDb.searchByConversationKeyword(storeId, conversationId, keyword, limit)
       .then(items => items.filter(item => !this.isMessageLocallyDeleted(item.storeId, item.conversationId, item.id)))
   }
 
@@ -675,17 +681,19 @@ export class ShowcaseChatRepository {
   }
 
   async fetchLocalMediaMessagesByConversation(input: {
+    storeId: string
     conversationId: string
     limit?: number
     maxScan?: number
   }): Promise<ChatMessageEntity[]> {
+    const storeId = String(input.storeId || '').trim()
     const conversationId = String(input.conversationId || '').trim()
     const limit = Math.max(1, Math.min(Math.trunc(Number(input.limit) || SHOWCASE_PAGE_SIZE.chatMediaItems), 200))
     const maxScan = Math.max(limit, Math.min(Math.trunc(Number(input.maxScan) || SHOWCASE_PAGE_SIZE.chatMediaMaxLocalScan), 3000))
 
-    if (!conversationId) return []
+    if (!storeId || !conversationId) return []
 
-    return this.localDb.listMediaByConversation(conversationId, limit, maxScan)
+    return this.localDb.listMediaByConversation(storeId, conversationId, limit, maxScan)
       .then(items => items.filter(item => !this.isMessageLocallyDeleted(item.storeId, item.conversationId, item.id)))
   }
 
@@ -1308,8 +1316,7 @@ export class ShowcaseChatRepository {
     const keepAlias = this.normalizeNullableString(oldMeta?.alias)
     const deletedAtMs = Date.now()
 
-    const deletedMessages = (await this.localDb.listByConversation(conversationId))
-      .filter(item => item.storeId === storeId)
+    const deletedMessages = await this.localDb.listByConversation(storeId, conversationId)
 
     this.markMessagesLocallyDeleted(deletedMessages)
     await this.localDb.deleteByIds(storeId, deletedMessages.map(item => item.id))
@@ -1458,6 +1465,7 @@ export class ShowcaseChatRepository {
     }
 
     const localResult = await this.listLocalMessagesAroundMessage({
+      storeId,
       conversationId,
       messageId,
       beforeLimit,
@@ -1514,6 +1522,7 @@ export class ShowcaseChatRepository {
     if (!storeId || !conversationId || !Number.isFinite(afterTimeMs) || afterTimeMs <= 0) return []
 
     const localMessages = await this.listLocalMessagesAfterTime({
+      storeId,
       conversationId,
       afterTimeMs,
       limit
@@ -1572,6 +1581,7 @@ export class ShowcaseChatRepository {
     if (!storeId || !conversationId || !Number.isFinite(beforeTimeMs) || beforeTimeMs <= 0) return []
 
     const localMessages = await this.listLocalMessagesBeforeTime({
+      storeId,
       conversationId,
       beforeTimeMs,
       limit
@@ -1687,18 +1697,20 @@ export class ShowcaseChatRepository {
     return count
   }
 
-  async markAllOutgoingRead(conversationIdInput: string): Promise<void> {
+  async markAllOutgoingRead(storeIdInput: string, conversationIdInput: string): Promise<void> {
+    const storeId = storeIdInput.trim()
     const conversationId = conversationIdInput.trim()
-    if (!conversationId) return
+    if (!storeId || !conversationId) return
 
-    await this.localDb.markAllOutgoingRead(conversationId)
+    await this.localDb.markAllOutgoingRead(storeId, conversationId)
   }
 
-  async markMerchantMessagesRead(conversationIdInput: string): Promise<void> {
+  async markMerchantMessagesRead(storeIdInput: string, conversationIdInput: string): Promise<void> {
+    const storeId = storeIdInput.trim()
     const conversationId = conversationIdInput.trim()
-    if (!conversationId) return
+    if (!storeId || !conversationId) return
 
-    await this.localDb.markMerchantMessagesRead(conversationId)
+    await this.localDb.markMerchantMessagesRead(storeId, conversationId)
   }
 
   async markMerchantMessagesReadByStoreAndClient(
@@ -1723,7 +1735,7 @@ export class ShowcaseChatRepository {
 
     if (!storeId || !conversationId) return false
 
-    await this.markAllRead(conversationId)
+    await this.markAllRead(storeId, conversationId)
 
     if (!this.isChatCloudEnabled() || !this.chatCloud) return false
 
@@ -1746,7 +1758,7 @@ export class ShowcaseChatRepository {
 
     if (!storeId || !conversationId || !clientId) return false
 
-    await this.markMerchantMessagesRead(conversationId)
+    await this.markMerchantMessagesRead(storeId, conversationId)
 
     if (!this.isChatCloudEnabled() || !this.chatCloud) return false
 
@@ -1819,13 +1831,15 @@ export class ShowcaseChatRepository {
   }
 
   async retryMessageToCloud(
+    storeIdInput: string,
     messageIdInput: string,
     traceId?: string | null
   ): Promise<boolean> {
+    const storeId = String(storeIdInput || '').trim()
     const messageId = String(messageIdInput || '').trim()
-    if (!messageId) return false
+    if (!storeId || !messageId) return false
 
-    const entity = await this.localDb.findById(messageId)
+    const entity = await this.localDb.findById(storeId, messageId)
     if (!entity) return false
 
     return this.insertMessageToCloud({

@@ -25,7 +25,9 @@ type NdjcBeforeInstallPromptEvent = Event & {
   userChoice: Promise<NdjcBeforeInstallPromptChoice>
 }
 
-const LOCAL_FALLBACK_STORE_ID = 'store_showcase_trial_000001'
+function canUseDevelopmentDefaultStoreId(): boolean {
+  return process.env.NODE_ENV !== 'production'
+}
 
 function isShowcaseRunningStandalone(): boolean {
   if (typeof window === 'undefined') return false
@@ -88,11 +90,21 @@ function normalizeStoreId(value: unknown): string | null {
 }
 
 function resolveRuntimeStoreId(assemblyStoreId: unknown): string {
-  return (
-    normalizeStoreId(assemblyStoreId) ||
-    normalizeStoreId(process.env.NEXT_PUBLIC_APP_DEFAULT_STORE_ID) ||
-    LOCAL_FALLBACK_STORE_ID
-  )
+  const explicitStoreId = normalizeStoreId(assemblyStoreId)
+
+  if (explicitStoreId) {
+    return explicitStoreId
+  }
+
+  if (canUseDevelopmentDefaultStoreId()) {
+    const developmentStoreId = normalizeStoreId(process.env.NEXT_PUBLIC_APP_DEFAULT_STORE_ID)
+
+    if (developmentStoreId) {
+      return developmentStoreId
+    }
+  }
+
+  throw new Error('storeId is required for PWA runtime.')
 }
 
 const NDJC_SHOWCASE_SCREEN_CHANGE_EVENT = 'ndjc:showcase-screen-change'

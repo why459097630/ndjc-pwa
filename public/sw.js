@@ -304,6 +304,42 @@ function ndjcPayloadConversationId(payload) {
   return ndjcNormalizeText(payload && (payload.conversation_id || payload.conversationId))
 }
 
+function ndjcPayloadStoreId(payload) {
+  return ndjcNormalizeText(payload && (payload.store_id || payload.storeId))
+}
+
+function ndjcPayloadOpenAs(payload) {
+  return ndjcNormalizeText(payload && (payload.open_as || payload.openAs)).toLowerCase()
+}
+
+function ndjcVisibleChatRole(value) {
+  const role = ndjcNormalizeText(value && (value.chat_role || value.chatRole)).toLowerCase()
+
+  if (role === 'merchant') {
+    return 'merchant'
+  }
+
+  if (role === 'client' || role === 'customer' || role === 'user') {
+    return 'client'
+  }
+
+  return ''
+}
+
+function ndjcPushOpenAsRole(payload) {
+  const openAs = ndjcPayloadOpenAs(payload)
+
+  if (openAs === 'merchant') {
+    return 'merchant'
+  }
+
+  if (openAs === 'client' || openAs === 'customer' || openAs === 'user') {
+    return 'client'
+  }
+
+  return ''
+}
+
 function ndjcShouldSuppressVisibleChatNotification(payload) {
   if (!ndjcIsChatPushPayload(payload)) {
     return false
@@ -317,24 +353,26 @@ function ndjcShouldSuppressVisibleChatNotification(payload) {
   ndjcPruneChatVisibility()
 
   const now = ndjcNowMs()
-  const senderClientId = ndjcNormalizeText(payload && (payload.sender_client_id || payload.senderClientId))
+  const pushOpenAsRole = ndjcPushOpenAsRole(payload)
 
   for (const value of ndjcVisibleChatClients.values()) {
     const visibleConversationId = ndjcNormalizeText(value && value.conversation_id)
-    const visibleClientId = ndjcNormalizeText(value && value.client_id)
+    const visibleRole = ndjcVisibleChatRole(value)
     const updatedAt = Number(value && value.updated_at ? value.updated_at : 0)
 
     if (!updatedAt || now - updatedAt > NDJC_CHAT_VISIBILITY_GRACE_MS) {
       continue
     }
 
-    if (visibleConversationId === conversationId) {
-      return true
+    if (visibleConversationId !== conversationId) {
+      continue
     }
 
-    if (senderClientId && visibleClientId && senderClientId === visibleClientId) {
-      return true
+    if (pushOpenAsRole && visibleRole && pushOpenAsRole !== visibleRole) {
+      continue
     }
+
+    return true
   }
 
   return false
@@ -343,7 +381,7 @@ function ndjcShouldSuppressVisibleChatNotification(payload) {
 function ndjcBuildChatPushMessage(payload, title, body) {
   return {
     type: 'NDJC_CHAT_PUSH_RECEIVED',
-    push_type: 'chat',
+    push_type: 'chat_message',
     conversation_id: ndjcPayloadConversationId(payload),
     conversationId: ndjcPayloadConversationId(payload),
     sender_role: ndjcNormalizeText(payload && (payload.sender_role || payload.senderRole)),
@@ -351,6 +389,8 @@ function ndjcBuildChatPushMessage(payload, title, body) {
     target_client_id: ndjcNormalizeText(payload && (payload.target_client_id || payload.targetClientId)),
     target_audience: ndjcNormalizeText(payload && (payload.target_audience || payload.targetAudience || payload.audience)),
     open_as: ndjcNormalizeText(payload && (payload.open_as || payload.openAs)),
+    store_id: ndjcPayloadStoreId(payload),
+    storeId: ndjcPayloadStoreId(payload),
     title: String(title || ''),
     body: String(body || ''),
     payload
@@ -531,9 +571,29 @@ self.addEventListener('push', event => {
   )
 })
 
+function ndjcPushTypeForRoute(payload) {
+  return ndjcNormalizeText(payload && (payload.push_type || payload.pushType || payload.type)).toLowerCase()
+}
+
+function ndjcRouteForPushPayload(payloadInput) {
+  const payload = payloadInput && typeof payloadInput === 'object' ? payloadInput : {}
+  const explicitUrl = ndjcNormalizeText(payload.url)
+  const explicitRoute = ndjcNormalizeText(payload.route)
+
+  if (explicitUrl) {
+    return explicitUrl
+  }
+
+  if (explicitRoute) {
+    return explicitRoute
+  }
+
+  return '/'
+}
+
 function appendPushPayloadToRoute(routeInput, payloadInput) {
   const payload = payloadInput && typeof payloadInput === 'object' ? payloadInput : {}
-  const route = payload.route || routeInput || '/'
+  const route = routeInput || ndjcRouteForPushPayload(payload)
 
   let url
   try {
@@ -542,14 +602,36 @@ function appendPushPayloadToRoute(routeInput, payloadInput) {
     url = new URL('/', self.location.origin)
   }
 
+  const pushType = ndjcPushTypeForRoute(payload)
+  const conversationId = payload.conversation_id || payload.conversationId
+  const announcementId = payload.announcement_id || payload.announcementId
+  const appointmentId = payload.appointment_id || payload.appointmentId
+  const openAs = payload.open_as || payload.openAs
+  const storeId = payload.store_id || payload.storeId
+  const targetClientId = payload.target_client_id || payload.targetClientId
+  const senderClientId = payload.sender_client_id || payload.senderClientId
+  const audience = payload.target_audience || payload.targetAudience || payload.audience
+
   const mappings = [
-    ['push_type', payload.push_type || payload.pushType || payload.type],
-    ['type', payload.type || payload.push_type || payload.pushType],
-    ['conversation_id', payload.conversation_id || payload.conversationId],
-    ['announcement_id', payload.announcement_id || payload.announcementId],
-    ['appointment_id', payload.appointment_id || payload.appointmentId],
-    ['open_as', payload.open_as || payload.openAs],
-    ['route', payload.route || routeInput || '/']
+    ['push_type', pushType],
+    ['type', pushType],
+    ['store_id', storeId],
+    ['storeId', storeId],
+    ['conversation_id', conversationId],
+    ['conversationId', conversationId],
+    ['announcement_id', announcementId],
+    ['announcementId', announcementId],
+    ['appointment_id', appointmentId],
+    ['appointmentId', appointmentId],
+    ['open_as', openAs],
+    ['openAs', openAs],
+    ['target_client_id', targetClientId],
+    ['targetClientId', targetClientId],
+    ['sender_client_id', senderClientId],
+    ['senderClientId', senderClientId],
+    ['target_audience', audience],
+    ['targetAudience', audience],
+    ['route', route || '/']
   ]
 
   mappings.forEach(([key, value]) => {
@@ -570,23 +652,38 @@ self.addEventListener('notificationclick', event => {
   }
 
   const payload = event.notification.data || {}
-  const route = payload.route ? payload.route : '/'
+  const route = ndjcRouteForPushPayload(payload)
   const routeWithPayload = appendPushPayloadToRoute(route, payload)
 
   event.waitUntil(
     self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(clients => {
-      const existing = clients.find(client => 'focus' in client)
+      const existing = clients.find(client => {
+        if (!('focus' in client)) {
+          return false
+        }
+
+        try {
+          const clientUrl = new URL(client.url)
+          return clientUrl.origin === self.location.origin
+        } catch (error) {
+          return true
+        }
+      })
+
       if (existing) {
         existing.postMessage({
           type: 'NDJC_PUSH_ROUTE',
           route: routeWithPayload,
           payload: {
             ...payload,
-            route: routeWithPayload
+            route: routeWithPayload,
+            push_type: payload.push_type || payload.pushType || payload.type,
+            type: payload.type || payload.push_type || payload.pushType
           }
         })
         return existing.focus()
       }
+
       return self.clients.openWindow(routeWithPayload)
     })
   )

@@ -9,7 +9,7 @@ import {
 } from './showcaseHost'
 
 export type ShowcaseFeatureAssemblyDependencies = {
-  defaultStoreId: string
+  defaultStoreId: string | null
   defaultRouteId: string
 }
 
@@ -26,15 +26,20 @@ export type ShowcaseFeatureAssembly = {
 }
 
 const DEFAULT_SHOWCASE_FEATURE_ASSEMBLY_DEPENDENCIES: ShowcaseFeatureAssemblyDependencies = {
-  defaultStoreId: 'store_showcase_trial_000001',
+  defaultStoreId: null,
   defaultRouteId: 'Home'
+}
+
+function normalizeNullableStoreId(value: unknown): string | null {
+  const text = String(value ?? '').trim()
+  return text && text.toLowerCase() !== 'null' ? text : null
 }
 
 function normalizeAssemblyDependencies(
   input: Partial<ShowcaseFeatureAssemblyDependencies> = {}
 ): ShowcaseFeatureAssemblyDependencies {
   return {
-    defaultStoreId: String(input.defaultStoreId || DEFAULT_SHOWCASE_FEATURE_ASSEMBLY_DEPENDENCIES.defaultStoreId).trim() || DEFAULT_SHOWCASE_FEATURE_ASSEMBLY_DEPENDENCIES.defaultStoreId,
+    defaultStoreId: normalizeNullableStoreId(input.defaultStoreId),
     defaultRouteId: String(input.defaultRouteId || DEFAULT_SHOWCASE_FEATURE_ASSEMBLY_DEPENDENCIES.defaultRouteId).trim() || DEFAULT_SHOWCASE_FEATURE_ASSEMBLY_DEPENDENCIES.defaultRouteId
   }
 }
@@ -50,7 +55,6 @@ function buildHostInput(
     ui: input.ui
   }
 }
-
 export function createShowcaseFeatureAssembly(
   dependenciesInput: Partial<ShowcaseFeatureAssemblyDependencies> = {}
 ): ShowcaseFeatureAssembly {

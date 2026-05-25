@@ -89,9 +89,9 @@ export function parseShowcasePushPayload(payload: PushRoutePayload | null | unde
   if (!payload) return null
 
   const explicitPushType = normalizeLowerNullableString(
-    readFirstString(payload, ['push_type', 'pushType', 'type'])
+    readFirstString(payload, ['push_type', 'pushType', 'type', 'ndjcPushType'])
   )
-  const routePushType = pushTypeFromRoute(readFirstString(payload, ['route']))
+  const routePushType = pushTypeFromRoute(readFirstString(payload, ['route', 'url']))
 
   const pushType = explicitPushType || routePushType
 
@@ -103,7 +103,7 @@ export function parseShowcasePushPayload(payload: PushRoutePayload | null | unde
     announcementId: readFirstString(payload, ['announcement_id', 'announcementId']),
     appointmentId: readFirstString(payload, ['appointment_id', 'appointmentId']),
     openAs: normalizeLowerNullableString(
-      readFirstString(payload, ['open_as', 'openAs'])
+      readFirstString(payload, ['open_as', 'openAs', 'open'])
     )
   }
 }

@@ -40,7 +40,7 @@ export function ensureCoreRenderersRegistered() {
     Render: ({ routeId, assembly }) => (
       <ShowcaseGreenpinkRuntime
         routeId={routeId}
-        storeId={assembly.storeId || 'store_showcase_trial_000001'}
+        storeId={assembly.storeId}
       />
     )
   })
@@ -75,7 +75,7 @@ export function ResolveCoreScreen({
   return <>{renderer.Render({ routeId, navigator, assembly })}</>
 }
 
-function ShowcaseGreenpinkRuntime({ routeId, storeId }: { routeId: string; storeId: string }) {
+function ShowcaseGreenpinkRuntime({ routeId, storeId }: { routeId: string; storeId?: string | null }) {
   const debugScreen = typeof window !== 'undefined'
     ? window.location.search.match(/[?&]screen=([^&]+)/)?.[1]
     : null

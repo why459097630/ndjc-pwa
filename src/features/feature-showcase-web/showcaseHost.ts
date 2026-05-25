@@ -227,7 +227,7 @@ export function renderShowcaseHostScreen(
 
 export function ShowcaseHost(input: ShowcaseHostInput): ReactNode {
   const viewModel = useShowcaseViewModel({
-    storeId: input.storeId || 'store_showcase_trial_000001',
+    storeId: input.storeId,
     initialScreen: input.initialScreen || routeToShowcaseScreen(input.routeId)
   })
 

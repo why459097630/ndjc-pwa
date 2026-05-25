@@ -78,7 +78,12 @@ function resolveSupabaseAnonKey(): string {
 
 function normalizeStoreId(value: unknown): string {
   const text = String(value ?? '').trim()
-  return text && text.toLowerCase() !== 'null' ? text : 'store_showcase_trial_000001'
+
+  if (!text || text.toLowerCase() === 'null') {
+    throw new Error('storeId is required for store PWA manifest.')
+  }
+
+  return text
 }
 
 function normalizeText(value: unknown): string {
