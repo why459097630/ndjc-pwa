@@ -3412,7 +3412,7 @@ const apkChatRetryIconStyle: React.CSSProperties = {
   transformOrigin: '50% 50%',
   pointerEvents: 'none'
 }
-const NDJC_CHAT_RETRY_BUTTON_PREVIEW = true
+const NDJC_CHAT_RETRY_BUTTON_PREVIEW = false
 
 function apkChatMessageStackStyle(outgoing?: boolean, failed?: boolean): React.CSSProperties {
   return {
@@ -6726,11 +6726,11 @@ function notificationOptInMessageText(messageCode: ShowcaseNotificationMessageCo
   }
 
   if (messageCode === 'notifications-enabled-device') {
-    return 'Notifications are enabled for this device.'
+    return null
   }
 
   if (messageCode === 'notifications-active') {
-    return 'Notifications are active.'
+    return null
   }
 
   if (messageCode === 'push-registration-failed-check-connection') {
@@ -6991,74 +6991,44 @@ export function NdjcNotificationOptInPanel({
   onRegister: () => void
   onInstall: () => void
 }) {
-  const messageText = notificationOptInMessageText(messageCode)
   const blocked = permissionState === 'denied'
   const failed = registrationState === 'failed'
-  const ready = permissionState === 'granted' && registrationState !== 'registered'
-  const title = registrationState === 'registered'
-    ? 'Notifications on'
-    : blocked
-      ? 'Notifications blocked'
-      : failed
-        ? 'Notifications need attention'
-        : ready
-          ? 'Notifications ready'
-          : 'Enable notifications'
+  const title = 'Notifications'
   const description = registrationState === 'registered'
-    ? 'Messages, bookings, and announcements are active.'
+    ? 'This device can receive chat, booking, and announcement alerts.'
     : blocked
-      ? 'Allow notifications in browser site settings, then retry.'
+      ? 'Allow notifications in browser settings to receive chats, booking updates, and announcements.'
       : failed
-        ? 'Check your connection and try again.'
-        : ready
-          ? 'Turn on alerts for this device.'
-          : 'Get alerts for messages, booking updates, and announcements.'
+        ? 'Device registration failed. Retry to receive chats, booking updates, and announcements.'
+        : 'Enable alerts to receive chats, booking updates, and announcements.'
   const statusLabel = registrationState === 'registered'
-    ? 'Registered'
+    ? 'On'
     : blocked
       ? 'Blocked'
       : failed
         ? 'Failed'
-        : ready
-          ? 'Allowed'
-          : 'Not registered'
+        : 'Off'
   const actionLabel = busy
     ? 'Saving...'
     : registrationState === 'registered'
       ? 'Refresh'
-      : blocked
+      : blocked || failed
         ? 'Retry'
-        : failed
-          ? 'Retry'
-          : ready
-            ? 'Turn on'
-            : 'Enable'
+        : 'Enable'
   const installAvailable = installState === 'available'
-  const installManualIos = installState === 'manual-ios'
-  const installSafariRequired = installState === 'manual-safari-required'
   const installInstalled = installState === 'installed'
   const installStatusLabel = installInstalled
     ? 'Installed'
     : installAvailable
       ? 'Available'
-      : installManualIos
-        ? 'Manual setup'
-        : installSafariRequired
-          ? 'Safari required'
-          : 'Not available'
-  const installTitle = installInstalled
-    ? 'Added to Home Screen'
-    : 'Add to Home Screen'
+      : 'Manual setup'
+  const installTitle = 'Home Screen'
   const installDescription = installInstalled
-    ? 'This app is already available from your home screen.'
+    ? 'Open faster from your home screen and receive chat, booking, and announcement alerts more reliably.'
     : installAvailable
-      ? 'Install this app for faster access from your device.'
-      : installManualIos
-        ? 'In Safari, tap Share, then Add to Home Screen.'
-        : installSafariRequired
-          ? 'Open this page in Safari, then tap Share and Add to Home Screen.'
-          : 'Your browser may show install options from its menu.'
-  const installActionLabel = installBusy ? 'Opening...' : 'Install App'
+      ? 'Add this app for faster access and more reliable chat, booking, and announcement alerts.'
+      : 'Use Safari Share menu to add this app for faster access and more reliable alerts.'
+  const installActionLabel = installBusy ? 'Opening...' : 'Install'
 
   return (
     <div
@@ -7354,27 +7324,7 @@ export function NdjcNotificationOptInPanel({
             </div>
           </div>
 
-          {messageText ? (
-            <div
-              role="status"
-              aria-live="polite"
-              style={{
-                borderRadius: 14,
-                padding: '8px 10px',
-                background: registered
-                  ? '#ecfdf5'
-                  : 'rgba(254, 242, 242, 0.92)',
-                color: registered
-                  ? '#047857'
-                  : '#b91c1c',
-                fontSize: 11,
-                lineHeight: 1.35,
-                fontWeight: 800
-              }}
-            >
-              {messageText}
-            </div>
-          ) : null}
+
 
           <div
             style={{
@@ -17799,8 +17749,6 @@ const content = (
       boxSizing: 'border-box'
     }}
   >
-      {isChatThreadScreen ? <NdjcChatKeyboardDebugPanel /> : null}
-
       {showTopBar ? (
         <section
           className="ndjc-conversation-top-surface"
@@ -19368,7 +19316,7 @@ function ChatMessageBubble({
 
   const shouldShowRetryButton = Boolean(
     message.outgoing &&
-    (message.failed || NDJC_CHAT_RETRY_BUTTON_PREVIEW)
+    message.failed
   )
 
   const messageBubbleContent = (
@@ -19513,8 +19461,8 @@ function ChatMessageBubble({
                   onPointerDown={event => {
                     event.stopPropagation()
                   }}
-                  aria-label={message.failed ? 'Retry failed message' : 'Retry button preview'}
-                  title={message.failed ? 'Retry' : 'Retry preview'}
+                  aria-label="Retry failed message"
+                  title="Retry"
                 >
                   <svg
                     viewBox="0 0 24 24"
@@ -19548,8 +19496,8 @@ function ChatMessageBubble({
                   onPointerDown={event => {
                     event.stopPropagation()
                   }}
-                  aria-label={message.failed ? 'Retry failed message' : 'Retry button preview'}
-                  title={message.failed ? 'Retry' : 'Retry preview'}
+                  aria-label="Retry failed message"
+                  title="Retry"
                 >
                   <svg
                     viewBox="0 0 24 24"

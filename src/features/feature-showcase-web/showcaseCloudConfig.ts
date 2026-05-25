@@ -42,6 +42,8 @@ export const SHOWCASE_PAGE_SIZE = {
   categories: 100
 } as const
 
+export const SHOWCASE_APP_VERSION = '1.0.3'
+
 export const SHOWCASE_SUPABASE_SCHEMA = 'public'
 
 export const SHOWCASE_TABLES = {

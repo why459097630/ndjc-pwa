@@ -61,6 +61,7 @@ import {
   createDefaultShowcaseUiState
 } from './showcaseUiState'
 import { pickDisplayText } from './showcaseI18n'
+import { SHOWCASE_APP_VERSION } from './showcaseCloudConfig'
 
 export type ShowcaseUiWiringState = ShowcaseUiState
 
@@ -857,7 +858,7 @@ export function buildStoreProfileWiringState(uiState: ShowcaseUiState): Showcase
     businessStatus,
 
     appName: title || 'App',
-    versionName: '1.0.0',
+    versionName: SHOWCASE_APP_VERSION,
     merchantEmail: 'Not provided',
     privacyUrl: '',
 

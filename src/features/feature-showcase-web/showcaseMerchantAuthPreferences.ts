@@ -20,9 +20,20 @@ function normalizeNullableString(value: unknown): string | null {
   return text
 }
 
+function normalizeStoreId(value: unknown): string | null {
+  const text = String(value ?? '').trim()
+  if (!text || text.toLowerCase() === 'null') return null
+  return text
+}
+
 function normalizeMerchantExpiresAt(value: unknown): number {
   const numberValue = Number(value)
   return Number.isFinite(numberValue) && numberValue > 0 ? Math.trunc(numberValue) : 0
+}
+
+function scopedStorageKey(baseKey: string, storeIdInput?: string | null): string {
+  const storeId = normalizeStoreId(storeIdInput)
+  return storeId ? `${baseKey}:${storeId}` : baseKey
 }
 
 export function normalizeMerchantSession(value: unknown): MerchantAuthSession | null {
@@ -40,7 +51,8 @@ export function normalizeMerchantSession(value: unknown): MerchantAuthSession | 
     refreshToken: normalizeNullableString(record.refreshToken),
     authUserId,
     loginName,
-    expiresAt: normalizeMerchantExpiresAt(record.expiresAt)
+    expiresAt: normalizeMerchantExpiresAt(record.expiresAt),
+    storeId: normalizeStoreId(record.storeId)
   }
 }
 
@@ -84,103 +96,149 @@ function readLegacyMerchantLoginName(): string {
   return loginName
 }
 
-function migrateLegacyMerchantLoginName(): string {
-  const existing = readLastMerchantLoginName()
-  if (existing) return existing
-
-  const legacyLoginName = readLegacyMerchantLoginName()
-  if (legacyLoginName) {
-    writeLastMerchantLoginName(legacyLoginName)
-  }
-
-  return legacyLoginName
-}
-
 export function clearLegacyMerchantSession(): void {
   removeLocalStorageItem(SHOWCASE_MERCHANT_SESSION_KEY)
 }
 
-export function readRememberMe(): boolean {
+export function readRememberMe(storeIdInput?: string | null): boolean {
   if (!isBrowser()) return false
 
   try {
-    return window.localStorage.getItem(SHOWCASE_LOGIN_REMEMBER_KEY) === 'true'
+    return window.localStorage.getItem(scopedStorageKey(SHOWCASE_LOGIN_REMEMBER_KEY, storeIdInput)) === 'true'
   } catch {
     return false
   }
 }
 
-export function writeRememberMe(value: boolean): void {
-  writeLocalStorageItem(SHOWCASE_LOGIN_REMEMBER_KEY, value ? 'true' : 'false')
+export function writeRememberMe(storeIdInput: string | null | undefined, value: boolean): void {
+  writeLocalStorageItem(scopedStorageKey(SHOWCASE_LOGIN_REMEMBER_KEY, storeIdInput), value ? 'true' : 'false')
 }
 
-export function readLastMerchantLoginName(): string {
+export function readLastMerchantLoginName(storeIdInput?: string | null): string {
   if (!isBrowser()) return ''
 
   try {
-    const value = String(window.localStorage.getItem(SHOWCASE_LAST_LOGIN_NAME_KEY) || '').trim()
-    if (value) return value
+    const scopedValue = String(window.localStorage.getItem(scopedStorageKey(SHOWCASE_LAST_LOGIN_NAME_KEY, storeIdInput)) || '').trim()
+    if (scopedValue) return scopedValue
 
-    return readLegacyMerchantLoginName()
+    if (!normalizeStoreId(storeIdInput)) {
+      const legacyValue = String(window.localStorage.getItem(SHOWCASE_LAST_LOGIN_NAME_KEY) || '').trim()
+      if (legacyValue) return legacyValue
+
+      return readLegacyMerchantLoginName()
+    }
+
+    return ''
   } catch {
     return ''
   }
 }
 
-export function writeLastMerchantLoginName(loginNameInput: string): void {
+export function writeLastMerchantLoginName(storeIdInput: string | null | undefined, loginNameInput: string): void {
   const loginName = String(loginNameInput || '').trim()
+  const key = scopedStorageKey(SHOWCASE_LAST_LOGIN_NAME_KEY, storeIdInput)
 
   if (!loginName) {
-    removeLocalStorageItem(SHOWCASE_LAST_LOGIN_NAME_KEY)
+    removeLocalStorageItem(key)
     return
   }
 
-  writeLocalStorageItem(SHOWCASE_LAST_LOGIN_NAME_KEY, loginName)
+  writeLocalStorageItem(key, loginName)
 }
 
-export function clearLastMerchantLoginName(): void {
-  removeLocalStorageItem(SHOWCASE_LAST_LOGIN_NAME_KEY)
+export function clearLastMerchantLoginName(storeIdInput?: string | null): void {
+  removeLocalStorageItem(scopedStorageKey(SHOWCASE_LAST_LOGIN_NAME_KEY, storeIdInput))
 }
 
-export function readMerchantSession(): MerchantAuthSession | null {
-  migrateLegacyMerchantLoginName()
+export function readMerchantSession(storeIdInput?: string | null): MerchantAuthSession | null {
+  const storeId = normalizeStoreId(storeIdInput)
+  const session = normalizeMerchantSession(
+    readJsonRecordFromLocalStorage(scopedStorageKey(SHOWCASE_MERCHANT_SESSION_KEY, storeId))
+  )
+
+  if (!session) {
+    clearLegacyMerchantSession()
+    return null
+  }
+
+  if (storeId && session.storeId && session.storeId !== storeId) {
+    removeLocalStorageItem(scopedStorageKey(SHOWCASE_MERCHANT_SESSION_KEY, storeId))
+    return null
+  }
+
   clearLegacyMerchantSession()
-  return null
+  return session
 }
 
-export function writeMerchantSession(session: MerchantAuthSession | null): void {
-  if (session?.loginName) {
-    writeLastMerchantLoginName(session.loginName)
+export function writeMerchantSession(storeIdInput: string | null | undefined, session: MerchantAuthSession | null): void {
+  const storeId = normalizeStoreId(storeIdInput)
+  const key = scopedStorageKey(SHOWCASE_MERCHANT_SESSION_KEY, storeId)
+
+  if (!session) {
+    removeLocalStorageItem(key)
+    clearLegacyMerchantSession()
+    return
+  }
+
+  const normalized = normalizeMerchantSession({
+    ...session,
+    storeId
+  })
+
+  if (!normalized) {
+    removeLocalStorageItem(key)
+    clearLegacyMerchantSession()
+    return
+  }
+
+  writeLocalStorageItem(key, JSON.stringify(normalized))
+
+  if (normalized.loginName) {
+    writeLastMerchantLoginName(storeId, normalized.loginName)
   }
 
   clearLegacyMerchantSession()
 }
 
-export function clearPersistedMerchantSession(clearRememberMe: boolean): void {
+export function clearPersistedMerchantSession(
+  storeIdInput: string | null | undefined,
+  clearRememberMe: boolean
+): void {
+  const storeId = normalizeStoreId(storeIdInput)
+
+  removeLocalStorageItem(scopedStorageKey(SHOWCASE_MERCHANT_SESSION_KEY, storeId))
   clearLegacyMerchantSession()
 
   if (clearRememberMe) {
-    writeRememberMe(false)
+    writeRememberMe(storeId, false)
   }
 }
 
 export function persistCurrentMerchantSession(
+  storeIdInput: string | null | undefined,
   session: MerchantAuthSession | null,
   remember: boolean
 ): void {
-  writeRememberMe(remember)
+  const storeId = normalizeStoreId(storeIdInput)
 
-  if (session?.loginName) {
-    writeLastMerchantLoginName(session.loginName)
+  writeRememberMe(storeId, remember)
+
+  if (!remember || !session) {
+    removeLocalStorageItem(scopedStorageKey(SHOWCASE_MERCHANT_SESSION_KEY, storeId))
+    clearLegacyMerchantSession()
+    return
   }
 
-  clearLegacyMerchantSession()
+  writeMerchantSession(storeId, {
+    ...session,
+    storeId
+  })
 }
 
-export function restoreMerchantSessionFromStorage(): MerchantAuthSession | null {
-  migrateLegacyMerchantLoginName()
+export function restoreMerchantSessionFromStorage(storeIdInput?: string | null): MerchantAuthSession | null {
+  const session = readMerchantSession(storeIdInput)
   clearLegacyMerchantSession()
-  return null
+  return session
 }
 
 export function isMerchantSessionLoggedIn(session: MerchantAuthSession | null): boolean {
@@ -192,8 +250,9 @@ export function updateMerchantLoginName(
   loginName: string
 ): MerchantAuthSession | null {
   const nextLoginName = String(loginName || '').trim()
-  if (nextLoginName) {
-    writeLastMerchantLoginName(nextLoginName)
+
+  if (session?.storeId) {
+    writeLastMerchantLoginName(session.storeId, nextLoginName)
   }
 
   if (!session) return null

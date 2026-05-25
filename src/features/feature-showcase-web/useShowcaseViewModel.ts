@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { getNdjcFirebaseMessagingToken } from '@/pwa/firebaseMessaging'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
@@ -65,6 +65,7 @@ import {
   type ShowcaseCloudRepository
 } from './showcaseCloudRepository'
 import {
+  SHOWCASE_APP_VERSION,
   SHOWCASE_PAGE_SIZE
 } from './showcaseCloudConfig'
 import {
@@ -645,20 +646,20 @@ function readClientId(): string {
   }
 }
 
-function readRememberMe(): boolean {
-  return readRememberMeFromPreferences()
+function readRememberMe(storeId: string): boolean {
+  return readRememberMeFromPreferences(storeId)
 }
 
-function writeRememberMe(value: boolean): void {
-  writeRememberMeToPreferences(value)
+function writeRememberMe(storeId: string, value: boolean): void {
+  writeRememberMeToPreferences(storeId, value)
 }
 
-function readMerchantSession(): MerchantAuthSession | null {
-  return readMerchantSessionFromPreferences()
+function readMerchantSession(storeId: string): MerchantAuthSession | null {
+  return readMerchantSessionFromPreferences(storeId)
 }
 
-function writeMerchantSession(session: MerchantAuthSession | null): void {
-  writeMerchantSessionToPreferences(session)
+function writeMerchantSession(storeId: string, session: MerchantAuthSession | null): void {
+  writeMerchantSessionToPreferences(storeId, session)
 }
 
 function readFavoriteIds(storeId: string): string[] {
@@ -1355,12 +1356,12 @@ async function blobToDataImageUrl(blob: Blob): Promise<string | null> {
   })
 }
 
-function clearStoredMerchantSession(): void {
-  clearPersistedMerchantSession(true)
+function clearStoredMerchantSession(storeId: string): void {
+  clearPersistedMerchantSession(storeId, true)
 }
 
-function persistMerchantSession(session: MerchantAuthSession | null, remember: boolean): void {
-  persistCurrentMerchantSession(session, remember)
+function persistMerchantSession(storeId: string, session: MerchantAuthSession | null, remember: boolean): void {
+  persistCurrentMerchantSession(storeId, session, remember)
 }
 function persistFavoritesToStorage(storeId: string, ids: string[]): void {
   writeFavoriteIds(storeId, ids)
@@ -2294,7 +2295,7 @@ export function useShowcaseViewModel(input: UseShowcaseViewModelInput = {}): Sho
 
   const chatRepository = chatRepositoryRef.current
   const initialMerchantSessionRef = useRef<MerchantAuthSession | null>(null)
-  const initialMerchantLoginNameRef = useRef<string>(readLastMerchantLoginName())
+  const initialMerchantLoginNameRef = useRef<string>(readLastMerchantLoginName(storeId))
   const initialClientIdRef = useRef<string>(readClientId())
   const defaultUiState = useMemo(() => createDefaultShowcaseUiState(), [])
   const defaultChatUiState = useMemo(() => createDefaultShowcaseChatUiState(), [])
@@ -2350,7 +2351,7 @@ export function useShowcaseViewModel(input: UseShowcaseViewModelInput = {}): Sho
         setMerchantSession(null)
         setMerchantBindings([])
         setIsAdminLoggedIn(false)
-        clearStoredMerchantSession()
+        clearStoredMerchantSession(storeId)
         setAdminUsernameDraft(preservedLoginName)
         setLoginUsernameDraft(preservedLoginName)
         setAdminPasswordDraft('')
@@ -2379,7 +2380,7 @@ export function useShowcaseViewModel(input: UseShowcaseViewModelInput = {}): Sho
         setMerchantSession(null)
         setMerchantBindings([])
         setIsAdminLoggedIn(false)
-        clearStoredMerchantSession()
+        clearStoredMerchantSession(storeId)
         setAdminUsernameDraft(preservedLoginName)
         setLoginUsernameDraft(preservedLoginName)
         setAdminPasswordDraft('')
@@ -2395,10 +2396,11 @@ export function useShowcaseViewModel(input: UseShowcaseViewModelInput = {}): Sho
         refreshToken: null,
         authUserId: authSession.authUserId,
         loginName: authSession.email || currentSession.loginName,
-        expiresAt: authSession.expiresAt || currentSession.expiresAt
+        expiresAt: authSession.expiresAt || currentSession.expiresAt,
+        storeId
       }
 
-      writeMerchantSession(nextSession)
+      writeMerchantSession(storeId, nextSession)
       setStoreMerchantSessionFromAuthSession(nextSession)
       bindMerchantSessionToRepository(repository)
       setMerchantSession(nextSession)
@@ -2580,7 +2582,7 @@ export function useShowcaseViewModel(input: UseShowcaseViewModelInput = {}): Sho
 
   const [loginUsernameDraft, setLoginUsernameDraft] = useState(initialMerchantLoginNameRef.current || defaultUiState.loginUsernameDraft)
   const [loginPasswordDraft, setLoginPasswordDraft] = useState(defaultUiState.loginPasswordDraft)
-  const [loginRememberMeDraft, setLoginRememberMeDraft] = useState(readRememberMe())
+  const [loginRememberMeDraft, setLoginRememberMeDraft] = useState(readRememberMe(storeId))
   const [loginError, setLoginError] = useState<string | null>(defaultUiState.loginError)
   const [isLoginLoading, setIsLoginLoading] = useState(false)
 
@@ -2894,6 +2896,7 @@ export function useShowcaseViewModel(input: UseShowcaseViewModelInput = {}): Sho
   const pushLocationSearchConsumedRef = useRef(false)
   const merchantPushRegistrationKeyRef = useRef('')
   const chatClientPushRegistrationKeyRef = useRef('')
+  const appointmentClientPushRegistrationKeyRef = useRef('')
   const pushRegistrationThrottleAtRef = useRef<Record<string, number>>({})
   const activeConversationIdRef = useRef(activeConversationId)
   const chatIsOpeningRef = useRef(false)
@@ -4082,15 +4085,22 @@ export function useShowcaseViewModel(input: UseShowcaseViewModelInput = {}): Sho
   }, [pendingSyncOperations])
 
   function setMerchantSessionAndPersist(session: MerchantAuthSession | null, remember = loginRememberMeDraft): void {
-    setStoreMerchantSessionFromAuthSession(session)
+    const scopedSession = session
+      ? {
+          ...session,
+          storeId
+        }
+      : null
+
+    setStoreMerchantSessionFromAuthSession(scopedSession)
     bindMerchantSessionToRepository(repository)
-    setMerchantSession(session)
+    setMerchantSession(scopedSession)
     setIsAdminLoggedIn(isMerchantLoggedInInStoreSession())
-    persistMerchantSession(session, remember)
+    persistMerchantSession(storeId, scopedSession, remember)
   }
 
   function applyRefreshedMerchantSession(session: MerchantAuthSession): void {
-    setMerchantSessionAndPersist(session, readRememberMe())
+    setMerchantSessionAndPersist(session, readRememberMe(storeId))
     setSyncErrorMessage(null)
     setLoginError(null)
   }
@@ -4687,7 +4697,7 @@ function backFromAppointments(): void {
     setBookingsEntryDotVisible(false)
 
     if (!isAdminLoggedIn && currentChatRole() !== 'merchant') {
-      void ensurePushRegistration({ audience: 'appointment_client' })
+      void registerAppointmentClientPushDevice('customer-bookings-opened', true)
     }
 
     if (screen === ShowcaseScreens.CustomerBookings) {
@@ -6485,7 +6495,7 @@ function backFromAppointments(): void {
         setMerchantSession(null)
         setMerchantBindings([])
         setIsAdminLoggedIn(false)
-        clearPersistedMerchantSession(false)
+        clearPersistedMerchantSession(storeId, false)
         setLoginError(merchantSignInFailureMessage())
         return
       }
@@ -6504,7 +6514,7 @@ function backFromAppointments(): void {
         setMerchantSession(null)
         setMerchantBindings([])
         setIsAdminLoggedIn(false)
-        clearPersistedMerchantSession(false)
+        clearPersistedMerchantSession(storeId, false)
         setLoginError(message)
         return
       }
@@ -6512,11 +6522,12 @@ function backFromAppointments(): void {
       const effectiveLoginName = binding.loginName?.trim() || session.loginName
       const effectiveSession: MerchantAuthSession = {
         ...session,
-        loginName: effectiveLoginName
+        loginName: effectiveLoginName,
+        storeId
       }
       const routeAfterLogin = pendingPushRoute
 
-      writeMerchantSession(effectiveSession)
+      writeMerchantSession(storeId, effectiveSession)
       setMerchantSessionAndPersist(effectiveSession, loginRememberMeDraft)
       setMerchantBindings([binding])
       setAdminUsernameDraft(effectiveLoginName)
@@ -6543,7 +6554,7 @@ function backFromAppointments(): void {
       setMerchantSession(null)
       setMerchantBindings([])
       setIsAdminLoggedIn(false)
-      clearPersistedMerchantSession(false)
+      clearPersistedMerchantSession(storeId, false)
       setLoginError(merchantUnexpectedSignInFailureMessage(error))
     } finally {
       setIsLoginLoading(false)
@@ -6563,8 +6574,8 @@ function backFromAppointments(): void {
       setMerchantBindings([])
       setIsAdminLoggedIn(false)
 
-      clearPersistedMerchantSession(true)
-      writeRememberMe(false)
+      clearPersistedMerchantSession(storeId, true)
+      writeRememberMe(storeId, false)
 
       setAdminUsernameDraft(preservedLoginName)
       setAdminPasswordDraft('')
@@ -6650,7 +6661,10 @@ function backFromAppointments(): void {
       }
 
       if (loginRememberMeDraft) {
-        persistMerchantSession(reAuth, true)
+        persistMerchantSession(storeId, {
+          ...reAuth,
+          storeId
+        }, true)
       }
 
       setChangePasswordCurrentDraft('')
@@ -6691,9 +6705,14 @@ function backFromAppointments(): void {
       const next = updateMerchantLoginNameInSession(current, nextLoginName)
       if (!next) return current
 
+      const scopedNext = {
+        ...next,
+        storeId
+      }
+
       updateMerchantLoginNameInStoreSession(nextLoginName)
-      writeMerchantSession(next)
-      setStoreMerchantSessionFromAuthSession(next)
+      writeMerchantSession(storeId, scopedNext)
+      setStoreMerchantSessionFromAuthSession(scopedNext)
       bindMerchantSessionToRepository(repository)
       return next
     })
@@ -6706,13 +6725,24 @@ function backFromAppointments(): void {
   }
 
   async function loadAdminCredentials(): Promise<void> {
-    const cachedLoginName = readLastMerchantLoginName()
+    const cachedLoginName = readLastMerchantLoginName(storeId)
+    const shouldRestoreMerchantForStore = readRememberMe(storeId)
 
-    restoreMerchantSessionFromStorage()
+    restoreMerchantSessionFromStorage(storeId)
 
     if (cachedLoginName) {
       setAdminUsernameDraft(cachedLoginName)
       setLoginUsernameDraft(cachedLoginName)
+    }
+
+    if (!shouldRestoreMerchantForStore) {
+      setStoreMerchantSessionFromAuthSession(null)
+      bindMerchantSessionToRepository(repository)
+      setMerchantSession(null)
+      setMerchantBindings([])
+      setIsAdminLoggedIn(false)
+      setLoginRememberMeDraft(false)
+      return
     }
 
     let authSession: Awaited<ReturnType<typeof getFreshShowcaseAuthSession>> | null = null
@@ -6742,7 +6772,8 @@ function backFromAppointments(): void {
       refreshToken: null,
       authUserId: authSession.authUserId,
       loginName: authSession.email || cachedLoginName,
-      expiresAt: authSession.expiresAt || 0
+      expiresAt: authSession.expiresAt || 0,
+      storeId
     }
 
     setStoreMerchantSessionFromAuthSession(sourceSession)
@@ -6751,19 +6782,23 @@ function backFromAppointments(): void {
     const binding = await repository.fetchMerchantBindingForStoreAndAuthUser(storeId, sourceSession.authUserId)
 
     if (!binding || !binding.authUserId || binding.authUserId.toLowerCase() !== sourceSession.authUserId.toLowerCase()) {
+      setStoreMerchantSessionFromAuthSession(null)
+      bindMerchantSessionToRepository(repository)
       setMerchantSession(null)
       setMerchantBindings([])
       setIsAdminLoggedIn(false)
+      clearPersistedMerchantSession(storeId, false)
       return
     }
 
     const effectiveLoginName = binding.loginName?.trim() || sourceSession.loginName
     const effectiveSession: MerchantAuthSession = {
       ...sourceSession,
-      loginName: effectiveLoginName
+      loginName: effectiveLoginName,
+      storeId
     }
 
-    writeMerchantSession(effectiveSession)
+    writeMerchantSession(storeId, effectiveSession)
     setStoreMerchantSessionFromAuthSession(effectiveSession)
     bindMerchantSessionToRepository(repository)
     setMerchantSession(effectiveSession)
@@ -6771,6 +6806,7 @@ function backFromAppointments(): void {
     setIsAdminLoggedIn(true)
     setAdminUsernameDraft(effectiveLoginName)
     setLoginUsernameDraft(effectiveLoginName)
+    setLoginRememberMeDraft(true)
 
     window.setTimeout(() => {
       void registerMerchantPushDevice('merchant-session-restored', true)
@@ -6848,11 +6884,17 @@ function backFromAppointments(): void {
       storeId
     })
 
-    restoreMerchantSessionFromStorage()
+    restoreMerchantSessionFromStorage(storeId)
+
+    if (!readRememberMe(storeId) && !merchantSession?.accessToken) {
+      return {
+        type: 'expired'
+      }
+    }
 
     const storedSession = merchantSession?.accessToken
       ? merchantSession
-      : null
+      : readMerchantSession(storeId)
 
     let authSession: Awaited<ReturnType<typeof getFreshShowcaseAuthSession>> | null = null
 
@@ -7198,11 +7240,11 @@ function backFromAppointments(): void {
   }
 
   async function tryReloadSdkMerchantSessionForAuthError(): Promise<MerchantForceRefreshResult> {
-    restoreMerchantSessionFromStorage()
+    restoreMerchantSessionFromStorage(storeId)
 
     const sourceSession = merchantSession?.accessToken
       ? merchantSession
-      : null
+      : readMerchantSession(storeId)
 
     try {
       const authSession = await refreshShowcaseAuthSession()
@@ -7448,7 +7490,7 @@ function backFromAppointments(): void {
     setMerchantSession(null)
     setIsAdminLoggedIn(false)
     setMerchantBindings([])
-    clearStoredMerchantSession()
+    clearStoredMerchantSession(storeId)
     setLoginUsernameDraft(preservedLoginName)
     setAdminUsernameDraft(preservedLoginName)
     setLoginPasswordDraft('')
@@ -11413,10 +11455,10 @@ async function uploadChatDraftImageForSend(input: {
 
   function setLoginRememberMe(value: boolean): void {
     setLoginRememberMeDraft(value)
-    writeRememberMe(value)
+    writeRememberMe(storeId, value)
 
     if (!value) {
-      clearPersistedMerchantSession(false)
+      clearPersistedMerchantSession(storeId, false)
       setStoreMerchantSessionFromAuthSession(null)
       bindMerchantSessionToRepository(repository)
       setMerchantSession(null)
@@ -11682,7 +11724,7 @@ async function uploadChatDraftImageForSend(input: {
       setAppointmentSuccess(null)
       setStatusMessage('Booking request sent. Check the status here.')
 
-      await ensurePushRegistration({ audience: 'appointment_client' })
+      await registerAppointmentClientPushDevice('customer-booking-submitted', true)
       await dispatchNewAppointmentPushToMerchant(created)
       await refreshCustomerAppointmentsFromCloud()
     } catch {
@@ -15408,7 +15450,7 @@ async function refreshCustomerAppointmentsFromCloud(
       return
     }
 
-    if (shouldThrottlePushRegistration(key, reason)) {
+    if (!force && shouldThrottlePushRegistration(key, reason)) {
       return
     }
 
@@ -15442,6 +15484,67 @@ async function refreshCustomerAppointmentsFromCloud(
 
     if (!registered) {
       chatClientPushRegistrationKeyRef.current = ''
+      clearPushRegistrationThrottle(key)
+    }
+  }
+
+  async function registerAppointmentClientPushDevice(
+    reason: string,
+    force = false
+  ): Promise<void> {
+    if (!isBrowser()) return
+    if (isAdminLoggedIn) return
+    if (currentChatRole() === 'merchant') return
+
+    const key = [
+      storeId,
+      'appointment_client',
+      clientId
+    ].join(':')
+
+    if (!force && appointmentClientPushRegistrationKeyRef.current === key) {
+      console.log('[NDJC_PUSH] Skip duplicate appointment client push registration.', {
+        reason,
+        storeId,
+        clientId
+      })
+      return
+    }
+
+    if (!force && shouldThrottlePushRegistration(key, reason)) {
+      return
+    }
+
+    appointmentClientPushRegistrationKeyRef.current = key
+
+    console.log('[NDJC_PUSH] Register appointment client push device start.', {
+      reason,
+      storeId,
+      clientId,
+      conversationId: '__appointment_client__',
+      screen
+    })
+
+    const registered = await ensurePushRegistration({
+      audience: 'appointment_client',
+      conversationId: '__appointment_client__'
+    })
+
+    console.log('[NDJC_PUSH] Register appointment client push device result.', {
+      reason,
+      registered,
+      storeId,
+      clientId,
+      conversationId: '__appointment_client__',
+      deviceInstallId: canUseLocalStorage()
+        ? window.localStorage.getItem(NDJC_PWA_DEVICE_INSTALL_ID_STORAGE_KEY)
+        : null,
+      code: repository.lastUpsertCode,
+      body: repository.lastUpsertBody
+    })
+
+    if (!registered) {
+      appointmentClientPushRegistrationKeyRef.current = ''
       clearPushRegistrationThrottle(key)
     }
   }
@@ -15633,7 +15736,7 @@ async function refreshCustomerAppointmentsFromCloud(
     if (isAdminLoggedIn) return
     if (currentChatRole() === 'merchant') return
 
-    const conversationId = String(activeConversationId || '').trim()
+    const conversationId = String(activeConversationId || activeConversationIdRef.current || '').trim()
     if (!conversationId) return
 
     const isClientChatScreen =
@@ -15644,10 +15747,60 @@ async function refreshCustomerAppointmentsFromCloud(
     if (!isClientChatScreen) return
 
     void registerChatClientPushDevice(conversationId, 'client-chat-screen')
+
+    const handleWindowFocus = (): void => {
+      void registerChatClientPushDevice(conversationId, 'client-chat-window-focus', true)
+    }
+
+    const handleVisibilityChange = (): void => {
+      if (document.visibilityState === 'visible') {
+        void registerChatClientPushDevice(conversationId, 'client-chat-document-visible', true)
+      }
+    }
+
+    window.addEventListener('focus', handleWindowFocus)
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+
+    return () => {
+      window.removeEventListener('focus', handleWindowFocus)
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
+    }
   }, [
     screen,
     isAdminLoggedIn,
     activeConversationId,
+    clientId,
+    storeId
+  ])
+
+  useEffect(() => {
+    if (!isBrowser()) return
+    if (isAdminLoggedIn) return
+    if (currentChatRole() === 'merchant') return
+    if (screen !== ShowcaseScreens.CustomerBookings) return
+
+    void registerAppointmentClientPushDevice('customer-bookings-screen')
+
+    const handleWindowFocus = (): void => {
+      void registerAppointmentClientPushDevice('customer-bookings-window-focus', true)
+    }
+
+    const handleVisibilityChange = (): void => {
+      if (document.visibilityState === 'visible') {
+        void registerAppointmentClientPushDevice('customer-bookings-document-visible', true)
+      }
+    }
+
+    window.addEventListener('focus', handleWindowFocus)
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+
+    return () => {
+      window.removeEventListener('focus', handleWindowFocus)
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
+    }
+  }, [
+    screen,
+    isAdminLoggedIn,
     clientId,
     storeId
   ])
@@ -16039,6 +16192,10 @@ async function sendChatMessage(): Promise<void> {
 
     await mergeLatestLocalChatMessages(conversation.id)
     triggerChatScrollToBottomForOwnSend()
+
+    if (currentChatRole() !== 'merchant') {
+      void registerChatClientPushDevice(conversation.id, 'client-chat-message-sent', true)
+    }
 
     const senderRole = currentChatRole()
     const targetAudience = senderRole === 'merchant' ? 'chat_client' : 'chat_merchant'
@@ -18513,6 +18670,8 @@ function onChatImageLimitReached(): void {
   }
 
   function onChatScreenVisible(): void {
+    const conversationId = String(activeConversationId || activeConversationIdRef.current || '').trim()
+
     markRuntimeConversationVisible(activeConversationId)
     setRuntimeChatVisible(true)
     postChatVisibilityToServiceWorker({
@@ -18522,6 +18681,11 @@ function onChatImageLimitReached(): void {
       clientId,
       chatRole: currentChatRole()
     })
+
+    if (!isAdminLoggedIn && currentChatRole() !== 'merchant' && conversationId) {
+      void registerChatClientPushDevice(conversationId, 'client-chat-visible', true)
+    }
+
     snapshotCurrentChatContext()
     startChatPolling()
     startChatDbObserve()
@@ -19267,7 +19431,7 @@ function onChatImageLimitReached(): void {
     businessStatus: storeProfileCloud?.businessStatus || draftBusinessStatus || '',
 
     appName: storeProfileForUi.displayName || 'App',
-    versionName: '1.0.0',
+    versionName: SHOWCASE_APP_VERSION,
     merchantEmail: 'Not provided',
     privacyUrl: `/privacy/${encodeURIComponent(storeId)}`,
 

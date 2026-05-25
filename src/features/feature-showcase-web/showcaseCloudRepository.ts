@@ -150,6 +150,7 @@ export type MerchantAuthSession = {
   authUserId: string
   loginName: string
   expiresAt: number
+  storeId?: string | null
 }
 
 export type MerchantStoreMembership = {

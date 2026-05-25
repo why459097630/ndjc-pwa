@@ -138,6 +138,7 @@ export function currentMerchantSession(): MerchantAuthSession | null {
   const accessToken = normalizeNullableString(merchantAccessTokenValue)
   const authUserId = currentMerchantAuthUserId()
   const loginName = currentMerchantLoginName()
+  const storeId = currentStoreId().trim()
 
   if (!accessToken || !authUserId || !loginName) return null
 
@@ -146,7 +147,8 @@ export function currentMerchantSession(): MerchantAuthSession | null {
     refreshToken: null,
     authUserId,
     loginName,
-    expiresAt: merchantExpiresAtValue || 0
+    expiresAt: merchantExpiresAtValue || 0,
+    storeId: storeId || null
   }
 }
 
