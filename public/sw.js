@@ -1,4 +1,4 @@
-const NDJC_DEV_KILL_SERVICE_WORKER = false
+﻿const NDJC_DEV_KILL_SERVICE_WORKER = false
 const NDJC_SW_VERSION = 'ndjc-pwa-v5'
 const NDJC_STATIC_CACHE = `${NDJC_SW_VERSION}-static`
 const NDJC_NAVIGATION_CACHE = `${NDJC_SW_VERSION}-navigation`
@@ -11,7 +11,10 @@ const NDJC_APP_SHELL_URLS = [
   '/icons/icon-512.png',
   '/icons/maskable-192.png',
   '/icons/maskable-512.png',
-  '/icons/apple-touch-icon.png'
+  '/icons/apple-touch-icon.png',
+  '/icons/push/chat-badge.svg',
+  '/icons/push/appointment-badge.svg',
+  '/icons/push/announcement-badge.svg'
 ]
 
 function ndjcIsSameOriginUrl(url) {
@@ -253,6 +256,68 @@ function ndjcNormalizeText(value) {
   return String(value || '').trim()
 }
 
+const NDJC_DEFAULT_NOTIFICATION_ICON = '/icons/icon-192.png'
+const NDJC_DEFAULT_NOTIFICATION_BADGE = '/icons/maskable-192.png'
+
+function ndjcNormalizeNotificationImageUrl(value) {
+  const url = ndjcNormalizeText(value)
+
+  if (!url) return ''
+  if (url.startsWith('/')) return url
+  if (url.startsWith('https://')) return url
+  if (url.startsWith('http://')) return url
+
+  return ''
+}
+
+function ndjcPushTypeForBadge(payload) {
+  return ndjcNormalizeText(
+    payload && (
+      payload.push_type ||
+      payload.pushType ||
+      payload.type ||
+      payload.ndjcPushType
+    )
+  ).toLowerCase()
+}
+
+function ndjcBadgeForPushType(payload) {
+  const type = ndjcPushTypeForBadge(payload)
+
+  if (type === 'chat' || type === 'message' || type === 'chat_message') {
+    return '/icons/push/chat-badge.svg'
+  }
+
+  if (
+    type === 'appointment' ||
+    type === 'booking' ||
+    type === 'appointment_created' ||
+    type === 'appointment_status'
+  ) {
+    return '/icons/push/appointment-badge.svg'
+  }
+
+  if (type === 'announcement' || type === 'announcements') {
+    return '/icons/push/announcement-badge.svg'
+  }
+
+  return NDJC_DEFAULT_NOTIFICATION_BADGE
+}
+
+function ndjcNotificationIconForPayload(payload) {
+  return ndjcNormalizeNotificationImageUrl(payload && payload.notification_icon) ||
+    ndjcNormalizeNotificationImageUrl(payload && payload.notificationIcon) ||
+    ndjcNormalizeNotificationImageUrl(payload && payload.icon) ||
+    NDJC_DEFAULT_NOTIFICATION_ICON
+}
+
+function ndjcNotificationBadgeForPayload(payload) {
+  return ndjcNormalizeNotificationImageUrl(payload && payload.notification_badge) ||
+    ndjcNormalizeNotificationImageUrl(payload && payload.notificationBadge) ||
+    ndjcNormalizeNotificationImageUrl(payload && payload.badge) ||
+    ndjcBadgeForPushType(payload)
+}
+
 function ndjcNowMs() {
   return Date.now()
 }
@@ -481,8 +546,9 @@ self.addEventListener('push', event => {
   delete notificationPayload.notification
   delete notificationPayload.title
   delete notificationPayload.body
-  delete notificationPayload.icon
-  delete notificationPayload.badge
+
+  const notificationIcon = ndjcNotificationIconForPayload(notificationPayload)
+  const notificationBadge = ndjcNotificationBadgeForPayload(notificationPayload)
 
   const notificationTag = String(
     notificationPayload.conversation_id ||
@@ -498,8 +564,8 @@ self.addEventListener('push', event => {
 
   const options = {
     body,
-    icon: '/icons/icon-192.png',
-    badge: '/icons/maskable-192.png',
+    icon: notificationIcon,
+    badge: notificationBadge,
     tag: notificationTag,
     renotify: false,
     requireInteraction: false,

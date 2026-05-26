@@ -581,6 +581,52 @@ function parseCloudImageVariants(value: unknown): ShowcaseImageVariants | null {
   return variants
 }
 
+function normalizePushNotificationImageUrl(value: unknown): string {
+  const url = String(value || '').trim()
+
+  if (!url) return ''
+  if (url.startsWith('/')) return url
+  if (url.startsWith('https://')) return url
+  if (url.startsWith('http://')) return url
+
+  return ''
+}
+
+function pickCloudStorePushIconUrl(profile: CloudStoreProfile | null): string {
+  if (!profile) return ''
+
+  const variants = profile.logoImageVariants
+
+  return normalizePushNotificationImageUrl(variants?.mediumUrl) ||
+    normalizePushNotificationImageUrl(variants?.thumbUrl) ||
+    normalizePushNotificationImageUrl(variants?.largeUrl) ||
+    normalizePushNotificationImageUrl(variants?.originalUrl) ||
+    normalizePushNotificationImageUrl(profile.logoUrl)
+}
+
+function pushBadgeUrlForPushType(value: unknown): string {
+  const type = String(value || '').trim().toLowerCase()
+
+  if (type === 'chat' || type === 'message' || type === 'chat_message') {
+    return '/icons/push/chat-badge.svg'
+  }
+
+  if (
+    type === 'appointment' ||
+    type === 'booking' ||
+    type === 'appointment_created' ||
+    type === 'appointment_status'
+  ) {
+    return '/icons/push/appointment-badge.svg'
+  }
+
+  if (type === 'announcement' || type === 'announcements') {
+    return '/icons/push/announcement-badge.svg'
+  }
+
+  return '/icons/maskable-192.png'
+}
+
 function isCloudImageVariantSchemaError(body: string | null | undefined): boolean {
   const text = String(body || '').toLowerCase()
 
@@ -3677,15 +3723,62 @@ const legacyQuery = [
     const storeId = this.requireStoreId(options.storeId)
     const scopeClientId = String(options.scopeClientId || '').trim() || null
     const url = this.functionUrl(this.edgeFunctions.sendPush)
+    const nextPayload = await this.buildPushPayloadWithNotificationImages(payload, storeId)
 
     const [code, body] = options.actor === 'merchant'
-      ? await this.httpAuthPost(url, payload, null, storeId)
-      : await this.httpPost(url, payload, null, storeId, scopeClientId)
+      ? await this.httpAuthPost(url, nextPayload, null, storeId)
+      : await this.httpPost(url, nextPayload, null, storeId, scopeClientId)
 
     this.lastAnnouncementPushCode = code
     this.lastAnnouncementPushBody = body
 
     return code >= 200 && code <= 299
+  }
+
+  private async buildPushPayloadWithNotificationImages(
+    payload: Record<string, ShowcaseRepositoryJson>,
+    storeId: string
+  ): Promise<Record<string, ShowcaseRepositoryJson>> {
+    const pushType = String(payload.push_type || payload.type || '').trim().toLowerCase()
+    const badgeUrl = pushBadgeUrlForPushType(pushType)
+    let iconUrl = ''
+
+    try {
+      const profile = await this.fetchStoreProfile(storeId)
+      iconUrl = pickCloudStorePushIconUrl(profile)
+    } catch {
+      iconUrl = ''
+    }
+
+    const nextPayload: Record<string, ShowcaseRepositoryJson> = {
+      ...payload,
+      notification_badge: badgeUrl,
+      badge: badgeUrl
+    }
+
+    if (iconUrl) {
+      nextPayload.notification_icon = iconUrl
+      nextPayload.icon = iconUrl
+    }
+
+    const rawData = payload.data
+
+    if (rawData && typeof rawData === 'object' && !Array.isArray(rawData)) {
+      const data = rawData as Record<string, ShowcaseRepositoryJson>
+
+      nextPayload.data = {
+        ...data,
+        notification_badge: badgeUrl,
+        badge: badgeUrl
+      }
+
+      if (iconUrl) {
+        nextPayload.data.notification_icon = iconUrl
+        nextPayload.data.icon = iconUrl
+      }
+    }
+
+    return nextPayload
   }
 
   async dispatchChatPush(input: {

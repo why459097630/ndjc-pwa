@@ -1615,6 +1615,35 @@ function cloudCategoriesToManualCategoryNames(categories: CloudCategory[]): stri
   return result
 }
 
+function mergeCloudAndDishCategoryNames(categories: CloudCategory[], items: DemoDish[]): string[] {
+  const seen = new Set<string>()
+  const result: string[] = []
+
+  cloudCategoriesToManualCategoryNames(categories).forEach(name => {
+    const cleanName = String(name || '').trim()
+    if (!cleanName) return
+
+    const key = cleanName.toLowerCase()
+    if (seen.has(key)) return
+
+    seen.add(key)
+    result.push(cleanName)
+  })
+
+  items.forEach(item => {
+    const cleanName = String(item.category || '').trim()
+    if (!cleanName) return
+
+    const key = cleanName.toLowerCase()
+    if (seen.has(key)) return
+
+    seen.add(key)
+    result.push(cleanName)
+  })
+
+  return result
+}
+
 function buildPendingDishSyncOperations(items: DemoDish[]): PendingSyncOperation[] {
   const operations = new Map<string, PendingSyncOperation>()
 
@@ -2943,8 +2972,8 @@ export function useShowcaseViewModel(input: UseShowcaseViewModelInput = {}): Sho
   }, [chatMessages, storeId])
 
   const manualCategories = useMemo(() => {
-    return cloudCategoriesToManualCategoryNames(categories)
-  }, [categories])
+    return mergeCloudAndDishCategoryNames(categories, dishes)
+  }, [categories, dishes])
 
   const homeListDishes = useMemo(() => {
     return dishesFromIds(homeDishIds)
@@ -9549,6 +9578,7 @@ function backFromAppointments(): void {
     const backTarget = previousScreen && previousScreen !== 'Edit'
       ? previousScreen
       : 'Admin'
+    let uploadedDraftDish: DemoDish | null = null
 
     setIsSavingEditDish(true)
     setIsBlockingEditDish(true)
@@ -9605,6 +9635,8 @@ function backFromAppointments(): void {
         syncState: 'Pending',
         dirty: true
       }
+
+      uploadedDraftDish = nextDish
 
       let ok = await repository.upsertDishFromDemo(storeId, nextDish)
 
@@ -9691,10 +9723,22 @@ function backFromAppointments(): void {
     } catch (error) {
       const rawMessage = error instanceof Error ? error.message : String(error || '')
       const isImageUploadFailure = rawMessage.includes('Image upload failed')
-      const failureMessage = isImageUploadFailure ? 'Image upload failed.' : 'Cloud save failed.'
+      const failureMessage = isImageUploadFailure ? 'Image upload failed. Please try again.' : 'Cloud save failed.'
+
+      if (isImageUploadFailure || !uploadedDraftDish) {
+        setStatusMessage(null)
+        setSyncOverviewState(SyncOverviewStates.Failed)
+        setSyncErrorMessage(failureMessage)
+        setLastRetryOp(null)
+        setEditValidationError(failureMessage)
+        setIsSavingEditDish(false)
+        setIsBlockingEditDish(false)
+        showSnackbar(failureMessage)
+        return
+      }
 
       const queuedDish: DemoDish = {
-        ...draftDish,
+        ...uploadedDraftDish,
         updatedAt: nowMillis(),
         syncState: 'Pending',
         dirty: true

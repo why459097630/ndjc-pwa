@@ -422,7 +422,7 @@ const APK_MEDIA_UI = {
   white: '#ffffff',
   black: '#000000',
   fullscreenBg: '#000000',
-  fullscreenZ: 999,
+  fullscreenZ: 1000003,
   fullscreenCloseSize: 34,
   fullscreenClosePadding: 14,
   fullscreenCloseBg: 'rgba(0, 0, 0, 0.55)',
@@ -457,6 +457,14 @@ const APK_MEDIA_UI = {
   dragOverlayScale: 1.04,
   dragLongPressMs: 360,
   dragPreviewTransitionMs: 140,
+  imageFailureTimeoutMs: 8000,
+  imageFailureIconSize: 28,
+  imageFailureTextSize: 12,
+  imageFailureTextWeight: 600,
+  imageFailureTextColor: 'rgba(0, 0, 0, 0.45)',
+  imageFailureIconColor: 'rgba(0, 0, 0, 0.32)',
+  imageFailureGap: 6,
+  imageFailurePadding: 10,
   shimmerDurationMs: 1100,
   imageFadeMs: 180,
   zoomMax: 4,
@@ -494,6 +502,43 @@ const apkImagePlaceholderStyle: React.CSSProperties = {
   display: 'block',
   overflow: 'hidden',
   background: APK_MEDIA_UI.imagePlaceholderBg
+}
+
+const apkImageFailurePlaceholderStyle: React.CSSProperties = {
+  position: 'absolute',
+  inset: 0,
+  width: '100%',
+  height: '100%',
+  display: 'flex',
+  flexDirection: 'column',
+  alignItems: 'center',
+  justifyContent: 'center',
+  gap: APK_MEDIA_UI.imageFailureGap,
+  padding: APK_MEDIA_UI.imageFailurePadding,
+  boxSizing: 'border-box',
+  overflow: 'hidden',
+  background: APK_MEDIA_UI.imagePlaceholderBg,
+  color: APK_MEDIA_UI.imageFailureTextColor,
+  textAlign: 'center'
+}
+
+const apkImageFailureIconStyle: React.CSSProperties = {
+  width: APK_MEDIA_UI.imageFailureIconSize,
+  height: APK_MEDIA_UI.imageFailureIconSize,
+  display: 'block',
+  color: APK_MEDIA_UI.imageFailureIconColor,
+  flex: '0 0 auto'
+}
+
+const apkImageFailureTextStyle: React.CSSProperties = {
+  display: 'block',
+  maxWidth: '100%',
+  color: APK_MEDIA_UI.imageFailureTextColor,
+  fontSize: APK_MEDIA_UI.imageFailureTextSize,
+  lineHeight: 1.2,
+  fontWeight: APK_MEDIA_UI.imageFailureTextWeight,
+  textAlign: 'center',
+  wordBreak: 'break-word'
 }
 
 const apkImageShimmerLayerStyle: React.CSSProperties = {
@@ -1055,7 +1100,7 @@ const apkStoreEditPickerHintStyle: React.CSSProperties = {
 const APK_APPOINTMENT_UI = {
   black: '#000000',
   white: '#ffffff',
-  brand: '#c43f4d',
+  brand: '#fe9595',
   green: '#0f766e',
   surface: '#ffffff',
   softSurface: '#f7f7fb',
@@ -3060,7 +3105,7 @@ const apkSyncErrorBannerButtonStyle: React.CSSProperties = {
 const APK_CHAT_UI = {
   black: '#000000',
   white: '#ffffff',
-  brand: '#c43f4d',
+  brand: '#fe9595',
   green: '#0f766e',
   incomingBubble: '#f2f3f5',
   outgoingBubble: '#fe9595',
@@ -3866,7 +3911,7 @@ const APK_SHOWCASE_ITEM_UI = {
   ink: '#111827',
   ink2: '#374151',
   muted: '#4b5563',
-  brand: '#c43f4d',
+  brand: '#fe9595',
   green: '#0f766e',
   card: '#ffffff',
   transparent: 'transparent',
@@ -3953,7 +3998,7 @@ const APK_ANNOUNCEMENT_UI = {
   ink: '#111827',
   ink2: '#374151',
   muted: '#4b5563',
-  brand: '#c43f4d',
+  brand: '#fe9595',
   green: '#0f766e',
   card: '#ffffff',
   softSurface: '#f2f4f7',
@@ -8398,44 +8443,59 @@ export function NdjcShimmerImage({
   const cleanSrc = src?.trim() || ''
   const imageRef = React.useRef<HTMLImageElement | null>(null)
   const [loaded, setLoaded] = React.useState(false)
+  const [failed, setFailed] = React.useState(false)
 
   React.useEffect(() => {
     let cancelled = false
 
     if (!cleanSrc) {
       setLoaded(false)
+      setFailed(true)
       return () => {
         cancelled = true
       }
     }
 
     setLoaded(false)
+    setFailed(false)
 
     const currentImage = imageRef.current
 
     if (currentImage?.complete && currentImage.naturalWidth > 0) {
       setLoaded(true)
+      setFailed(false)
       return () => {
         cancelled = true
       }
     }
 
+    const failureTimer = window.setTimeout(() => {
+      if (cancelled) return
+      setLoaded(false)
+      setFailed(true)
+    }, APK_MEDIA_UI.imageFailureTimeoutMs)
+
     const probeImage = new Image()
 
     probeImage.onload = () => {
       if (cancelled) return
+      window.clearTimeout(failureTimer)
       setLoaded(true)
+      setFailed(false)
     }
 
     probeImage.onerror = () => {
       if (cancelled) return
+      window.clearTimeout(failureTimer)
       setLoaded(false)
+      setFailed(true)
     }
 
     probeImage.src = cleanSrc
 
     return () => {
       cancelled = true
+      window.clearTimeout(failureTimer)
       probeImage.onload = null
       probeImage.onerror = null
     }
@@ -8443,7 +8503,7 @@ export function NdjcShimmerImage({
 
   return (
     <span
-      className={cx('ndjc-shimmer-image-root', !loaded && 'is-loading', className)}
+      className={cx('ndjc-shimmer-image-root', !loaded && !failed && 'is-loading', failed && 'is-failed', className)}
       style={{
         ...apkImageRootStyle,
         borderRadius: placeholderCornerRadius
@@ -8452,7 +8512,7 @@ export function NdjcShimmerImage({
     >
       <style>{apkImageShimmerKeyframes}</style>
 
-      {!loaded ? (
+      {!loaded && !failed ? (
         <span
           className="ndjc-shimmer-image-placeholder"
           style={{
@@ -8472,7 +8532,56 @@ export function NdjcShimmerImage({
         </span>
       ) : null}
 
-      {cleanSrc ? (
+      {failed ? (
+        <span
+          className="ndjc-shimmer-image-failed"
+          style={{
+            ...apkImageFailurePlaceholderStyle,
+            borderRadius: placeholderCornerRadius
+          }}
+          aria-hidden="true"
+        >
+          <span style={apkImageFailureIconStyle} aria-hidden="true">
+            <svg
+              width={APK_MEDIA_UI.imageFailureIconSize}
+              height={APK_MEDIA_UI.imageFailureIconSize}
+              viewBox="0 0 24 24"
+              fill="none"
+              aria-hidden="true"
+              focusable="false"
+            >
+              <rect
+                x="3"
+                y="5"
+                width="18"
+                height="14"
+                rx="2"
+                stroke="currentColor"
+                strokeWidth="1.8"
+              />
+              <path
+                d="M7 15l3.2-3.2a1.1 1.1 0 0 1 1.6 0L15 15l1.2-1.2a1.1 1.1 0 0 1 1.6 0L21 17"
+                stroke="currentColor"
+                strokeWidth="1.8"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+              <circle
+                cx="8"
+                cy="9"
+                r="1.2"
+                fill="currentColor"
+              />
+            </svg>
+          </span>
+
+          <span style={apkImageFailureTextStyle}>
+            Image unavailable
+          </span>
+        </span>
+      ) : null}
+
+      {cleanSrc && !failed ? (
         <img
           ref={imageRef}
           className="ndjc-shimmer-image"
@@ -8493,8 +8602,14 @@ export function NdjcShimmerImage({
           width={imageWidth}
           height={imageHeight}
           sizes={sizes}
-          onLoad={() => setLoaded(true)}
-          onError={() => setLoaded(false)}
+          onLoad={() => {
+            setLoaded(true)
+            setFailed(false)
+          }}
+          onError={() => {
+            setLoaded(false)
+            setFailed(true)
+          }}
         />
       ) : null}
     </span>
@@ -9272,15 +9387,16 @@ export function NdjcFullscreenImageViewerScreen({
                     requestSaveCurrentImage()
                   }}
                 >
-                  <img
-                    src={url}
-                    alt="Preview"
+                  <span
                     style={{
                       ...apkFullscreenImageStyle,
                       width: isLargeViewport ? 'min(92vw, 1120px)' : '100%',
                       height: isLargeViewport ? '92vh' : '100%',
                       maxWidth: isLargeViewport ? '1120px' : '100%',
                       maxHeight: isLargeViewport ? '92vh' : '100%',
+                      display: 'block',
+                      position: 'relative',
+                      overflow: 'hidden',
                       transform: isActivePage ? `translate(${offset.x}px, ${offset.y}px) scale(${scale})` : 'translate(0px, 0px) scale(1)',
                       transformOrigin: 'center center',
                       transition: isPagerDragging || didMoveRef.current ? 'none' : 'transform 120ms ease',
@@ -9290,12 +9406,21 @@ export function NdjcFullscreenImageViewerScreen({
                       WebkitUserSelect: 'none',
                       WebkitTouchCallout: 'none'
                     }}
-                    draggable={false}
                     onDragStart={event => {
                       event.preventDefault()
                       event.stopPropagation()
                     }}
-                  />
+                  >
+                    <NdjcShimmerImage
+                      src={url}
+                      alt="Preview"
+                      placeholderCornerRadius={0}
+                      contentScale="contain"
+                      loading="eager"
+                      fetchPriority={isActivePage ? 'high' : 'low'}
+                      decoding="async"
+                    />
+                  </span>
                 </section>
               )
             })}
@@ -21276,16 +21401,14 @@ export function ShowcaseChatThread({
                         }}
                         aria-label="Preview draft image"
                       >
-                        <img
+                        <NdjcShimmerImage
                           src={url}
                           alt="Draft image"
-                          style={{
-                            width: '100%',
-                            height: '100%',
-                            display: 'block',
-                            objectFit: 'cover'
-                          }}
-                          draggable={false}
+                          placeholderCornerRadius={APK_CHAT_UI.draftPreviewCorner}
+                          contentScale="cover"
+                          loading="eager"
+                          fetchPriority="high"
+                          decoding="async"
                         />
                       </button>
 
@@ -25051,9 +25174,7 @@ export function ShowcaseAdminAppointmentManager({
                   label="Appointment booking"
                   checked={state.enabled}
                   enabled={!state.settingsSubmitting}
-                  onChange={() => {
-                    openBookingSettingsSheet()
-                  }}
+                  onChange={actions.onEnabledChange}
                 />
 
                 <section
