@@ -245,6 +245,8 @@ export type ShowcaseChatAppointmentShare = {
   preferredDate: string
   preferredTime: string
   statusLabel: string
+  cancelledBy: string | null
+  cancelledAt: number | null
   imageUrl: string | null
   imageVariants?: ShowcaseImageVariants | null
   customerName: string
@@ -832,6 +834,9 @@ export type ShowcaseAppointmentCard = {
   preferredTime: string
   note: string
   statusLabel: string
+  cancelledBy: string | null
+  cancelledAt: number | null
+  canCancelByCustomer: boolean
   createdAtText: string
   imageUrl: string | null
   imageVariants?: ShowcaseImageVariants | null
@@ -928,6 +933,7 @@ export type ShowcaseCustomerBookingsUiState = {
   items: ShowcaseAppointmentCard[]
   statusMessage: string | null
   isRefreshing: boolean
+  cancellationSubmittingId: string | null
 
   dateFilterOptions: string[]
   statusFilterOptions: string[]
@@ -978,6 +984,7 @@ export type ShowcaseCustomerBookingsActions = ShowcaseBottomNavigationActions & 
   onStatusFilterChange: (value: string) => void
   onServiceFilterChange: (value: string) => void
   onContactMerchant: (id: string) => void
+  onCancelBooking: (id: string) => void | Promise<void>
   onOpenAppointmentProductDetail: (dishId: string) => void
   onLoadMore: () => Promise<void> | void
 }
@@ -1065,6 +1072,12 @@ export type ShowcaseAnnouncementEditActions = {
   onClearSelection: () => void
   onDeleteSelected: () => void | Promise<void>
   onLoadMore: () => Promise<void> | void
+}
+
+export type ShowcaseStoreUnavailableUiState = {
+  visible: boolean
+  title: string
+  message: string
 }
 
 export type ShowcaseUiState = {
@@ -1234,6 +1247,7 @@ export type ShowcaseUiModel = {
   screen: ShowcaseScreenName
   showcaseWiring: ShowcaseUiWiring
   offlineStatus: ShowcaseOfflineStatusUi
+  storeUnavailableState: ShowcaseStoreUnavailableUiState
 
   homeState: ShowcaseHomeUiState
   homeActions: ShowcaseHomeActions

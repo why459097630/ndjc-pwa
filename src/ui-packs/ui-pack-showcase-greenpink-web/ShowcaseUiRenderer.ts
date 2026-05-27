@@ -37,7 +37,8 @@ import type {
   ShowcaseMerchantChatListActions,
   ShowcasePaginationUiState,
   ShowcaseStoreProfileActions,
-  ShowcaseStoreProfileUiState
+  ShowcaseStoreProfileUiState,
+  ShowcaseStoreUnavailableUiState
 } from '@/features/feature-showcase-web/showcaseUiContract'
 export type ShowcaseRendererBottomBarTab =
   | 'Store'
@@ -56,6 +57,10 @@ export type ShowcasePwaInstallState =
 
 export type ShowcaseUiRenderer = {
   OfflineStatusBanner: (input: { message?: string | null }) => ReactNode
+  StoreUnavailableOverlay: (input: {
+    state: ShowcaseStoreUnavailableUiState
+    children: ReactNode
+  }) => ReactNode
   PwaUpdateBanner: (input: {
     refreshing: boolean
     onRefresh: () => void

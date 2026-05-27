@@ -1242,6 +1242,8 @@ function normalizeChatAppointmentShare(
     preferredDate,
     preferredTime,
     statusLabel: statusLabel || 'Pending',
+    cancelledBy: normalizeNullableText(appointment.cancelledBy),
+    cancelledAt: typeof appointment.cancelledAt === 'number' ? appointment.cancelledAt : null,
     imageUrl: normalizeNullableText(appointment.imageUrl),
     customerName: normalizeText(appointment.customerName) || 'Customer',
     customerContact: normalizeText(appointment.customerContact),
@@ -1477,6 +1479,9 @@ function normalizeAppointmentCard(item: ShowcaseAppointmentCard): ShowcaseAppoin
     preferredTime: normalizeText(item.preferredTime),
     note: normalizeText(item.note),
     statusLabel: normalizeText(item.statusLabel) || 'Pending',
+    cancelledBy: normalizeNullableText(item.cancelledBy),
+    cancelledAt: typeof item.cancelledAt === 'number' ? item.cancelledAt : null,
+    canCancelByCustomer: Boolean(item.canCancelByCustomer),
     createdAtText: normalizeText(item.createdAtText),
     imageUrl: normalizeNullableText(item.imageUrl),
     sourceDishId: normalizeNullableText(item.sourceDishId),
@@ -1502,8 +1507,9 @@ const APPOINTMENT_STATUS_FILTER_OPTIONS = [
   'All',
   'Pending',
   'Confirmed',
-  'Completed',
   'Cancelled',
+  'Cancelled by customer',
+  'Completed',
   'No-show'
 ]
 
@@ -1542,7 +1548,13 @@ function matchesAppointmentFilters(
   const serviceTitle = item.serviceTitle?.trim() || 'General appointment'
 
   if (selectedDate !== 'All' && item.preferredDate !== selectedDate) return false
-  if (selectedStatus !== 'All' && normalizeAppointmentStatus(item.statusLabel) !== selectedStatus) return false
+
+  if (selectedStatus === 'Cancelled by customer') {
+    if (normalizeAppointmentStatus(item.statusLabel) !== 'Cancelled' || item.cancelledBy !== 'customer') return false
+  } else if (selectedStatus !== 'All' && normalizeAppointmentStatus(item.statusLabel) !== selectedStatus) {
+    return false
+  }
+
   if (selectedService !== 'All' && serviceTitle !== selectedService) return false
 
   return true
@@ -1582,7 +1594,13 @@ function matchesCustomerAppointmentFilters(
   const serviceTitle = item.serviceTitle?.trim() || 'General appointment'
 
   if (!matchesCustomerAppointmentDateFilter(item, dateFilter, today)) return false
-  if (selectedStatus !== 'All' && normalizeAppointmentStatus(item.statusLabel) !== selectedStatus) return false
+
+  if (selectedStatus === 'Cancelled by customer') {
+    if (normalizeAppointmentStatus(item.statusLabel) !== 'Cancelled' || item.cancelledBy !== 'customer') return false
+  } else if (selectedStatus !== 'All' && normalizeAppointmentStatus(item.statusLabel) !== selectedStatus) {
+    return false
+  }
+
   if (selectedService !== 'All' && serviceTitle !== selectedService) return false
 
   return true
@@ -1817,6 +1835,7 @@ export function buildCustomerBookingsWiringState(uiState: ShowcaseUiState): Show
     items,
     statusMessage: uiState.statusMessage,
     isRefreshing: uiState.appointmentsRefreshing,
+    cancellationSubmittingId: null,
     dateFilterOptions: [...buildAppointmentDateFilterOptions(appointmentCards), 'History'],
     statusFilterOptions: buildAppointmentStatusFilterOptions(),
     serviceFilterOptions: buildCustomerAppointmentServiceFilterOptions(uiState, appointmentCards),
@@ -2281,6 +2300,7 @@ export function createNoopCustomerBookingsActions(
     onStatusFilterChange: noopString,
     onServiceFilterChange: noopString,
     onContactMerchant: noopString,
+    onCancelBooking: noopString,
     onOpenAppointmentProductDetail: noopString,
     onLoadMore: noopAsync,
     ...overrides

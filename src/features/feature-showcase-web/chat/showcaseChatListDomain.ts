@@ -383,9 +383,10 @@ export function parseCloudIsoToMs(iso: string | null | undefined): number | null
 
 export function cloudThreadSummaryToLegacyChatThread(thread: CloudThreadSummary): ChatThreadSummary {
   const seq = Number(thread.customerSeq || 0)
+  const customerSeq = Number.isFinite(seq) && seq > 0 ? Math.trunc(seq) : null
   const titleFromAlias = String(thread.merchantAlias || '').trim()
-  const titleFromSeq = Number.isFinite(seq) && seq > 0
-    ? `Customer #${Math.trunc(seq)}`
+  const titleFromSeq = customerSeq != null
+    ? `Customer #${customerSeq}`
     : ''
 
   const lastMessageMs = parseCloudIsoToMs(thread.lastMessageAtIso)
@@ -400,7 +401,8 @@ export function cloudThreadSummaryToLegacyChatThread(thread: CloudThreadSummary)
     lastMessage: String(thread.lastPreview || ''),
     lastMessageAt: lastMs,
     unreadCount: 0,
-    pinned: false
+    pinned: false,
+    customerSeq
   }
 }
 

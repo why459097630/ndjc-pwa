@@ -86,6 +86,8 @@ export type ShowcaseAppointment = {
   note: string
   sourceDishId: string | null
   status: ShowcaseAppointmentStatus
+  cancelledBy: string | null
+  cancelledAt: number | null
   createdAt: number
 }
 
@@ -204,6 +206,8 @@ export function createDefaultAppointment(input: Partial<ShowcaseAppointment> = {
     note: input.note || '',
     sourceDishId: input.sourceDishId ?? null,
     status: input.status || 'Pending',
+    cancelledBy: input.cancelledBy ?? null,
+    cancelledAt: typeof input.cancelledAt === 'number' ? input.cancelledAt : null,
     createdAt: Number.isFinite(Number(input.createdAt)) ? Number(input.createdAt) : 0
   }
 }

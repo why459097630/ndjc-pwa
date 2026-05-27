@@ -99,7 +99,9 @@ import {
   refreshShowcaseAuthSession
 } from './showcaseAuthSessionManager'
 import {
-  formatShowcaseDateTime
+  formatShowcaseDateAndTimeParts,
+  formatShowcaseDateTime,
+  parseShowcaseDateInput
 } from './showcaseDateTime'
 import {
   markConversationRecentlySeen as markRuntimeConversationRecentlySeen,
@@ -155,6 +157,7 @@ import {
   buildMerchantThreadPinOperationResult,
   buildMerchantThreadsWithLocalMeta as buildMerchantThreadsWithLocalMetaInDomain,
   buildMerchantThreadsFromCloudSummaries,
+  buildThreadPreview,
   chatThreadSummaryToUi as chatThreadSummaryToUiFromDomain,
   cloudThreadSummaryToLegacyChatThread,
   removeMerchantThread
@@ -239,6 +242,7 @@ import type {
   ShowcaseStoreProfileActions,
   ShowcaseStoreProfileDraft,
   ShowcaseStoreProfileUiState,
+  ShowcaseStoreUnavailableUiState,
   ShowcaseSyncOverviewState,
   ShowcaseUiModel,
   ShowcaseUiState,
@@ -334,6 +338,7 @@ type AppointmentCloudQueryFilters = {
   preferredDateGte?: string | null
   preferredDateLt?: string | null
   status?: string | null
+  cancelledBy?: string | null
   serviceTitle?: string | null
 }
 
@@ -581,6 +586,8 @@ function loadAppointmentsFromStorage(storeId: string): CloudAppointmentRequest[]
         sourceCategorySnapshot: item.sourceCategorySnapshot ? String(item.sourceCategorySnapshot) : null,
         sourceRecommendedSnapshot: Boolean(item.sourceRecommendedSnapshot),
         status: String(item.status || 'pending'),
+        cancelledBy: item.cancelledBy ? String(item.cancelledBy) : null,
+        cancelledAt: typeof item.cancelledAt === 'number' ? item.cancelledAt : null,
         createdAt: typeof item.createdAt === 'number' ? item.createdAt : null
       }
     })
@@ -1702,12 +1709,27 @@ function appointmentsStatusToCloud(valueInput: string): string {
   return 'pending'
 }
 
+function canCustomerCancelAppointmentStatus(statusInput: string | null | undefined): boolean {
+  const status = appointmentsStatusFromCloud(statusInput)
+
+  return status === 'Pending' || status === 'Confirmed'
+}
+
 function appointmentCloudStatusFilterFromUi(valueInput: string): string | null {
   const value = String(valueInput || '').trim()
 
   if (!value || value === 'All') return null
+  if (value === 'Cancelled by customer') return 'cancelled'
 
   return appointmentsStatusToCloud(value)
+}
+
+function appointmentCloudCancelledByFilterFromUi(valueInput: string): string | null {
+  const value = String(valueInput || '').trim()
+
+  if (value === 'Cancelled by customer') return 'customer'
+
+  return null
 }
 
 function appointmentCloudServiceFilterFromUi(valueInput: string): string | null {
@@ -1789,6 +1811,9 @@ function cloudAppointmentToUi(item: CloudAppointmentRequest, dish: DemoDish | nu
     preferredTime: item.preferredTime,
     note: item.note,
     statusLabel: appointmentsStatusFromCloud(item.status),
+    cancelledBy: item.cancelledBy,
+    cancelledAt: item.cancelledAt,
+    canCancelByCustomer: canCustomerCancelAppointmentStatus(item.status) && item.cancelledBy !== 'customer',
     createdAtText: formatDateTimeText(item.createdAt) || 'Just now',
     imageUrl: dish ? selectDishImageUrl(dish, 'list') || snapshotImageUrl || null : snapshotImageUrl || null,
     imageVariants: dish?.imageVariants ?? createRemoteOnlyShowcaseImageVariants(snapshotImageUrl),
@@ -1840,6 +1865,8 @@ function chatMessageToUiMessage(message: ChatMessage, currentRole: 'merchant' | 
         preferredDate: parsedPayload.appointment.preferredDate,
         preferredTime: parsedPayload.appointment.preferredTime,
         statusLabel: parsedPayload.appointment.statusLabel,
+        cancelledBy: parsedPayload.appointment.cancelledBy,
+        cancelledAt: parsedPayload.appointment.cancelledAt,
         imageUrl: parsedPayload.appointment.imageUrl,
         imageVariants: parsedPayload.appointment.imageVariants ?? createRemoteOnlyShowcaseImageVariants(parsedPayload.appointment.imageUrl),
         customerName: parsedPayload.appointment.customerName,
@@ -2622,6 +2649,7 @@ export function useShowcaseViewModel(input: UseShowcaseViewModelInput = {}): Sho
   const [changePasswordSuccess, setChangePasswordSuccess] = useState<string | null>(defaultUiState.changePasswordSuccess)
   const [isChangingPassword, setIsChangingPassword] = useState(false)
 
+  const [storeUnavailable, setStoreUnavailable] = useState(false)
   const [storeProfileCloud, setStoreProfileCloud] = useState<CloudStoreProfile | null>(null)
   const [storeProfile, setStoreProfile] = useState<ShowcaseStoreProfile | null>(() => {
     const cachedProfile = loadStoreProfileFromStorage(storeId)
@@ -3238,6 +3266,20 @@ export function useShowcaseViewModel(input: UseShowcaseViewModelInput = {}): Sho
     })
   }, [appointmentRequests, dishEntitiesById])
 
+  const appointmentCardsById = useMemo(() => {
+    const result = new Map<string, ShowcaseAppointmentCard>()
+
+    appointmentCards.forEach(item => {
+      const id = item.id.trim()
+
+      if (id) {
+        result.set(id, item)
+      }
+    })
+
+    return result
+  }, [appointmentCards])
+
   const currentClientAppointmentIdSet = useMemo(() => {
     const currentClientId = clientId.trim()
 
@@ -3328,13 +3370,17 @@ export function useShowcaseViewModel(input: UseShowcaseViewModelInput = {}): Sho
     return chatMessages.map(message => {
       const product = message.productDishId ? activeChatProductMap.get(message.productDishId) || null : null
       const ui = chatMessageToUiMessage(message, currentRole, product)
+      const hydratedAppointment = ui.appointment
+        ? hydrateChatAppointmentShareFromCard(ui.appointment)
+        : null
 
       return {
         ...ui,
+        appointment: hydratedAppointment,
         selected: chatSelectedMessageIds.includes(message.id)
       }
     })
-  }, [activeChatProductMap, chatMessages, chatSelectedMessageIds, chatMode])
+  }, [activeChatProductMap, chatMessages, chatSelectedMessageIds, chatMode, appointmentCardsById])
 
   useEffect(() => {
     const query = chatFindQuery.trim()
@@ -5302,6 +5348,10 @@ function backFromAppointments(): void {
       const browserOffline = isBrowserOfflineNow()
       const cloudReadFailed = repository.lastReadFailureAt >= cloudLoadStartedAt
       const cloudUnavailable = browserOffline || cloudReadFailed
+      const storeProfileMissingInCloud = !cloudStoreProfile && !cloudUnavailable
+
+      setStoreUnavailable(storeProfileMissingInCloud)
+
       const localVisibleDishes = localDishes.filter(item => isAdminLoggedIn || !item.isHidden)
 
       const protectedLocalDishes = localDishes.filter(item => {
@@ -5492,6 +5542,8 @@ function backFromAppointments(): void {
             : 'No data.'
       )
     } catch (error) {
+      setStoreUnavailable(false)
+
       ndjcTraceError('ERROR loadFromCloud', error, {
         seq,
         reason,
@@ -5658,6 +5710,10 @@ function backFromAppointments(): void {
       const browserOffline = isBrowserOfflineNow()
       const cloudReadFailed = repository.lastReadFailureAt >= cloudLoadStartedAt
       const cloudUnavailable = browserOffline || cloudReadFailed
+      const storeProfileMissingInCloud = !cloudStoreProfile && !cloudUnavailable
+
+      setStoreUnavailable(storeProfileMissingInCloud)
+
       const localVisibleDishes = localDishes.filter(item => isAdminLoggedIn || !item.isHidden)
 
       const protectedLocalDishes = localDishes.filter(item => {
@@ -5782,6 +5838,8 @@ function backFromAppointments(): void {
             : 'No data.'
       )
     } catch (error) {
+      setStoreUnavailable(false)
+
       ndjcTraceError('ERROR refreshHomeMainData', error, {
         screen,
         isAdminLoggedIn,
@@ -7797,6 +7855,8 @@ function backFromAppointments(): void {
       preferredDate: item.preferredDate,
       preferredTime: item.preferredTime,
       statusLabel: item.statusLabel,
+      cancelledBy: item.cancelledBy,
+      cancelledAt: item.cancelledAt,
       imageUrl: item.imageUrl,
       imageVariants: item.imageVariants ?? createRemoteOnlyShowcaseImageVariants(item.imageUrl),
       customerName: item.customerName || 'Customer',
@@ -7809,6 +7869,37 @@ function backFromAppointments(): void {
       categoryText: item.categoryText,
       itemAvailable: linkedItemAvailable,
       createdAtText: item.createdAtText
+    }
+  }
+
+  function hydrateChatAppointmentShareFromCard(appointment: ShowcaseChatAppointmentShare): ShowcaseChatAppointmentShare {
+    const appointmentId = appointment.appointmentId.trim()
+    const card = appointmentId ? appointmentCardsById.get(appointmentId) || null : null
+
+    if (!card) return appointment
+
+    const linkedItemAvailable = Boolean(card.itemAvailable && card.sourceDishId)
+
+    return {
+      ...appointment,
+      title: card.serviceTitle || appointment.title || 'General appointment',
+      preferredDate: card.preferredDate || appointment.preferredDate,
+      preferredTime: card.preferredTime || appointment.preferredTime,
+      statusLabel: card.statusLabel || appointment.statusLabel || 'Pending',
+      cancelledBy: card.cancelledBy,
+      cancelledAt: card.cancelledAt,
+      imageUrl: card.imageUrl || appointment.imageUrl,
+      imageVariants: card.imageVariants ?? appointment.imageVariants ?? createRemoteOnlyShowcaseImageVariants(card.imageUrl || appointment.imageUrl),
+      customerName: card.customerName || appointment.customerName || 'Customer',
+      customerContact: card.customerContact || appointment.customerContact || '',
+      note: card.note || appointment.note || '',
+      sourceDishId: card.sourceDishId || appointment.sourceDishId,
+      priceText: card.priceText || appointment.priceText,
+      originalPriceText: card.originalPriceText || appointment.originalPriceText,
+      discountPriceText: card.discountPriceText || appointment.discountPriceText,
+      categoryText: card.categoryText || appointment.categoryText,
+      itemAvailable: linkedItemAvailable,
+      createdAtText: card.createdAtText || appointment.createdAtText
     }
   }
 
@@ -11824,22 +11915,34 @@ async function updateAppointmentStatus(appointmentIdInput: string, statusInput: 
 
   if (!appointmentId || !status) return
 
+  const previous = appointmentRequests
+  const previousTarget = previous.find(item => item.id === appointmentId) || null
+
+  if (previousTarget?.status === 'cancelled' && previousTarget.cancelledBy === 'customer') {
+    setStatusMessage('This booking was cancelled by the customer and can no longer be changed.')
+    showSnackbar('This booking was cancelled by the customer.')
+    return
+  }
+
   if (guardOfflineWriteOperation()) {
     return
   }
 
   setAppointmentStatusSubmittingId(appointmentId)
 
-  const previous = appointmentRequests
-  const previousTarget = previous.find(item => item.id === appointmentId) || null
   const previousStatus = previousTarget?.status || null
+
+  const statusCancelledAt = status === 'cancelled' ? Date.now() : null
+  const statusCancelledBy = status === 'cancelled' ? 'merchant' : null
 
   const next = previous.map(item => {
     if (item.id !== appointmentId) return item
 
     return {
       ...item,
-      status
+      status,
+      cancelledBy: statusCancelledBy,
+      cancelledAt: statusCancelledAt
     }
   })
 
@@ -11894,7 +11997,7 @@ async function updateAppointmentStatus(appointmentIdInput: string, statusInput: 
       }
     }
 
-    if (previousStatus !== status && nextTarget) {
+    if (previousStatus !== status && nextTarget && isCustomerBookingAlertStatus(status)) {
       await dispatchAppointmentStatusPushToCustomer(nextTarget, status)
     }
 
@@ -11908,6 +12011,118 @@ async function updateAppointmentStatus(appointmentIdInput: string, statusInput: 
     setAppointmentStatusSubmittingId(null)
   }
 }
+
+async function cancelCustomerBooking(appointmentIdInput: string): Promise<void> {
+  if (appointmentStatusSubmittingId) return
+
+  const appointmentId = appointmentIdInput.trim()
+  const currentClientId = clientId.trim()
+
+  if (!appointmentId || !currentClientId) return
+
+  const target = appointmentRequests.find(item => {
+    return item.id === appointmentId && item.clientId.trim() === currentClientId
+  }) || null
+
+  if (!target || !canCustomerCancelAppointmentStatus(target.status)) {
+    setStatusMessage('This booking can no longer be cancelled.')
+    showSnackbar('This booking can no longer be cancelled.')
+    return
+  }
+
+  if (guardOfflineWriteOperation()) {
+    setStatusMessage('You are offline. Please reconnect and try again.')
+    showSnackbar('You are offline. Please reconnect and try again.')
+    return
+  }
+
+  setAppointmentStatusSubmittingId(appointmentId)
+
+  const previous = appointmentRequests
+  const cancelledAt = Date.now()
+  const next = previous.map(item => {
+    if (item.id !== appointmentId) return item
+
+    return {
+      ...item,
+      status: 'cancelled',
+      cancelledBy: 'customer',
+      cancelledAt
+    }
+  })
+
+  setAppointmentRequests(next)
+  saveAppointmentsToStorage(storeId, next)
+  setStatusMessage(null)
+
+  try {
+    const ok = await repository.cancelAppointmentByCustomer({
+      storeId,
+      appointmentId,
+      clientId: currentClientId
+    })
+
+    if (!ok) {
+      const detail = [
+        repository.lastUpsertCode != null ? `code=${repository.lastUpsertCode}` : '',
+        repository.lastUpsertBody ? `body=${repository.lastUpsertBody.slice(0, 300)}` : ''
+      ].filter(Boolean).join(' ')
+
+      throw new Error(detail || 'Booking cancellation failed.')
+    }
+
+    const cancelledTarget = next.find(item => item.id === appointmentId) || null
+    let pushFailureDetail = ''
+
+    if (cancelledTarget) {
+      try {
+        await dispatchCustomerCancelledAppointmentPushToMerchant(cancelledTarget)
+      } catch (pushError) {
+        pushFailureDetail = pushError instanceof Error
+          ? pushError.message
+          : String(pushError || 'Customer cancelled appointment push failed.')
+
+        console.error('[NDJC_PUSH] Customer cancelled appointment push failed after cloud cancellation succeeded.', {
+          storeId,
+          appointmentId,
+          clientId: currentClientId,
+          detail: pushFailureDetail,
+          code: repository.lastAnnouncementPushCode,
+          body: repository.lastAnnouncementPushBody
+        })
+      }
+    }
+
+    await refreshCustomerAppointmentsFromCloud('Booking cancelled.')
+
+    if (pushFailureDetail) {
+      const detail = pushFailureDetail.slice(0, 240)
+      setStatusMessage(`Booking cancelled, but push notification failed. ${detail}`)
+      showSnackbar('Booking cancelled, but push notification failed.')
+      return
+    }
+
+    showSnackbar('Booking cancelled.')
+  } catch (error) {
+    const detail = error instanceof Error ? error.message : String(error || '')
+    console.error('[NDJC_APPOINTMENT_CANCEL] Customer booking cancellation failed.', {
+      storeId,
+      appointmentId,
+      clientId: currentClientId,
+      detail,
+      code: repository.lastUpsertCode,
+      body: repository.lastUpsertBody
+    })
+
+    setAppointmentRequests(previous)
+    saveAppointmentsToStorage(storeId, previous)
+    setStatusMessage('Booking cancellation failed.')
+    showSnackbar('Booking cancellation failed.')
+  } finally {
+    setAppointmentStatusSubmittingId(null)
+  }
+}
+
   function normalizeAppointmentAvailableHoursText(valueInput: string): {
     text: string
     start: string
@@ -11993,6 +12208,77 @@ async function updateAppointmentStatus(appointmentIdInput: string, statusInput: 
     setAppointmentSlotIntervalMinutes(settings.slotIntervalMinutes)
     setAppointmentClosedDays(settings.closedDays)
     setAppointmentMinimumNotice(settings.minimumNotice)
+  }
+
+  function formatAppointmentPushShortTime(
+    dateInput: string | number | Date | null | undefined,
+    timeInput: string | null | undefined
+  ): string {
+    const combined = formatShowcaseDateAndTimeParts(dateInput, timeInput)
+    const date = parseShowcaseDateInput(dateInput)
+    const rawTime = String(timeInput || '').trim()
+
+    if (!date) return combined || rawTime
+
+    const now = new Date()
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+    const targetDay = new Date(date.getFullYear(), date.getMonth(), date.getDate())
+    const diffDays = Math.round((targetDay.getTime() - today.getTime()) / 86400000)
+    const timeText = rawTime || date.toLocaleTimeString('en-US', {
+      hour: 'numeric',
+      minute: '2-digit',
+      hour12: true
+    })
+
+    if (diffDays === 0) return timeText ? `Today ${timeText}` : 'Today'
+    if (diffDays === 1) return timeText ? `Tomorrow ${timeText}` : 'Tomorrow'
+
+    return combined
+  }
+
+function formatNewAppointmentMerchantPushBody(appointment: CloudAppointmentRequest): string {
+  const customerName = String(appointment.customerName || '').trim() || 'A customer'
+  const serviceTitle = String(appointment.serviceTitle || '').trim()
+  const shortTime = formatAppointmentPushShortTime(appointment.preferredDate, appointment.preferredTime)
+  const parts = [
+    customerName,
+    serviceTitle,
+    shortTime
+  ].map(value => String(value || '').trim()).filter(Boolean)
+
+  if (parts.length > 0) return parts.join(' · ')
+
+  return 'A customer submitted a booking request'
+}
+
+function formatCancelledAppointmentMerchantPushBody(appointment: CloudAppointmentRequest): string {
+  const customerName = String(appointment.customerName || '').trim() || 'A customer'
+  const serviceTitle = String(appointment.serviceTitle || '').trim()
+  const shortTime = formatAppointmentPushShortTime(appointment.preferredDate, appointment.preferredTime)
+  const parts = [
+    customerName,
+    serviceTitle,
+    shortTime
+  ].map(value => String(value || '').trim()).filter(Boolean)
+
+  if (parts.length > 0) {
+    return parts.join(' · ')
+  }
+
+  return 'A customer booking request'
+}
+
+  function formatAppointmentStatusCustomerPushBody(appointment: CloudAppointmentRequest): string {
+    const serviceTitle = String(appointment.serviceTitle || '').trim()
+    const shortTime = formatAppointmentPushShortTime(appointment.preferredDate, appointment.preferredTime)
+    const parts = [
+      serviceTitle,
+      shortTime
+    ].map(value => String(value || '').trim()).filter(Boolean)
+
+    if (parts.length > 0) return parts.join(' · ')
+
+    return 'Your booking was updated'
   }
 
   function appointmentPushTimeText(valueInput: number | string | null | undefined): string {
@@ -12102,7 +12388,21 @@ async function updateAppointmentStatus(appointmentIdInput: string, statusInput: 
         return selectedService === 'All' || serviceTitle === selectedService
       })
       .filter(item => {
-        return selectedStatus === 'All' || item.statusLabel === selectedStatus
+        const normalizedSelectedStatus = selectedStatus.trim().toLowerCase()
+        const normalizedItemStatus = String(item.statusLabel || '').trim().toLowerCase()
+        const normalizedCancelledBy = String(item.cancelledBy || '').trim().toLowerCase()
+
+        if (normalizedSelectedStatus === 'all') return true
+
+        if (normalizedSelectedStatus === 'cancelled by customer') {
+          return normalizedItemStatus === 'cancelled' && normalizedCancelledBy === 'customer'
+        }
+
+        if (normalizedSelectedStatus === 'cancelled') {
+          return normalizedItemStatus === 'cancelled' && normalizedCancelledBy !== 'customer'
+        }
+
+        return item.statusLabel === selectedStatus
       })
       .sort((left, right) => {
         const leftPendingRank = left.statusLabel === 'Pending' ? 0 : 1
@@ -12193,6 +12493,7 @@ async function updateAppointmentStatus(appointmentIdInput: string, statusInput: 
     return {
       ...appointmentCloudDateFiltersFromUi(dateFilter, historyDateFilter),
       status: appointmentCloudStatusFilterFromUi(statusFilter),
+      cancelledBy: appointmentCloudCancelledByFilterFromUi(statusFilter),
       serviceTitle: appointmentCloudServiceFilterFromUi(serviceFilter)
     }
   }
@@ -12209,6 +12510,7 @@ async function updateAppointmentStatus(appointmentIdInput: string, statusInput: 
     return {
       ...appointmentCloudDateFiltersFromUi(dateFilter, null),
       status: appointmentCloudStatusFilterFromUi(statusFilter),
+      cancelledBy: appointmentCloudCancelledByFilterFromUi(statusFilter),
       serviceTitle: appointmentCloudServiceFilterFromUi(serviceFilter)
     }
   }
@@ -12250,6 +12552,10 @@ async function updateAppointmentStatus(appointmentIdInput: string, statusInput: 
     const statusFilter = String(statusFilterInput || '').trim() || 'All'
 
     if (statusFilter === 'All') return true
+
+    if (statusFilter === 'Cancelled by customer') {
+      return appointmentsStatusFromCloud(row.status) === 'Cancelled' && row.cancelledBy === 'customer'
+    }
 
     return appointmentsStatusFromCloud(row.status) === statusFilter
   }
@@ -12648,6 +12954,7 @@ async function refreshAdminAppointmentsFromCloud(
       preferredDateGte: filtersInput.preferredDateGte,
       preferredDateLt: filtersInput.preferredDateLt,
       status: filtersInput.status,
+      cancelledBy: filtersInput.cancelledBy,
       serviceTitle: filtersInput.serviceTitle,
       limit: SHOWCASE_PAGE_SIZE.merchantAppointments,
       offset: 0
@@ -12709,6 +13016,7 @@ async function refreshCustomerAppointmentsFromCloud(
       preferredDateGte: filtersInput.preferredDateGte,
       preferredDateLt: filtersInput.preferredDateLt,
       status: filtersInput.status,
+      cancelledBy: filtersInput.cancelledBy,
       serviceTitle: filtersInput.serviceTitle,
       limit: SHOWCASE_PAGE_SIZE.clientAppointments,
       offset: 0
@@ -12979,7 +13287,7 @@ async function refreshCustomerAppointmentsFromCloud(
         let pushOk = await repository.dispatchAnnouncementPush({
           storeId,
           announcementId: targetId,
-          bodyPreview: 'Posted a new announcement'
+          bodyPreview: 'Tap to view the latest update'
         })
 
         if (!pushOk) {
@@ -12993,7 +13301,7 @@ async function refreshCustomerAppointmentsFromCloud(
             operation: () => repository.dispatchAnnouncementPush({
               storeId,
               announcementId: targetId,
-              bodyPreview: 'Posted a new announcement'
+              bodyPreview: 'Tap to view the latest update'
             }),
             isSuccess: value => value
           })
@@ -13471,6 +13779,7 @@ async function refreshCustomerAppointmentsFromCloud(
         preferredDateGte: filters.preferredDateGte,
         preferredDateLt: filters.preferredDateLt,
         status: filters.status,
+        cancelledBy: filters.cancelledBy,
         serviceTitle: filters.serviceTitle,
         limit: SHOWCASE_PAGE_SIZE.clientAppointments,
         offset: customerAppointmentsPagination.nextOffset
@@ -13538,6 +13847,7 @@ async function refreshCustomerAppointmentsFromCloud(
         preferredDateGte: filters.preferredDateGte,
         preferredDateLt: filters.preferredDateLt,
         status: filters.status,
+        cancelledBy: filters.cancelledBy,
         serviceTitle: filters.serviceTitle,
         limit: SHOWCASE_PAGE_SIZE.merchantAppointments,
         offset: adminAppointmentsPagination.nextOffset
@@ -15194,6 +15504,7 @@ async function refreshCustomerAppointmentsFromCloud(
           merchantAuthUserId: merchantSession?.authUserId || null,
           customerName: thread.title,
           customerContact: thread.clientId,
+          customerSeq: Number(thread.customerSeq || 0) > 0 ? Math.trunc(Number(thread.customerSeq)) : null,
           createdAt: null,
           updatedAt: thread.lastMessageAt
         }
@@ -15849,14 +16160,49 @@ async function refreshCustomerAppointmentsFromCloud(
     storeId
   ])
 
-  function resolveChatPushSenderName(senderRoleInput: string): string {
+  function normalizeChatPushTitleText(valueInput: string | null | undefined): string {
+    const value = String(valueInput || '').replace(/\s+/g, ' ').trim()
+
+    if (!value || value.toLowerCase() === 'null' || value.toLowerCase() === 'undefined') {
+      return ''
+    }
+
+    return value
+  }
+
+  function resolveCustomerChatPushSenderName(conversationIdInput: string): string {
+    const conversationId = String(conversationIdInput || '').trim()
+
+    if (conversationId) {
+      const thread = merchantChatThreads.find(item => item.conversationId === conversationId)
+      const threadTitle = normalizeChatPushTitleText(thread?.title)
+
+      if (threadTitle) return threadTitle
+    }
+
+    if (activeConversation?.id === conversationId) {
+      const customerName = normalizeChatPushTitleText(activeConversation.customerName)
+
+      if (customerName && customerName !== DEFAULT_CUSTOMER_NAME) return customerName
+
+      const customerSeq = Number(activeConversation.customerSeq || 0)
+
+      if (Number.isFinite(customerSeq) && customerSeq > 0) {
+        return `Customer #${Math.trunc(customerSeq)}`
+      }
+    }
+
+    return DEFAULT_CUSTOMER_NAME
+  }
+
+  function resolveChatPushSenderName(senderRoleInput: string, conversationIdInput: string): string {
     const senderRole = senderRoleInput.trim().toLowerCase()
 
     if (senderRole === 'merchant') {
       return storeProfile?.displayName || storeProfileForUi.displayName || 'Store'
     }
 
-    return DEFAULT_CUSTOMER_NAME
+    return resolveCustomerChatPushSenderName(conversationIdInput)
   }
 
   async function onAnnouncementPushArrived(announcementIdInput: string): Promise<void> {
@@ -15911,7 +16257,8 @@ async function refreshCustomerAppointmentsFromCloud(
       pushType === 'booking' ||
       pushType === 'bookings' ||
       pushType === 'appointment_created' ||
-      pushType === 'appointment_status'
+      pushType === 'appointment_status' ||
+      pushType === 'appointment_cancelled'
     ) {
       return {
         type: 'appointment',
@@ -16048,7 +16395,7 @@ async function refreshCustomerAppointmentsFromCloud(
   }, [screen, isAdminLoggedIn, activeConversationId, storeId])
 
   async function dispatchNewAppointmentPushToMerchant(appointment: CloudAppointmentRequest): Promise<void> {
-    const body = `${appointment.customerName || 'A customer'} requested ${appointment.serviceTitle || 'an appointment'}.`
+    const body = formatNewAppointmentMerchantPushBody(appointment)
 
     const pushOk = await repository.dispatchAppointmentPush({
       storeId,
@@ -16074,10 +16421,64 @@ async function refreshCustomerAppointmentsFromCloud(
     }
   }
 
+async function dispatchCustomerCancelledAppointmentPushToMerchant(appointment: CloudAppointmentRequest): Promise<void> {
+  const body = formatCancelledAppointmentMerchantPushBody(appointment)
+
+  console.log('[NDJC_PUSH] Customer cancelled appointment push to merchant started.', {
+    storeId,
+    appointmentId: appointment.id,
+    clientId: appointment.clientId,
+    targetAudience: 'appointment_merchant',
+    actor: 'public',
+    pushType: 'appointment_cancelled'
+  })
+
+  const pushOk = await repository.dispatchAppointmentPush({
+    storeId,
+    appointmentId: appointment.id,
+    targetAudience: 'appointment_merchant',
+    openAs: 'merchant',
+    actor: 'public',
+    pushType: 'appointment_cancelled',
+    scopeClientId: appointment.clientId,
+    targetClientId: appointment.clientId,
+    title: 'Booking cancelled by customer',
+    body,
+    bodyPreview: body
+  })
+
+  console.log('[NDJC_PUSH] Customer cancelled appointment push to merchant finished.', {
+    storeId,
+    appointmentId: appointment.id,
+    clientId: appointment.clientId,
+    pushOk,
+    code: repository.lastAnnouncementPushCode,
+    responseBody: repository.lastAnnouncementPushBody
+  })
+
+  if (!pushOk) {
+    const detail = [
+      repository.lastAnnouncementPushCode != null ? `code=${repository.lastAnnouncementPushCode}` : '',
+      repository.lastAnnouncementPushBody ? `body=${repository.lastAnnouncementPushBody.slice(0, 500)}` : ''
+    ].filter(Boolean).join(' ')
+
+    console.error('[NDJC_PUSH] Customer cancelled appointment push to merchant failed.', {
+      storeId,
+      appointmentId: appointment.id,
+      clientId: appointment.clientId,
+      code: repository.lastAnnouncementPushCode,
+      body: repository.lastAnnouncementPushBody
+    })
+
+    throw new Error(detail || 'Customer cancelled appointment push to merchant failed.')
+  }
+}
   async function dispatchAppointmentStatusPushToCustomer(appointment: CloudAppointmentRequest, nextStatus: string): Promise<void> {
     const targetClientId = appointment.clientId.trim()
 
     if (!targetClientId) return
+
+    const body = formatAppointmentStatusCustomerPushBody(appointment)
 
     let pushOk = await repository.dispatchAppointmentPush({
       storeId,
@@ -16087,8 +16488,8 @@ async function refreshCustomerAppointmentsFromCloud(
       targetClientId,
       actor: 'merchant',
       title: appointmentStatusPushTitle(nextStatus),
-      body: `Your booking for ${appointmentPushTimeText(appointment.preferredDate)} ${appointment.preferredTime || ''}`.trim() + ` is now ${appointmentsStatusFromCloud(nextStatus)}.`,
-      bodyPreview: `Your booking for ${appointmentPushTimeText(appointment.preferredDate)} ${appointment.preferredTime || ''}`.trim() + ` is now ${appointmentsStatusFromCloud(nextStatus)}.`
+      body,
+      bodyPreview: body
     })
 
     if (!pushOk) {
@@ -16107,8 +16508,8 @@ async function refreshCustomerAppointmentsFromCloud(
           targetClientId,
           actor: 'merchant',
           title: appointmentStatusPushTitle(nextStatus),
-          body: `Your booking for ${appointmentPushTimeText(appointment.preferredDate)} ${appointment.preferredTime || ''}`.trim() + ` is now ${appointmentsStatusFromCloud(nextStatus)}.`,
-          bodyPreview: `Your booking for ${appointmentPushTimeText(appointment.preferredDate)} ${appointment.preferredTime || ''}`.trim() + ` is now ${appointmentsStatusFromCloud(nextStatus)}.`
+          body,
+          bodyPreview: body
         }),
         isSuccess: value => value
       })
@@ -16263,7 +16664,7 @@ async function sendChatMessage(): Promise<void> {
     const chatPushOk = await repository.dispatchChatPush({
       storeId,
       conversationId: conversation.id,
-      title: resolveChatPushSenderName(senderRole),
+      title: resolveChatPushSenderName(senderRole, conversation.id),
       body: operationResult.pushBody,
       senderRole,
       targetAudience,
@@ -16380,6 +16781,7 @@ async function sendChatMessage(): Promise<void> {
       merchantAuthUserId: validSession?.authUserId || null,
       customerName: threadTitle,
       customerContact: item.customerContact || appointmentClientId,
+      customerSeq: null,
       createdAt: null,
       updatedAt: item.createdAt
     })
@@ -16452,6 +16854,7 @@ async function sendChatMessage(): Promise<void> {
           merchantAuthUserId: validSession?.authUserId || null,
           customerName: threadTitle,
           customerContact: thread.clientId,
+          customerSeq: Number(thread.customerSeq || 0) > 0 ? Math.trunc(Number(thread.customerSeq)) : null,
           createdAt: null,
           updatedAt: thread.lastMessageAt
         }
@@ -16462,6 +16865,7 @@ async function sendChatMessage(): Promise<void> {
           merchantAuthUserId: validSession?.authUserId || null,
           customerName: threadTitle,
           customerContact: conversationId,
+          customerSeq: null,
           createdAt: null,
           updatedAt: null
         }
@@ -17414,8 +17818,7 @@ async function sendChatMessage(): Promise<void> {
 
       const operationResult = buildChatSendOperationResult({
         sendPlan,
-        results,
-        fallbackProductPushBody: 'Sent you an item card'
+        results
       })
 
       if (operationResult.shouldFail) {
@@ -17464,7 +17867,7 @@ async function sendChatMessage(): Promise<void> {
       const chatPushOk = await repository.dispatchChatPush({
         storeId,
         conversationId: conversation.id,
-        title: resolveChatPushSenderName(senderRole),
+        title: resolveChatPushSenderName(senderRole, conversation.id),
         body: operationResult.pushBody,
         senderRole,
         targetAudience,
@@ -17613,7 +18016,7 @@ async function sendChatMessage(): Promise<void> {
       const chatPushOk = await repository.dispatchChatPush({
         storeId,
         conversationId: conversation.id,
-        title: resolveChatPushSenderName(senderRole),
+        title: resolveChatPushSenderName(senderRole, conversation.id),
         body: operationResult.pushBody,
         senderRole,
         targetAudience,
@@ -19300,7 +19703,7 @@ function onChatImageLimitReached(): void {
     'History'
   ]
 
-  const statusFilterOptions = ['All', 'Pending', 'Confirmed', 'Completed', 'Cancelled', 'No-show']
+  const statusFilterOptions = ['All', 'Pending', 'Confirmed', 'Cancelled', 'Cancelled by customer', 'Completed', 'No-show']
 
   const selectedAdminHistoryDateForServiceOptions = appointmentAdminHistoryDateFilter?.trim() || ''
   const selectedAdminDateForServiceOptions = selectedAdminHistoryDateForServiceOptions || appointmentAdminDateFilter.trim() || 'All'
@@ -19586,6 +19989,7 @@ function onChatImageLimitReached(): void {
     items: filteredCustomerAppointmentCards,
     statusMessage: statusMessage || snackbarMessage,
     isRefreshing: appointmentsRefreshing,
+    cancellationSubmittingId: appointmentStatusSubmittingId,
 
     dateFilterOptions: customerDateFilterOptions,
     statusFilterOptions,
@@ -20317,6 +20721,10 @@ const editDishState: ShowcaseEditDishUiState = {
       openChatFromCustomerBooking(appointmentId)
     },
 
+    onCancelBooking: appointmentId => {
+      return cancelCustomerBooking(appointmentId)
+    },
+
     onOpenAppointmentProductDetail: openDetail
   }
 
@@ -20876,6 +21284,7 @@ const editDishState: ShowcaseEditDishUiState = {
   void handlePushRoute
   void onAnnouncementPushArrived
   void dispatchNewAppointmentPushToMerchant
+  void dispatchCustomerCancelledAppointmentPushToMerchant
   void dispatchAppointmentStatusPushToCustomer
   void resolveChatPushSenderName
   void pushToken
@@ -21271,10 +21680,17 @@ const editDishState: ShowcaseEditDishUiState = {
   void toCard
   void toggleFavoritesSelection
 
+  const storeUnavailableState: ShowcaseStoreUnavailableUiState = {
+    visible: storeUnavailable,
+    title: 'App not available',
+    message: 'This store app is not active or has not been set up yet.\nPlease check the link, or register your store at www.xxxxxx.com.'
+  }
+
   return {
     screen,
     showcaseWiring,
     offlineStatus,
+    storeUnavailableState,
 
     homeState,
     homeActions,

@@ -8,6 +8,7 @@ import {
   NdjcNotificationOptInPanel,
   NdjcOfflineStatusBanner,
   NdjcPwaUpdateBanner,
+  NdjcStoreUnavailableOverlay,
   PlaceholderScreen,
   ShowcaseAdmin,
   ShowcaseAdminAnnouncementEdit,
@@ -34,6 +35,12 @@ import type { ShowcaseUiRenderer } from './ShowcaseUiRenderer'
 export const GreenpinkShowcaseUiRenderer: ShowcaseUiRenderer = {
   OfflineStatusBanner: ({ message }) => (
     <NdjcOfflineStatusBanner message={message} />
+  ),
+
+  StoreUnavailableOverlay: ({ state, children }) => (
+    <NdjcStoreUnavailableOverlay state={state}>
+      {children}
+    </NdjcStoreUnavailableOverlay>
   ),
 
   PwaUpdateBanner: ({ refreshing, onRefresh, onDismiss }) => (

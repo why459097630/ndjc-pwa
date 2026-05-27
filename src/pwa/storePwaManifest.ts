@@ -131,53 +131,74 @@ function pickLogoVariant(
   return fallback
 }
 
-function hasCompleteStandardIconVariants(value: unknown): boolean {
+function hasAnyUsableLogoVariant(value: unknown): boolean {
   if (!value || typeof value !== 'object') return false
 
   const record = value as Record<string, unknown>
 
-  const icon192 = normalizeAbsoluteOrRootUrl(record.icon192, '')
-  const icon512 = normalizeAbsoluteOrRootUrl(record.icon512, '')
-  const maskable192 = normalizeAbsoluteOrRootUrl(record.maskable192, '')
-  const maskable512 = normalizeAbsoluteOrRootUrl(record.maskable512, '')
-  const appleTouchIcon = normalizeAbsoluteOrRootUrl(record.appleTouchIcon, '')
-
-  return Boolean(icon192 && icon512 && maskable192 && maskable512 && appleTouchIcon)
+  return Boolean(
+    normalizeAbsoluteOrRootUrl(record.icon192, '') ||
+    normalizeAbsoluteOrRootUrl(record.icon512, '') ||
+    normalizeAbsoluteOrRootUrl(record.maskable192, '') ||
+    normalizeAbsoluteOrRootUrl(record.maskable512, '') ||
+    normalizeAbsoluteOrRootUrl(record.appleTouchIcon, '') ||
+    normalizeAbsoluteOrRootUrl(record.mediumUrl, '') ||
+    normalizeAbsoluteOrRootUrl(record.medium_url, '') ||
+    normalizeAbsoluteOrRootUrl(record.thumbUrl, '') ||
+    normalizeAbsoluteOrRootUrl(record.thumb_url, '') ||
+    normalizeAbsoluteOrRootUrl(record.largeUrl, '') ||
+    normalizeAbsoluteOrRootUrl(record.large_url, '') ||
+    normalizeAbsoluteOrRootUrl(record.originalUrl, '') ||
+    normalizeAbsoluteOrRootUrl(record.original_url, '')
+  )
 }
 
 function buildIconVariantsFromRow(row: StoreProfileRow | null): StorePwaIconVariants {
   if (!row) return DEFAULT_ICON_VARIANTS
 
-  if (!hasCompleteStandardIconVariants(row.logo_image_variants)) {
+  const variants = row.logo_image_variants
+  const logoUrl = normalizeAbsoluteOrRootUrl(row.logo_url, '')
+
+  if (!hasAnyUsableLogoVariant(variants) && !logoUrl) {
     return DEFAULT_ICON_VARIANTS
   }
 
+  const icon192 = pickLogoVariant(
+    variants,
+    ['icon192', 'mediumUrl', 'medium_url', 'thumbUrl', 'thumb_url', 'largeUrl', 'large_url', 'originalUrl', 'original_url'],
+    logoUrl || DEFAULT_ICON_192
+  )
+
+  const icon512 = pickLogoVariant(
+    variants,
+    ['icon512', 'largeUrl', 'large_url', 'originalUrl', 'original_url', 'mediumUrl', 'medium_url', 'thumbUrl', 'thumb_url'],
+    logoUrl || icon192 || DEFAULT_ICON_512
+  )
+
+  const maskable192 = pickLogoVariant(
+    variants,
+    ['maskable192', 'mediumUrl', 'medium_url', 'thumbUrl', 'thumb_url', 'largeUrl', 'large_url', 'originalUrl', 'original_url'],
+    logoUrl || icon192 || DEFAULT_MASKABLE_192
+  )
+
+  const maskable512 = pickLogoVariant(
+    variants,
+    ['maskable512', 'largeUrl', 'large_url', 'originalUrl', 'original_url', 'mediumUrl', 'medium_url', 'thumbUrl', 'thumb_url'],
+    logoUrl || icon512 || DEFAULT_MASKABLE_512
+  )
+
+  const appleTouchIcon = pickLogoVariant(
+    variants,
+    ['appleTouchIcon', 'apple_touch_icon', 'mediumUrl', 'medium_url', 'thumbUrl', 'thumb_url', 'largeUrl', 'large_url', 'originalUrl', 'original_url'],
+    logoUrl || icon192 || DEFAULT_APPLE_ICON
+  )
+
   return {
-    icon192: pickLogoVariant(
-      row.logo_image_variants,
-      ['icon192'],
-      DEFAULT_ICON_192
-    ),
-    icon512: pickLogoVariant(
-      row.logo_image_variants,
-      ['icon512'],
-      DEFAULT_ICON_512
-    ),
-    maskable192: pickLogoVariant(
-      row.logo_image_variants,
-      ['maskable192'],
-      DEFAULT_MASKABLE_192
-    ),
-    maskable512: pickLogoVariant(
-      row.logo_image_variants,
-      ['maskable512'],
-      DEFAULT_MASKABLE_512
-    ),
-    appleTouchIcon: pickLogoVariant(
-      row.logo_image_variants,
-      ['appleTouchIcon'],
-      DEFAULT_APPLE_ICON
-    )
+    icon192,
+    icon512,
+    maskable192,
+    maskable512,
+    appleTouchIcon
   }
 }
 

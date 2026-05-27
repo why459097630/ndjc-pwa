@@ -5,6 +5,7 @@ import type { ShowcaseUiRenderer } from '@/ui-packs/ui-pack-showcase-greenpink-w
 import { useShowcaseViewModel } from './useShowcaseViewModel'
 import type {
   ShowcaseScreenName,
+  ShowcaseStoreUnavailableUiState,
   ShowcaseUiModel
 } from './showcaseUiContract'
 
@@ -225,11 +226,28 @@ export function renderShowcaseHostScreen(
   return renderHomeWithBottomBar(viewModel, ui)
 }
 
+function renderWithStoreUnavailableOverlay(
+  children: ReactNode,
+  state: ShowcaseStoreUnavailableUiState,
+  ui: ShowcaseUiRenderer
+): ReactNode {
+  if (!state.visible) return children
+
+  return ui.StoreUnavailableOverlay({
+    state,
+    children
+  })
+}
+
 export function ShowcaseHost(input: ShowcaseHostInput): ReactNode {
   const viewModel = useShowcaseViewModel({
     storeId: input.storeId,
     initialScreen: input.initialScreen || routeToShowcaseScreen(input.routeId)
   })
 
-  return renderShowcaseHostScreen(viewModel, input.ui)
+  return renderWithStoreUnavailableOverlay(
+    renderShowcaseHostScreen(viewModel, input.ui),
+    viewModel.storeUnavailableState,
+    input.ui
+  )
 }

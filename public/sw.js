@@ -292,7 +292,8 @@ function ndjcBadgeForPushType(payload) {
     type === 'appointment' ||
     type === 'booking' ||
     type === 'appointment_created' ||
-    type === 'appointment_status'
+    type === 'appointment_status' ||
+    type === 'appointment_cancelled'
   ) {
     return '/icons/push/appointment-badge.svg'
   }
@@ -549,25 +550,48 @@ self.addEventListener('push', event => {
 
   const notificationIcon = ndjcNotificationIconForPayload(notificationPayload)
   const notificationBadge = ndjcNotificationBadgeForPayload(notificationPayload)
-
-  const notificationTag = String(
+  const notificationPushType = String(
+    notificationPayload.push_type ||
+    notificationPayload.pushType ||
+    notificationPayload.type ||
+    'generic'
+  ).trim().toLowerCase()
+  const notificationConversationId = String(
     notificationPayload.conversation_id ||
     notificationPayload.conversationId ||
+    ''
+  ).trim()
+  const notificationAppointmentId = String(
     notificationPayload.appointment_id ||
     notificationPayload.appointmentId ||
+    ''
+  ).trim()
+  const notificationAnnouncementId = String(
     notificationPayload.announcement_id ||
     notificationPayload.announcementId ||
-    notificationPayload.push_type ||
-    notificationPayload.type ||
-    'ndjc-notification'
-  )
+    ''
+  ).trim()
+
+  const notificationTag = notificationConversationId
+    ? `${notificationPushType}:conversation:${notificationConversationId}`
+    : notificationAppointmentId
+      ? `${notificationPushType}:appointment:${notificationAppointmentId}`
+      : notificationAnnouncementId
+        ? `${notificationPushType}:announcement:${notificationAnnouncementId}`
+        : `${notificationPushType || 'generic'}:ndjc-notification`
+
+  const shouldRenotify = notificationPushType === 'appointment_created' ||
+    notificationPushType === 'appointment_cancelled' ||
+    notificationPushType === 'appointment_status' ||
+    notificationPushType === 'appointment' ||
+    notificationPushType === 'booking'
 
   const options = {
     body,
     icon: notificationIcon,
     badge: notificationBadge,
     tag: notificationTag,
-    renotify: false,
+    renotify: shouldRenotify,
     requireInteraction: false,
     data: notificationPayload,
     actions: [
@@ -645,6 +669,8 @@ function ndjcRouteForPushPayload(payloadInput) {
   const payload = payloadInput && typeof payloadInput === 'object' ? payloadInput : {}
   const explicitUrl = ndjcNormalizeText(payload.url)
   const explicitRoute = ndjcNormalizeText(payload.route)
+  const pushType = ndjcPushTypeForRoute(payload)
+  const openAs = ndjcNormalizeText(payload.open_as || payload.openAs).toLowerCase()
 
   if (explicitUrl) {
     return explicitUrl
@@ -652,6 +678,20 @@ function ndjcRouteForPushPayload(payloadInput) {
 
   if (explicitRoute) {
     return explicitRoute
+  }
+
+  if (
+    openAs === 'merchant' &&
+    (
+      pushType === 'appointment' ||
+      pushType === 'booking' ||
+      pushType === 'bookings' ||
+      pushType === 'appointment_created' ||
+      pushType === 'appointment_status' ||
+      pushType === 'appointment_cancelled'
+    )
+  ) {
+    return '/appointments'
   }
 
   return '/'

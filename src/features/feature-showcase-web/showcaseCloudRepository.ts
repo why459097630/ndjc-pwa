@@ -135,6 +135,8 @@ export type CloudAppointmentRequest = {
   sourceCategorySnapshot: string | null
   sourceRecommendedSnapshot: boolean
   status: string
+  cancelledBy: string | null
+  cancelledAt: number | null
   createdAt: number | null
 }
 
@@ -142,6 +144,7 @@ export type CloudAppointmentFilterRow = {
   preferredDate: string
   serviceTitle: string
   status: string
+  cancelledBy: string | null
 }
 
 export type MerchantAuthSession = {
@@ -252,6 +255,7 @@ export type ChatConversation = {
   merchantAuthUserId: string | null
   customerName: string | null
   customerContact: string | null
+  customerSeq: number | null
   createdAt: number | null
   updatedAt: number | null
 }
@@ -280,6 +284,7 @@ export type ChatThreadSummary = {
   lastMessageAt: number | null
   unreadCount: number
   pinned: boolean
+  customerSeq: number | null
 }
 
 export type UploadBytesInput = {
@@ -2623,6 +2628,8 @@ async renameCategoryById(input: {
       sourceCategorySnapshot: jsonNullableString(raw, 'source_category_snapshot'),
       sourceRecommendedSnapshot: Boolean(raw.source_recommended_snapshot),
       status: jsonString(raw, 'status', 'Pending'),
+      cancelledBy: jsonNullableString(raw, 'cancelled_by'),
+      cancelledAt: this.parseIsoMillis(raw.cancelled_at),
       createdAt: this.parseIsoMillis(raw.created_at)
     }
   }
@@ -2764,6 +2771,7 @@ async renameCategoryById(input: {
     storeId?: string | null
     clientId?: string | null
     status?: string | null
+    cancelledBy?: string | null
     merchant?: boolean
     preferredDate?: string | null
     preferredDateGte?: string | null
@@ -2775,6 +2783,7 @@ async renameCategoryById(input: {
     const storeId = this.requireStoreId(input.storeId)
     const clientId = String(input.clientId || '').trim()
     const status = String(input.status || '').trim()
+    const cancelledBy = String(input.cancelledBy || '').trim()
     const merchant = Boolean(input.merchant)
     const preferredDate = String(input.preferredDate || '').trim()
     const preferredDateGte = String(input.preferredDateGte || '').trim()
@@ -2787,10 +2796,11 @@ async renameCategoryById(input: {
     const offset = Math.max(0, Number(input.offset || 0))
 
     const query = [
-      'select=id,store_id,client_id,customer_name,customer_contact,service_title,preferred_date,preferred_time,note,source_dish_id,source_price_snapshot,source_image_url_snapshot,source_category_snapshot,source_recommended_snapshot,status,created_at',
+      'select=id,store_id,client_id,customer_name,customer_contact,service_title,preferred_date,preferred_time,note,source_dish_id,source_price_snapshot,source_image_url_snapshot,source_category_snapshot,source_recommended_snapshot,status,cancelled_by,cancelled_at,created_at',
       `store_id=${this.encodeEq(storeId)}`,
       clientId ? `client_id=${this.encodeEq(clientId)}` : '',
       status ? `status=${this.encodeEq(status)}` : '',
+      cancelledBy ? `cancelled_by=${this.encodeEq(cancelledBy)}` : '',
       preferredDate ? `preferred_date=${this.encodeEq(preferredDate)}` : '',
       preferredDateGte ? `preferred_date=gte.${this.urlEncode(preferredDateGte)}` : '',
       preferredDateLt ? `preferred_date=lt.${this.urlEncode(preferredDateLt)}` : '',
@@ -2834,7 +2844,7 @@ async renameCategoryById(input: {
 
       while (offset < maxRows) {
         const query = [
-          'select=preferred_date,service_title,status',
+          'select=preferred_date,service_title,status,cancelled_by',
           `store_id=${this.encodeEq(storeId)}`,
           !merchant && clientId ? `client_id=${this.encodeEq(clientId)}` : '',
           'order=created_at.desc',
@@ -2856,7 +2866,8 @@ async renameCategoryById(input: {
           result.push({
             preferredDate: jsonString(row, 'preferred_date'),
             serviceTitle: jsonString(row, 'service_title'),
-            status: jsonString(row, 'status', 'pending')
+            status: jsonString(row, 'status', 'pending'),
+            cancelledBy: jsonNullableString(row, 'cancelled_by')
           })
         })
 
@@ -2905,20 +2916,69 @@ async updateAppointmentStatus(input: {
 
   if (!appointmentId || !status) return false
 
+  const allowedStatuses = ['pending', 'confirmed', 'cancelled', 'completed', 'no_show']
+
+  if (!allowedStatuses.includes(status)) return false
+
   const query = [
     `id=${this.encodeEq(appointmentId)}`,
     `store_id=${this.encodeEq(storeId)}`
   ].join('&')
 
+  const nowIso = new Date().toISOString()
+  const payload: Record<string, ShowcaseRepositoryJson> = {
+    status,
+    cancelled_by: status === 'cancelled' ? 'merchant' : null,
+    cancelled_at: status === 'cancelled' ? nowIso : null
+  }
+
   const url = this.restUrl(`${this.appointmentRequestsTable()}?${query}`)
-  const [code, body] = await this.httpAuthPatch(url, {
-    status
-  }, 'return=representation', storeId)
+  const [code, body] = await this.httpAuthPatch(url, payload, 'return=representation', storeId)
 
   this.lastUpsertCode = code
   this.lastUpsertBody = body
 
   return code >= 200 && code <= 299
+}
+
+async cancelAppointmentByCustomer(input: {
+  storeId?: string | null
+  appointmentId: string
+  clientId: string
+}): Promise<boolean> {
+  const storeId = this.requireStoreId(input.storeId)
+  const appointmentId = String(input.appointmentId || '').trim()
+  const clientId = String(input.clientId || '').trim()
+
+  if (!appointmentId || !clientId) return false
+
+  const query = [
+    `id=${this.encodeEq(appointmentId)}`,
+    `store_id=${this.encodeEq(storeId)}`,
+    `client_id=${this.encodeEq(clientId)}`,
+    'status=in.(pending,confirmed)'
+  ].join('&')
+
+  const url = this.restUrl(`${this.appointmentRequestsTable()}?${query}`)
+  const [code, body] = await this.httpPatch(url, {
+    status: 'cancelled',
+    cancelled_by: 'customer',
+    cancelled_at: new Date().toISOString()
+  }, 'return=representation', storeId, clientId)
+
+  this.lastUpsertCode = code
+  this.lastUpsertBody = body
+
+  if (code < 200 || code > 299) return false
+
+  const updatedRow = this.parseFirstObject(body)
+  const updatedId = String(updatedRow?.id || '').trim()
+  const updatedStatus = String(updatedRow?.status || '').trim().toLowerCase()
+  const updatedCancelledBy = String(updatedRow?.cancelled_by || '').trim().toLowerCase()
+
+  return updatedId === appointmentId &&
+    updatedStatus === 'cancelled' &&
+    updatedCancelledBy === 'customer'
 }
 
 private parseAnnouncement(raw: Record<string, unknown>, storeIdFallback: string): CloudAnnouncement {
@@ -3176,6 +3236,8 @@ const legacyQuery = [
   }
 
   private parseChatConversation(raw: Record<string, unknown>, storeIdFallback: string): ChatConversation {
+    const customerSeq = jsonNumber(raw, 'customer_seq', 0)
+
     return {
       id: jsonString(raw, 'conversation_id', jsonString(raw, 'id')),
       storeId: jsonString(raw, 'store_id', storeIdFallback),
@@ -3183,6 +3245,7 @@ const legacyQuery = [
       merchantAuthUserId: jsonNullableString(raw, 'merchant_auth_user_id'),
       customerName: jsonNullableString(raw, 'customer_name'),
       customerContact: jsonNullableString(raw, 'customer_contact'),
+      customerSeq: customerSeq > 0 ? customerSeq : null,
       createdAt: this.parseIsoMillis(raw.created_at),
       updatedAt: this.parseIsoMillis(raw.updated_at)
     }
@@ -3204,6 +3267,8 @@ const legacyQuery = [
   }
 
   private parseChatThreadSummary(raw: Record<string, unknown>, storeIdFallback: string): ChatThreadSummary {
+    const customerSeq = jsonNumber(raw, 'customer_seq', 0)
+
     return {
       conversationId: jsonString(raw, 'conversation_id', jsonString(raw, 'id')),
       storeId: jsonString(raw, 'store_id', storeIdFallback),
@@ -3212,7 +3277,8 @@ const legacyQuery = [
       lastMessage: jsonString(raw, 'last_message'),
       lastMessageAt: this.parseIsoMillis(raw.last_message_at || raw.updated_at),
       unreadCount: jsonNumber(raw, 'unread_count', 0),
-      pinned: jsonBoolean(raw, 'pinned', false)
+      pinned: jsonBoolean(raw, 'pinned', false),
+      customerSeq: customerSeq > 0 ? Math.trunc(customerSeq) : null
     }
   }
     buildConversationId(storeIdInput: string, clientIdInput: string): string {
@@ -3712,18 +3778,36 @@ const legacyQuery = [
     return code >= 200 && code <= 299
   }
 
-  private async dispatchPush(
-    payload: Record<string, ShowcaseRepositoryJson>,
-    options: {
-      storeId: string
-      actor: PushRequestActor
-      scopeClientId?: string | null
-    }
-  ): Promise<boolean> {
+private async dispatchPush(
+  payload: Record<string, ShowcaseRepositoryJson>,
+  options: {
+    storeId: string
+    actor: PushRequestActor
+    scopeClientId?: string | null
+  }
+): Promise<boolean> {
+  this.lastAnnouncementPushCode = null
+  this.lastAnnouncementPushBody = null
+
+  try {
     const storeId = this.requireStoreId(options.storeId)
     const scopeClientId = String(options.scopeClientId || '').trim() || null
     const url = this.functionUrl(this.edgeFunctions.sendPush)
     const nextPayload = await this.buildPushPayloadWithNotificationImages(payload, storeId)
+
+    console.log('[NDJC_PUSH] dispatchPush request prepared.', {
+      storeId,
+      actor: options.actor,
+      scopeClientId,
+      url,
+      type: nextPayload.type,
+      push_type: nextPayload.push_type,
+      audience: nextPayload.audience,
+      target_audience: nextPayload.target_audience,
+      appointment_id: nextPayload.appointment_id,
+      open_as: nextPayload.open_as,
+      target_client_id: nextPayload.target_client_id
+    })
 
     const [code, body] = options.actor === 'merchant'
       ? await this.httpAuthPost(url, nextPayload, null, storeId)
@@ -3732,8 +3816,32 @@ const legacyQuery = [
     this.lastAnnouncementPushCode = code
     this.lastAnnouncementPushBody = body
 
+    console.log('[NDJC_PUSH] dispatchPush response received.', {
+      storeId,
+      actor: options.actor,
+      scopeClientId,
+      code,
+      body
+    })
+
     return code >= 200 && code <= 299
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error || 'Unknown dispatchPush error')
+
+    this.lastAnnouncementPushCode = 0
+    this.lastAnnouncementPushBody = message
+
+    console.error('[NDJC_PUSH] dispatchPush threw before receiving send_push response.', {
+      actor: options.actor,
+      storeId: options.storeId,
+      scopeClientId: options.scopeClientId || null,
+      message,
+      payload
+    })
+
+    return false
   }
+}
 
   private async buildPushPayloadWithNotificationImages(
     payload: Record<string, ShowcaseRepositoryJson>,
@@ -3847,70 +3955,78 @@ const legacyQuery = [
     })
   }
 
-  async dispatchAppointmentPush(input: {
-    storeId?: string | null
-    appointmentId: string
-    title: string
-    body: string
-    bodyPreview?: string | null
-    targetAudience?: string | null
-    openAs?: string | null
-    targetClientId?: string | null
-    scopeClientId?: string | null
-    actor?: string | null
-  }): Promise<boolean> {
-    const storeId = this.requireStoreId(input.storeId)
-    const actor = normalizePushActor(input.actor || 'merchant')
-    const pushType = actor === 'public' ? 'appointment_created' : 'appointment_status'
-    const normalizedTargetAudience = normalizePushAudience(input.targetAudience)
-    const targetAudience = normalizedTargetAudience || (
-      actor === 'public'
-        ? 'appointment_merchant'
-        : 'appointment_client'
-    )
-    const openAs = String(input.openAs || '').trim() || (
-      actor === 'public'
-        ? 'merchant'
-        : 'client'
-    )
-    const scopeClientId = actor === 'public'
-      ? String(input.scopeClientId || input.targetClientId || '').trim()
-      : null
+async dispatchAppointmentPush(input: {
+  storeId?: string | null
+  appointmentId: string
+  title: string
+  body: string
+  bodyPreview?: string | null
+  targetAudience?: string | null
+  openAs?: string | null
+  targetClientId?: string | null
+  scopeClientId?: string | null
+  actor?: string | null
+  pushType?: string | null
+}): Promise<boolean> {
+  const storeId = this.requireStoreId(input.storeId)
+  const actor = normalizePushActor(input.actor || 'merchant')
+  const requestedPushType = String(input.pushType || '').trim().toLowerCase()
+  const pushType = requestedPushType === 'appointment_created' ||
+    requestedPushType === 'appointment_status' ||
+    requestedPushType === 'appointment_cancelled'
+    ? requestedPushType
+    : actor === 'public'
+      ? 'appointment_created'
+      : 'appointment_status'
+  const normalizedTargetAudience = normalizePushAudience(input.targetAudience)
+  const targetAudience = normalizedTargetAudience || (
+    actor === 'public'
+      ? 'appointment_merchant'
+      : 'appointment_client'
+  )
+  const openAs = String(input.openAs || '').trim() || (
+    actor === 'public'
+      ? 'merchant'
+      : 'client'
+  )
+  const scopeClientId = actor === 'public'
+    ? String(input.scopeClientId || input.targetClientId || '').trim()
+    : null
 
-    return this.dispatchPush({
+  return this.dispatchPush({
+    type: pushType,
+    push_type: pushType,
+    audience: targetAudience,
+    target_audience: targetAudience,
+    store_id: storeId,
+    appointment_id: input.appointmentId,
+    open_as: openAs,
+    target_client_id: input.targetClientId || null,
+    scope_client_id: input.scopeClientId || null,
+    actor,
+    title: input.title,
+    body: input.body,
+    body_preview: input.bodyPreview || input.body,
+    data: {
       type: pushType,
       push_type: pushType,
+      store_id: storeId,
+      storeId,
+      appointment_id: input.appointmentId,
+      appointmentId: input.appointmentId,
       audience: targetAudience,
       target_audience: targetAudience,
-      store_id: storeId,
-      appointment_id: input.appointmentId,
       open_as: openAs,
-      target_client_id: input.targetClientId || null,
-      scope_client_id: input.scopeClientId || null,
-      actor,
-      title: input.title,
-      body: input.body,
-      body_preview: input.bodyPreview || input.body,
-      data: {
-        type: pushType,
-        push_type: pushType,
-        store_id: storeId,
-        storeId,
-        appointment_id: input.appointmentId,
-        appointmentId: input.appointmentId,
-        audience: targetAudience,
-        target_audience: targetAudience,
-        open_as: openAs,
-        openAs,
-        target_client_id: input.targetClientId || '',
-        targetClientId: input.targetClientId || ''
-      }
-    }, {
-      storeId,
-      actor,
-      scopeClientId
-    })
-  }
+      openAs,
+      target_client_id: input.targetClientId || '',
+      targetClientId: input.targetClientId || ''
+    }
+  }, {
+    storeId,
+    actor,
+    scopeClientId
+  })
+}
     async incrementDishClickCount(
     storeIdInput: string | null | undefined,
     dishIdInput: string
@@ -3938,7 +4054,7 @@ const legacyQuery = [
     bodyPreview: string
   }): Promise<boolean> {
     const storeId = this.requireStoreId(input.storeId)
-    const bodyPreview = String(input.bodyPreview || '').trim() || 'Posted a new announcement'
+    const bodyPreview = String(input.bodyPreview || '').trim() || 'Tap to view the latest update'
 
     return this.dispatchPush({
       type: 'announcement',

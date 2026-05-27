@@ -47,6 +47,7 @@ import type {
   ShowcaseMerchantChatListActions,
   ShowcasePaginationUiState,
   ShowcaseStoreProfileActions,
+  ShowcaseStoreUnavailableUiState,
   ShowcaseStoreProfileUiState
 } from '@/features/feature-showcase-web/showcaseUiContract'
 import type { DemoDish } from '@/features/feature-showcase-web/showcaseModels'
@@ -267,7 +268,7 @@ const apkSmallActiveChipTextStyle: React.CSSProperties = {
 const apkSheetBackdropStyle: React.CSSProperties = {
   position: 'fixed',
   inset: 0,
-  zIndex: 210,
+  zIndex: 1000001,
   display: 'grid',
   alignItems: 'end',
   justifyItems: 'center',
@@ -2891,7 +2892,7 @@ function apkInlineTabStyle(selected?: boolean): React.CSSProperties {
 const apkDialogBackdropStyle: React.CSSProperties = {
   position: 'fixed',
   inset: 0,
-  zIndex: 220,
+  zIndex: 1000002,
   padding: 24,
   display: 'grid',
   placeItems: 'center',
@@ -4937,7 +4938,7 @@ export function NdjcTextField({
     display: 'grid',
     gridTemplateColumns: inputShellColumns,
     columnGap: leadingIcon || trailingIcon ? 8 : 0,
-    alignItems: isMultiline ? 'start' : 'center',
+    alignItems: isMultiline && minLines > 1 ? 'start' : 'center',
     boxSizing: 'border-box'
   }
 
@@ -4945,7 +4946,7 @@ export function NdjcTextField({
     width: '100%',
     maxWidth: '100%',
     minWidth: 0,
-    height: isMultiline ? 'auto' : '100%',
+    height: isMultiline && minLines > 1 ? 'auto' : '100%',
     minHeight: isMultiline
       ? Math.max(24, fieldMinHeight - (hasLabel ? 14 : 0) - APK_CORE_UI.fieldPaddingY * 2)
       : 24,
@@ -4957,7 +4958,7 @@ export function NdjcTextField({
     background: APK_CORE_UI.transparent,
     boxShadow: 'none',
     fontSize: APK_CORE_UI.fieldTextSize,
-    lineHeight: isMultiline ? 1.45 : '20px',
+    lineHeight: isMultiline && minLines > 1 ? 1.45 : '20px',
     fontWeight: 500,
     resize: 'none',
     appearance: 'none'
@@ -6605,6 +6606,179 @@ export function NdjcSyncErrorBanner({
   )
 }
 
+function normalizeStoreUnavailableLinkHref(value: string): string {
+  const text = value.trim()
+
+  if (!text) return '#'
+  if (text.startsWith('https://') || text.startsWith('http://')) return text
+
+  return `https://${text}`
+}
+
+function renderStoreUnavailableMessageLine(line: string): React.ReactNode {
+  const urlPattern = /(https?:\/\/[^\s]+|www\.[^\s]+)/g
+  const parts: React.ReactNode[] = []
+  let lastIndex = 0
+  let match: RegExpExecArray | null
+
+  while ((match = urlPattern.exec(line)) !== null) {
+    const matchedText = match[0]
+    const start = match.index
+    const end = start + matchedText.length
+
+    if (start > lastIndex) {
+      parts.push(line.slice(lastIndex, start))
+    }
+
+    parts.push(
+      <a
+        key={`${matchedText}_${start}`}
+        href={normalizeStoreUnavailableLinkHref(matchedText)}
+        target="_blank"
+        rel="noopener noreferrer"
+        style={{
+          color: APK_CORE_UI.ink,
+          fontWeight: 800,
+          textDecoration: 'underline',
+          textUnderlineOffset: 3
+        }}
+      >
+        {matchedText}
+      </a>
+    )
+
+    lastIndex = end
+  }
+
+  if (lastIndex < line.length) {
+    parts.push(line.slice(lastIndex))
+  }
+
+  return parts.length > 0 ? parts : line
+}
+
+export function NdjcStoreUnavailableOverlay({
+  state,
+  children
+}: {
+  state: ShowcaseStoreUnavailableUiState
+  children: React.ReactNode
+}) {
+  if (!state.visible) return <>{children}</>
+
+  const messageLines = state.message
+    .split('\n')
+    .map(line => line.trim())
+    .filter(Boolean)
+
+  return (
+    <section
+      style={{
+        position: 'relative',
+        minHeight: '100dvh',
+        width: '100%',
+        overflow: 'hidden',
+        background: APK_CORE_UI.softSurface
+      }}
+      aria-label={state.title}
+    >
+      <style>
+        {`
+          .ndjc-notification-opt-in-floating-button {
+            display: none !important;
+          }
+        `}
+      </style>
+
+      <div
+        aria-hidden="true"
+        style={{
+          minHeight: '100dvh',
+          width: '100%',
+          filter: 'blur(8px)',
+          transform: 'scale(1.015)',
+          transformOrigin: 'center',
+          opacity: 0.56,
+          pointerEvents: 'none',
+          userSelect: 'none'
+        }}
+      >
+        {children}
+      </div>
+
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="ndjc-store-unavailable-title"
+        style={{
+          position: 'fixed',
+          inset: 0,
+          zIndex: 2147483647,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          padding: 24,
+          background: 'rgba(15, 23, 42, 0.34)',
+          boxSizing: 'border-box',
+          pointerEvents: 'auto'
+        }}
+      >
+        <section
+          style={{
+            width: 'min(360px, calc(100vw - 48px))',
+            borderRadius: 28,
+            padding: '24px 22px 22px',
+            background: 'rgba(255, 255, 255, 0.96)',
+            border: '1px solid rgba(17, 24, 39, 0.08)',
+            boxShadow: '0 28px 80px rgba(15, 23, 42, 0.28)',
+            boxSizing: 'border-box',
+            backdropFilter: 'blur(18px)',
+            WebkitBackdropFilter: 'blur(18px)'
+          }}
+        >
+          <h1
+            id="ndjc-store-unavailable-title"
+            style={{
+              margin: 0,
+              color: APK_CORE_UI.black,
+              fontSize: 20,
+              lineHeight: 1.25,
+              fontWeight: 800,
+              letterSpacing: '-0.02em'
+            }}
+          >
+            {state.title}
+          </h1>
+
+          <section
+            style={{
+              marginTop: 18,
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 8
+            }}
+          >
+            {messageLines.map((line, index) => (
+              <p
+                key={`${line}_${index}`}
+                style={{
+                  margin: 0,
+                  color: 'rgba(17, 24, 39, 0.82)',
+                  fontSize: 16,
+                  lineHeight: 1.45,
+                  fontWeight: 500
+                }}
+              >
+                {renderStoreUnavailableMessageLine(line)}
+              </p>
+            ))}
+          </section>
+        </section>
+      </div>
+    </section>
+  )
+}
+
 export function NdjcOfflineStatusBanner({
   message
 }: {
@@ -7708,6 +7882,7 @@ export function NdjcNotificationOptInFloatingButton({
 
   return (
     <div
+      className="ndjc-notification-opt-in-floating-button"
       style={{
         position: 'fixed',
         left: 'calc(50vw + min(50vw, 240px) - 50px - 16px)',
@@ -16523,6 +16698,18 @@ function AppointmentDetailInfoLine({
   )
 }
 
+function isAppointmentCancelledByCustomer(item: ShowcaseAppointmentCard): boolean {
+  return item.statusLabel === 'Cancelled' && item.cancelledBy === 'customer'
+}
+
+function appointmentStatusDisplayLabel(item: ShowcaseAppointmentCard): string {
+  if (isAppointmentCancelledByCustomer(item)) {
+    return 'Cancelled by customer'
+  }
+
+  return item.statusLabel || 'Pending'
+}
+
 function AppointmentDetailsBottomSheet({
   item,
   onClose,
@@ -16546,6 +16733,9 @@ function AppointmentDetailsBottomSheet({
 
   const canOpenProduct = Boolean(item.itemAvailable && item.sourceDishId && onOpenProduct)
   const statusSubmitting = Boolean(adminActions && statusSubmittingId === item.id)
+  const customerCancelledLock = Boolean(adminActions && isAppointmentCancelledByCustomer(item))
+  const statusActionDisabled = statusSubmitting || customerCancelledLock
+  const displayStatusLabel = appointmentStatusDisplayLabel(item)
 
   return (
     <NdjcFilterBottomSheet
@@ -16602,6 +16792,10 @@ function AppointmentDetailsBottomSheet({
         value={item.customerContact || 'No contact provided'}
       />
 
+      {adminActions ? (
+        <AppointmentDetailInfoLine label="Status" value={displayStatusLabel} />
+      ) : null}
+
       <AppointmentDetailInfoLine label="Note" value={item.note} />
       <AppointmentDetailInfoLine label="Requested" value={item.createdAtText} />
 
@@ -16622,9 +16816,9 @@ function AppointmentDetailsBottomSheet({
               <NdjcPillButton
                 key={status}
                 selected={draftStatus === status}
-                disabled={statusSubmitting}
+                disabled={statusActionDisabled}
                 onClick={() => {
-                  if (statusSubmitting) return
+                  if (statusActionDisabled) return
                   setDraftStatus(status)
                 }}
               >
@@ -16633,11 +16827,29 @@ function AppointmentDetailsBottomSheet({
             ))}
           </section>
 
+          {customerCancelledLock ? (
+            <section
+              style={{
+                width: '100%',
+                borderRadius: 16,
+                padding: '10px 12px',
+                boxSizing: 'border-box',
+                color: 'rgba(0, 0, 0, 0.66)',
+                background: 'rgba(0, 0, 0, 0.05)',
+                fontSize: 13,
+                lineHeight: 1.4,
+                fontWeight: 600
+              }}
+            >
+              This booking was cancelled by the customer and can no longer be changed.
+            </section>
+          ) : null}
+
           <NdjcPrimaryActionButton
-            disabled={statusSubmitting}
+            disabled={statusActionDisabled}
             isLoading={statusSubmitting}
             onClick={() => {
-              if (statusSubmitting) return
+              if (statusActionDisabled) return
 
               let actionResult: void | Promise<void> | null = null
 
@@ -16656,7 +16868,7 @@ function AppointmentDetailsBottomSheet({
           </NdjcPrimaryActionButton>
         </>
       ) : (
-        <AppointmentDetailInfoLine label="Status" value={item.statusLabel} />
+        <AppointmentDetailInfoLine label="Status" value={displayStatusLabel} />
       )}
     </NdjcFilterBottomSheet>
   )
@@ -16665,83 +16877,172 @@ function AppointmentDetailsBottomSheet({
 function CustomerBookingDetailsBottomSheet({
   item,
   onClose,
-  onOpenProduct
+  onOpenProduct,
+  onCancelBooking,
+  cancellationSubmittingId
 }: {
   item: ShowcaseAppointmentCard | null
   onClose: () => void
   onOpenProduct?: (dishId: string) => void
+  onCancelBooking?: (id: string) => void | Promise<void>
+  cancellationSubmittingId?: string | null
 }) {
+  const [cancelSelected, setCancelSelected] = React.useState(false)
+  const [cancelConfirmOpen, setCancelConfirmOpen] = React.useState(false)
+
+  React.useEffect(() => {
+    setCancelSelected(false)
+    setCancelConfirmOpen(false)
+  }, [item?.id])
+
   if (!item) return null
 
   const sourceDishId = item.sourceDishId?.trim() || ''
   const canOpenProduct = Boolean(item.itemAvailable && sourceDishId && onOpenProduct)
+  const canCancelBooking = Boolean(item.canCancelByCustomer && onCancelBooking)
+  const isCancelling = cancellationSubmittingId === item.id
+  const submitChangeDisabled = !cancelSelected || isCancelling
 
   return (
-    <NdjcFilterBottomSheet
-      open={Boolean(item)}
-      title="Booking details"
-      clearText=""
-      applyText="Done"
-      showPriceFields={false}
-      showHeaderAction={false}
-      showApplyButton={false}
-      onClose={onClose}
-      onClear={onClose}
-      onApply={onClose}
-    >
-      <AppointmentCatalogItemCard
-        title={item.serviceTitle || 'General appointment'}
-        imageUrl={item.imageUrl}
-        priceTextValue={item.priceText}
-        originalPriceTextValue={item.originalPriceText}
-        discountPriceTextValue={item.discountPriceText}
-        categoryText={null}
-        isRecommended={item.isRecommended}
-        showRecommendedBadge
-        itemAvailable={item.itemAvailable && Boolean(sourceDishId)}
-        allowClickWhenUnavailable={false}
-        onOpen={canOpenProduct
-          ? () => {
+    <>
+      <NdjcFilterBottomSheet
+        open={Boolean(item)}
+        title="Booking details"
+        clearText=""
+        applyText="Done"
+        showPriceFields={false}
+        showHeaderAction={false}
+        showApplyButton={false}
+        onClose={onClose}
+        onClear={onClose}
+        onApply={onClose}
+      >
+        <AppointmentCatalogItemCard
+          title={item.serviceTitle || 'General appointment'}
+          imageUrl={item.imageUrl}
+          priceTextValue={item.priceText}
+          originalPriceTextValue={item.originalPriceText}
+          discountPriceTextValue={item.discountPriceText}
+          categoryText={null}
+          isRecommended={item.isRecommended}
+          showRecommendedBadge
+          itemAvailable={item.itemAvailable && Boolean(sourceDishId)}
+          allowClickWhenUnavailable={false}
+          onOpen={canOpenProduct
+            ? () => {
+                onClose()
+                onOpenProduct?.(sourceDishId)
+              }
+            : undefined}
+        />
+
+        <AppointmentDetailSectionTitle>
+          Booking info
+        </AppointmentDetailSectionTitle>
+
+        <AppointmentDetailInfoLine
+          label="Time"
+          value={appointmentDetailTimeText(item.preferredDate, item.preferredTime)}
+        />
+
+        <AppointmentDetailInfoLine
+          label="Status"
+          value={item.statusLabel}
+        />
+
+        <AppointmentDetailInfoLine
+          label="Customer"
+          value={item.customerName || 'Customer'}
+        />
+
+        <AppointmentDetailInfoLine
+          label="Contact"
+          value={item.customerContact || 'No contact provided'}
+        />
+
+        {item.note ? (
+          <AppointmentDetailInfoLine
+            label="Note"
+            value={item.note}
+          />
+        ) : null}
+
+        {item.createdAtText ? (
+          <AppointmentDetailInfoLine
+            label="Requested"
+            value={item.createdAtText}
+          />
+        ) : null}
+
+        {canCancelBooking ? (
+          <>
+            <AppointmentDetailSectionTitle>
+              Booking action
+            </AppointmentDetailSectionTitle>
+
+            <section
+              style={{
+                width: '100%',
+                display: 'flex',
+                flexWrap: 'wrap',
+                alignItems: 'center',
+                gap: 8
+              }}
+            >
+              <NdjcPillButton
+                selected={cancelSelected}
+                disabled={isCancelling}
+                onClick={() => {
+                  if (isCancelling) return
+                  setCancelSelected(value => !value)
+                }}
+              >
+                Cancel booking
+              </NdjcPillButton>
+            </section>
+
+            <NdjcPrimaryActionButton
+              disabled={submitChangeDisabled}
+              isLoading={isCancelling}
+              onClick={() => {
+                if (submitChangeDisabled) return
+                setCancelConfirmOpen(true)
+              }}
+            >
+              Submit change
+            </NdjcPrimaryActionButton>
+          </>
+        ) : null}
+      </NdjcFilterBottomSheet>
+
+      {cancelConfirmOpen ? (
+        <NdjcBaseDialog
+          title="Confirm cancellation"
+          message="Are you sure you want to cancel this booking?"
+          confirmText="Confirm"
+          cancelText="Keep booking"
+          destructiveConfirm
+          confirmLoading={isCancelling}
+          confirmEnabled={!isCancelling}
+          onConfirm={() => {
+            if (isCancelling) return
+
+            void Promise.resolve(onCancelBooking?.(item.id)).finally(() => {
+              setCancelConfirmOpen(false)
               onClose()
-              onOpenProduct?.(sourceDishId)
-            }
-          : undefined}
-      />
-
-      <AppointmentDetailInfoLine
-        label="Time"
-        value={appointmentDetailTimeText(item.preferredDate, item.preferredTime)}
-      />
-
-      <AppointmentDetailInfoLine
-        label="Status"
-        value={item.statusLabel}
-      />
-
-      <AppointmentDetailInfoLine
-        label="Customer"
-        value={item.customerName || 'Customer'}
-      />
-
-      <AppointmentDetailInfoLine
-        label="Contact"
-        value={item.customerContact || 'No contact provided'}
-      />
-
-      {item.note ? (
-        <AppointmentDetailInfoLine
-          label="Note"
-          value={item.note}
+            })
+          }}
+          onCancel={() => {
+            if (isCancelling) return
+            setCancelConfirmOpen(false)
+          }}
+          onDismissRequest={() => {
+            if (isCancelling) return
+            setCancelConfirmOpen(false)
+          }}
         />
       ) : null}
-
-      {item.createdAtText ? (
-        <AppointmentDetailInfoLine
-          label="Requested"
-          value={item.createdAtText}
-        />
-      ) : null}
-    </NdjcFilterBottomSheet>
+    </>
   )
 }
 
@@ -17013,6 +17314,8 @@ return (
           item={detailsItem}
           onClose={() => setDetailsItem(null)}
           onOpenProduct={actions.onOpenAppointmentProductDetail}
+          onCancelBooking={actions.onCancelBooking}
+          cancellationSubmittingId={state.cancellationSubmittingId}
         />
       </section>
     </NdjcUnifiedBackground>
@@ -18194,6 +18497,9 @@ function chatAppointmentShareToCard(appointment: ShowcaseChatAppointmentShare): 
     preferredTime: appointment.preferredTime,
     note: appointment.note || '',
     statusLabel: appointment.statusLabel || 'Pending',
+    cancelledBy: appointment.cancelledBy,
+    cancelledAt: appointment.cancelledAt,
+    canCancelByCustomer: false,
     createdAtText: appointment.createdAtText || '',
     imageUrl: appointment.imageUrl,
     sourceDishId: appointment.sourceDishId,
@@ -18206,11 +18512,56 @@ function chatAppointmentShareToCard(appointment: ShowcaseChatAppointmentShare): 
   }
 }
 
+function appointmentShareStatusDisplayLabel(appointment: ShowcaseChatAppointmentShare): string {
+  const status = appointment.statusLabel?.trim() || 'Pending'
+
+  if (status === 'Cancelled' && appointment.cancelledBy === 'customer') {
+    return 'Cancelled by customer'
+  }
+
+  return status
+}
+
+function appointmentShareCompactStatusBadgeLabel(appointment: ShowcaseChatAppointmentShare): string {
+  const status = appointment.statusLabel?.trim() || 'Pending'
+  const normalizedStatus = status.toLowerCase()
+
+  if (
+    normalizedStatus === 'cancelled' ||
+    normalizedStatus === 'cancelled by customer' ||
+    normalizedStatus === 'booking cancelled by customer'
+  ) {
+    return 'Cancelled'
+  }
+
+  if (
+    normalizedStatus === 'confirmed' ||
+    normalizedStatus === 'confirmed by merchant'
+  ) {
+    return 'Confirmed'
+  }
+
+  if (
+    normalizedStatus === 'pending' ||
+    normalizedStatus === 'pending confirmation'
+  ) {
+    return 'Pending'
+  }
+
+  return status
+}
+
 function appointmentShareSummaryText(appointment: ShowcaseChatAppointmentShare): string {
+  const status = appointmentShareStatusDisplayLabel(appointment)
   const title = appointment.title?.trim() || 'General appointment'
   const timeText = appointmentListTimeText(appointment.preferredDate, appointment.preferredTime)
+  const parts = [
+    status === 'Pending' ? '' : status,
+    title,
+    timeText
+  ].map(value => value.trim()).filter(Boolean)
 
-  return timeText ? `${title} · ${timeText}` : title
+  return parts.join(' · ')
 }
 
 function NdjcAppointmentCardBubble({
@@ -18222,7 +18573,7 @@ function NdjcAppointmentCardBubble({
 }) {
   const cleanImageUrl = appointment.imageUrl?.trim() || null
   const cleanTitle = appointment.title?.trim() || 'General appointment'
-  const cleanStatus = appointment.statusLabel?.trim() || 'Pending'
+  const cleanStatus = appointmentShareCompactStatusBadgeLabel(appointment)
 
   return (
     <section
@@ -18321,7 +18672,7 @@ function NdjcPendingAppointmentBar({
 }) {
   const cleanImageUrl = appointment.imageUrl?.trim() || null
   const cleanTitle = appointment.title?.trim() || 'General appointment'
-  const cleanStatus = appointment.statusLabel?.trim() || 'Pending'
+  const cleanStatus = appointmentShareCompactStatusBadgeLabel(appointment)
 
   return (
     <section className="ndjc-pending-appointment-bar" style={apkPendingProductBarStyle}>
@@ -22016,13 +22367,45 @@ export function ShowcaseAppointmentsScreen({
                 singleLine
               />
 
-              <NdjcTextField
-                value={state.noteDraft}
-                onChange={actions.onNoteChange}
-                disabled={!state.enabled}
-                label="Optional note"
-                singleLine={false}
-              />
+              <section
+                style={{
+                  minWidth: 0,
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: APK_ANNOUNCEMENT_UI.editComposerTextGap
+                }}
+              >
+                <NdjcTextField
+                  value={state.noteDraft}
+                  onChange={value => actions.onNoteChange(value.slice(0, 200))}
+                  disabled={!state.enabled}
+                  label="Optional note"
+                  singleLine={false}
+                  minLines={3}
+                />
+
+                <section
+                  style={{
+                    width: '100%',
+                    display: 'flex',
+                    alignItems: 'center'
+                  }}
+                >
+                  <span style={{ flex: 1, minWidth: 0 }} />
+
+                  <span
+                    style={{
+                      color: 'rgba(0, 0, 0, 0.55)',
+                      fontSize: 12,
+                      lineHeight: 1.35,
+                      fontWeight: 400,
+                      whiteSpace: 'nowrap'
+                    }}
+                  >
+                    {Math.min(state.noteDraft.length, 200)}/200
+                  </span>
+                </section>
+              </section>
 
               {state.bookingRuleSummary?.trim() ? (
                 <section
@@ -25068,7 +25451,7 @@ export function ShowcaseAdminAppointmentManager({
                           <div style={{ height: 4 }} aria-hidden="true" />
 
                           <NdjcPillBadge selected>
-                            {item.statusLabel}
+                            {appointmentStatusDisplayLabel(item)}
                           </NdjcPillBadge>
                         </>
                       }

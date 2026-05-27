@@ -15,6 +15,9 @@ import {
   type ShowcaseChatSendStatus,
   type ShowcaseChatUiStateDomain
 } from './showcaseChatModels'
+import {
+  buildThreadPreview
+} from './showcaseChatListDomain'
 
 export const NDJC_QUOTE_START = '⟪Q⟫'
 export const NDJC_QUOTE_END = '⟪/Q⟫'
@@ -60,6 +63,8 @@ export type NdjcParsedAppointment = {
   preferredDate: string
   preferredTime: string
   statusLabel: string
+  cancelledBy: string | null
+  cancelledAt: number | null
   imageUrl: string | null
   imageVariants: ShowcaseImageVariants | null
   customerName: string
@@ -390,7 +395,9 @@ export function buildNdjcAppointmentSharePayload(appointment: ShowcaseChatAppoin
     appointment.createdAtText,
     appointment.originalPriceText || '',
     appointment.discountPriceText || '',
-    encodeImageVariantsForPayload(appointment.imageVariants ?? null)
+    encodeImageVariantsForPayload(appointment.imageVariants ?? null),
+    appointment.cancelledBy || '',
+    appointment.cancelledAt != null ? String(appointment.cancelledAt) : ''
   ].map(item => String(item || '').replace(/\n/g, ' ').replace(/\|/g, ' '))
 
   return `${NDJC_APPOINTMENT_START}\n${safe.join('|')}\n${NDJC_APPOINTMENT_END}`
@@ -430,6 +437,10 @@ export function parseNdjcAppointmentSharePayload(text: string): NdjcParsedAppoin
   const createdAtText = String(parts[13] || '').trim()
   const originalPriceText = String(parts[14] || '').trim() || priceText || null
   const discountPriceText = String(parts[15] || '').trim() || null
+  const imageVariants = decodeImageVariantsFromPayload(parts[16]) ?? createRemoteOnlyImageVariantsForChat(imageUrl)
+  const cancelledBy = String(parts[17] || '').trim() || null
+  const rawCancelledAt = Number(parts[18] || 0)
+  const cancelledAt = Number.isFinite(rawCancelledAt) && rawCancelledAt > 0 ? rawCancelledAt : null
 
   if (!appointmentId && !title) return null
 
@@ -439,8 +450,10 @@ export function parseNdjcAppointmentSharePayload(text: string): NdjcParsedAppoin
     preferredDate,
     preferredTime,
     statusLabel,
+    cancelledBy,
+    cancelledAt,
     imageUrl,
-    imageVariants: decodeImageVariantsFromPayload(parts[16]) ?? createRemoteOnlyImageVariantsForChat(imageUrl),
+    imageVariants,
     customerName,
     customerContact,
     note,
@@ -1725,22 +1738,21 @@ export function buildChatPushBodyPreviewFromPayload(input: {
   hasProduct?: boolean
   hasAppointment?: boolean
 }): string {
+  const preview = buildThreadPreview(input.body)
+  const normalizedPreview = String(preview || '').replace(/\s+/g, ' ').trim()
+
+  if (normalizedPreview) {
+    return normalizedPreview.length > 120 ? `${normalizedPreview.slice(0, 117)}...` : normalizedPreview
+  }
+
   const parsed = parseNdjcChatPayload(input.body)
-  const normalizedBody = (parsed.body || parsed.product?.title || parsed.appointment?.title || '')
-    .replace(/\s+/g, ' ')
-    .replace(/^>.*$/gm, '')
-    .trim()
   const hasProduct = Boolean(input.hasProduct || parsed.product)
   const hasAppointment = Boolean(input.hasAppointment || parsed.appointment)
   const hasImages = Boolean(input.hasImages || parsed.imageUris.length > 0)
 
-  if (normalizedBody) {
-    return normalizedBody.length > 120 ? `${normalizedBody.slice(0, 117)}...` : normalizedBody
-  }
-
-  if (hasAppointment) return 'Booking card'
-  if (hasProduct) return 'Item card'
-  if (hasImages) return 'Image message'
+  if (hasAppointment) return '[Booking]'
+  if (hasProduct) return '[Item]'
+  if (hasImages) return '[Photo]'
 
   return 'New message'
 }
@@ -1830,6 +1842,8 @@ export function toShowcaseChatDomainMessage(input: {
         preferredDate: parsedAppointment.preferredDate,
         preferredTime: parsedAppointment.preferredTime,
         statusLabel: parsedAppointment.statusLabel,
+        cancelledBy: parsedAppointment.cancelledBy,
+        cancelledAt: parsedAppointment.cancelledAt,
         imageUrl: parsedAppointment.imageUrl,
         imageVariants: parsedAppointment.imageVariants,
         customerName: parsedAppointment.customerName,

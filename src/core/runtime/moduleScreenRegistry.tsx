@@ -99,7 +99,13 @@ function ShowcaseGreenpinkRuntime({ routeId, storeId }: { routeId: string; store
     )
   }, [viewModel.screen])
 
-  const renderWithOfflineBanner = (node: React.ReactNode) => (
+  const renderWithStoreUnavailableOverlay = (node: React.ReactNode) => (
+    <GreenpinkShowcaseUiRenderer.StoreUnavailableOverlay state={viewModel.storeUnavailableState}>
+      {node}
+    </GreenpinkShowcaseUiRenderer.StoreUnavailableOverlay>
+  )
+
+  const renderWithOfflineBanner = (node: React.ReactNode) => renderWithStoreUnavailableOverlay(
     <>
       <GreenpinkShowcaseUiRenderer.OfflineStatusBanner
         message={viewModel.offlineStatus.bannerMessage}

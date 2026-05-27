@@ -27,18 +27,18 @@ export const ShowcaseCloudQuery = {
 } as const
 
 export const SHOWCASE_PAGE_SIZE = {
-  homeDishes: 2,
-  adminItems: 2,
-  chatMessages: 3,
-  chatThreads: 2,
+  homeDishes: 8,
+  adminItems: 20,
+  chatMessages: 20,
+  chatThreads: 20,
   chatSearchResults: 30,
   chatSearchMaxLocalScan: 300,
   chatMediaItems: 40,
   chatMediaMaxLocalScan: 500,
-  clientAppointments: 2,
-  merchantAppointments: 2,
-  publicAnnouncements: 2,
-  adminAnnouncements: 2,
+  clientAppointments: 10,
+  merchantAppointments: 20,
+  publicAnnouncements: 10,
+  adminAnnouncements: 20,
   categories: 100
 } as const
 
