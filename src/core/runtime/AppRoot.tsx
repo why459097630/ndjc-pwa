@@ -25,6 +25,9 @@ type NdjcBeforeInstallPromptEvent = Event & {
   userChoice: Promise<NdjcBeforeInstallPromptChoice>
 }
 
+const NDJC_PWA_LAST_STANDALONE_SEEN_AT_KEY = 'ndjc:pwa-last-standalone-seen-at'
+const NDJC_PWA_LAST_PROMPT_SEEN_AT_KEY = 'ndjc:pwa-last-prompt-seen-at'
+
 function canUseDevelopmentDefaultStoreId(): boolean {
   return process.env.NODE_ENV !== 'production'
 }
@@ -66,22 +69,35 @@ function isShowcaseSafariBrowser(): boolean {
   )
 }
 
+function writeShowcasePwaStorageValue(key: string, value: string): void {
+  if (typeof window === 'undefined') return
+
+  try {
+    window.localStorage.setItem(key, value)
+  } catch {
+  }
+}
+
 function inspectShowcasePwaInstallState(hasInstallPrompt: boolean): ShowcasePwaInstallState {
   if (typeof window === 'undefined') return 'unknown'
 
+  const now = Date.now()
+
   if (isShowcaseRunningStandalone()) {
-    return 'installed'
+    writeShowcasePwaStorageValue(NDJC_PWA_LAST_STANDALONE_SEEN_AT_KEY, String(now))
+    return 'standalone'
   }
 
   if (hasInstallPrompt) {
-    return 'available'
+    writeShowcasePwaStorageValue(NDJC_PWA_LAST_PROMPT_SEEN_AT_KEY, String(now))
+    return 'installable'
   }
 
   if (isShowcaseIosDevice()) {
-    return isShowcaseSafariBrowser() ? 'manual-ios' : 'manual-safari-required'
+    return isShowcaseSafariBrowser() ? 'ios-manual' : 'safari-required'
   }
 
-  return 'unsupported'
+  return 'browser'
 }
 
 function normalizeStoreId(value: unknown): string | null {
@@ -136,9 +152,9 @@ export function AppRoot({ assembly }: { assembly: Assembly }) {
   const [notificationPermissionState, setNotificationPermissionState] = useState<ShowcaseNotificationPermissionState>('default')
   const [notificationRegistrationState, setNotificationRegistrationState] = useState<ShowcaseNotificationRegistrationState>('idle')
   const [notificationDisplayScreen, setNotificationDisplayScreen] = useState('')
-  const [pwaInstallPromptEvent, setPwaInstallPromptEvent] = useState<NdjcBeforeInstallPromptEvent | null>(null)
-  const [pwaInstallState, setPwaInstallState] = useState<ShowcasePwaInstallState>('unknown')
-  const [pwaInstallBusy, setPwaInstallBusy] = useState(false)
+const [pwaInstallPromptEvent, setPwaInstallPromptEvent] = useState<NdjcBeforeInstallPromptEvent | null>(null)
+const [pwaInstallState, setPwaInstallState] = useState<ShowcasePwaInstallState>('unknown')
+const [pwaInstallBusy, setPwaInstallBusy] = useState(false)
 
   useEffect(() => {
     if (typeof window === 'undefined') return
@@ -150,33 +166,51 @@ export function AppRoot({ assembly }: { assembly: Assembly }) {
     setNotificationOptInMessageCode(inspected.messageCode)
   }, [])
 
-  useEffect(() => {
-    if (typeof window === 'undefined') return
+useEffect(() => {
+  if (typeof window === 'undefined') return
 
+  let latestInstallPromptEvent: NdjcBeforeInstallPromptEvent | null = null
+
+  const refreshPwaInstallState = () => {
+    setPwaInstallState(inspectShowcasePwaInstallState(Boolean(latestInstallPromptEvent)))
+  }
+
+  setPwaInstallState(inspectShowcasePwaInstallState(false))
+
+  const handleBeforeInstallPrompt = (event: Event) => {
+    event.preventDefault()
+    const installPromptEvent = event as NdjcBeforeInstallPromptEvent
+
+    latestInstallPromptEvent = installPromptEvent
+    setPwaInstallPromptEvent(installPromptEvent)
+    setPwaInstallState(inspectShowcasePwaInstallState(true))
+  }
+
+  const handleAppInstalled = () => {
+    latestInstallPromptEvent = null
+    setPwaInstallPromptEvent(null)
+    setPwaInstallBusy(false)
     setPwaInstallState(inspectShowcasePwaInstallState(false))
+  }
 
-    const handleBeforeInstallPrompt = (event: Event) => {
-      event.preventDefault()
-      const installPromptEvent = event as NdjcBeforeInstallPromptEvent
-
-      setPwaInstallPromptEvent(installPromptEvent)
-      setPwaInstallState(inspectShowcasePwaInstallState(true))
+  const handleVisibilityChange = () => {
+    if (document.visibilityState === 'visible') {
+      refreshPwaInstallState()
     }
+  }
 
-    const handleAppInstalled = () => {
-      setPwaInstallPromptEvent(null)
-      setPwaInstallBusy(false)
-      setPwaInstallState('installed')
-    }
+  window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt)
+  window.addEventListener('appinstalled', handleAppInstalled)
+  window.addEventListener('focus', refreshPwaInstallState)
+  document.addEventListener('visibilitychange', handleVisibilityChange)
 
-    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt)
-    window.addEventListener('appinstalled', handleAppInstalled)
-
-    return () => {
-      window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt)
-      window.removeEventListener('appinstalled', handleAppInstalled)
-    }
-  }, [])
+  return () => {
+    window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt)
+    window.removeEventListener('appinstalled', handleAppInstalled)
+    window.removeEventListener('focus', refreshPwaInstallState)
+    document.removeEventListener('visibilitychange', handleVisibilityChange)
+  }
+}, [])
 
   useEffect(() => {
     if (typeof window === 'undefined') return
@@ -280,29 +314,29 @@ export function AppRoot({ assembly }: { assembly: Assembly }) {
     void registerPushDeviceForCurrentStore('startup')
   }, [runtimeStoreId])
 
-  async function promptInstallCurrentPwa(): Promise<void> {
-    if (!pwaInstallPromptEvent) {
-      setPwaInstallState(inspectShowcasePwaInstallState(false))
-      return
-    }
-
-    setPwaInstallBusy(true)
-
-    try {
-      await pwaInstallPromptEvent.prompt()
-      const choice = await pwaInstallPromptEvent.userChoice
-
-      setPwaInstallPromptEvent(null)
-
-      if (choice.outcome === 'accepted') {
-        setPwaInstallState('installed')
-      } else {
-        setPwaInstallState(inspectShowcasePwaInstallState(false))
-      }
-    } finally {
-      setPwaInstallBusy(false)
-    }
+async function promptInstallCurrentPwa(): Promise<void> {
+  if (!pwaInstallPromptEvent) {
+    setPwaInstallState(inspectShowcasePwaInstallState(false))
+    return
   }
+
+  setPwaInstallBusy(true)
+
+  try {
+    await pwaInstallPromptEvent.prompt()
+    const choice = await pwaInstallPromptEvent.userChoice
+
+    setPwaInstallPromptEvent(null)
+
+    if (choice.outcome === 'accepted') {
+      setPwaInstallState(inspectShowcasePwaInstallState(false))
+    } else {
+      setPwaInstallState(inspectShowcasePwaInstallState(false))
+    }
+  } finally {
+    setPwaInstallBusy(false)
+  }
+}
 
   return (
     <>
@@ -319,24 +353,24 @@ export function AppRoot({ assembly }: { assembly: Assembly }) {
           })
         : null}
 
-      {notificationOptInVisible && notificationOptInAllowedOnCurrentScreen
-        ? GreenpinkShowcaseUiRenderer.NotificationOptInPanel({
-            open: notificationOptInPanelOpen,
-            busy: notificationOptInBusy,
-            registered: notificationRegistered,
-            permissionState: notificationPermissionState,
-            registrationState: notificationRegistrationState,
-            messageCode: notificationOptInMessageCode,
-            installState: pwaInstallState,
-            installBusy: pwaInstallBusy,
-            onRegister: () => {
-              void registerPushDeviceForCurrentStore('manual')
-            },
-            onInstall: () => {
-              void promptInstallCurrentPwa()
-            }
-          })
-        : null}
+{notificationOptInVisible && notificationOptInAllowedOnCurrentScreen
+  ? GreenpinkShowcaseUiRenderer.NotificationOptInPanel({
+      open: notificationOptInPanelOpen,
+      busy: notificationOptInBusy,
+      registered: notificationRegistered,
+      permissionState: notificationPermissionState,
+      registrationState: notificationRegistrationState,
+      messageCode: notificationOptInMessageCode,
+      installState: pwaInstallState,
+      installBusy: pwaInstallBusy,
+      onRegister: () => {
+        void registerPushDeviceForCurrentStore('manual')
+      },
+      onInstall: () => {
+        void promptInstallCurrentPwa()
+      }
+    })
+  : null}
 
       {notificationOptInVisible && notificationOptInAllowedOnCurrentScreen
         ? GreenpinkShowcaseUiRenderer.NotificationOptInFloatingButton({

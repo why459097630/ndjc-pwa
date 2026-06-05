@@ -12354,7 +12354,18 @@ function formatCancelledAppointmentMerchantPushBody(appointment: CloudAppointmen
   }
 
   function customerAppointmentRuleSummary(): string {
-    return `${appointmentSettings.availableStartTime}-${appointmentSettings.availableEndTime} · ${appointmentSettings.minimumNotice}`
+    if (!appointmentsEnabled) {
+      return 'Booking unavailable'
+    }
+
+    const availableStartTime = appointmentSettings.availableStartTime.trim() || '09:00'
+    const availableEndTime = appointmentSettings.availableEndTime.trim() || '18:00'
+    const minimumNotice = appointmentSettings.minimumNotice.trim()
+    const minimumNoticeText = !minimumNotice || minimumNotice.toLowerCase() === 'no notice'
+      ? 'Book anytime'
+      : `Book ${minimumNotice} ahead`
+
+    return `Open for booking · ${availableStartTime}-${availableEndTime} · ${minimumNoticeText}`
   }
 
   function customerAppointmentTimeOptions(dateValue?: string | null): string[] {
@@ -13152,16 +13163,35 @@ async function refreshCustomerAppointmentsFromCloud(
 
   async function saveAnnouncement(status: 'draft' | 'published'): Promise<void> {
     const draftBody = adminAnnouncementBodyDraft.trim()
+    const draftCoverUrl = adminAnnouncementCoverDraftUrl?.trim() || ''
     const selectedIds = adminAnnouncementSelectedIds
       .map(id => id.trim())
       .filter(Boolean)
 
-    const selectedDraft = status === 'published' && !draftBody && selectedIds.length === 1
+    const selectedDraft = status === 'published' && !draftCoverUrl && selectedIds.length === 1
       ? adminAnnouncementDraftItems.find(item => item.id === selectedIds[0] && item.status === 'draft') || null
       : null
 
-    if (!draftBody && !selectedDraft) {
-      setAdminAnnouncementError('Content is required.')
+    if (status === 'published' && draftCoverUrl && selectedIds.length > 0) {
+      setAdminAnnouncementError('Clear selected drafts before publishing the editor content.')
+      setAdminAnnouncementSuccess(null)
+      return
+    }
+
+    if (status === 'published' && !draftCoverUrl && selectedIds.length > 1) {
+      setAdminAnnouncementError('Only one announcement can be published at a time.')
+      setAdminAnnouncementSuccess(null)
+      return
+    }
+
+    if (!draftCoverUrl && !selectedDraft) {
+      setAdminAnnouncementError('Cover image is required.')
+      setAdminAnnouncementSuccess(null)
+      return
+    }
+
+    if (selectedDraft && !selectedDraft.coverUrl?.trim()) {
+      setAdminAnnouncementError('Cover image is required.')
       setAdminAnnouncementSuccess(null)
       return
     }
@@ -19888,10 +19918,7 @@ function onChatImageLimitReached(): void {
       logoUrl: storeProfileLogoUrl,
       logoImageVariants: storeProfileCloud?.logoImageVariants ?? null
     }) || storeProfileLogoUrl,
-    coverUrl: selectStoreCoverUrl({
-      coverUrl: storeProfileCoverUrl,
-      coverImageVariants: storeProfileCloud?.coverImageVariants ?? null
-    }) || storeProfileCoverUrl,
+    coverUrl: storeProfileCoverUrl,
     logoImageVariants: storeProfileCloud?.logoImageVariants ?? null,
     coverImageVariants: storeProfileCloud?.coverImageVariants ?? null,
 
@@ -20041,10 +20068,10 @@ function onChatImageLimitReached(): void {
   }
 
   const hasAnnouncementSelection = adminAnnouncementSelectedIds.length > 0
-  const hasAnnouncementComposerInput = Boolean(
-    adminAnnouncementCoverDraftUrl ||
-    adminAnnouncementBodyDraft.trim()
-  )
+  const hasAnnouncementComposerCover = Boolean(adminAnnouncementCoverDraftUrl?.trim())
+  const selectedAnnouncementDraftCount = adminAnnouncementSelectedIds.length
+  const canPublishAnnouncementFromEditor = adminAnnouncementComposerExpanded && hasAnnouncementComposerCover && selectedAnnouncementDraftCount === 0
+  const canPublishSelectedAnnouncementDraft = !hasAnnouncementComposerCover && selectedAnnouncementDraftCount === 1
 
   const announcementEditState: ShowcaseAnnouncementEditUiState = {
     coverDraftUrl: adminAnnouncementCoverDraftUrl,
@@ -20061,10 +20088,10 @@ function onChatImageLimitReached(): void {
 
     canStartNew: !adminAnnouncementComposerExpanded && !adminAnnouncementIsSubmitting,
     canDeleteSelected: hasAnnouncementSelection && !adminAnnouncementIsSubmitting,
-    canSaveDraft: adminAnnouncementComposerExpanded && hasAnnouncementComposerInput && !adminAnnouncementIsSubmitting,
+    canSaveDraft: adminAnnouncementComposerExpanded && hasAnnouncementComposerCover && !adminAnnouncementIsSubmitting,
     canPublish: (
-      (adminAnnouncementComposerExpanded && hasAnnouncementComposerInput) ||
-      hasAnnouncementSelection
+      canPublishAnnouncementFromEditor ||
+      canPublishSelectedAnnouncementDraft
     ) && !adminAnnouncementIsSubmitting,
 
     draftItems: adminAnnouncementCards,

@@ -819,6 +819,8 @@ export type ShowcaseAppointmentProductCard = {
   dishId: string
   title: string
   priceText: string | null
+  originalPriceText: string | null
+  discountPriceText: string | null
   imageUrl: string | null
   imageVariants?: ShowcaseImageVariants | null
   categoryText: string | null

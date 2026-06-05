@@ -2,6 +2,11 @@
 
 import React from 'react'
 import { createPortal } from 'react-dom'
+import mapMarkerSvgAsset from './assets/map-marker.svg'
+const mapMarkerSvgUrl =
+  typeof mapMarkerSvgAsset === 'string'
+    ? mapMarkerSvgAsset
+    : mapMarkerSvgAsset.src
 import type { ShowcasePwaInstallState } from './ShowcaseUiRenderer'
 import type {
   ShowcaseNotificationMessageCode,
@@ -99,6 +104,215 @@ function priceText(value: number): string {
   return `$${value.toFixed(2).replace(/\.00$/, '').replace(/(\.\d)0$/, '$1')}`
 }
 
+const APK_SHOWCASE_COLOR_TOKENS = {
+  accent: '#E96B72',
+  accentPressed: '#C94F56',
+  accentRgb: '233, 107, 114',
+  primary: '#B4232A',
+  primaryPressed: '#8F1D23',
+  primaryRgb: '180, 35, 42'
+} as const
+
+const NDJC_GLOBAL_UI_TOKENS = {
+  colors: {
+    background: '#F3F7F5',
+    surface: '#FFFFFF',
+    surfaceSoft: '#F8FAF9',
+    cardBackground: 'rgba(255, 255, 255, 0.9)',
+
+    controlEmphasis: '#2b3033',
+    controlWeakText: '#9aa3a0',
+    controlDisabledSurface: '#dfe5e3',
+
+    textPrimary: '#000000',
+    textStrong: '#111111',
+    textBody: '#202124',
+    textSoft: '#344054',
+    textSecondary: '#475467',
+    textMuted: '#667085',
+    textDisabled: 'rgba(32, 33, 36, 0.36)',
+    textDisabledSoft: 'rgba(32, 33, 36, 0.26)',
+
+    iconDisabled: 'rgba(32, 33, 36, 0.24)',
+
+    brand: APK_SHOWCASE_COLOR_TOKENS.accent,
+    brandPressed: APK_SHOWCASE_COLOR_TOKENS.accentPressed,
+    brandRgb: APK_SHOWCASE_COLOR_TOKENS.accentRgb,
+    brandStrong: APK_SHOWCASE_COLOR_TOKENS.primary,
+    brandStrongPressed: APK_SHOWCASE_COLOR_TOKENS.primaryPressed,
+    brandStrongRgb: APK_SHOWCASE_COLOR_TOKENS.primaryRgb,
+    brandSoft: 'rgba(180, 35, 42, 0.08)',
+
+    success: '#15803D',
+    successSoft: 'rgba(21, 128, 61, 0.12)',
+    warning: '#B45309',
+    warningSoft: 'rgba(180, 83, 9, 0.12)',
+    danger: '#B4232A',
+    dangerSoft: 'rgba(180, 35, 42, 0.12)',
+
+    border: 'rgba(15, 23, 42, 0.08)',
+    divider: 'rgba(15, 23, 42, 0.06)',
+    overlay: 'rgba(15, 23, 42, 0.42)'
+  },
+
+  typography: {
+    adminPageTitle: {
+      fontSize: 38,
+      lineHeight: 1.02,
+      fontWeight: 760,
+      letterSpacing: '-1.1px'
+    },
+    adminCloudTitle: {
+      fontSize: 14,
+      lineHeight: 1.3,
+      fontWeight: 600
+    },
+    adminSectionLabel: {
+      fontSize: 12,
+      lineHeight: 1.35,
+      fontWeight: 500
+    },
+    entryTitle: {
+      fontSize: 16,
+      lineHeight: 1.18,
+      fontWeight: 650,
+      pressedFontWeight: 700
+    },
+    entryDescription: {
+      fontSize: 12,
+      lineHeight: 1.25,
+      fontWeight: 400,
+      pressedFontWeight: 500
+    },
+    titleMedium: {
+      fontSize: 16,
+      lineHeight: 1.35,
+      fontWeight: 600
+    },
+    bodyMedium: {
+      fontSize: 14,
+      lineHeight: 1.45,
+      fontWeight: 400
+    },
+    bodySmall: {
+      fontSize: 12,
+      lineHeight: 1.35,
+      fontWeight: 400
+    }
+  },
+
+  spacing: {
+    xxs: 4,
+    xs: 6,
+    sm: 8,
+    md: 10,
+    lg: 12,
+    xl: 14,
+    xxl: 16,
+    pageX: 24,
+    pageTop: 56,
+    pageBottom: 32
+  },
+
+  layout: {
+    screenPaddingX: 16,
+    contentPaddingX: 50,
+    contentPaddingTop: 60,
+    contentPaddingBottom: 32,
+    topContentPadding: 60,
+    bottomContentPadding: 32,
+    contentMaxWidth: 420,
+    titleInsetX: 0,
+    keyboardFocusTopGap: 112
+  },
+
+  rhythm: {
+    titleToFirstSection: 28,
+    sectionToSection: 28,
+    sectionTitleToContent: 16,
+    fieldToField: 20,
+    helperToNextField: 18,
+    fieldToHelper: 10,
+    mediaTop: 14,
+    bottomActionTop: 28
+  },
+
+  radius: {
+    xs: 8,
+    sm: 12,
+    md: 16,
+    lg: 20,
+    xl: 24,
+    sheet: 28,
+    full: 999
+  },
+
+  shadow: {
+    card: '0 10px 28px rgba(0, 0, 0, 0.035)',
+    floating: '0 16px 36px rgba(15, 23, 42, 0.14)',
+    pressed: '0 8px 20px rgba(15, 23, 42, 0.08)'
+  },
+
+  motion: {
+    pressScale: 0.985,
+    iconPressScale: 1.08,
+    fast: '120ms ease',
+    normal: '180ms ease',
+    slow: '240ms ease'
+  },
+
+  icon: {
+    entrySize: 19,
+    entryContainerSize: 22,
+    cloudMarkSize: 74,
+    strokeWidth: 2
+  },
+
+  components: {
+    card: {
+      radius: 20,
+      paddingTop: 18,
+      paddingX: 18,
+      paddingBottom: 16
+    },
+    entryRow: {
+      minHeight: 54,
+      minHeightWithDescription: 64,
+      radius: 16,
+      gap: 13,
+      paddingX: 12,
+      paddingY: 8
+    },
+    badge: {
+      height: 24,
+      radius: 999,
+      paddingX: 10,
+      fontSize: 12,
+      fontWeight: 650
+    },
+    button: {
+      height: 48,
+      radius: 16,
+      fontSize: 15,
+      fontWeight: 800
+    },
+    input: {
+      height: 48,
+      radius: 16,
+      fontSize: 15
+    }
+  },
+
+  admin: {
+    cardGap: 10,
+    cloudInnerGap: 10,
+    cloudLineGap: 4,
+    spacer8: 8,
+    spacer6: 6,
+    statusSpacer: 14
+  }
+} as const
+
 function sortLabel(value: string): string {
   if (value === 'PriceAsc') return 'Low–High'
   if (value === 'PriceDesc') return 'High–Low'
@@ -106,63 +320,63 @@ function sortLabel(value: string): string {
 }
 
 const APK_FILTER_UI = {
-  chipHeight: 32,
+  chipHeight: 26,
   chipRadius: 999,
   chipPaddingX: 12,
-  chipPaddingY: 6,
-  chipGap: 6,
-  chipBorderWidth: 1.5,
-  chipBorderColor: 'rgba(0, 0, 0, 0.10)',
-  chipSelectedBg: '#fe9595',
-  chipUnselectedBg: 'rgba(255, 255, 255, 0.72)',
-  chipTextColor: '#000000',
-  chipSelectedTextColor: '#ffffff',
+  chipPaddingY: 4,
+  chipGap: 14,
+  chipBorderWidth: 0,
+  chipBorderColor: 'transparent',
+  chipSelectedBg: 'rgba(0, 0, 0, 0.08)',
+  chipUnselectedBg: 'transparent',
+  chipTextColor: 'rgba(0, 0, 0, 0.44)',
+  chipSelectedTextColor: '#111111',
   chipRemoveColor: 'rgba(0, 0, 0, 0.80)',
-  chipPressedScale: 0.92,
-  chipFontSize: 14,
+  chipPressedScale: 0.985,
+  chipFontSize: 12,
   chipLineHeight: 1,
-  chipTextWeight: 500,
+  chipTextWeight: 600,
 
-  sortItemHeight: 40,
-  sortItemRadius: 10,
-  sortItemOuterPaddingX: 4,
-  sortItemPaddingX: 0,
-  sortItemPaddingY: 10,
-  sortSelectedColor: '#fe9595',
-  sortUnselectedColor: 'rgba(0, 0, 0, 0.60)',
-  sortTextSize: 14,
-  sortTextLineHeight: 1.2,
-  sortTextWeight: 500,
-  sortPressedScale: 0.965,
+  sortItemHeight: 26,
+  sortItemRadius: 999,
+  sortItemOuterPaddingX: 2,
+  sortItemPaddingX: 12,
+  sortItemPaddingY: 5,
+  sortSelectedColor: '#111111',
+  sortUnselectedColor: 'rgba(0, 0, 0, 0.44)',
+  sortTextSize: 12,
+  sortTextLineHeight: 1,
+  sortTextWeight: 600,
+  sortPressedScale: 0.985,
 
   rowEqualColumns: 4,
   rowHorizontalPadding: 0,
-  activeRowPaddingY: 4,
+  activeRowPaddingY: 0,
 
   sheetBackdropColor: 'rgba(0, 0, 0, 0.32)',
   sheetMaxHeight: '86dvh',
-  sheetRadius: '28px 28px 0 0',
-  sheetDragHandleWrapHeight: 18,
+  sheetRadius: '24px 24px 0 0',
+  sheetDragHandleWrapHeight: 24,
   sheetDragHandleWidth: 36,
   sheetDragHandleHeight: 4,
   sheetDragHandleRadius: 999,
   sheetDragHandleColor: 'rgba(0, 0, 0, 0.18)',
   sheetDragDismissThreshold: 72,
-  sheetHeaderPaddingX: 16,
-  sheetHeaderPaddingTop: 6,
-  sheetHeaderPaddingBottom: 10,
-  sheetTitleSize: 16,
-  sheetTitleLineHeight: 1.25,
-  sheetTitleWeight: 600,
-  sheetSubtitleSize: 12,
-  sheetSubtitleLineHeight: 1.25,
-  sheetSubtitleWeight: 500,
-  sheetDividerColor: 'rgba(0, 0, 0, 0.10)',
-  sheetContentPaddingX: 16,
-  sheetContentPaddingTop: 14,
-  sheetContentPaddingBottom: 24,
-  sheetActionPaddingX: 16,
-  sheetActionPaddingBottom: 24,
+  sheetHeaderPaddingX: NDJC_GLOBAL_UI_TOKENS.layout.contentPaddingX,
+  sheetHeaderPaddingTop: NDJC_GLOBAL_UI_TOKENS.admin.spacer8,
+  sheetHeaderPaddingBottom: NDJC_GLOBAL_UI_TOKENS.admin.spacer8,
+  sheetTitleSize: NDJC_GLOBAL_UI_TOKENS.typography.titleMedium.fontSize,
+  sheetTitleLineHeight: NDJC_GLOBAL_UI_TOKENS.typography.titleMedium.lineHeight,
+  sheetTitleWeight: 700,
+  sheetSubtitleSize: NDJC_GLOBAL_UI_TOKENS.typography.bodySmall.fontSize,
+  sheetSubtitleLineHeight: NDJC_GLOBAL_UI_TOKENS.typography.bodySmall.lineHeight,
+  sheetSubtitleWeight: NDJC_GLOBAL_UI_TOKENS.typography.bodySmall.fontWeight,
+  sheetDividerColor: 'transparent',
+  sheetContentPaddingX: NDJC_GLOBAL_UI_TOKENS.layout.contentPaddingX,
+  sheetContentPaddingTop: NDJC_GLOBAL_UI_TOKENS.rhythm.fieldToHelper,
+  sheetContentPaddingBottom: NDJC_GLOBAL_UI_TOKENS.layout.contentPaddingBottom,
+  sheetActionPaddingX: NDJC_GLOBAL_UI_TOKENS.layout.contentPaddingX,
+  sheetActionPaddingBottom: NDJC_GLOBAL_UI_TOKENS.layout.contentPaddingBottom,
 
   pagePaddingX: 16,
   expandedCategoryGap: 8,
@@ -221,30 +435,32 @@ function apkSortNavOuterItemStyle(): React.CSSProperties {
   return {
     minWidth: 0,
     padding: `0 ${APK_FILTER_UI.sortItemOuterPaddingX}px`,
-    display: 'block'
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center'
   }
 }
 
 function apkSortNavItemStyle(selected: boolean, pressed = false): React.CSSProperties {
   return {
-    width: '100%',
+    width: 'auto',
     minWidth: 0,
     minHeight: APK_FILTER_UI.sortItemHeight,
     border: 0,
     borderRadius: APK_FILTER_UI.sortItemRadius,
     padding: `${APK_FILTER_UI.sortItemPaddingY}px ${APK_FILTER_UI.sortItemPaddingX}px`,
-    display: 'grid',
+    display: 'inline-grid',
     placeItems: 'center',
     color: selected ? APK_FILTER_UI.sortSelectedColor : APK_FILTER_UI.sortUnselectedColor,
-    background: 'transparent',
+    background: selected ? APK_FILTER_UI.chipSelectedBg : 'transparent',
     boxShadow: 'none',
     fontSize: APK_FILTER_UI.sortTextSize,
     lineHeight: APK_FILTER_UI.sortTextLineHeight,
-    fontWeight: APK_FILTER_UI.sortTextWeight,
+    fontWeight: selected ? 700 : APK_FILTER_UI.sortTextWeight,
     whiteSpace: 'nowrap',
     cursor: 'pointer',
     transform: pressed ? `scale(${APK_FILTER_UI.sortPressedScale})` : 'scale(1)',
-    transition: 'transform 120ms ease, color 120ms ease',
+    transition: 'transform 120ms ease, color 120ms ease, background 120ms ease',
     WebkitTapHighlightColor: 'transparent',
     touchAction: 'manipulation'
   }
@@ -285,10 +501,10 @@ const apkSheetSurfaceStyle: React.CSSProperties = {
   borderRadius: APK_FILTER_UI.sheetRadius,
   padding: 0,
   display: 'grid',
-  gridTemplateRows: 'auto minmax(0, 1fr) auto',
+  gridTemplateRows: 'auto minmax(0, 1fr)',
   gap: 0,
   overflow: 'hidden',
-  background: 'rgba(255, 255, 255, 0.98)',
+  background: NDJC_GLOBAL_UI_TOKENS.colors.surface,
   boxShadow: 'none',
   boxSizing: 'border-box'
 }
@@ -316,15 +532,16 @@ const apkSheetHeaderCopyStyle: React.CSSProperties = {
 
 const apkSheetHeaderTitleStyle: React.CSSProperties = {
   margin: 0,
-  color: '#111827',
+  color: NDJC_GLOBAL_UI_TOKENS.colors.controlEmphasis,
   fontSize: APK_FILTER_UI.sheetTitleSize,
   lineHeight: APK_FILTER_UI.sheetTitleLineHeight,
-  fontWeight: APK_FILTER_UI.sheetTitleWeight
+  fontWeight: APK_FILTER_UI.sheetTitleWeight,
+  letterSpacing: '-0.2px'
 }
 
 const apkSheetHeaderSubtitleStyle: React.CSSProperties = {
   margin: '2px 0 0',
-  color: '#6b7280',
+  color: NDJC_GLOBAL_UI_TOKENS.colors.textMuted,
   fontSize: APK_FILTER_UI.sheetSubtitleSize,
   lineHeight: APK_FILTER_UI.sheetSubtitleLineHeight,
   fontWeight: APK_FILTER_UI.sheetSubtitleWeight
@@ -355,9 +572,9 @@ const apkSheetCloseButtonStyle: React.CSSProperties = {
 
 const apkSheetContentStyle: React.CSSProperties = {
   minHeight: 0,
-  padding: `${APK_FILTER_UI.sheetContentPaddingTop}px ${APK_FILTER_UI.sheetContentPaddingX}px ${APK_FILTER_UI.sheetContentPaddingBottom}px`,
+  padding: `${APK_FILTER_UI.sheetContentPaddingTop}px ${APK_FILTER_UI.sheetContentPaddingX}px calc(${APK_FILTER_UI.sheetContentPaddingBottom}px + env(safe-area-inset-bottom))`,
   display: 'grid',
-  gap: 10,
+  gap: NDJC_GLOBAL_UI_TOKENS.rhythm.fieldToField,
   overflowY: 'auto',
   overflowX: 'hidden',
   WebkitOverflowScrolling: 'touch',
@@ -402,15 +619,19 @@ const apkVisuallyHiddenStyle: React.CSSProperties = {
 
 const APK_MEDIA_UI = {
   imageRadius: 16,
-  imageEditRadius: 18,
+  imageEditRadius: NDJC_GLOBAL_UI_TOKENS.components.input.radius,
   imageEditSize: 96,
   imageGridColumns: 3,
   imageGridGap: 10,
   imageRemoveSize: 22,
   imageRemovePadding: 6,
   imageRemoveIconSize: 14,
-  uploadIconSize: 28,
-  uploadBg: '#fe9595',
+  uploadIconSize: 34,
+  uploadBg: 'rgba(255, 255, 255, 0.74)',
+  uploadPressedBg: 'rgba(255, 255, 255, 0.92)',
+  uploadBorder: 'rgba(15, 23, 42, 0.12)',
+  uploadPressedBorder: `rgba(${APK_SHOWCASE_COLOR_TOKENS.primaryRgb}, 0.28)`,
+  uploadIconColor: APK_SHOWCASE_COLOR_TOKENS.primary,
   imageTileBg: '#f1f1f1',
   imagePlaceholderBg: '#f1f1f1',
   imageShimmerLight: '#f8fafc',
@@ -579,12 +800,23 @@ const apkEditableImageTileStyle: React.CSSProperties = {
 }
 
 const apkUploadTileStyle: React.CSSProperties = {
-  ...apkEditableImageTileStyle,
+  position: 'relative',
+  width: '100%',
+  aspectRatio: '1 / 1',
+  border: `1px dashed ${APK_MEDIA_UI.uploadBorder}`,
+  borderRadius: APK_MEDIA_UI.imageEditRadius,
+  padding: 12,
+  overflow: 'hidden',
+  background: APK_MEDIA_UI.uploadBg,
+  boxShadow: 'none',
   display: 'grid',
   placeItems: 'center',
-  color: APK_MEDIA_UI.white,
-  background: APK_MEDIA_UI.uploadBg,
-  cursor: 'pointer'
+  color: APK_MEDIA_UI.uploadIconColor,
+  cursor: 'pointer',
+  boxSizing: 'border-box',
+  WebkitTapHighlightColor: 'transparent',
+  touchAction: 'manipulation',
+  transition: `transform ${NDJC_GLOBAL_UI_TOKENS.motion.fast}, border-color ${NDJC_GLOBAL_UI_TOKENS.motion.fast}, background ${NDJC_GLOBAL_UI_TOKENS.motion.fast}, box-shadow ${NDJC_GLOBAL_UI_TOKENS.motion.fast}`
 }
 
 const apkRemoveCornerButtonStyle: React.CSSProperties = {
@@ -742,8 +974,8 @@ const APK_STORE_PROFILE_UI = {
   softSurface: '#f3f4f6',
   chipSurface: '#f8fafc',
   logoSurface: '#e5e7eb',
-  pink: '#fe9595',
-  green: '#26c6a4',
+  pink: APK_SHOWCASE_COLOR_TOKENS.accent,
+  green: APK_SHOWCASE_COLOR_TOKENS.primary,
 
   sectionGap: 10,
   sectionHeaderGap: 8,
@@ -828,63 +1060,60 @@ const APK_STORE_PROFILE_UI = {
 const apkStoreSectionStyle: React.CSSProperties = {
   width: '100%',
   display: 'grid',
-  gap: APK_STORE_PROFILE_UI.sectionGap
+  gap: NDJC_GLOBAL_UI_TOKENS.spacing.sm
 }
 
 const apkStoreSectionHeaderStyle: React.CSSProperties = {
   width: '100%',
   display: 'flex',
   alignItems: 'center',
-  gap: APK_STORE_PROFILE_UI.sectionHeaderGap
+  gap: 0
 }
 
 const apkStoreSectionHeaderBarStyle: React.CSSProperties = {
-  width: APK_STORE_PROFILE_UI.sectionHeaderBarWidth,
-  height: APK_STORE_PROFILE_UI.sectionHeaderBarHeight,
-  borderRadius: APK_STORE_PROFILE_UI.sectionHeaderBarRadius,
-  background: APK_STORE_PROFILE_UI.pink,
-  flex: `0 0 ${APK_STORE_PROFILE_UI.sectionHeaderBarWidth}px`
+  display: 'none'
 }
 
 const apkStoreSectionTitleStyle: React.CSSProperties = {
   margin: 0,
-  color: APK_STORE_PROFILE_UI.ink70,
-  fontSize: APK_STORE_PROFILE_UI.sectionHeaderTitleSize,
-  lineHeight: APK_STORE_PROFILE_UI.sectionHeaderTitleLineHeight,
-  fontWeight: APK_STORE_PROFILE_UI.sectionHeaderTitleWeight
+  color: NDJC_GLOBAL_UI_TOKENS.colors.controlEmphasis,
+  fontSize: NDJC_GLOBAL_UI_TOKENS.typography.titleMedium.fontSize,
+  lineHeight: NDJC_GLOBAL_UI_TOKENS.typography.titleMedium.lineHeight,
+  fontWeight: 700,
+  letterSpacing: '-0.2px'
 }
 
 const apkStoreBodyTextStyle: React.CSSProperties = {
   margin: 0,
-  color: APK_STORE_PROFILE_UI.ink90,
-  fontSize: APK_STORE_PROFILE_UI.bodySize,
-  lineHeight: APK_STORE_PROFILE_UI.bodyLineHeight,
-  fontWeight: APK_STORE_PROFILE_UI.bodyWeight,
+  color: NDJC_GLOBAL_UI_TOKENS.colors.textBody,
+  fontSize: NDJC_GLOBAL_UI_TOKENS.typography.bodyMedium.fontSize,
+  lineHeight: NDJC_GLOBAL_UI_TOKENS.typography.bodyMedium.lineHeight,
+  fontWeight: NDJC_GLOBAL_UI_TOKENS.typography.bodyMedium.fontWeight,
   whiteSpace: 'pre-wrap'
 }
 
 const apkStoreMutedTextStyle: React.CSSProperties = {
   margin: 0,
-  color: APK_STORE_PROFILE_UI.ink45,
-  fontSize: APK_STORE_PROFILE_UI.emptyBodySize,
-  lineHeight: APK_STORE_PROFILE_UI.emptyBodyLineHeight,
-  fontWeight: APK_STORE_PROFILE_UI.bodyWeight
+  color: NDJC_GLOBAL_UI_TOKENS.colors.textMuted,
+  fontSize: NDJC_GLOBAL_UI_TOKENS.typography.bodySmall.fontSize,
+  lineHeight: NDJC_GLOBAL_UI_TOKENS.typography.bodySmall.lineHeight,
+  fontWeight: NDJC_GLOBAL_UI_TOKENS.typography.bodySmall.fontWeight
 }
 
 const apkStoreLabelStyle: React.CSSProperties = {
   margin: 0,
-  color: APK_STORE_PROFILE_UI.ink55,
-  fontSize: APK_STORE_PROFILE_UI.labelSize,
-  lineHeight: APK_STORE_PROFILE_UI.labelLineHeight,
-  fontWeight: APK_STORE_PROFILE_UI.labelWeight
+  color: NDJC_GLOBAL_UI_TOKENS.colors.textMuted,
+  fontSize: NDJC_GLOBAL_UI_TOKENS.typography.bodySmall.fontSize,
+  lineHeight: NDJC_GLOBAL_UI_TOKENS.typography.bodySmall.lineHeight,
+  fontWeight: 650
 }
 
 const apkStoreValueStyle: React.CSSProperties = {
   margin: 0,
-  color: APK_STORE_PROFILE_UI.ink90,
-  fontSize: APK_STORE_PROFILE_UI.bodySize,
-  lineHeight: APK_STORE_PROFILE_UI.bodyLineHeight,
-  fontWeight: APK_STORE_PROFILE_UI.bodyWeight,
+  color: NDJC_GLOBAL_UI_TOKENS.colors.textBody,
+  fontSize: NDJC_GLOBAL_UI_TOKENS.typography.bodyMedium.fontSize,
+  lineHeight: NDJC_GLOBAL_UI_TOKENS.typography.bodyMedium.lineHeight,
+  fontWeight: NDJC_GLOBAL_UI_TOKENS.typography.bodyMedium.fontWeight,
   overflowWrap: 'anywhere'
 }
 
@@ -902,40 +1131,28 @@ const apkStoreInfoLineButtonStyle: React.CSSProperties = {
 
 const apkStoreCardSurfaceStyle: React.CSSProperties = {
   width: '100%',
-  border: `${APK_STORE_PROFILE_UI.cardBorderWidth}px solid ${APK_STORE_PROFILE_UI.ink06}`,
-  borderRadius: APK_STORE_PROFILE_UI.cardRadius,
-  padding: APK_STORE_PROFILE_UI.cardPadding,
+  border: `1px solid ${NDJC_GLOBAL_UI_TOKENS.colors.border}`,
+  borderRadius: NDJC_GLOBAL_UI_TOKENS.components.input.radius,
+  padding: NDJC_GLOBAL_UI_TOKENS.spacing.xl,
   display: 'grid',
-  gap: APK_STORE_PROFILE_UI.cardGap,
-  color: APK_STORE_PROFILE_UI.ink90,
-  background: APK_STORE_PROFILE_UI.white,
-  boxShadow: 'none'
+  gap: NDJC_GLOBAL_UI_TOKENS.spacing.sm,
+  color: NDJC_GLOBAL_UI_TOKENS.colors.textBody,
+  background: NDJC_GLOBAL_UI_TOKENS.colors.surface,
+  boxShadow: 'none',
+  boxSizing: 'border-box'
 }
 
 const apkStoreContactCardStyle: React.CSSProperties = {
   width: '100%',
-  border: `${APK_STORE_PROFILE_UI.cardBorderWidth}px solid ${APK_STORE_PROFILE_UI.ink06}`,
-  borderRadius: APK_STORE_PROFILE_UI.contactCardRadius,
+  border: `1px solid ${NDJC_GLOBAL_UI_TOKENS.colors.border}`,
+  borderRadius: NDJC_GLOBAL_UI_TOKENS.components.input.radius,
   display: 'grid',
   overflow: 'hidden',
-  color: APK_STORE_PROFILE_UI.ink,
-  background: APK_STORE_PROFILE_UI.white
+  color: NDJC_GLOBAL_UI_TOKENS.colors.textBody,
+  background: NDJC_GLOBAL_UI_TOKENS.colors.surface,
+  boxSizing: 'border-box'
 }
 
-const apkStoreServiceChipStyle: React.CSSProperties = {
-  border: `1px solid ${APK_STORE_PROFILE_UI.ink06}`,
-  borderRadius: APK_STORE_PROFILE_UI.serviceChipRadius,
-  padding: `${APK_STORE_PROFILE_UI.serviceChipPaddingY}px ${APK_STORE_PROFILE_UI.serviceChipPaddingX}px`,
-  display: 'inline-flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-  color: APK_STORE_PROFILE_UI.ink90,
-  background: APK_STORE_PROFILE_UI.chipSurface,
-  fontSize: 14,
-  lineHeight: 1,
-  fontWeight: 500,
-  whiteSpace: 'nowrap'
-}
 function StoreProfileSectionHeader({ title }: { title: string }) {
   return (
     <div style={apkStoreSectionHeaderStyle}>
@@ -944,64 +1161,144 @@ function StoreProfileSectionHeader({ title }: { title: string }) {
     </div>
   )
 }
+const APK_EDIT_ITEM_UI = {
+  topContentPadding: NDJC_GLOBAL_UI_TOKENS.layout.contentPaddingTop,
+  screenPadding: NDJC_GLOBAL_UI_TOKENS.layout.contentPaddingX,
+  bottomContentPadding: NDJC_GLOBAL_UI_TOKENS.layout.contentPaddingBottom,
+  sectionTop: NDJC_GLOBAL_UI_TOKENS.rhythm.sectionToSection,
+  titleToHint: NDJC_GLOBAL_UI_TOKENS.spacing.xs,
+  hintToContent: NDJC_GLOBAL_UI_TOKENS.rhythm.sectionTitleToContent,
+  fieldGap: NDJC_GLOBAL_UI_TOKENS.rhythm.fieldToField,
+  sectionBottom: NDJC_GLOBAL_UI_TOKENS.rhythm.titleToFirstSection,
+  spacer8: NDJC_GLOBAL_UI_TOKENS.spacing.sm,
+  chipGap: NDJC_GLOBAL_UI_TOKENS.spacing.sm,
+  mediaGridTop: NDJC_GLOBAL_UI_TOKENS.rhythm.mediaTop,
+  labelGap: NDJC_GLOBAL_UI_TOKENS.spacing.xs,
+  smallGap: NDJC_GLOBAL_UI_TOKENS.spacing.xxs,
+  midGap: NDJC_GLOBAL_UI_TOKENS.rhythm.helperToNextField,
+  saveHintTop: NDJC_GLOBAL_UI_TOKENS.rhythm.bottomActionTop,
+  saveButtonTop: NDJC_GLOBAL_UI_TOKENS.spacing.md,
+
+  titleFontSize: 30,
+  titleLineHeight: 1.08,
+  titleFontWeight: 760,
+  titleLetterSpacing: '-0.85px',
+
+  sectionTitleFontSize: 16,
+  sectionTitleLineHeight: 1.3,
+  sectionTitleFontWeight: 700,
+
+  labelFontSize: 12,
+  labelLineHeight: 1.25,
+  labelFontWeight: 650,
+
+  bodySmallFontSize: NDJC_GLOBAL_UI_TOKENS.typography.bodySmall.fontSize,
+  bodySmallLineHeight: NDJC_GLOBAL_UI_TOKENS.typography.bodySmall.lineHeight,
+  bodySmallFontWeight: NDJC_GLOBAL_UI_TOKENS.typography.bodySmall.fontWeight,
+
+  bodyMediumFontSize: NDJC_GLOBAL_UI_TOKENS.typography.bodyMedium.fontSize,
+  bodyMediumLineHeight: NDJC_GLOBAL_UI_TOKENS.typography.bodyMedium.lineHeight,
+  bodyMediumFontWeight: NDJC_GLOBAL_UI_TOKENS.typography.bodyMedium.fontWeight,
+
+  sectionCardRadius: NDJC_GLOBAL_UI_TOKENS.components.card.radius,
+  sectionCardPaddingTop: 18,
+  sectionCardPaddingX: 18,
+  sectionCardPaddingBottom: 18,
+  sectionCardGap: NDJC_GLOBAL_UI_TOKENS.rhythm.sectionTitleToContent,
+
+  fieldMinHeight: 48,
+  fieldRadius: NDJC_GLOBAL_UI_TOKENS.components.input.radius,
+  fieldPaddingX: 14,
+  fieldPaddingY: 11,
+  fieldBorderWidth: 1,
+  fieldBorderColor: 'rgba(15, 23, 42, 0.06)',
+  fieldFocusBorderColor: 'rgba(15, 23, 42, 0.22)',
+  fieldErrorBorderColor: `rgba(${NDJC_GLOBAL_UI_TOKENS.colors.brandStrongRgb}, 0.72)`,
+  fieldFocusShadow: '0 0 0 3px rgba(15, 23, 42, 0.045)',
+  fieldErrorShadow: `0 0 0 3px rgba(${NDJC_GLOBAL_UI_TOKENS.colors.brandStrongRgb}, 0.08)`,
+  fieldBackground: 'rgba(255, 255, 255, 0.72)',
+  fieldFocusedBackground: 'rgba(255, 255, 255, 0.88)',
+  fieldPlaceholderColor: 'rgba(71, 84, 103, 0.68)',
+  fieldPlaceholderOpacity: 1,
+  fieldPlaceholderFontWeight: 500,
+
+  submitButtonHeight: 52,
+  submitButtonTopGap: 22,
+  submitButtonBottomGap: 18,
+  submitButtonRadius: 18,
+  submitButtonFontSize: 15,
+  submitButtonFontWeight: 800,
+  submitButtonLineHeight: 20,
+  submitButtonShadow: '0 12px 24px rgba(180, 35, 42, 0.18)',
+  submitButtonPressedShadow: '0 8px 18px rgba(180, 35, 42, 0.14)',
+  submitButtonDisabledBg: 'rgba(15, 23, 42, 0.08)',
+  submitButtonDisabledText: 'rgba(15, 23, 42, 0.32)',
+
+  black: NDJC_GLOBAL_UI_TOKENS.colors.textPrimary,
+  sectionLabelColor: NDJC_GLOBAL_UI_TOKENS.colors.textStrong,
+  body70: NDJC_GLOBAL_UI_TOKENS.colors.textSecondary,
+  body55: NDJC_GLOBAL_UI_TOKENS.colors.textMuted,
+  error80: NDJC_GLOBAL_UI_TOKENS.colors.danger
+} as const
+
 const APK_STORE_EDIT_UI = {
-  black90: 'rgba(0, 0, 0, 0.90)',
-  black85: 'rgba(0, 0, 0, 0.85)',
-  black75: 'rgba(0, 0, 0, 0.75)',
-  black60: 'rgba(0, 0, 0, 0.60)',
-  black55: 'rgba(0, 0, 0, 0.55)',
-  black45: 'rgba(0, 0, 0, 0.45)',
-  black10: 'rgba(0, 0, 0, 0.10)',
+  black90: NDJC_GLOBAL_UI_TOKENS.colors.textStrong,
+  black85: NDJC_GLOBAL_UI_TOKENS.colors.textBody,
+  black75: NDJC_GLOBAL_UI_TOKENS.colors.textSecondary,
+  black60: NDJC_GLOBAL_UI_TOKENS.colors.textMuted,
+  black55: NDJC_GLOBAL_UI_TOKENS.colors.textMuted,
+  black45: 'rgba(71, 84, 103, 0.62)',
+  black10: NDJC_GLOBAL_UI_TOKENS.colors.divider,
   white: '#ffffff',
-  brand: '#fe9595',
-  green: '#26c6a4',
-  red75: 'rgba(229, 57, 53, 0.75)',
-  error80: 'rgba(229, 57, 53, 0.80)',
+  brand: APK_SHOWCASE_COLOR_TOKENS.accent,
+  green: APK_SHOWCASE_COLOR_TOKENS.primary,
+  red75: `rgba(${NDJC_GLOBAL_UI_TOKENS.colors.brandStrongRgb}, 0.75)`,
+  error80: NDJC_GLOBAL_UI_TOKENS.colors.danger,
 
-  titleSize: 16,
-  titleLineHeight: 1.25,
-  titleWeight: 600,
-  subtitleSize: 12,
-  subtitleLineHeight: 1.35,
-  subtitleWeight: 400,
+  titleSize: APK_EDIT_ITEM_UI.sectionTitleFontSize,
+  titleLineHeight: APK_EDIT_ITEM_UI.sectionTitleLineHeight,
+  titleWeight: APK_EDIT_ITEM_UI.sectionTitleFontWeight,
+  subtitleSize: APK_EDIT_ITEM_UI.bodySmallFontSize,
+  subtitleLineHeight: APK_EDIT_ITEM_UI.bodySmallLineHeight,
+  subtitleWeight: APK_EDIT_ITEM_UI.bodySmallFontWeight,
 
-  sectionSubtitleTopGap: 4,
-  sectionBottomGap: 10,
-  fieldGap: 6,
-  rowGap: 10,
-  removeTopPadding: 4,
-  removeBottomPadding: 8,
-  errorBottomGap: 8,
+  sectionSubtitleTopGap: APK_EDIT_ITEM_UI.titleToHint,
+  sectionBottomGap: APK_EDIT_ITEM_UI.hintToContent,
+  fieldGap: APK_EDIT_ITEM_UI.labelGap,
+  rowGap: APK_EDIT_ITEM_UI.spacer8,
+  removeTopPadding: APK_EDIT_ITEM_UI.smallGap,
+  removeBottomPadding: APK_EDIT_ITEM_UI.spacer8,
+  errorBottomGap: APK_EDIT_ITEM_UI.spacer8,
 
   nameColumnFlex: 0.38,
   valueColumnFlex: 0.62,
 
-  labelSize: 14,
-  labelLineHeight: 1.2,
-  labelWeight: 600,
-  labelBottomGap: 8,
-  pickerBottomGap: 14,
+  labelSize: APK_EDIT_ITEM_UI.labelFontSize,
+  labelLineHeight: APK_EDIT_ITEM_UI.labelLineHeight,
+  labelWeight: APK_EDIT_ITEM_UI.labelFontWeight,
+  labelBottomGap: APK_EDIT_ITEM_UI.spacer8,
+  pickerBottomGap: APK_EDIT_ITEM_UI.mediaGridTop,
 
-  editorCardRadius: 16,
-  editorCardPadding: 12,
-  editorCardGap: 10,
-  editorCardBorderWidth: 1,
-  editorCardBorderColor: 'rgba(0, 0, 0, 0.08)',
+  editorCardRadius: APK_EDIT_ITEM_UI.sectionCardRadius,
+  editorCardPadding: 0,
+  editorCardGap: APK_EDIT_ITEM_UI.sectionCardGap,
+  editorCardBorderWidth: 0,
+  editorCardBorderColor: 'transparent',
 
   logoColumns: 3,
   imageGridColumns: 3,
-  imageCellGap: 10,
-  imageCornerRadius: 18,
+  imageCellGap: APK_MEDIA_UI.imageGridGap,
+  imageCornerRadius: APK_MEDIA_UI.imageEditRadius,
   maxCoverImages: 9,
 
   logoPickerSize: 96,
   coverPickerMinHeight: 112,
-  pickerTitleSize: 14,
-  pickerTitleWeight: 600,
-  pickerHintSize: 12,
-  pickerHintWeight: 400,
+  pickerTitleSize: APK_EDIT_ITEM_UI.labelFontSize,
+  pickerTitleWeight: APK_EDIT_ITEM_UI.labelFontWeight,
+  pickerHintSize: APK_EDIT_ITEM_UI.bodySmallFontSize,
+  pickerHintWeight: APK_EDIT_ITEM_UI.bodySmallFontWeight,
 
-  servicesGap: 8,
+  servicesGap: APK_EDIT_ITEM_UI.spacer8,
   serviceChipRadius: 999,
   serviceChipPaddingX: 12,
   serviceChipPaddingY: 8
@@ -1009,22 +1306,22 @@ const APK_STORE_EDIT_UI = {
 
 const apkStoreEditSectionTitleStyle: React.CSSProperties = {
   margin: 0,
-  color: APK_STORE_EDIT_UI.black90,
-  fontSize: APK_STORE_EDIT_UI.titleSize,
-  lineHeight: APK_STORE_EDIT_UI.titleLineHeight,
-  fontWeight: APK_STORE_EDIT_UI.titleWeight
+  color: APK_EDIT_ITEM_UI.sectionLabelColor,
+  fontSize: APK_EDIT_ITEM_UI.sectionTitleFontSize,
+  lineHeight: APK_EDIT_ITEM_UI.sectionTitleLineHeight,
+  fontWeight: APK_EDIT_ITEM_UI.sectionTitleFontWeight
 }
 
 const apkStoreEditSectionSubtitleStyle: React.CSSProperties = {
-  margin: `${APK_STORE_EDIT_UI.sectionSubtitleTopGap}px 0 0`,
-  color: APK_STORE_EDIT_UI.black55,
-  fontSize: APK_STORE_EDIT_UI.subtitleSize,
-  lineHeight: APK_STORE_EDIT_UI.subtitleLineHeight,
-  fontWeight: APK_STORE_EDIT_UI.subtitleWeight
+  margin: `${APK_EDIT_ITEM_UI.titleToHint}px 0 0`,
+  color: APK_EDIT_ITEM_UI.body55,
+  fontSize: APK_EDIT_ITEM_UI.bodySmallFontSize,
+  lineHeight: APK_EDIT_ITEM_UI.bodySmallLineHeight,
+  fontWeight: APK_EDIT_ITEM_UI.bodySmallFontWeight
 }
 
 const apkStoreEditSectionBottomSpacerStyle: React.CSSProperties = {
-  height: APK_STORE_EDIT_UI.sectionBottomGap
+  height: APK_EDIT_ITEM_UI.hintToContent
 }
 
 const apkStoreEditColumnStyle: React.CSSProperties = {
@@ -1101,8 +1398,8 @@ const apkStoreEditPickerHintStyle: React.CSSProperties = {
 const APK_APPOINTMENT_UI = {
   black: '#000000',
   white: '#ffffff',
-  brand: '#fe9595',
-  green: '#0f766e',
+  brand: APK_SHOWCASE_COLOR_TOKENS.accent,
+  green: APK_SHOWCASE_COLOR_TOKENS.primary,
   surface: '#ffffff',
   softSurface: '#f7f7fb',
   warningSurface: '#fff4e5',
@@ -1344,8 +1641,8 @@ const APK_SHELL_UI = {
   white: '#ffffff',
   transparent: 'transparent',
   pageBg: '#eff3f2',
-  brand: '#fe9595',
-  green: '#0f766e',
+  brand: APK_SHOWCASE_COLOR_TOKENS.accent,
+  green: APK_SHOWCASE_COLOR_TOKENS.primary,
   ink: '#111827',
   muted: '#4b5563',
   mutedText: 'rgba(0, 0, 0, 0.82)',
@@ -1363,12 +1660,12 @@ const APK_SHELL_UI = {
   whiteCardRadius: 24,
   whiteCardShadow: '0 3px 8px rgba(0, 0, 0, 0.08)',
 
-  backButtonSize: 50,
-  backButtonRadius: 12,
-  backButtonShadow: '0 6px 14px rgba(254, 149, 149, 0.26)',
-  backButtonPressedShadow: '0 2px 6px rgba(254, 149, 149, 0.18)',
-  backButtonIconSize: 26,
-  backButtonPressedScale: 0.965,
+  backButtonSize: 48,
+  backButtonRadius: 20,
+  backButtonShadow: '0 8px 24px rgba(0, 0, 0, 0.08)',
+  backButtonPressedShadow: '0 4px 12px rgba(0, 0, 0, 0.06)',
+  backButtonIconSize: 22,
+  backButtonPressedScale: 0.97,
   backButtonPressedDurationMs: 120,
 
   topNavHorizontalPadding: 16,
@@ -1401,8 +1698,8 @@ const APK_SHELL_UI = {
   pullRefreshTriggerDistance: 72,
 
   bgCircleDefaultSize: 160,
-  bgCirclePinkStart: 'rgba(254, 149, 149, 0.22)',
-  bgCirclePinkEnd: 'rgba(254, 149, 149, 0)'
+  bgCirclePinkStart: `rgba(${APK_SHOWCASE_COLOR_TOKENS.accentRgb}, 0.22)`,
+  bgCirclePinkEnd: `rgba(${APK_SHOWCASE_COLOR_TOKENS.accentRgb}, 0)`
 } as const
 
 const apkShellScreenStyle: React.CSSProperties = {
@@ -1456,7 +1753,7 @@ const apkWhiteCardStyle: React.CSSProperties = {
 function apkBackButtonStyle(
   pressed = false,
   iconOnly = false,
-  iconTint: string = APK_SHELL_UI.white
+  iconTint: string = '#111111'
 ): React.CSSProperties {
   const resolvedIconTint = iconTint
 
@@ -1466,18 +1763,21 @@ function apkBackButtonStyle(
     minWidth: APK_SHELL_UI.backButtonSize,
     minHeight: APK_SHELL_UI.backButtonSize,
     border: 0,
-    borderRadius: iconOnly ? 999 : APK_SHELL_UI.backButtonRadius,
+    borderRadius: APK_SHELL_UI.backButtonRadius,
     padding: 0,
     display: 'grid',
     placeItems: 'center',
-    color: resolvedIconTint,
-    background: iconOnly ? APK_SHELL_UI.transparent : APK_SHELL_UI.brand,
-    boxShadow: iconOnly ? 'none' : pressed ? APK_SHELL_UI.backButtonPressedShadow : APK_SHELL_UI.backButtonShadow,
+    color: pressed ? '#000000' : resolvedIconTint,
+    background: APK_SHELL_UI.transparent,
+    boxShadow: 'none',
+    backdropFilter: 'none',
+    WebkitBackdropFilter: 'none',
     fontSize: iconOnly ? 24 : APK_SHELL_UI.backButtonIconSize,
     lineHeight: 0,
     fontWeight: 900,
-    transform: pressed ? `scale(${APK_SHELL_UI.backButtonPressedScale})` : 'scale(1)',
-    transition: `transform ${APK_SHELL_UI.backButtonPressedDurationMs}ms ease, box-shadow ${APK_SHELL_UI.backButtonPressedDurationMs}ms ease`
+    transform: pressed ? 'scale(0.985)' : 'scale(1)',
+    transformOrigin: 'center',
+    transition: `color ${APK_SHELL_UI.backButtonPressedDurationMs}ms ease, transform ${APK_SHELL_UI.backButtonPressedDurationMs}ms ease`
   }
 }
 
@@ -1508,8 +1808,11 @@ function NdjcBackArrowSvgIcon() {
       style={{ display: 'block' }}
     >
       <path
-        d="M20 11H7.83L13.42 5.41L12 4L4 12L12 20L13.42 18.59L7.83 13H20V11Z"
-        fill="currentColor"
+        d="M15.5 5L8.5 12L15.5 19"
+        stroke="currentColor"
+        strokeWidth="2.2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
       />
     </svg>
   )
@@ -1659,11 +1962,11 @@ const apkScreenContentStyle: React.CSSProperties = {
 }
 
 const APK_HOME_PAGE_UI = {
-  controlsGap: 2,
-  chipsToListGap: 14,
-  screenHorizontalPadding: 16,
-  screenVerticalPadding: 10,
-  chipRowHorizontalPadding: 16,
+  controlsGap: 4,
+  chipsToListGap: 12,
+  screenHorizontalPadding: 18,
+  screenVerticalPadding: 8,
+  chipRowHorizontalPadding: 18,
   listItemSpacing: 12,
   floatingBottomBarReserve: 84,
   extraBottomSpacer: 16,
@@ -1710,6 +2013,7 @@ const apkHomeControlsStyle: React.CSSProperties = {
   width: '100%',
   minWidth: 0,
   maxWidth: '100%',
+  paddingTop: 11,
   display: 'grid',
   gridTemplateColumns: 'minmax(0, 1fr)',
   alignContent: 'start',
@@ -1720,7 +2024,7 @@ const apkHomeControlsStyle: React.CSSProperties = {
 }
 
 const apkHomeControlsGapStyle: React.CSSProperties = {
-  height: APK_HOME_PAGE_UI.controlsGap
+  height: APK_HOME_PAGE_UI.controlsGap + 2
 }
 
 const apkHomeTagsWrapStyle: React.CSSProperties = {
@@ -1745,7 +2049,7 @@ const apkHomeCategoryWrapStyle: React.CSSProperties = {
   width: '100%',
   minWidth: 0,
   maxWidth: '100%',
-  paddingBottom: APK_HOME_PAGE_UI.chipsToListGap,
+  padding: `${APK_HOME_PAGE_UI.controlsGap + 2}px ${APK_HOME_PAGE_UI.chipRowHorizontalPadding}px ${APK_HOME_PAGE_UI.chipsToListGap}px`,
   overflowX: 'hidden',
   boxSizing: 'border-box'
 }
@@ -1822,8 +2126,8 @@ const APK_DETAIL_PAGE_UI = {
   heroCounterTextSize: 12,
   heroCounterTextWeight: 500,
 
-  contentHorizontalPadding: 24,
-  contentVerticalPadding: 24,
+  contentHorizontalPadding: APK_EDIT_ITEM_UI.screenPadding,
+  contentVerticalPadding: APK_EDIT_ITEM_UI.bottomContentPadding,
   headerRowPaddingY: 12,
   headerRowGap: 12,
   headerRowIconSize: 24,
@@ -1834,50 +2138,50 @@ const APK_DETAIL_PAGE_UI = {
   pickBadgeGap: 4,
   pickBadgeRadius: 999,
   pickBadgeIconSize: 18,
-  pickBadgeTextSize: 14,
+  pickBadgeTextSize: 12,
   pickBadgeTextLineHeight: 1,
   pickBadgeTextWeight: 600,
-  pickBadgeBg: '#fe9595',
+  pickBadgeBg: APK_SHOWCASE_COLOR_TOKENS.accent,
   pickBadgeTextColor: '#ffffff',
   pickBadgeBorderColor: 'rgba(255, 255, 255, 0.38)',
   pickBadgeBorderWidth: 1,
 
-  titleSize: 28,
-  titleLineHeight: 1.12,
-  titleWeight: 600,
+  titleSize: 34,
+  titleLineHeight: 1.04,
+  titleWeight: 760,
 
-  priceSizeDiscount: 28,
-  priceSizeNormal: 16,
-  priceLineHeight: 1.1,
-  priceWeight: 600,
-  originalPriceSize: 14,
-  originalPriceLineHeight: 1.25,
-  originalPriceWeight: 400,
-  originalPriceAlpha: 0.50,
+  priceSizeDiscount: 18,
+  priceSizeNormal: 18,
+  priceLineHeight: 1.16,
+  priceWeight: 700,
+  originalPriceSize: 13,
+  originalPriceLineHeight: 1.22,
+  originalPriceWeight: 500,
+  originalPriceAlpha: 0.52,
 
-  sectionGap: 6,
-  categorySectionGap: 8,
-  blockGap: 12,
-  titleBlockGap: 10,
-  dividerTopPadding: 6,
-  dividerColor: 'rgba(0, 0, 0, 0.10)',
+  sectionGap: APK_EDIT_ITEM_UI.labelGap,
+  categorySectionGap: APK_EDIT_ITEM_UI.labelGap,
+  blockGap: APK_EDIT_ITEM_UI.sectionCardGap,
+  titleBlockGap: APK_EDIT_ITEM_UI.labelGap,
+  dividerTopPadding: APK_EDIT_ITEM_UI.smallGap,
+  dividerColor: APK_EDIT_ITEM_UI.fieldBorderColor,
   dividerHeight: 1,
 
-  sectionLabelSize: 14,
-  sectionLabelLineHeight: 1.25,
-  sectionLabelWeight: 500,
-  sectionLabelColor: 'rgba(0, 0, 0, 0.70)',
+  sectionLabelSize: APK_EDIT_ITEM_UI.sectionTitleFontSize,
+  sectionLabelLineHeight: APK_EDIT_ITEM_UI.sectionTitleLineHeight,
+  sectionLabelWeight: APK_EDIT_ITEM_UI.sectionTitleFontWeight,
+  sectionLabelColor: APK_EDIT_ITEM_UI.black,
 
-  descriptionSize: 18,
-  descriptionLineHeight: 1.35,
-  descriptionWeight: 400,
-  descriptionColor: 'rgba(0, 0, 0, 0.90)',
+  descriptionSize: APK_EDIT_ITEM_UI.bodyMediumFontSize,
+  descriptionLineHeight: APK_EDIT_ITEM_UI.bodyMediumLineHeight,
+  descriptionWeight: APK_EDIT_ITEM_UI.bodyMediumFontWeight,
+  descriptionColor: APK_EDIT_ITEM_UI.body70,
   descriptionCollapsedLines: 3,
 
-  showMoreSize: 12,
-  showMoreLineHeight: 1.25,
-  showMoreWeight: 500,
-  showMoreColor: '#fe9595',
+  showMoreSize: APK_EDIT_ITEM_UI.bodySmallFontSize,
+  showMoreLineHeight: APK_EDIT_ITEM_UI.bodySmallLineHeight,
+  showMoreWeight: 650,
+  showMoreColor: NDJC_GLOBAL_UI_TOKENS.colors.controlEmphasis,
 
   unavailableSize: 12,
   unavailableLineHeight: 1.25,
@@ -1955,8 +2259,15 @@ const apkDetailHeaderRowStyle: React.CSSProperties = {
   boxSizing: 'border-box'
 }
 
+const apkDetailFavoriteWrapStyle: React.CSSProperties = {
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'flex-end',
+  flexShrink: 0
+}
+
 const apkPickBadgeStyle: React.CSSProperties = {
-  border: '1px solid rgba(255, 255, 255, 0.38)',
+  border: 0,
   borderRadius: 999,
   padding: '3px 8px',
   minHeight: 22,
@@ -1964,8 +2275,8 @@ const apkPickBadgeStyle: React.CSSProperties = {
   alignItems: 'center',
   justifyContent: 'center',
   gap: 4,
-  color: '#ffffff',
-  background: '#fe9595',
+  color: NDJC_GLOBAL_UI_TOKENS.colors.controlEmphasis,
+  background: NDJC_GLOBAL_UI_TOKENS.colors.surfaceSoft,
   boxSizing: 'border-box',
   lineHeight: 1,
   whiteSpace: 'nowrap',
@@ -2037,8 +2348,10 @@ function NdjcItemStatusBadge({
     <span
       style={{
         ...apkHomeBadgeStyle,
-        background: isHidden ? '#ececec' : apkHomeBadgeStyle.background,
-        color: isHidden ? '#7b7b7b' : apkHomeBadgeStyle.color
+        background: NDJC_GLOBAL_UI_TOKENS.colors.surfaceSoft,
+        color: isHidden
+          ? NDJC_GLOBAL_UI_TOKENS.colors.controlWeakText
+          : NDJC_GLOBAL_UI_TOKENS.colors.controlEmphasis
       }}
     >
       {isHidden ? (
@@ -2050,7 +2363,9 @@ function NdjcItemStatusBadge({
       <span
         style={{
           ...apkHomeBadgeTextStyle,
-          color: isHidden ? '#7b7b7b' : apkHomeBadgeTextStyle.color
+          color: isHidden
+            ? NDJC_GLOBAL_UI_TOKENS.colors.controlWeakText
+            : NDJC_GLOBAL_UI_TOKENS.colors.controlEmphasis
         }}
       >
         {text}
@@ -2093,7 +2408,13 @@ function NdjcItemStatusBadgeRow({
   )
 }
 
-const apkDetailPickBadgeStyle: React.CSSProperties = apkPickBadgeStyle
+const apkDetailPickBadgeStyle: React.CSSProperties = {
+  ...apkPickBadgeStyle,
+  width: 'fit-content',
+  maxWidth: '100%',
+  justifySelf: 'start',
+  alignSelf: 'start'
+}
 
 const apkDetailPickBadgeTextStyle: React.CSSProperties = apkPickBadgeTextStyle
 
@@ -2105,7 +2426,7 @@ const apkDetailFavoriteButtonStyle: React.CSSProperties = {
   padding: 0,
   display: 'grid',
   placeItems: 'center',
-  color: '#fe9595',
+  color: APK_SHOWCASE_COLOR_TOKENS.accent,
   background: 'transparent',
   boxShadow: 'none',
   lineHeight: 1,
@@ -2128,7 +2449,7 @@ function DetailFavoriteIcon({
       focusable="false"
       style={{
         display: 'block',
-        color: '#fe9595'
+        color: 'currentColor'
       }}
     >
       {selected ? (
@@ -2148,7 +2469,7 @@ function DetailFavoriteIcon({
 
 const apkDetailContentStyle: React.CSSProperties = {
   width: '100%',
-  padding: `6px ${APK_DETAIL_PAGE_UI.contentHorizontalPadding}px calc(${APK_DETAIL_PAGE_UI.contentVerticalPadding}px + var(${NDJC_BOTTOM_BAR_RESERVE_CSS_VAR}, ${APK_PAGE_SHELL_UI.tabBottomReserve}px))`,
+  padding: `16px ${APK_DETAIL_PAGE_UI.contentHorizontalPadding}px calc(${APK_DETAIL_PAGE_UI.contentVerticalPadding}px + var(${NDJC_BOTTOM_BAR_RESERVE_CSS_VAR}, ${APK_PAGE_SHELL_UI.tabBottomReserve}px))`,
   display: 'grid',
   gap: APK_DETAIL_PAGE_UI.blockGap,
   boxSizing: 'border-box'
@@ -2160,12 +2481,102 @@ const apkDetailTitleBlockStyle: React.CSSProperties = {
   gap: APK_DETAIL_PAGE_UI.titleBlockGap
 }
 
+const apkDetailHeroActionsStyle: React.CSSProperties = {
+  width: '100%',
+  display: 'grid',
+  gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
+  alignItems: 'center',
+  gap: APK_EDIT_ITEM_UI.fieldGap,
+  pointerEvents: 'auto'
+}
+
+const apkDetailHeroActionItemStyle: React.CSSProperties = {
+  minWidth: 0,
+  display: 'grid'
+}
+
+function apkDetailHeroActionButtonStyle(pressed = false): React.CSSProperties {
+  return {
+    width: '100%',
+    minHeight: 44,
+    border: `${APK_EDIT_ITEM_UI.fieldBorderWidth}px solid ${APK_EDIT_ITEM_UI.fieldBorderColor}`,
+    borderRadius: APK_EDIT_ITEM_UI.fieldRadius,
+    padding: `0 ${APK_EDIT_ITEM_UI.fieldPaddingX}px`,
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    color: NDJC_GLOBAL_UI_TOKENS.colors.controlEmphasis,
+    background: APK_EDIT_ITEM_UI.fieldBackground,
+    boxShadow: 'none',
+    cursor: 'pointer',
+    transform: pressed ? 'scale(0.985)' : 'scale(1)',
+    transition: 'background 120ms ease, transform 120ms ease, border-color 120ms ease',
+    WebkitTapHighlightColor: 'transparent',
+    touchAction: 'manipulation'
+  }
+}
+
+const apkDetailHeroActionLabelStyle: React.CSSProperties = {
+  minWidth: 0,
+  color: 'currentColor',
+  fontSize: APK_EDIT_ITEM_UI.bodySmallFontSize,
+  lineHeight: APK_EDIT_ITEM_UI.bodySmallLineHeight,
+  fontWeight: 650,
+  overflow: 'hidden',
+  textOverflow: 'ellipsis',
+  whiteSpace: 'nowrap'
+}
+
+function NdjcDetailHeroActionButton({
+  label,
+  ariaLabel,
+  icon,
+  onClick
+}: {
+  label: string
+  ariaLabel: string
+  pressedLabel?: string
+  icon: React.ReactNode
+  onClick: () => void
+}) {
+  const [pressed, setPressed] = React.useState(false)
+
+  function releasePressState(): void {
+    setPressed(false)
+  }
+
+  return (
+    <div style={apkDetailHeroActionItemStyle}>
+      <button
+        type="button"
+        style={apkDetailHeroActionButtonStyle(pressed)}
+        onPointerDown={() => setPressed(true)}
+        onPointerUp={releasePressState}
+        onPointerCancel={releasePressState}
+        onPointerLeave={releasePressState}
+        onBlur={releasePressState}
+        onClick={onClick}
+        aria-label={ariaLabel || label}
+      >
+        {icon}
+
+        <span style={apkDetailHeroActionLabelStyle}>
+          {label}
+        </span>
+      </button>
+    </div>
+  )
+}
+
 const apkDetailTitleStyle: React.CSSProperties = {
   margin: 0,
   color: '#000000',
   fontSize: APK_DETAIL_PAGE_UI.titleSize,
   lineHeight: APK_DETAIL_PAGE_UI.titleLineHeight,
   fontWeight: APK_DETAIL_PAGE_UI.titleWeight,
+  letterSpacing: '-1.1px',
+  textRendering: 'geometricPrecision',
   overflowWrap: 'anywhere'
 }
 
@@ -2218,7 +2629,9 @@ const apkDetailSectionLabelStyle: React.CSSProperties = {
   color: APK_DETAIL_PAGE_UI.sectionLabelColor,
   fontSize: APK_DETAIL_PAGE_UI.sectionLabelSize,
   lineHeight: APK_DETAIL_PAGE_UI.sectionLabelLineHeight,
-  fontWeight: APK_DETAIL_PAGE_UI.sectionLabelWeight
+  fontWeight: APK_DETAIL_PAGE_UI.sectionLabelWeight,
+  letterSpacing: '0',
+  textTransform: 'none'
 }
 
 const apkDetailDescriptionStyle: React.CSSProperties = {
@@ -2254,28 +2667,28 @@ const apkDetailTagsRowStyle: React.CSSProperties = {
 
 
 const APK_HOME_NAV_UI = {
-  topBarHorizontalPadding: 16,
-  topBarTopPadding: 6,
+  topBarHorizontalPadding: 18,
+  topBarTopPadding: 8,
   topBarBottomPadding: 0,
-  topBannerHeight: 60,
-  topBannerRadius: 22,
-  topBannerGradientTop: '#2FD1AE',
-  topBannerGradientBottom: '#1FBF9D',
-  topBannerInnerPaddingX: 12,
-  topBannerInnerPaddingY: 6,
-  searchBarHeight: 46,
-  searchIconSize: 20,
+  topBannerHeight: 48,
+  topBannerRadius: 999,
+  topBannerGradientTop: '#ffffff',
+  topBannerGradientBottom: '#ffffff',
+  topBannerInnerPaddingX: 16,
+  topBannerInnerPaddingY: 4,
+  searchBarHeight: 40,
+  searchIconSize: 18,
   searchTextStartSpacing: 8,
-  searchTextColor: '#ffffff',
-  searchPlaceholderColor: 'rgba(255, 255, 255, 0.66)',
-  searchFontSize: 16,
-  profileButtonSize: 36,
-  profileIconSize: 24,
-  profileButtonBg: 'rgba(255, 255, 255, 0.14)',
+  searchTextColor: '#111111',
+  searchPlaceholderColor: '#8A94A6',
+  searchFontSize: 15,
+  profileButtonSize: 32,
+  profileIconSize: 21,
+  profileButtonBg: 'transparent',
 
   bottomBarHeight: 48,
-  bottomBarDividerColor: 'rgba(0, 0, 0, 0.06)',
-  bottomBarBg: '#ffffff',
+  bottomBarDividerColor: NDJC_GLOBAL_UI_TOKENS.colors.divider,
+  bottomBarBg: NDJC_GLOBAL_UI_TOKENS.colors.surfaceSoft,
   bottomBarPaddingX: 12,
   bottomBarGap: 8,
   bottomTabRadius: 14,
@@ -2286,19 +2699,18 @@ const APK_HOME_NAV_UI = {
   bottomTabDotSize: 6,
   bottomTabDotOffsetX: 3,
   bottomTabLabelSize: 12,
-  bottomTabActiveColor: '#fe9595',
-  bottomTabInactiveColor: 'rgba(0, 0, 0, 0.92)',
-  bottomTabDotColor: '#e53935'
+  bottomTabActiveColor: NDJC_GLOBAL_UI_TOKENS.colors.controlEmphasis,
+  bottomTabInactiveColor: NDJC_GLOBAL_UI_TOKENS.colors.textMuted,
+  bottomTabDotColor: NDJC_GLOBAL_UI_TOKENS.colors.success
 } as const
-
 const APK_CORE_UI = {
   white: '#ffffff',
   black: '#000000',
   ink: '#111827',
   ink2: '#374151',
   muted: '#6b7280',
-  brand: '#fe9595',
-  green: '#26c6a4',
+  brand: APK_SHOWCASE_COLOR_TOKENS.accent,
+  green: APK_SHOWCASE_COLOR_TOKENS.primary,
   danger: '#e53935',
   border: 'rgba(0, 0, 0, 0.10)',
   borderStrong: 'rgba(0, 0, 0, 0.70)',
@@ -2330,13 +2742,13 @@ const APK_CORE_UI = {
   primaryButtonDisabledBg: 'rgba(0, 0, 0, 0.10)',
   primaryButtonDisabledText: 'rgba(0, 0, 0, 0.45)',
 
-  pillHeight: 34,
+  pillHeight: 26,
   pillRadius: 999,
   pillPaddingX: 12,
-  pillPaddingY: 6,
-  pillFontSize: 14,
-  pillBorderWidth: 1.5,
-  pillPressedScale: 0.965,
+  pillPaddingY: 4,
+  pillFontSize: 12,
+  pillBorderWidth: 0,
+  pillPressedScale: 0.985,
 
   controlPillPaddingX: 12,
   controlPillPaddingY: 6,
@@ -2346,27 +2758,27 @@ const APK_CORE_UI = {
   inlineTabRadius: 10,
   inlineTabPaddingX: 12,
   inlineTabPaddingY: 6,
-  inlineTabSelectedColor: '#fe9595',
+  inlineTabSelectedColor: APK_SHOWCASE_COLOR_TOKENS.accent,
   inlineTabUnselectedColor: 'rgba(0, 0, 0, 0.55)',
   inlineTabSelectedWeight: 600,
   inlineTabUnselectedWeight: 500,
 
   checkboxSize: 24,
-  checkboxRadius: 8,
-  checkboxCheckedColor: '#26c6a4',
-  checkboxUncheckedColor: 'rgba(0, 0, 0, 0.35)',
-  checkboxCheckmarkColor: '#ffffff',
+  checkboxRadius: 7,
+  checkboxCheckedColor: NDJC_GLOBAL_UI_TOKENS.colors.controlEmphasis,
+  checkboxUncheckedColor: '#b8c1be',
+  checkboxCheckmarkColor: NDJC_GLOBAL_UI_TOKENS.colors.surface,
   checkboxPressedScale: 0.965,
 
   toggleWidth: 48,
   toggleHeight: 28,
   toggleThumbSize: 22,
   toggleThumbInset: 3,
-  toggleCheckedTrackColor: '#26c6a4',
-  toggleCheckedThumbColor: '#ffffff',
-  toggleUncheckedTrackColor: '#e4e5f0',
-  toggleUncheckedThumbColor: '#cdd0e0',
-  toggleLabelColor: '#000000',
+  toggleCheckedTrackColor: NDJC_GLOBAL_UI_TOKENS.colors.controlEmphasis,
+  toggleCheckedThumbColor: NDJC_GLOBAL_UI_TOKENS.colors.surface,
+  toggleUncheckedTrackColor: NDJC_GLOBAL_UI_TOKENS.colors.controlDisabledSurface,
+  toggleUncheckedThumbColor: NDJC_GLOBAL_UI_TOKENS.colors.controlWeakText,
+  toggleLabelColor: NDJC_GLOBAL_UI_TOKENS.colors.textPrimary,
   toggleDisabledOpacity: 0.55,
 
   dialogRadius: 24,
@@ -2378,7 +2790,7 @@ const APK_CORE_UI = {
   dialogTitleColor: '#000000',
   dialogMessageColor: 'rgba(0, 0, 0, 0.70)',
   dialogSecondaryActionColor: 'rgba(0, 0, 0, 0.60)',
-  dialogPrimaryActionColor: '#31d5b4',
+  dialogPrimaryActionColor: APK_SHOWCASE_COLOR_TOKENS.primary,
   dialogDisabledActionColor: 'rgba(0, 0, 0, 0.30)',
   dialogDestructiveActionColor: '#e53935',
   dialogElevation: '0 10px 28px rgba(0, 0, 0, 0.22)',
@@ -2400,6 +2812,7 @@ const APK_CORE_UI = {
   emptyMessageWeight: 400,
   emptyTextColor: 'rgba(0, 0, 0, 0.70)',
 
+  noMoreBalancedEdgeGap: 18,
   noMorePaddingTop: 16,
   noMorePaddingBottom: 24,
   noMoreTextSize: 12,
@@ -2424,7 +2837,7 @@ const APK_CORE_UI = {
   syncBannerElevation: '0 6px 14px rgba(0, 0, 0, 0.12)',
   syncBannerBg: '#ffffff',
   syncBannerTextColor: '#111827',
-  syncBannerActionColor: '#31d5b4',
+  syncBannerActionColor: APK_SHOWCASE_COLOR_TOKENS.primary,
   syncBannerTextSize: 14,
   syncBannerTextLineHeight: 1.35
 } as const
@@ -2444,8 +2857,9 @@ const apkTopSearchBarStyle: React.CSSProperties = {
   display: 'grid',
   alignItems: 'center',
   color: APK_HOME_NAV_UI.searchTextColor,
-  background: `linear-gradient(135deg, ${APK_HOME_NAV_UI.topBannerGradientTop}, ${APK_HOME_NAV_UI.topBannerGradientBottom})`,
-  boxShadow: 'none',
+  background: '#ffffff',
+  border: '1px solid rgba(0, 0, 0, 0.035)',
+  boxShadow: '0 8px 22px rgba(0, 0, 0, 0.025)',
   overflow: 'hidden',
   boxSizing: 'border-box'
 }
@@ -2473,7 +2887,7 @@ const apkTopSearchIconStyle: React.CSSProperties = {
   height: APK_HOME_NAV_UI.searchIconSize,
   display: 'grid',
   placeItems: 'center',
-  color: APK_HOME_NAV_UI.searchTextColor,
+  color: '#111111',
   fontSize: APK_HOME_NAV_UI.searchIconSize,
   lineHeight: 1,
   fontWeight: 800
@@ -2485,7 +2899,7 @@ const apkTopSearchInputStyle: React.CSSProperties = {
   height: '100%',
   border: 0,
   outline: 0,
-  color: APK_HOME_NAV_UI.searchTextColor,
+  color: '#111111',
   background: 'transparent',
   fontSize: APK_HOME_NAV_UI.searchFontSize,
   lineHeight: `${APK_HOME_NAV_UI.searchFontSize}px`,
@@ -2500,12 +2914,12 @@ const apkTopSearchFilterButtonStyle: React.CSSProperties = {
   padding: '0 12px',
   display: 'inline-grid',
   placeItems: 'center',
-  color: APK_HOME_NAV_UI.searchTextColor,
-  background: APK_HOME_NAV_UI.profileButtonBg,
+  color: '#111111',
+  background: 'transparent',
   boxShadow: 'none',
   fontSize: 12,
   lineHeight: 1,
-  fontWeight: 800,
+  fontWeight: 700,
   whiteSpace: 'nowrap'
 }
 
@@ -2518,8 +2932,8 @@ const apkTopSearchRoundButtonStyle: React.CSSProperties = {
   padding: 0,
   display: 'grid',
   placeItems: 'center',
-  color: APK_HOME_NAV_UI.searchTextColor,
-  background: APK_HOME_NAV_UI.profileButtonBg,
+  color: '#111111',
+  background: 'transparent',
   boxShadow: 'none',
   fontSize: APK_HOME_NAV_UI.profileIconSize,
   lineHeight: 1,
@@ -2551,6 +2965,47 @@ function NdjcAccountCircleOutlinedIcon() {
       aria-hidden="true"
     >
       <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2Zm0 3c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3Zm0 14.2c-2.5 0-4.71-1.28-6-3.22.03-1.99 4-3.08 6-3.08 1.99 0 5.97 1.09 6 3.08-1.29 1.94-3.5 3.22-6 3.22Z" />
+    </svg>
+  )
+}
+
+function NdjcTopSearchStorefrontIcon() {
+  return (
+    <svg
+      width={APK_HOME_NAV_UI.profileIconSize}
+      height={APK_HOME_NAV_UI.profileIconSize}
+      viewBox="0 0 24 24"
+      fill="none"
+      aria-hidden="true"
+      style={{ display: 'block' }}
+    >
+      <path
+        d="M4.5 10.5h15"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+      />
+      <path
+        d="M5.5 10.5l1-5h11l1 5"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M6.5 10.5V19h11v-8.5"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M9.5 19v-4.5h5V19"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
     </svg>
   )
 }
@@ -2652,7 +3107,9 @@ const apkBottomBarStyle: React.CSSProperties = {
   borderRadius: 0,
   boxShadow: 'none',
   boxSizing: 'border-box',
-  overflow: 'hidden'
+  overflow: 'hidden',
+  backdropFilter: 'blur(18px)',
+  WebkitBackdropFilter: 'blur(18px)'
 }
 
 const apkBottomBarDividerStyle: React.CSSProperties = {
@@ -2790,19 +3247,19 @@ function apkPillButtonStyle(selected?: boolean, disabled?: boolean): React.CSSPr
     minHeight: APK_CORE_UI.pillHeight,
     flex: '0 0 auto',
     maxWidth: 'none',
-    border: `${selected ? 0 : APK_CORE_UI.pillBorderWidth}px solid ${APK_CORE_UI.border}`,
+    border: 0,
     borderRadius: APK_CORE_UI.pillRadius,
     padding: `0 ${APK_CORE_UI.pillPaddingX}px`,
     display: 'inline-flex',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 6,
-    color: selected ? APK_CORE_UI.white : APK_CORE_UI.black,
-    background: selected ? APK_CORE_UI.brand : APK_CORE_UI.chipUnselectedBg,
+    color: selected ? '#111111' : 'rgba(0, 0, 0, 0.44)',
+    background: selected ? 'rgba(0, 0, 0, 0.08)' : 'transparent',
     boxShadow: 'none',
     fontSize: APK_CORE_UI.pillFontSize,
     lineHeight: 1,
-    fontWeight: 500,
+    fontWeight: selected ? 700 : 600,
     whiteSpace: 'nowrap',
     overflow: 'hidden',
     textOverflow: 'ellipsis',
@@ -2815,12 +3272,70 @@ function apkPillButtonStyle(selected?: boolean, disabled?: boolean): React.CSSPr
   } as React.CSSProperties
 }
 
+const NDJC_ADMIN_TOOL_UI = {
+  emphasis: NDJC_GLOBAL_UI_TOKENS.colors.controlEmphasis,
+  weakText: NDJC_GLOBAL_UI_TOKENS.colors.controlWeakText,
+  disabledBg: NDJC_GLOBAL_UI_TOKENS.colors.controlDisabledSurface,
+  white: NDJC_GLOBAL_UI_TOKENS.colors.surface,
+  segmentedOuterRadius: 14,
+  segmentedInnerRadius: 11,
+  actionButtonRadius: 14,
+  actionButtonHeight: 32
+} as const
+
+function apkAdminActionButtonStyle(
+  active?: boolean,
+  disabled?: boolean,
+  fullWidth?: boolean,
+  pressed = false
+): React.CSSProperties {
+  const enabled = Boolean(active) && !disabled
+
+  return {
+    width: fullWidth ? '100%' : undefined,
+    minWidth: 0,
+    height: NDJC_ADMIN_TOOL_UI.actionButtonHeight,
+    minHeight: NDJC_ADMIN_TOOL_UI.actionButtonHeight,
+    border: 0,
+    borderRadius: NDJC_ADMIN_TOOL_UI.actionButtonRadius,
+    padding: '0 14px',
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    color: enabled ? NDJC_ADMIN_TOOL_UI.white : NDJC_ADMIN_TOOL_UI.weakText,
+    background: enabled ? NDJC_ADMIN_TOOL_UI.emphasis : NDJC_ADMIN_TOOL_UI.disabledBg,
+    boxShadow: 'none',
+    fontSize: 12,
+    lineHeight: 1,
+    fontWeight: 600,
+    whiteSpace: 'nowrap',
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+    opacity: 1,
+    cursor: enabled ? 'pointer' : 'not-allowed',
+    boxSizing: 'border-box',
+    appearance: 'none',
+    WebkitAppearance: 'none',
+    WebkitTapHighlightColor: 'transparent',
+    touchAction: 'manipulation',
+    transform: enabled && pressed ? 'scale(0.98)' : 'scale(1)',
+    transition: 'background 140ms ease, color 140ms ease, transform 120ms ease'
+  }
+}
+
 function apkControlPillButtonStyle(
   active?: boolean,
   disabled?: boolean,
-  tone: 'normal' | 'accent' | 'subtle' = 'normal'
+  tone: 'normal' | 'accent' | 'subtle' | 'adminAction' = 'normal',
+  fullWidth = false,
+  pressed = false
 ): React.CSSProperties {
   const selected = Boolean(active)
+
+  if (tone === 'adminAction') {
+    return apkAdminActionButtonStyle(selected, disabled, fullWidth, pressed)
+  }
 
   const normal = {
     bg: selected ? APK_CORE_UI.brand : APK_CORE_UI.chipUnselectedBg,
@@ -2846,6 +3361,7 @@ function apkControlPillButtonStyle(
   const palette = tone === 'accent' ? accent : tone === 'subtle' ? subtle : normal
 
   return {
+    width: fullWidth ? '100%' : undefined,
     minHeight: APK_CORE_UI.pillHeight,
     border: `${palette.borderWidth}px solid ${palette.border}`,
     borderRadius: APK_CORE_UI.pillRadius,
@@ -3008,7 +3524,8 @@ const apkInlineEmptyStateMessageStyle: React.CSSProperties = {
 
 const apkNoMoreListFooterStyle: React.CSSProperties = {
   width: '100%',
-  padding: `${APK_CORE_UI.noMorePaddingTop}px 0 ${APK_CORE_UI.noMorePaddingBottom}px`,
+  marginTop: APK_CORE_UI.noMoreBalancedEdgeGap,
+  padding: `0 0 ${APK_CORE_UI.noMoreBalancedEdgeGap}px`,
   color: APK_CORE_UI.noMoreTextColor,
   fontSize: APK_CORE_UI.noMoreTextSize,
   lineHeight: APK_CORE_UI.noMoreLineHeight,
@@ -3104,17 +3621,17 @@ const apkSyncErrorBannerButtonStyle: React.CSSProperties = {
   whiteSpace: 'nowrap'
 }
 const APK_CHAT_UI = {
-  black: '#000000',
-  white: '#ffffff',
-  brand: '#fe9595',
-  green: '#0f766e',
-  incomingBubble: '#f2f3f5',
-  outgoingBubble: '#fe9595',
-  surface: '#ffffff',
-  softSurface: '#f2f4f7',
-  unavailableSurface: '#f3f4f6',
-  danger: '#d92d20',
-  muted: '#4b5563',
+  black: NDJC_GLOBAL_UI_TOKENS.colors.textPrimary,
+  white: NDJC_GLOBAL_UI_TOKENS.colors.surface,
+  brand: NDJC_GLOBAL_UI_TOKENS.colors.controlEmphasis,
+  green: NDJC_GLOBAL_UI_TOKENS.colors.success,
+  incomingBubble: NDJC_GLOBAL_UI_TOKENS.colors.surfaceSoft,
+  outgoingBubble: NDJC_GLOBAL_UI_TOKENS.colors.controlEmphasis,
+  surface: NDJC_GLOBAL_UI_TOKENS.colors.surface,
+  softSurface: NDJC_GLOBAL_UI_TOKENS.colors.surfaceSoft,
+  unavailableSurface: NDJC_GLOBAL_UI_TOKENS.colors.surfaceSoft,
+  danger: NDJC_GLOBAL_UI_TOKENS.colors.danger,
+  muted: NDJC_GLOBAL_UI_TOKENS.colors.textMuted,
   black45: 'rgba(0, 0, 0, 0.70)',
   black55: 'rgba(0, 0, 0, 0.72)',
   black65: 'rgba(0, 0, 0, 0.78)',
@@ -3123,7 +3640,7 @@ const APK_CHAT_UI = {
   black85: 'rgba(0, 0, 0, 0.88)',
   border08: 'rgba(0, 0, 0, 0.08)',
   border10: 'rgba(0, 0, 0, 0.10)',
-  selectedBg: 'rgba(254, 149, 149, 0.14)',
+  selectedBg: `rgba(${APK_SHOWCASE_COLOR_TOKENS.accentRgb}, 0.14)`,
 
   pageBg: '#eff3f2',
   headerHeight: 58,
@@ -3223,10 +3740,10 @@ const APK_CHAT_UI = {
   bodyTextFont: '400 15px system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
 
   richBubblePadding: 6,
-  richBubbleDefaultBorder: '1px solid rgba(0, 0, 0, 0.18)',
-  richBubbleSelectedBorder: '1px solid rgba(229, 57, 53, 0.55)',
-  richBubbleFocusedBorder: '2px solid rgba(38, 198, 164, 0.90)',
-  richBubbleMatchedBorder: '1px solid rgba(38, 198, 164, 0.35)',
+  richBubbleDefaultBorder: `1px solid ${NDJC_GLOBAL_UI_TOKENS.colors.border}`,
+  richBubbleSelectedBorder: `1px solid ${NDJC_GLOBAL_UI_TOKENS.colors.controlEmphasis}`,
+  richBubbleFocusedBorder: `2px solid ${NDJC_GLOBAL_UI_TOKENS.colors.controlEmphasis}`,
+  richBubbleMatchedBorder: `1px solid ${NDJC_GLOBAL_UI_TOKENS.colors.border}`,
 
   findBarRadius: 18,
   findBarPadding: 10,
@@ -3361,7 +3878,7 @@ function apkChatToolButtonStyle(disabled?: boolean): React.CSSProperties {
     justifyContent: 'center',
     gap: 6,
     color: disabled ? APK_CHAT_UI.black55 : APK_CHAT_UI.green,
-    background: disabled ? APK_CHAT_UI.softSurface : 'rgba(38, 198, 164, 0.12)',
+    background: disabled ? APK_CHAT_UI.softSurface : `rgba(${APK_SHOWCASE_COLOR_TOKENS.primaryRgb}, 0.12)`,
     boxShadow: 'none',
     fontSize: 12,
     lineHeight: 1,
@@ -3584,12 +4101,14 @@ return {
   width: 'fit-content',
   minWidth: 0,
   maxWidth: '100%',
-  border,
+  border: outgoing && border === APK_CHAT_UI.richBubbleDefaultBorder
+    ? `1px solid ${NDJC_GLOBAL_UI_TOKENS.colors.controlEmphasis}`
+    : border,
   borderRadius: outgoing
     ? `${APK_CHAT_UI.textBubbleRadius}px ${APK_CHAT_UI.textBubbleTightRadius}px ${APK_CHAT_UI.textBubbleRadius}px ${APK_CHAT_UI.textBubbleRadius}px`
     : `${APK_CHAT_UI.textBubbleTightRadius}px ${APK_CHAT_UI.textBubbleRadius}px ${APK_CHAT_UI.textBubbleRadius}px ${APK_CHAT_UI.textBubbleRadius}px`,
   padding: APK_CHAT_UI.richBubblePadding,
-  color: APK_CHAT_UI.black,
+  color: outgoing ? NDJC_GLOBAL_UI_TOKENS.colors.surface : NDJC_GLOBAL_UI_TOKENS.colors.textBody,
   background: outgoing ? APK_CHAT_UI.outgoingBubble : APK_CHAT_UI.incomingBubble,
   boxShadow: '0 1px 3px rgba(0, 0, 0, 0.08)',
   boxSizing: 'border-box'
@@ -3598,7 +4117,7 @@ return {
 
 const apkChatTextStyle: React.CSSProperties = {
   margin: 0,
-  color: APK_CHAT_UI.black,
+  color: NDJC_GLOBAL_UI_TOKENS.colors.textBody,
   fontSize: 15,
   lineHeight: 1.42,
   fontWeight: 400,
@@ -3691,7 +4210,7 @@ function apkPendingProductIconButtonStyle(kind: 'close' | 'send'): React.CSSProp
     padding: 0,
     display: 'grid',
     placeItems: 'center',
-    color: kind === 'send' ? APK_CHAT_UI.brand : 'rgba(0, 0, 0, 0.60)',
+    color: kind === 'send' ? NDJC_GLOBAL_UI_TOKENS.colors.controlEmphasis : NDJC_GLOBAL_UI_TOKENS.colors.textMuted,
     background: 'transparent',
     boxShadow: 'none',
     fontSize: 0,
@@ -3872,12 +4391,16 @@ function apkChatRichBubbleFrameStyle(input: {
     width: '100%',
     maxWidth: '100%',
     minWidth: 0,
-    border,
+    border: input.outgoing && border === APK_CHAT_UI.richBubbleDefaultBorder
+      ? `1px solid ${NDJC_GLOBAL_UI_TOKENS.colors.controlEmphasis}`
+      : border,
     borderRadius: bubbleShape,
     padding: APK_CHAT_UI.richBubblePadding,
     display: 'block',
-    color: APK_CHAT_UI.black,
-    background: input.outgoing ? APK_CHAT_UI.outgoingBubble : APK_CHAT_UI.incomingBubble,
+    color: NDJC_GLOBAL_UI_TOKENS.colors.textBody,
+    background: input.outgoing
+      ? NDJC_GLOBAL_UI_TOKENS.colors.controlEmphasis
+      : APK_CHAT_UI.incomingBubble,
     boxShadow: '0 1px 3px rgba(0, 0, 0, 0.08)',
     boxSizing: 'border-box',
     overflow: 'hidden'
@@ -3912,8 +4435,8 @@ const APK_SHOWCASE_ITEM_UI = {
   ink: '#111827',
   ink2: '#374151',
   muted: '#4b5563',
-  brand: '#fe9595',
-  green: '#0f766e',
+  brand: APK_SHOWCASE_COLOR_TOKENS.accent,
+  green: APK_SHOWCASE_COLOR_TOKENS.primary,
   card: '#ffffff',
   transparent: 'transparent',
   chipBg: '#e4e5f0',
@@ -3964,19 +4487,19 @@ const APK_SHOWCASE_ITEM_UI = {
   homeImageContentScale: 'cover',
 
   catalogCardRadius: 14,
-  catalogCardPadding: 10,
-  catalogGap: 10,
-  catalogImageSize: 92,
+  catalogCardPadding: 12,
+  catalogGap: 12,
+  catalogImageSize: 84,
   catalogImageRadius: 12,
-  catalogTitleSize: 25,
-  catalogTitleLineHeight: '30px',
+  catalogTitleSize: 20,
+  catalogTitleLineHeight: '24px',
   catalogTitleWeight: 700,
   catalogCategorySize: 12,
   catalogCategoryLineHeight: '16px',
   catalogCategoryWeight: 600,
-  catalogPriceSize: 18,
-  catalogPriceLineHeight: '22px',
-  catalogPriceWeight: 550,
+  catalogPriceSize: 17,
+  catalogPriceLineHeight: '21px',
+  catalogPriceWeight: 700,
   catalogOriginalSize: 12,
   catalogOriginalLineHeight: '16px',
   catalogOriginalWeight: 600,
@@ -3984,13 +4507,13 @@ const APK_SHOWCASE_ITEM_UI = {
   catalogChipPaddingX: 10,
   catalogChipPaddingY: 6,
   catalogPressedScale: 0.965,
-  catalogPressedShadow: '0 2px 2px rgba(0, 0, 0, 0.10)',
+  catalogPressedShadow: 'none',
   catalogTransitionMs: 120,
   adminItemsListGap: 6,
   adminItemsHeaderToListGap: 38,
 
-  shadow: '0 2px 6px rgba(0, 0, 0, 0.10)',
-  selectedOutline: '1.5px solid rgba(254, 149, 149, 0.62)'
+  shadow: 'none',
+  selectedOutline: `1.5px solid rgba(${APK_SHOWCASE_COLOR_TOKENS.accentRgb}, 0.62)`
 } as const
 
 const APK_ANNOUNCEMENT_UI = {
@@ -3999,12 +4522,12 @@ const APK_ANNOUNCEMENT_UI = {
   ink: '#111827',
   ink2: '#374151',
   muted: '#4b5563',
-  brand: '#fe9595',
-  green: '#0f766e',
+  brand: APK_SHOWCASE_COLOR_TOKENS.accent,
+  green: APK_SHOWCASE_COLOR_TOKENS.primary,
   card: '#ffffff',
   softSurface: '#f2f4f7',
   divider: 'rgba(0, 0, 0, 0.04)',
-  selectedOutline: '1.5px solid rgba(254, 149, 149, 0.62)',
+  selectedOutline: `1.5px solid rgba(${APK_SHOWCASE_COLOR_TOKENS.accentRgb}, 0.62)`,
 
   feedRadius: 24,
   feedPadding: 8,
@@ -4121,10 +4644,9 @@ const apkHomeMediaBodyStyle: React.CSSProperties = {
   minHeight: APK_SHOWCASE_ITEM_UI.homeCardBottomMinHeight,
   flex: '1 1 auto',
   padding: `${APK_SHOWCASE_ITEM_UI.homeContentPaddingTop}px ${APK_SHOWCASE_ITEM_UI.homeContentPaddingEnd}px ${APK_SHOWCASE_ITEM_UI.homeContentPaddingBottom}px ${APK_SHOWCASE_ITEM_UI.homeContentPaddingStart}px`,
-  display: 'flex',
-  flexDirection: 'column',
-  justifyContent: 'space-between',
-  gap: 0,
+  display: 'grid',
+  alignContent: 'start',
+  gap: 8,
   background: APK_SHOWCASE_ITEM_UI.homeBottomBg
 }
 
@@ -4172,7 +4694,13 @@ const apkHomeSecondaryPriceStyle: React.CSSProperties = {
   textOverflow: 'ellipsis'
 }
 
-const apkHomeBadgeStyle: React.CSSProperties = apkPickBadgeStyle
+const apkHomeBadgeStyle: React.CSSProperties = {
+  ...apkPickBadgeStyle,
+  width: 'fit-content',
+  maxWidth: '100%',
+  justifySelf: 'start',
+  alignSelf: 'start'
+}
 
 const apkHomeBadgeTextStyle: React.CSSProperties = apkPickBadgeTextStyle
 const apkHomeFavoriteOverlayStyle: React.CSSProperties = {
@@ -4189,7 +4717,7 @@ const apkHomeFavoriteIconStyle: React.CSSProperties = {
   width: APK_SHOWCASE_ITEM_UI.homeFavoriteSize,
   height: APK_SHOWCASE_ITEM_UI.homeFavoriteSize,
   display: 'block',
-  color: APK_SHOWCASE_ITEM_UI.brand,
+  color: NDJC_GLOBAL_UI_TOKENS.colors.controlEmphasis,
   background: APK_SHOWCASE_ITEM_UI.transparent,
   lineHeight: 1,
   flex: '0 0 auto'
@@ -4199,19 +4727,20 @@ function apkCatalogCardStyle(pressed = false): React.CSSProperties {
   return {
     width: '100%',
     minHeight: APK_SHOWCASE_ITEM_UI.catalogImageSize + APK_SHOWCASE_ITEM_UI.catalogCardPadding * 2,
+    border: `1px solid ${NDJC_GLOBAL_UI_TOKENS.colors.divider}`,
     borderRadius: APK_SHOWCASE_ITEM_UI.catalogCardRadius,
     padding: APK_SHOWCASE_ITEM_UI.catalogCardPadding,
     display: 'grid',
     gridTemplateColumns: 'minmax(0, 1fr) auto auto',
     gap: APK_SHOWCASE_ITEM_UI.catalogGap,
     alignItems: 'center',
-    background: APK_SHOWCASE_ITEM_UI.white,
-    boxShadow: pressed ? APK_SHOWCASE_ITEM_UI.catalogPressedShadow : APK_SHOWCASE_ITEM_UI.shadow,
+    background: NDJC_GLOBAL_UI_TOKENS.colors.surface,
+    boxShadow: 'none',
     overflow: 'visible',
     boxSizing: 'border-box',
     transform: pressed ? `scale(${APK_SHOWCASE_ITEM_UI.catalogPressedScale})` : 'scale(1)',
     transformOrigin: 'center center',
-    transition: `transform ${APK_SHOWCASE_ITEM_UI.catalogTransitionMs}ms ease, box-shadow ${APK_SHOWCASE_ITEM_UI.catalogTransitionMs}ms ease`
+    transition: `transform ${APK_SHOWCASE_ITEM_UI.catalogTransitionMs}ms ease`
   }
 }
 
@@ -4259,7 +4788,7 @@ const apkCatalogBodyStyle: React.CSSProperties = {
 
 const apkCatalogTitleStyle: React.CSSProperties = {
   margin: 0,
-  color: APK_SHOWCASE_ITEM_UI.ink,
+  color: NDJC_GLOBAL_UI_TOKENS.colors.controlEmphasis,
   fontSize: APK_SHOWCASE_ITEM_UI.catalogTitleSize,
   lineHeight: APK_SHOWCASE_ITEM_UI.catalogTitleLineHeight,
   fontWeight: APK_SHOWCASE_ITEM_UI.catalogTitleWeight,
@@ -4291,7 +4820,7 @@ const apkCatalogPriceRowStyle: React.CSSProperties = {
 }
 
 const apkCatalogPriceStyle: React.CSSProperties = {
-  color: APK_SHOWCASE_ITEM_UI.brand,
+  color: NDJC_GLOBAL_UI_TOKENS.colors.controlEmphasis,
   fontSize: APK_SHOWCASE_ITEM_UI.catalogPriceSize,
   lineHeight: APK_SHOWCASE_ITEM_UI.catalogPriceLineHeight,
   fontWeight: APK_SHOWCASE_ITEM_UI.catalogPriceWeight,
@@ -4299,28 +4828,30 @@ const apkCatalogPriceStyle: React.CSSProperties = {
 }
 
 const apkCatalogOriginalPriceStyle: React.CSSProperties = {
-  color: 'rgba(17, 24, 39, 0.72)',
+  color: NDJC_GLOBAL_UI_TOKENS.colors.controlWeakText,
   fontSize: APK_SHOWCASE_ITEM_UI.catalogOriginalSize,
   lineHeight: APK_SHOWCASE_ITEM_UI.catalogOriginalLineHeight,
   fontStyle: 'normal',
   fontWeight: APK_SHOWCASE_ITEM_UI.catalogOriginalWeight,
   textDecoration: 'line-through',
   textDecorationThickness: 1.5,
-  textDecorationColor: 'rgba(17, 24, 39, 0.45)',
+  textDecorationColor: NDJC_GLOBAL_UI_TOKENS.colors.controlWeakText,
   whiteSpace: 'nowrap'
 }
 
 const apkCatalogMetaTextStyle: React.CSSProperties = {
   marginLeft: 'auto',
-  color: 'rgba(0, 0, 0, 0.72)',
+  color: NDJC_GLOBAL_UI_TOKENS.colors.controlWeakText,
   fontSize: 13,
   lineHeight: 1.2,
-  fontWeight: 500,
-  maxWidth: '42%',
-  overflow: 'hidden',
-  textOverflow: 'ellipsis',
+  fontWeight: 600,
+  minWidth: 64,
+  maxWidth: 84,
+  overflow: 'visible',
+  textOverflow: 'clip',
   whiteSpace: 'nowrap',
-  flex: '0 1 auto'
+  textAlign: 'right',
+  flex: '0 0 auto'
 }
 
 const apkCatalogCategoryChipStyle: React.CSSProperties = {
@@ -4357,7 +4888,7 @@ const apkAdminCatalogPriceMetaRowStyle: React.CSSProperties = {
 
 const apkAdminCatalogViewsStyle: React.CSSProperties = {
   marginLeft: 'auto',
-  color: 'rgba(0, 0, 0, 0.55)',
+  color: NDJC_GLOBAL_UI_TOKENS.colors.controlWeakText,
   fontSize: 13,
   lineHeight: 1.2,
   fontWeight: 500,
@@ -4424,9 +4955,11 @@ const apkAnnouncementFeedPlaceholderStyle: React.CSSProperties = {
 
 const apkAnnouncementFeedInnerStyle: React.CSSProperties = {
   width: '100%',
+  minWidth: 0,
   padding: `0 ${APK_ANNOUNCEMENT_UI.feedInnerPaddingX}px`,
   display: 'grid',
-  gap: 0
+  gap: 0,
+  boxSizing: 'border-box'
 }
 
 const apkAnnouncementFeedDividerStyle: React.CSSProperties = {
@@ -4438,10 +4971,12 @@ const apkAnnouncementFeedDividerStyle: React.CSSProperties = {
 
 const apkAnnouncementMetaRowStyle: React.CSSProperties = {
   width: '100%',
+  minWidth: 0,
   paddingTop: APK_ANNOUNCEMENT_UI.feedMetaTopPadding,
   display: 'flex',
   alignItems: 'center',
-  gap: 8
+  gap: 8,
+  boxSizing: 'border-box'
 }
 
 const apkAnnouncementMetaTextStyle: React.CSSProperties = {
@@ -4455,14 +4990,14 @@ const apkAnnouncementMetaTextStyle: React.CSSProperties = {
 const apkAnnouncementExpandButtonStyle: React.CSSProperties = {
   width: APK_ANNOUNCEMENT_UI.feedExpandButtonSize,
   height: APK_ANNOUNCEMENT_UI.feedExpandButtonSize,
-  marginRight: APK_ANNOUNCEMENT_UI.feedExpandButtonInsetRight,
+  marginRight: 0,
   border: 0,
-  borderRadius: 999,
+  borderRadius: 0,
   padding: 0,
   display: 'grid',
   placeItems: 'center',
-  color: APK_ANNOUNCEMENT_UI.feedExpandIconColor,
-  background: APK_ANNOUNCEMENT_UI.feedExpandButtonBg,
+  color: NDJC_GLOBAL_UI_TOKENS.colors.textMuted,
+  background: 'transparent',
   boxShadow: 'none',
   fontSize: 0,
   lineHeight: 1,
@@ -4474,10 +5009,12 @@ const apkAnnouncementExpandButtonStyle: React.CSSProperties = {
 
 const apkAnnouncementExpandedBodyStyle: React.CSSProperties = {
   width: '100%',
+  minWidth: 0,
   paddingTop: APK_ANNOUNCEMENT_UI.feedExpandBodyTopPadding,
   paddingBottom: APK_ANNOUNCEMENT_UI.feedExpandBodyBottomPadding,
   display: 'grid',
-  gap: 8
+  gap: 8,
+  boxSizing: 'border-box'
 }
 function apkAnnouncementExpandedBodyOuterStyle(expanded: boolean): React.CSSProperties {
   return {
@@ -4495,13 +5032,17 @@ const apkAnnouncementExpandedBodyInnerStyle: React.CSSProperties = {
   overflow: 'hidden'
 }
 const apkAnnouncementBodyTextStyle: React.CSSProperties = {
+  width: '100%',
+  maxWidth: '100%',
+  minWidth: 0,
   margin: 0,
-  color: 'rgba(0, 0, 0, 0.78)',
+  color: NDJC_GLOBAL_UI_TOKENS.colors.textBody,
   fontSize: APK_ANNOUNCEMENT_UI.bodySize,
   lineHeight: APK_ANNOUNCEMENT_UI.bodyLineHeight,
   fontWeight: APK_ANNOUNCEMENT_UI.bodyWeight,
   whiteSpace: 'pre-wrap',
-  overflowWrap: 'anywhere'
+  overflowWrap: 'anywhere',
+  boxSizing: 'border-box'
 }
 function NdjcAnnouncementExpandIcon({ expanded }: { expanded: boolean }) {
   return (
@@ -4846,6 +5387,7 @@ export function NdjcTextField({
   singleLine,
   minLines = 1,
   fillContentWidth = true,
+  fieldMinHeightOverride,
   inputMode,
   autoComplete
 }: {
@@ -4863,61 +5405,37 @@ export function NdjcTextField({
   singleLine?: boolean
   minLines?: number
   fillContentWidth?: boolean
+  fieldMinHeightOverride?: number
   inputMode?: React.HTMLAttributes<HTMLInputElement>['inputMode']
   autoComplete?: string
 }) {
+  const [isFocused, setIsFocused] = React.useState(false)
   const isMultiline = multiline || singleLine === false
   const cleanLabel = label?.trim() || ''
   const hasLabel = Boolean(cleanLabel)
-  const nativePlaceholder = hasLabel ? undefined : placeholder
 
-  const fieldMinHeight = isMultiline
-    ? Math.max(APK_CORE_UI.fieldMinHeight, APK_CORE_UI.fieldMinHeight + Math.max(0, minLines - 1) * 24)
-    : APK_CORE_UI.fieldMinHeight
+  const calculatedFieldMinHeight = isMultiline
+    ? Math.max(APK_EDIT_ITEM_UI.fieldMinHeight, APK_EDIT_ITEM_UI.fieldMinHeight + Math.max(0, minLines - 1) * 28)
+    : APK_EDIT_ITEM_UI.fieldMinHeight
+
+  const fieldMinHeight = fieldMinHeightOverride ?? calculatedFieldMinHeight
 
   const borderColor = isError
-    ? APK_CORE_UI.danger
-    : disabled
-      ? APK_CORE_UI.borderDisabled
-      : APK_CORE_UI.borderStrong
+    ? APK_EDIT_ITEM_UI.fieldErrorBorderColor
+    : isFocused
+      ? APK_EDIT_ITEM_UI.fieldFocusBorderColor
+      : disabled
+        ? NDJC_GLOBAL_UI_TOKENS.colors.divider
+        : APK_EDIT_ITEM_UI.fieldBorderColor
 
   const shellStyle: React.CSSProperties = {
     width: fillContentWidth ? '100%' : 'auto',
     maxWidth: '100%',
     minWidth: 0,
     boxSizing: 'border-box',
-    display: 'block'
-  }
-
-  const fieldsetStyle: React.CSSProperties = {
-    width: fillContentWidth ? '100%' : 'auto',
-    maxWidth: '100%',
-    minWidth: 0,
-    minHeight: fieldMinHeight,
-    margin: 0,
-    padding: hasLabel
-      ? `0 ${APK_CORE_UI.fieldPaddingX}px ${isMultiline ? APK_CORE_UI.fieldPaddingY : 0}px`
-      : `0 ${APK_CORE_UI.fieldPaddingX}px`,
-    boxSizing: 'border-box',
-    border: `${APK_CORE_UI.fieldIndicatorWidth}px solid ${borderColor}`,
-    borderRadius: APK_CORE_UI.fieldRadius,
-    color: disabled ? 'rgba(0, 0, 0, 0.50)' : APK_CORE_UI.black,
-    background: APK_CORE_UI.transparent,
-    opacity: disabled ? 0.72 : 1,
-    overflow: 'hidden'
-  }
-
-  const legendStyle: React.CSSProperties = {
-    maxWidth: 'calc(100% - 16px)',
-    marginLeft: hasLabel ? 4 : 0,
-    padding: hasLabel ? '0 4px' : 0,
-    color: isError ? APK_CORE_UI.danger : APK_CORE_UI.black,
-    fontSize: APK_CORE_UI.fieldLabelSize,
-    lineHeight: '14px',
-    fontWeight: 600,
-    whiteSpace: 'nowrap',
-    overflow: 'hidden',
-    textOverflow: 'ellipsis'
+    display: 'grid',
+    gap: hasLabel ? 7 : 0,
+    opacity: disabled ? 0.72 : 1
   }
 
   const inputShellColumns = leadingIcon && trailingIcon
@@ -4928,40 +5446,60 @@ export function NdjcTextField({
         ? `minmax(0, 1fr) ${APK_CORE_UI.fieldIconSize}px`
         : 'minmax(0, 1fr)'
 
-  const inputShellStyle: React.CSSProperties = {
-    width: '100%',
+  const fieldShellStyle: React.CSSProperties = {
+    width: fillContentWidth ? '100%' : 'auto',
     maxWidth: '100%',
     minWidth: 0,
-    minHeight: isMultiline
-      ? fieldMinHeight - (hasLabel ? 14 : 0) - APK_CORE_UI.fieldPaddingY
-      : fieldMinHeight - (hasLabel ? 14 : 0) - APK_CORE_UI.fieldIndicatorWidth * 2,
+    minHeight: fieldMinHeight,
+    boxSizing: 'border-box',
+    borderRadius: APK_EDIT_ITEM_UI.fieldRadius,
+    border: `${APK_EDIT_ITEM_UI.fieldBorderWidth}px solid ${borderColor}`,
+    background: isFocused
+      ? APK_EDIT_ITEM_UI.fieldFocusedBackground
+      : APK_EDIT_ITEM_UI.fieldBackground,
+    padding: `${APK_EDIT_ITEM_UI.fieldPaddingY}px ${APK_EDIT_ITEM_UI.fieldPaddingX}px`,
     display: 'grid',
     gridTemplateColumns: inputShellColumns,
     columnGap: leadingIcon || trailingIcon ? 8 : 0,
-    alignItems: isMultiline && minLines > 1 ? 'start' : 'center',
-    boxSizing: 'border-box'
+    alignItems: isMultiline ? 'start' : 'center',
+    transition: `border-color ${NDJC_GLOBAL_UI_TOKENS.motion.fast}, box-shadow ${NDJC_GLOBAL_UI_TOKENS.motion.fast}, background ${NDJC_GLOBAL_UI_TOKENS.motion.fast}`,
+    boxShadow: isError
+      ? APK_EDIT_ITEM_UI.fieldErrorShadow
+      : isFocused
+        ? APK_EDIT_ITEM_UI.fieldFocusShadow
+        : 'none',
+    overflow: 'hidden'
   }
 
   const nativeFieldStyle: React.CSSProperties = {
     width: '100%',
     maxWidth: '100%',
     minWidth: 0,
-    height: isMultiline && minLines > 1 ? 'auto' : '100%',
-    minHeight: isMultiline
-      ? Math.max(24, fieldMinHeight - (hasLabel ? 14 : 0) - APK_CORE_UI.fieldPaddingY * 2)
-      : 24,
+    minHeight: isMultiline ? Math.max(72, fieldMinHeight - APK_EDIT_ITEM_UI.fieldPaddingY * 2) : 24,
+    height: isMultiline ? 'auto' : 24,
     boxSizing: 'border-box',
     border: 0,
     outline: 0,
     padding: 0,
-    color: disabled ? 'rgba(0, 0, 0, 0.50)' : APK_CORE_UI.black,
-    background: APK_CORE_UI.transparent,
+    color: disabled ? NDJC_GLOBAL_UI_TOKENS.colors.textDisabled : NDJC_GLOBAL_UI_TOKENS.colors.textPrimary,
+    caretColor: 'rgba(15, 23, 42, 0.82)',
+    background: 'transparent',
     boxShadow: 'none',
-    fontSize: APK_CORE_UI.fieldTextSize,
-    lineHeight: isMultiline && minLines > 1 ? 1.45 : '20px',
+    fontFamily: 'inherit',
+    fontSize: 15,
+    lineHeight: isMultiline ? 1.45 : '24px',
     fontWeight: 500,
+    letterSpacing: 0,
     resize: 'none',
-    appearance: 'none'
+    appearance: 'none',
+    WebkitAppearance: 'none'
+  }
+
+  const labelStyle: React.CSSProperties = {
+    color: isError ? APK_EDIT_ITEM_UI.error80 : NDJC_GLOBAL_UI_TOKENS.colors.textStrong,
+    fontSize: APK_EDIT_ITEM_UI.labelFontSize,
+    lineHeight: APK_EDIT_ITEM_UI.labelLineHeight,
+    fontWeight: APK_EDIT_ITEM_UI.labelFontWeight
   }
 
   const iconSlotStyle: React.CSSProperties = {
@@ -4969,66 +5507,66 @@ export function NdjcTextField({
     height: APK_CORE_UI.fieldIconSize,
     display: 'grid',
     placeItems: 'center',
-    color: isError ? APK_CORE_UI.danger : APK_CORE_UI.muted,
+    color: isError ? APK_EDIT_ITEM_UI.error80 : NDJC_GLOBAL_UI_TOKENS.colors.textMuted,
     fontSize: APK_CORE_UI.fieldIconSize,
     lineHeight: 1
   }
 
   return (
     <label
-      className={cx('ndjc-field-shell', disabled && 'is-disabled', isError && 'is-error', className)}
+      className={cx('ndjc-field-shell', 'ndjc-modern-field-shell', disabled && 'is-disabled', isError && 'is-error', className)}
       style={shellStyle}
     >
-      <fieldset className="ndjc-text-field-shell" style={fieldsetStyle}>
-        {hasLabel ? (
-          <legend className="ndjc-field-label" style={legendStyle}>
-            {cleanLabel}
-          </legend>
+      {hasLabel ? (
+        <span className="ndjc-field-label ndjc-modern-field-label" style={labelStyle}>
+          {cleanLabel}
+        </span>
+      ) : null}
+
+      <span className="ndjc-text-field-shell ndjc-modern-field-control" style={fieldShellStyle}>
+        {leadingIcon ? (
+          <span className="ndjc-text-field-leading-icon" style={iconSlotStyle}>
+            {leadingIcon}
+          </span>
+        ) : null}
+
+        {isMultiline ? (
+          <textarea
+            className="ndjc-text-field ndjc-textarea ndjc-modern-textarea"
+            style={nativeFieldStyle}
+            value={value}
+            placeholder={placeholder}
+            disabled={disabled}
+            aria-invalid={isError}
+            autoComplete={autoComplete}
+            rows={Math.max(1, minLines)}
+            onFocus={() => setIsFocused(true)}
+            onBlur={() => setIsFocused(false)}
+            onChange={event => onChange(event.target.value)}
+          />
         ) : (
-          <legend style={{ width: 0, height: 0, padding: 0, margin: 0 }} />
+          <input
+            className="ndjc-text-field ndjc-modern-input"
+            style={nativeFieldStyle}
+            value={value}
+            type={type}
+            inputMode={inputMode}
+            placeholder={placeholder}
+            disabled={disabled}
+            aria-invalid={isError}
+            autoComplete={autoComplete}
+            onFocus={() => setIsFocused(true)}
+            onBlur={() => setIsFocused(false)}
+            onChange={event => onChange(event.target.value)}
+          />
         )}
 
-        <span className="ndjc-text-field-input-row" style={inputShellStyle}>
-          {leadingIcon ? (
-            <span className="ndjc-text-field-leading-icon" style={iconSlotStyle}>
-              {leadingIcon}
-            </span>
-          ) : null}
-
-          {isMultiline ? (
-            <textarea
-              className="ndjc-text-field ndjc-textarea"
-              style={nativeFieldStyle}
-              value={value}
-              placeholder={nativePlaceholder}
-              disabled={disabled}
-              aria-invalid={isError}
-              autoComplete={autoComplete}
-              rows={Math.max(1, minLines)}
-              onChange={event => onChange(event.target.value)}
-            />
-          ) : (
-            <input
-              className="ndjc-text-field"
-              style={nativeFieldStyle}
-              value={value}
-              type={type}
-              inputMode={inputMode}
-              placeholder={nativePlaceholder}
-              disabled={disabled}
-              aria-invalid={isError}
-              autoComplete={autoComplete}
-              onChange={event => onChange(event.target.value)}
-            />
-          )}
-
-          {trailingIcon ? (
-            <span className="ndjc-text-field-trailing-icon" style={iconSlotStyle}>
-              {trailingIcon}
-            </span>
-          ) : null}
-        </span>
-      </fieldset>
+        {trailingIcon ? (
+          <span className="ndjc-text-field-trailing-icon" style={iconSlotStyle}>
+            {trailingIcon}
+          </span>
+        ) : null}
+      </span>
     </label>
   )
 }
@@ -5574,6 +6112,24 @@ export function NdjcUnifiedBackground({
             appearance: none;
           }
 
+          .ndjc-unified-background .ndjc-apk-edit-modern-input::placeholder,
+          .ndjc-unified-background .ndjc-apk-edit-modern-textarea::placeholder,
+          .ndjc-unified-background .ndjc-modern-input::placeholder,
+          .ndjc-unified-background .ndjc-modern-textarea::placeholder {
+            color: ${APK_EDIT_ITEM_UI.fieldPlaceholderColor};
+            opacity: ${APK_EDIT_ITEM_UI.fieldPlaceholderOpacity};
+            font-weight: ${APK_EDIT_ITEM_UI.fieldPlaceholderFontWeight};
+          }
+
+          .ndjc-unified-background .ndjc-apk-edit-modern-input::-webkit-input-placeholder,
+          .ndjc-unified-background .ndjc-apk-edit-modern-textarea::-webkit-input-placeholder,
+          .ndjc-unified-background .ndjc-modern-input::-webkit-input-placeholder,
+          .ndjc-unified-background .ndjc-modern-textarea::-webkit-input-placeholder {
+            color: ${APK_EDIT_ITEM_UI.fieldPlaceholderColor};
+            opacity: ${APK_EDIT_ITEM_UI.fieldPlaceholderOpacity};
+            font-weight: ${APK_EDIT_ITEM_UI.fieldPlaceholderFontWeight};
+          }
+
           .ndjc-unified-background button {
             appearance: none;
             -webkit-appearance: none;
@@ -5638,6 +6194,16 @@ export function NdjcUnifiedBackground({
             }
           }
 
+          @keyframes ndjcAdminSyncSpinnerRotate {
+            0% {
+              transform: rotate(0deg);
+            }
+
+            100% {
+              transform: rotate(360deg);
+            }
+          }
+
           @keyframes ndjcSpinnerRotate {
             0% {
               transform: rotate(0deg);
@@ -5684,9 +6250,9 @@ export function NdjcUnifiedBackground({
 <NdjcCardBackButton
   onClick={topNav.onHome}
   label="Home"
-  icon={<NdjcHomeSolidIcon color={topNav.iconTint || APK_SHELL_UI.white} />}
+  icon={<NdjcHomeOutlineIcon color={topNav.iconTint || '#111111'} />}
   iconOnly={topNav.iconOnly}
-  iconTint={topNav.iconTint || APK_SHELL_UI.white}
+  iconTint={topNav.iconTint || '#111111'}
 />
               ) : (
                 <span
@@ -5788,22 +6354,33 @@ export function NdjcWhiteCard({
   )
 }
 
-function NdjcHomeSolidIcon({
-  color = APK_SHELL_UI.brand
+function NdjcHomeOutlineIcon({
+  color = '#111111'
 }: {
   color?: string
 }) {
   return (
     <svg
-      width="21"
-      height="21"
+      width={APK_SHELL_UI.backButtonIconSize}
+      height={APK_SHELL_UI.backButtonIconSize}
       viewBox="0 0 24 24"
       fill="none"
       aria-hidden="true"
+      style={{ display: 'block' }}
     >
       <path
-        d="M3.75 10.55L12 3.75l8.25 6.8v8.7a1 1 0 0 1-1 1H15.6a1 1 0 0 1-1-1v-4.6h-5.2v4.6a1 1 0 0 1-1 1H4.75a1 1 0 0 1-1-1v-8.7Z"
-        fill={color}
+        d="M4.5 10.75L12 4.5l7.5 6.25"
+        stroke={color}
+        strokeWidth="2.2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M6.75 10.75V19.25H10.25V15.25H13.75V19.25H17.25V10.75"
+        stroke={color}
+        strokeWidth="2.2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
       />
     </svg>
   )
@@ -5814,7 +6391,7 @@ export function NdjcCardBackButton({
   label = 'Back',
   icon,
   iconOnly = false,
-  iconTint = APK_SHELL_UI.white
+  iconTint = '#111111'
 }: {
   onClick?: () => void
   label?: string
@@ -5863,11 +6440,11 @@ export function NdjcTopNavOverlay({
       aria-label="Page navigation"
     >
       <span style={{ pointerEvents: 'auto' }}>
-        <NdjcCardBackButton onClick={onBack || onHome} label="Back" icon="←" />
+        <NdjcCardBackButton onClick={onBack || onHome} label="Back" icon={<NdjcBackArrowSvgIcon />} iconTint="#111111" />
       </span>
 
       <span style={{ pointerEvents: 'auto' }}>
-        <NdjcCardBackButton onClick={onHome} label="Home" icon="⌂" />
+        <NdjcCardBackButton onClick={onHome} label="Home" icon={<NdjcHomeOutlineIcon color="#111111" />} iconTint="#111111" />
       </span>
     </nav>
   )
@@ -5892,7 +6469,7 @@ export function NdjcSpinner({
     ? 'rgba(255, 255, 255, 0.42)'
     : tone === 'danger'
       ? 'rgba(220, 38, 38, 0.22)'
-      : 'rgba(38, 198, 164, 0.25)'
+      : `rgba(${APK_SHOWCASE_COLOR_TOKENS.primaryRgb}, 0.25)`
 
   const activeColor = tone === 'light'
     ? APK_CORE_UI.white
@@ -5936,6 +6513,8 @@ export function NdjcPrimaryActionButton({
 }) {
   const blocked = Boolean(disabled || isLoading)
   const [pressed, setPressed] = React.useState(false)
+  const enabled = !blocked
+  const isPressed = Boolean(pressed && enabled)
 
   function releasePressState(): void {
     setPressed(false)
@@ -5945,8 +6524,8 @@ export function NdjcPrimaryActionButton({
     <button
       type={type}
       className={cx('ndjc-primary-action-button', className)}
-      style={apkPrimaryButtonStyle(disabled, isLoading, pressed)}
       disabled={blocked}
+      aria-busy={isLoading || undefined}
       onPointerDown={() => {
         if (blocked) return
         setPressed(true)
@@ -5959,22 +6538,82 @@ export function NdjcPrimaryActionButton({
         if (blocked) return
         onClick?.()
       }}
-      aria-busy={isLoading || undefined}
+      style={{
+        width: '100%',
+        minHeight: APK_EDIT_ITEM_UI.submitButtonHeight,
+        border: 0,
+        borderRadius: APK_EDIT_ITEM_UI.submitButtonRadius,
+        padding: '0 18px',
+        boxSizing: 'border-box',
+        display: 'inline-flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 10,
+        color: enabled ? '#FFFFFF' : APK_EDIT_ITEM_UI.submitButtonDisabledText,
+        background: enabled
+          ? isPressed
+            ? NDJC_GLOBAL_UI_TOKENS.colors.brandStrongPressed
+            : NDJC_GLOBAL_UI_TOKENS.colors.brandStrong
+          : APK_EDIT_ITEM_UI.submitButtonDisabledBg,
+        boxShadow: enabled
+          ? isPressed
+            ? APK_EDIT_ITEM_UI.submitButtonPressedShadow
+            : APK_EDIT_ITEM_UI.submitButtonShadow
+          : 'none',
+        fontSize: APK_EDIT_ITEM_UI.submitButtonFontSize,
+        lineHeight: `${APK_EDIT_ITEM_UI.submitButtonLineHeight}px`,
+        fontWeight: APK_EDIT_ITEM_UI.submitButtonFontWeight,
+        letterSpacing: 0,
+        whiteSpace: 'nowrap',
+        overflow: 'hidden',
+        textOverflow: 'ellipsis',
+        outline: 'none',
+        appearance: 'none',
+        WebkitAppearance: 'none',
+        transform: isPressed
+          ? `scale(${NDJC_GLOBAL_UI_TOKENS.motion.pressScale})`
+          : 'scale(1)',
+        transformOrigin: 'center center',
+        transition: `transform ${NDJC_GLOBAL_UI_TOKENS.motion.fast}, box-shadow ${NDJC_GLOBAL_UI_TOKENS.motion.fast}, background ${NDJC_GLOBAL_UI_TOKENS.motion.fast}, color ${NDJC_GLOBAL_UI_TOKENS.motion.fast}`,
+        opacity: isLoading ? 0.9 : 1,
+        cursor: enabled ? 'pointer' : 'not-allowed',
+        WebkitTapHighlightColor: 'transparent',
+        userSelect: 'none',
+        touchAction: 'manipulation'
+      }}
     >
       {isLoading ? (
-        <NdjcSpinner
-          className="ndjc-primary-action-spinner"
-          size={18}
-          stroke={2}
-          tone="light"
-        />
+        <>
+          <NdjcSpinner
+            className="ndjc-primary-action-spinner"
+            size={18}
+            stroke={2}
+            tone="light"
+          />
+          <span
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              minHeight: APK_EDIT_ITEM_UI.submitButtonLineHeight,
+              lineHeight: `${APK_EDIT_ITEM_UI.submitButtonLineHeight}px`
+            }}
+          >
+            Saving...
+          </span>
+        </>
       ) : (
         <span
           style={{
             minWidth: 0,
+            minHeight: APK_EDIT_ITEM_UI.submitButtonLineHeight,
+            display: 'inline-flex',
+            alignItems: 'center',
+            justifyContent: 'center',
             overflow: 'hidden',
             textOverflow: 'ellipsis',
-            whiteSpace: 'nowrap'
+            whiteSpace: 'nowrap',
+            lineHeight: `${APK_EDIT_ITEM_UI.submitButtonLineHeight}px`
           }}
         >
           {children}
@@ -5983,24 +6622,310 @@ export function NdjcPrimaryActionButton({
     </button>
   )
 }
+
+type NdjcAdminEntryIconName =
+  | 'add'
+  | 'items'
+  | 'categories'
+  | 'store'
+  | 'messages'
+  | 'announcements'
+  | 'appointments'
+  | 'password'
+  | 'signOut'
+
+function NdjcAdminEntryIcon({
+  name
+}: {
+  name: NdjcAdminEntryIconName
+}) {
+  const iconProps = {
+    width: 19,
+    height: 19,
+    viewBox: '0 0 24 24',
+    fill: 'none',
+    stroke: 'currentColor',
+    strokeWidth: 2,
+    strokeLinecap: 'round' as const,
+    strokeLinejoin: 'round' as const,
+    'aria-hidden': 'true' as const
+  }
+
+  if (name === 'add') {
+    return (
+      <svg {...iconProps}>
+        <path d="M12 5v14" />
+        <path d="M5 12h14" />
+      </svg>
+    )
+  }
+
+  if (name === 'items') {
+    return (
+      <svg {...iconProps}>
+        <path d="M8 6h13" />
+        <path d="M8 12h13" />
+        <path d="M8 18h13" />
+        <path d="M3 6h.01" />
+        <path d="M3 12h.01" />
+        <path d="M3 18h.01" />
+      </svg>
+    )
+  }
+
+  if (name === 'categories') {
+    return (
+      <svg {...iconProps}>
+        <rect x="4" y="4" width="6" height="6" rx="1.5" />
+        <rect x="14" y="4" width="6" height="6" rx="1.5" />
+        <rect x="4" y="14" width="6" height="6" rx="1.5" />
+        <rect x="14" y="14" width="6" height="6" rx="1.5" />
+      </svg>
+    )
+  }
+
+  if (name === 'store') {
+    return (
+      <svg {...iconProps}>
+        <path d="M4 10h16" />
+        <path d="M5 10l1.2-5h11.6L19 10" />
+        <path d="M6 10v9h12v-9" />
+        <path d="M9 19v-5h6v5" />
+      </svg>
+    )
+  }
+
+  if (name === 'messages') {
+    return (
+      <svg {...iconProps}>
+        <path d="M5 6h14v10H8l-4 4V6z" />
+        <path d="M8 10h8" />
+        <path d="M8 13h5" />
+      </svg>
+    )
+  }
+
+  if (name === 'announcements') {
+    return (
+      <svg {...iconProps}>
+        <path d="M4 11v2a2 2 0 0 0 2 2h2l6 4V5l-6 4H6a2 2 0 0 0-2 2z" />
+        <path d="M18 9a4 4 0 0 1 0 6" />
+      </svg>
+    )
+  }
+
+  if (name === 'appointments') {
+    return (
+      <svg {...iconProps}>
+        <rect x="4" y="5" width="16" height="15" rx="2" />
+        <path d="M8 3v4" />
+        <path d="M16 3v4" />
+        <path d="M4 10h16" />
+        <path d="M9 15l2 2 4-4" />
+      </svg>
+    )
+  }
+
+  if (name === 'password') {
+    return (
+      <svg {...iconProps}>
+        <rect x="5" y="10" width="14" height="10" rx="2" />
+        <path d="M8 10V7a4 4 0 0 1 8 0v3" />
+        <path d="M12 14v2" />
+      </svg>
+    )
+  }
+
+  return (
+    <svg {...iconProps}>
+      <path d="M10 6H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h4" />
+      <path d="M14 8l4 4-4 4" />
+      <path d="M18 12H9" />
+    </svg>
+  )
+}
+
+export function NdjcAdminEntryButton({
+  children,
+  description,
+  iconName,
+  onClick,
+  disabled,
+  className
+}: {
+  children: React.ReactNode
+  description?: React.ReactNode
+  iconName: NdjcAdminEntryIconName
+  onClick?: () => void
+  disabled?: boolean
+  className?: string
+}) {
+  const blocked = Boolean(disabled)
+  const [pressed, setPressed] = React.useState(false)
+
+  function releasePressState(): void {
+    setPressed(false)
+  }
+
+  return (
+    <button
+      type="button"
+      className={cx('ndjc-admin-entry-button', className)}
+      disabled={blocked}
+      style={{
+        width: '100%',
+        minHeight: description
+          ? NDJC_GLOBAL_UI_TOKENS.components.entryRow.minHeightWithDescription
+          : NDJC_GLOBAL_UI_TOKENS.components.entryRow.minHeight,
+        borderRadius: NDJC_GLOBAL_UI_TOKENS.components.entryRow.radius,
+        border: 0,
+        background: 'transparent',
+        color: blocked
+          ? NDJC_GLOBAL_UI_TOKENS.colors.textDisabled
+          : NDJC_GLOBAL_UI_TOKENS.colors.textBody,
+        boxShadow: 'none',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'flex-start',
+        gap: NDJC_GLOBAL_UI_TOKENS.components.entryRow.gap,
+        padding: `${NDJC_GLOBAL_UI_TOKENS.components.entryRow.paddingY}px ${NDJC_GLOBAL_UI_TOKENS.components.entryRow.paddingX}px`,
+        boxSizing: 'border-box',
+        cursor: blocked ? 'not-allowed' : 'pointer',
+        transform: pressed
+          ? `scale(${NDJC_GLOBAL_UI_TOKENS.motion.pressScale})`
+          : 'scale(1)',
+        transformOrigin: 'left center',
+        transition: `color ${NDJC_GLOBAL_UI_TOKENS.motion.fast}, transform ${NDJC_GLOBAL_UI_TOKENS.motion.fast}`,
+        WebkitTapHighlightColor: 'transparent',
+        touchAction: 'manipulation',
+        textAlign: 'left'
+      }}
+      onPointerDown={() => {
+        if (blocked) return
+        setPressed(true)
+      }}
+      onPointerUp={releasePressState}
+      onPointerCancel={releasePressState}
+      onPointerLeave={releasePressState}
+      onBlur={releasePressState}
+      onClick={() => {
+        if (blocked) return
+        onClick?.()
+      }}
+    >
+      <span
+        style={{
+          width: NDJC_GLOBAL_UI_TOKENS.icon.entryContainerSize,
+          height: NDJC_GLOBAL_UI_TOKENS.icon.entryContainerSize,
+          display: 'inline-grid',
+          placeItems: 'center',
+          color: blocked
+            ? NDJC_GLOBAL_UI_TOKENS.colors.iconDisabled
+            : pressed
+              ? APK_SHOWCASE_COLOR_TOKENS.primaryPressed
+              : APK_SHOWCASE_COLOR_TOKENS.primary,
+          flexShrink: 0,
+          transform: pressed
+            ? `scale(${NDJC_GLOBAL_UI_TOKENS.motion.iconPressScale})`
+            : 'scale(1)',
+          transition: `color ${NDJC_GLOBAL_UI_TOKENS.motion.fast}, transform ${NDJC_GLOBAL_UI_TOKENS.motion.fast}`
+        }}
+      >
+        <NdjcAdminEntryIcon name={iconName} />
+      </span>
+
+      <span
+        style={{
+          minWidth: 0,
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 3,
+          overflow: 'hidden'
+        }}
+      >
+        <span
+          style={{
+            minWidth: 0,
+            color: blocked
+              ? NDJC_GLOBAL_UI_TOKENS.colors.textDisabled
+              : pressed
+                ? NDJC_GLOBAL_UI_TOKENS.colors.textPrimary
+                : NDJC_GLOBAL_UI_TOKENS.colors.textStrong,
+            fontSize: NDJC_GLOBAL_UI_TOKENS.typography.entryTitle.fontSize,
+            lineHeight: NDJC_GLOBAL_UI_TOKENS.typography.entryTitle.lineHeight,
+            fontWeight: pressed
+              ? NDJC_GLOBAL_UI_TOKENS.typography.entryTitle.pressedFontWeight
+              : NDJC_GLOBAL_UI_TOKENS.typography.entryTitle.fontWeight,
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap',
+            transition: `color ${NDJC_GLOBAL_UI_TOKENS.motion.fast}, font-weight ${NDJC_GLOBAL_UI_TOKENS.motion.fast}`
+          }}
+        >
+          {children}
+        </span>
+
+        {description ? (
+          <span
+            style={{
+              minWidth: 0,
+              color: blocked
+                ? NDJC_GLOBAL_UI_TOKENS.colors.textDisabledSoft
+                : pressed
+                  ? NDJC_GLOBAL_UI_TOKENS.colors.textSoft
+                  : NDJC_GLOBAL_UI_TOKENS.colors.textMuted,
+              fontSize: NDJC_GLOBAL_UI_TOKENS.typography.entryDescription.fontSize,
+              lineHeight: NDJC_GLOBAL_UI_TOKENS.typography.entryDescription.lineHeight,
+              fontWeight: pressed
+                ? NDJC_GLOBAL_UI_TOKENS.typography.entryDescription.pressedFontWeight
+                : NDJC_GLOBAL_UI_TOKENS.typography.entryDescription.fontWeight,
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap',
+              transition: `color ${NDJC_GLOBAL_UI_TOKENS.motion.fast}, font-weight ${NDJC_GLOBAL_UI_TOKENS.motion.fast}`
+            }}
+          >
+            {description}
+          </span>
+        ) : null}
+      </span>
+    </button>
+  )
+}
 export function NdjcPillButton({
   children,
   selected,
   onClick,
   disabled,
-  className
+  className,
+  variant = 'default'
 }: {
   children: React.ReactNode
   selected?: boolean
   onClick?: () => void
   disabled?: boolean
   className?: string
+  variant?: 'default' | 'date'
 }) {
+  const dateVariant = variant === 'date'
+
   return (
     <button
       type="button"
-      className={cx('ndjc-pill-button', selected && 'is-selected', className)}
-      style={apkPillButtonStyle(selected, disabled)}
+      className={cx('ndjc-pill-button', selected && 'is-selected', dateVariant && 'is-date-pill', className)}
+      style={{
+        ...apkPillButtonStyle(selected, disabled),
+        ...(dateVariant
+          ? {
+              minWidth: 76,
+              height: 48,
+              minHeight: 48,
+              padding: '0 14px',
+              borderRadius: 16,
+              opacity: disabled ? 0.42 : 1
+            }
+          : null)
+      }}
       disabled={disabled}
       onClick={() => {
         if (disabled) return
@@ -6011,12 +6936,14 @@ export function NdjcPillButton({
       <span
         style={{
           minWidth: 0,
-          display: 'inline-flex',
+          display: dateVariant ? 'grid' : 'inline-flex',
           alignItems: 'center',
           justifyContent: 'center',
+          justifyItems: dateVariant ? 'center' : undefined,
+          gap: dateVariant ? 2 : undefined,
           height: '100%',
-          lineHeight: 1,
-          transform: 'translateY(1px)',
+          lineHeight: dateVariant ? undefined : 1,
+          transform: dateVariant ? 'none' : 'translateY(1px)',
           overflow: 'hidden',
           textOverflow: 'ellipsis',
           whiteSpace: 'nowrap'
@@ -6075,24 +7002,35 @@ export function NdjcControlPillButton({
   active,
   onClick,
   disabled,
-  tone = 'normal'
+  tone = 'normal',
+  fullWidth = false
 }: {
   children: React.ReactNode
   selected?: boolean
   active?: boolean
   onClick?: () => void
   disabled?: boolean
-  tone?: 'normal' | 'accent' | 'subtle'
+  tone?: 'normal' | 'accent' | 'subtle' | 'adminAction'
+  fullWidth?: boolean
 }) {
   const isActive = active ?? selected ?? false
+  const [pressed, setPressed] = React.useState(false)
 
   return (
     <button
       type="button"
       className={cx('ndjc-control-pill-button', isActive && 'is-selected')}
-      style={apkControlPillButtonStyle(isActive, disabled, tone)}
+      style={apkControlPillButtonStyle(isActive, disabled, tone, fullWidth, pressed)}
       disabled={disabled}
       onClick={onClick}
+      onPointerDown={() => {
+        if (!disabled) {
+          setPressed(true)
+        }
+      }}
+      onPointerUp={() => setPressed(false)}
+      onPointerCancel={() => setPressed(false)}
+      onPointerLeave={() => setPressed(false)}
       aria-pressed={isActive}
     >
       <span
@@ -6108,7 +7046,105 @@ export function NdjcControlPillButton({
     </button>
   )
 }
+export function NdjcFilterIconButton({
+  active,
+  disabled = false,
+  label = 'Open filters',
+  icon,
+  onClick
+}: {
+  active?: boolean
+  disabled?: boolean
+  label?: string
+  icon?: React.ReactNode
+  onClick: () => void
+}) {
+  const [pressed, setPressed] = React.useState(false)
 
+  return (
+    <button
+      type="button"
+      aria-label={label}
+      aria-pressed={Boolean(active)}
+      disabled={disabled}
+      className={cx('ndjc-filter-icon-button', active && 'is-active')}
+      onClick={() => {
+        if (disabled) return
+        onClick()
+      }}
+      onPointerDown={() => {
+        if (!disabled) {
+          setPressed(true)
+        }
+      }}
+      onPointerUp={() => setPressed(false)}
+      onPointerCancel={() => setPressed(false)}
+      onPointerLeave={() => setPressed(false)}
+      style={{
+        width: 48,
+        minWidth: 48,
+        height: APK_EDIT_ITEM_UI.fieldMinHeight,
+        minHeight: APK_EDIT_ITEM_UI.fieldMinHeight,
+        border: 0,
+        borderRadius: APK_EDIT_ITEM_UI.fieldRadius,
+        padding: 0,
+        display: 'inline-grid',
+        placeItems: 'center',
+        color: disabled
+          ? NDJC_GLOBAL_UI_TOKENS.colors.controlWeakText
+          : NDJC_ADMIN_TOOL_UI.emphasis,
+        background: APK_EDIT_ITEM_UI.fieldBackground,
+        boxShadow: 'none',
+        cursor: disabled ? 'default' : 'pointer',
+        opacity: disabled ? 0.72 : 1,
+        appearance: 'none',
+        WebkitAppearance: 'none',
+        WebkitTapHighlightColor: 'transparent',
+        touchAction: 'manipulation',
+        transform: pressed ? 'scale(0.96)' : 'scale(1)',
+        transition: 'color 140ms ease, background 140ms ease, opacity 140ms ease, transform 120ms ease'
+      }}
+    >
+      {icon ?? (
+        <svg
+          width="24"
+          height="24"
+          viewBox="0 0 24 24"
+          fill="none"
+          aria-hidden="true"
+          focusable="false"
+        >
+          <path
+            d="M8.8 7.5H20"
+            stroke="currentColor"
+            strokeWidth="1.8"
+            strokeLinecap="round"
+          />
+          <circle
+            cx="6"
+            cy="7.5"
+            r="2.8"
+            stroke="currentColor"
+            strokeWidth="1.8"
+          />
+          <path
+            d="M4 16.5H15.2"
+            stroke="currentColor"
+            strokeWidth="1.8"
+            strokeLinecap="round"
+          />
+          <circle
+            cx="18"
+            cy="16.5"
+            r="2.8"
+            stroke="currentColor"
+            strokeWidth="1.8"
+          />
+        </svg>
+      )}
+    </button>
+  )
+}
 export function NdjcInlineTextTab({
   children,
   text,
@@ -6145,6 +7181,7 @@ export function NdjcInlineTextTab({
 
 export function NdjcToggleRow({
   label,
+  labelNode,
   description,
   checked,
   onChange,
@@ -6153,6 +7190,7 @@ export function NdjcToggleRow({
   labelColor
 }: {
   label: string
+  labelNode?: React.ReactNode
   description?: string
   checked: boolean
   onChange?: (value: boolean) => void
@@ -6189,28 +7227,32 @@ export function NdjcToggleRow({
           gap: description ? 3 : 0
         }}
       >
-        <strong
-          style={{
-            color: labelColor || APK_CORE_UI.toggleLabelColor,
-            fontSize: 14,
-            lineHeight: 1.25,
-            fontWeight: 400,
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
-            whiteSpace: 'nowrap'
-          }}
-        >
-          {label}
-        </strong>
+        {labelNode ? (
+          labelNode
+        ) : (
+          <strong
+            style={{
+              color: labelColor || NDJC_GLOBAL_UI_TOKENS.colors.controlEmphasis,
+              fontSize: NDJC_GLOBAL_UI_TOKENS.typography.bodyMedium.fontSize,
+              lineHeight: NDJC_GLOBAL_UI_TOKENS.typography.bodyMedium.lineHeight,
+              fontWeight: 500,
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap'
+            }}
+          >
+            {label}
+          </strong>
+        )}
 
         {description ? (
           <em
             style={{
-              color: APK_CORE_UI.muted,
-              fontSize: 12,
-              lineHeight: 1.3,
+              color: NDJC_GLOBAL_UI_TOKENS.colors.textMuted,
+              fontSize: NDJC_GLOBAL_UI_TOKENS.typography.bodySmall.fontSize,
+              lineHeight: NDJC_GLOBAL_UI_TOKENS.typography.bodySmall.lineHeight,
               fontStyle: 'normal',
-              fontWeight: 400,
+              fontWeight: NDJC_GLOBAL_UI_TOKENS.typography.bodySmall.fontWeight,
               overflow: 'hidden',
               textOverflow: 'ellipsis',
               whiteSpace: 'nowrap'
@@ -6304,6 +7346,7 @@ export function NdjcSelectionCheckbox({
       style={{
         width: APK_CORE_UI.checkboxSize,
         height: APK_CORE_UI.checkboxSize,
+        alignSelf: 'start',
         border: `1.5px solid ${isChecked ? APK_CORE_UI.checkboxCheckedColor : APK_CORE_UI.checkboxUncheckedColor}`,
         borderRadius: APK_CORE_UI.checkboxRadius,
         padding: 0,
@@ -6402,17 +7445,24 @@ export function NdjcPaginationFooter({
   idleText = 'Load more',
   loadingText = 'Loading more...',
   endText = 'No more items',
-  onLoadMore
+  onLoadMore,
+  style
 }: {
   pagination: ShowcasePaginationUiState
   idleText?: string
   loadingText?: string
   endText?: string
   onLoadMore?: () => Promise<void> | void
+  style?: React.CSSProperties
 }) {
+  const footerStyle: React.CSSProperties = {
+    ...apkNoMoreListFooterStyle,
+    ...style
+  }
+
   if (pagination.isLoadingMore) {
     return (
-      <footer className="ndjc-pagination-footer" style={apkNoMoreListFooterStyle}>
+      <footer className="ndjc-pagination-footer" style={footerStyle}>
         {loadingText}
       </footer>
     )
@@ -6420,7 +7470,7 @@ export function NdjcPaginationFooter({
 
   if (pagination.hasMore && idleText.trim()) {
     return (
-      <footer className="ndjc-pagination-footer" style={apkNoMoreListFooterStyle}>
+      <footer className="ndjc-pagination-footer" style={footerStyle}>
         <button
           type="button"
           onClick={() => {
@@ -6447,7 +7497,7 @@ export function NdjcPaginationFooter({
 
   if (!pagination.hasMore && endText.trim()) {
     return (
-      <footer className="ndjc-pagination-footer" style={apkNoMoreListFooterStyle}>
+      <footer className="ndjc-pagination-footer" style={footerStyle}>
         — {endText} —
       </footer>
     )
@@ -6455,7 +7505,6 @@ export function NdjcPaginationFooter({
 
   return null
 }
-
 export function NdjcNoMoreListFooter({
   text = 'No more items'
 }: {
@@ -6499,6 +7548,99 @@ function ndjcHandleLoadMoreScroll(
   if (!ndjcShouldLoadMoreFromScroll(element, thresholdPx)) return
 
   void Promise.resolve(onLoadMore())
+}
+
+type NdjcCollapsibleAdminHeaderOptions = {
+  collapseThresholdPx?: number
+  topPadding?: number
+  headerBottomPadding?: number
+  collapsedHeaderBottomPadding?: number
+  listGap?: number
+  measureKey?: string
+  expandedHeaderContentHeight?: number
+  collapsedHeaderContentHeight?: number
+}
+
+type NdjcCollapsibleAdminHeaderState = {
+  collapsed: boolean
+  headerRef: React.MutableRefObject<HTMLElement | null>
+  headerHeight: number
+  headerContentHeight: number
+  headerBottomPadding: number
+  headerTotalHeight: number
+  listTopPadding: number
+  handleCollapseScroll: (event: React.UIEvent<HTMLElement>) => void
+  setCollapsed: React.Dispatch<React.SetStateAction<boolean>>
+}
+
+function useNdjcCollapsibleAdminHeader({
+  collapseThresholdPx = 24,
+  topPadding = NDJC_GLOBAL_UI_TOKENS.layout.contentPaddingTop,
+  headerBottomPadding = APK_EDIT_ITEM_UI.sectionCardGap,
+  collapsedHeaderBottomPadding,
+  listGap = APK_SHOWCASE_ITEM_UI.adminItemsListGap,
+  measureKey = '',
+  expandedHeaderContentHeight,
+  collapsedHeaderContentHeight
+}: NdjcCollapsibleAdminHeaderOptions = {}): NdjcCollapsibleAdminHeaderState {
+  const [collapsed, setCollapsed] = React.useState(false)
+  const headerRef = React.useRef<HTMLElement | null>(null)
+  const [measuredHeaderHeight, setMeasuredHeaderHeight] = React.useState(0)
+
+  React.useEffect(() => {
+    const target = headerRef.current
+    if (!target) return
+
+    const updateHeight = () => {
+      setMeasuredHeaderHeight(target.getBoundingClientRect().height)
+    }
+
+    updateHeight()
+
+    if (typeof ResizeObserver === 'undefined') {
+      window.setTimeout(updateHeight, 0)
+      return
+    }
+
+    const observer = new ResizeObserver(updateHeight)
+    observer.observe(target)
+
+    return () => observer.disconnect()
+  }, [measureKey])
+
+  const handleCollapseScroll = React.useCallback((event: React.UIEvent<HTMLElement>) => {
+    const nextCollapsed = event.currentTarget.scrollTop > collapseThresholdPx
+
+    setCollapsed(previous => {
+      return previous === nextCollapsed ? previous : nextCollapsed
+    })
+  }, [collapseThresholdPx])
+
+  const fixedHeaderContentHeight = typeof expandedHeaderContentHeight === 'number' && typeof collapsedHeaderContentHeight === 'number'
+    ? collapsed
+      ? collapsedHeaderContentHeight
+      : expandedHeaderContentHeight
+    : null
+
+  const currentHeaderBottomPadding = collapsed
+    ? collapsedHeaderBottomPadding ?? headerBottomPadding
+    : headerBottomPadding
+
+  const headerContentHeight = fixedHeaderContentHeight ?? measuredHeaderHeight
+  const headerTotalHeight = topPadding + headerContentHeight + currentHeaderBottomPadding
+  const listTopPadding = headerTotalHeight + listGap
+
+  return {
+    collapsed,
+    headerRef,
+    headerHeight: measuredHeaderHeight,
+    headerContentHeight,
+    headerBottomPadding: currentHeaderBottomPadding,
+    headerTotalHeight,
+    listTopPadding,
+    handleCollapseScroll,
+    setCollapsed
+  }
 }
 
 function ndjcHandleLoadOlderScroll(
@@ -7163,23 +8305,23 @@ export function NdjcPwaUpdateBanner({
               flexShrink: 0
             }}
           >
-            <NdjcPrimaryActionButton
-              className="ndjc-pwa-update-secondary-button"
+            <NdjcControlPillButton
+              active
+              tone="adminAction"
               onClick={onDismiss}
               disabled={refreshing}
-              isLoading={false}
             >
               Later
-            </NdjcPrimaryActionButton>
+            </NdjcControlPillButton>
 
-            <NdjcPrimaryActionButton
-              className="ndjc-pwa-update-primary-button"
+            <NdjcControlPillButton
+              active
+              tone="adminAction"
               onClick={onRefresh}
               disabled={refreshing}
-              isLoading={refreshing}
             >
-              Refresh
-            </NdjcPrimaryActionButton>
+              {refreshing ? 'Refreshing...' : 'Refresh'}
+            </NdjcControlPillButton>
           </div>
         </div>
       </NdjcWhiteCard>
@@ -7214,12 +8356,12 @@ export function NdjcNotificationOptInPanel({
   const failed = registrationState === 'failed'
   const title = 'Notifications'
   const description = registrationState === 'registered'
-    ? 'This device can receive chat, booking, and announcement alerts.'
+    ? 'This device can receive chat, booking, and announcement notifications.'
     : blocked
-      ? 'Allow notifications in browser settings to receive chats, booking updates, and announcements.'
+      ? 'Allow notifications in browser settings to receive chat, booking, and announcement updates.'
       : failed
-        ? 'Device registration failed. Retry to receive chats, booking updates, and announcements.'
-        : 'Enable alerts to receive chats, booking updates, and announcements.'
+        ? 'Device registration failed. Retry to receive chat, booking, and announcement updates.'
+        : 'Enable notifications to receive chat, booking, and announcement updates.'
   const statusLabel = registrationState === 'registered'
     ? 'On'
     : blocked
@@ -7234,20 +8376,21 @@ export function NdjcNotificationOptInPanel({
       : blocked || failed
         ? 'Retry'
         : 'Enable'
-  const installAvailable = installState === 'available'
-  const installInstalled = installState === 'installed'
-  const installStatusLabel = installInstalled
-    ? 'Installed'
-    : installAvailable
-      ? 'Available'
-      : 'Manual setup'
-  const installTitle = 'Home Screen'
-  const installDescription = installInstalled
-    ? 'Open faster from your home screen and receive chat, booking, and announcement alerts more reliably.'
-    : installAvailable
-      ? 'Add this app for faster access and more reliable chat, booking, and announcement alerts.'
-      : 'Use Safari Share menu to add this app for faster access and more reliable alerts.'
-  const installActionLabel = installBusy ? 'Opening...' : 'Install'
+  const installInstallable = installState === 'installable'
+  const installManual = installState === 'ios-manual' || installState === 'safari-required'
+  const installGuideDescription = 'Open the browser menu and choose Add to Home Screen or Install app for faster access and better notification support. If you do not see this option, try Chrome, Edge, or Safari. Already added? You can ignore this.'
+  const installStatusLabel = installInstallable
+    ? 'Ready'
+    : installManual
+      ? 'Manual'
+      : 'Guide'
+  const installTitle = 'Add to Home Screen'
+  const installDescription = installInstallable
+    ? 'Add this customer hub to your device for faster access and better notification support. Already added? You can ignore this.'
+    : installManual
+      ? 'Tap Share, then Add to Home Screen for faster access and better notification support. Already added? You can ignore this.'
+      : installGuideDescription
+  const installActionLabel = installBusy ? 'Opening...' : 'Add'
 
   return (
     <div
@@ -7336,444 +8479,416 @@ export function NdjcNotificationOptInPanel({
             </p>
           </div>
 
-          <div
+          <section
             style={{
-              height: 1,
-              background: 'rgba(15, 23, 42, 0.08)'
-            }}
-          />
-
-          <div
-            style={{
-              color: '#64748b',
-              fontSize: 11,
-              lineHeight: 1,
-              fontWeight: 900,
-              letterSpacing: '0.04em',
-              textTransform: 'uppercase'
-            }}
-          >
-            Notifications
-          </div>
-
-          <div
-            style={{
-              display: 'grid',
-              gridTemplateColumns: '30px 1fr',
-              gap: 8,
-              alignItems: 'start'
+              borderRadius: 16,
+              padding: 10,
+              background: 'rgba(248, 250, 252, 0.78)',
+              border: '1px solid rgba(15, 23, 42, 0.07)',
+              boxShadow: 'inset 0 1px 0 rgba(255, 255, 255, 0.72)'
             }}
           >
             <div
-              aria-hidden="true"
               style={{
-                width: 32,
-                height: 32,
-                borderRadius: 16,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                background: registered
-                  ? 'linear-gradient(135deg, rgba(236, 253, 245, 0.98), rgba(209, 250, 229, 0.92))'
-                  : blocked || failed
-                    ? 'linear-gradient(135deg, rgba(255, 241, 242, 0.98), rgba(255, 228, 230, 0.92))'
-                    : 'linear-gradient(135deg, rgba(248, 250, 252, 0.98), rgba(241, 245, 249, 0.92))',
-                color: registered
-                  ? '#047857'
-                  : blocked || failed
-                    ? '#be123c'
-                    : '#111827',
-                boxShadow: registered
-                  ? 'inset 0 0 0 1px rgba(4, 120, 87, 0.14), 0 6px 14px rgba(4, 120, 87, 0.10)'
-                  : blocked || failed
-                    ? 'inset 0 0 0 1px rgba(190, 18, 60, 0.14), 0 6px 14px rgba(190, 18, 60, 0.08)'
-                    : 'inset 0 0 0 1px rgba(17, 24, 39, 0.08), 0 6px 14px rgba(15, 23, 42, 0.08)',
-                flexShrink: 0,
-                position: 'relative',
-                marginTop: 1
-              }}
-            >
-              <svg
-                width="17"
-                height="17"
-                viewBox="0 0 24 24"
-                fill="none"
-                aria-hidden="true"
-                focusable="false"
-                style={{
-                  display: 'block'
-                }}
-              >
-                <path
-                  d="M12 3.75c-3.05 0-5.45 2.45-5.45 5.55v2.3c0 1.28-.45 2.52-1.28 3.49L4.35 16.2c-.54.64-.08 1.62.76 1.62h13.78c.84 0 1.3-.98.76-1.62l-.92-1.11a5.37 5.37 0 0 1-1.28-3.49V9.3c0-3.1-2.4-5.55-5.45-5.55Z"
-                  stroke="currentColor"
-                  strokeWidth="2.15"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-                <path
-                  d="M9.7 19.25c.42.75 1.22 1.25 2.3 1.25s1.88-.5 2.3-1.25"
-                  stroke="currentColor"
-                  strokeWidth="2.15"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-                <path
-                  d="M15.75 6.05c.72.62 1.18 1.52 1.25 2.55"
-                  stroke="currentColor"
-                  strokeWidth="1.75"
-                  strokeLinecap="round"
-                  opacity="0.55"
-                />
-              </svg>
-
-              {registered ? (
-                <span
-                  aria-hidden="true"
-                  style={{
-                    position: 'absolute',
-                    right: 4,
-                    top: 4,
-                    width: 6,
-                    height: 6,
-                    borderRadius: 999,
-                    background: '#10b981',
-                    boxShadow: '0 0 0 2px rgba(236, 253, 245, 0.98)'
-                  }}
-                />
-              ) : null}
-
-              {blocked || failed ? (
-                <span
-                  aria-hidden="true"
-                  style={{
-                    position: 'absolute',
-                    right: 4,
-                    top: 4,
-                    width: 6,
-                    height: 6,
-                    borderRadius: 999,
-                    background: '#fb7185',
-                    boxShadow: '0 0 0 2px rgba(255, 241, 242, 0.98)'
-                  }}
-                />
-              ) : null}
-            </div>
-
-            <div
-              style={{
-                minWidth: 0,
                 display: 'grid',
-                gap: 4
+                gridTemplateColumns: '32px 1fr',
+                gap: 10,
+                alignItems: 'start'
               }}
             >
-              <span
+              <div
+                aria-hidden="true"
                 style={{
-                  width: 'fit-content',
-                  height: 22,
-                  padding: '0 9px',
-                  borderRadius: 999,
-                  display: 'inline-flex',
+                  width: 32,
+                  height: 32,
+                  borderRadius: 16,
+                  display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  gap: 6,
-                  background: registrationState === 'registered'
-                    ? 'rgba(236, 253, 245, 0.92)'
+                  background: registered
+                    ? 'linear-gradient(135deg, rgba(236, 253, 245, 0.98), rgba(209, 250, 229, 0.92))'
                     : blocked || failed
-                      ? 'rgba(255, 241, 242, 0.92)'
-                      : '#f8fafc',
-                  color: registrationState === 'registered'
+                      ? 'linear-gradient(135deg, rgba(255, 241, 242, 0.98), rgba(255, 228, 230, 0.92))'
+                      : 'linear-gradient(135deg, rgba(248, 250, 252, 0.98), rgba(241, 245, 249, 0.92))',
+                  color: registered
                     ? '#047857'
                     : blocked || failed
                       ? '#be123c'
-                      : '#475569',
-                  border: registrationState === 'registered'
-                    ? '1px solid rgba(4, 120, 87, 0.14)'
+                      : '#111827',
+                  boxShadow: registered
+                    ? 'inset 0 0 0 1px rgba(4, 120, 87, 0.14), 0 6px 14px rgba(4, 120, 87, 0.10)'
                     : blocked || failed
-                      ? '1px solid rgba(190, 18, 60, 0.14)'
-                      : '1px solid rgba(71, 85, 105, 0.14)',
-                  fontSize: 11,
-                  lineHeight: 1,
-                  fontWeight: 900,
-                  whiteSpace: 'nowrap',
-                  flexShrink: 0
+                      ? 'inset 0 0 0 1px rgba(190, 18, 60, 0.14), 0 6px 14px rgba(190, 18, 60, 0.08)'
+                      : 'inset 0 0 0 1px rgba(17, 24, 39, 0.08), 0 6px 14px rgba(15, 23, 42, 0.08)',
+                  flexShrink: 0,
+                  position: 'relative',
+                  marginTop: 1
                 }}
               >
-                <span
+                <svg
+                  width="17"
+                  height="17"
+                  viewBox="0 0 24 24"
+                  fill="none"
                   aria-hidden="true"
+                  focusable="false"
                   style={{
-                    width: 6,
-                    height: 6,
-                    borderRadius: 999,
-                    background: registrationState === 'registered'
-                      ? '#10b981'
-                      : blocked || failed
-                        ? '#fb7185'
-                        : '#94a3b8',
-                    flexShrink: 0
+                    display: 'block'
                   }}
-                />
-                {statusLabel}
-              </span>
-
-              <h2
-                style={{
-                  margin: 0,
-                  color: '#111827',
-                  fontSize: 16,
-                  lineHeight: 1.18,
-                  fontWeight: 900,
-                  letterSpacing: '-0.02em'
-                }}
-              >
-                {title}
-              </h2>
-
-              <p
-                style={{
-                  margin: 0,
-                  color: 'rgba(17, 24, 39, 0.66)',
-                  fontSize: 12,
-                  lineHeight: 1.35,
-                  fontWeight: 600
-                }}
-              >
-                {description}
-              </p>
-            </div>
-          </div>
-
-
-
-          <div
-            style={{
-              display: 'flex',
-              justifyContent: 'flex-end'
-            }}
-          >
-            <div style={{ width: 116 }}>
-              <NdjcPrimaryActionButton
-                className="ndjc-notification-action-button"
-                onClick={onRegister}
-                disabled={busy}
-                isLoading={busy}
-              >
-                {actionLabel}
-              </NdjcPrimaryActionButton>
-            </div>
-          </div>
-
-          <div
-            style={{
-              height: 1,
-              background: 'rgba(15, 23, 42, 0.08)'
-            }}
-          />
-
-          <div
-            style={{
-              color: '#64748b',
-              fontSize: 11,
-              lineHeight: 1,
-              fontWeight: 900,
-              letterSpacing: '0.04em',
-              textTransform: 'uppercase'
-            }}
-          >
-            Home screen
-          </div>
-
-          <div
-            style={{
-              display: 'grid',
-              gridTemplateColumns: '30px 1fr',
-              gap: 8,
-              alignItems: 'start'
-            }}
-          >
-            <div
-              aria-hidden="true"
-              style={{
-                width: 32,
-                height: 32,
-                borderRadius: 16,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                background: installInstalled
-                  ? 'linear-gradient(135deg, rgba(236, 253, 245, 0.98), rgba(209, 250, 229, 0.92))'
-                  : installAvailable
-                    ? 'linear-gradient(135deg, rgba(239, 246, 255, 0.98), rgba(219, 234, 254, 0.92))'
-                    : 'linear-gradient(135deg, rgba(248, 250, 252, 0.98), rgba(241, 245, 249, 0.92))',
-                color: installInstalled
-                  ? '#047857'
-                  : installAvailable
-                    ? '#1d4ed8'
-                    : '#475569',
-                boxShadow: installInstalled
-                  ? 'inset 0 0 0 1px rgba(4, 120, 87, 0.14), 0 6px 14px rgba(4, 120, 87, 0.10)'
-                  : installAvailable
-                    ? 'inset 0 0 0 1px rgba(29, 78, 216, 0.14), 0 6px 14px rgba(29, 78, 216, 0.08)'
-                    : 'inset 0 0 0 1px rgba(17, 24, 39, 0.08), 0 6px 14px rgba(15, 23, 42, 0.08)',
-                flexShrink: 0,
-                position: 'relative',
-                marginTop: 1
-              }}
-            >
-              <svg
-                width="17"
-                height="17"
-                viewBox="0 0 24 24"
-                fill="none"
-                aria-hidden="true"
-                focusable="false"
-                style={{
-                  display: 'block'
-                }}
-              >
-                <rect
-                  x="7"
-                  y="2.75"
-                  width="10"
-                  height="18.5"
-                  rx="2.5"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                />
-                <path
-                  d="M10.25 17.75h3.5"
-                  stroke="currentColor"
-                  strokeWidth="1.75"
-                  strokeLinecap="round"
-                />
-                <path
-                  d="M9.5 6.25h5"
-                  stroke="currentColor"
-                  strokeWidth="1.75"
-                  strokeLinecap="round"
-                  opacity="0.6"
-                />
-              </svg>
-
-              {installInstalled ? (
-                <span
-                  aria-hidden="true"
-                  style={{
-                    position: 'absolute',
-                    right: 4,
-                    top: 4,
-                    width: 6,
-                    height: 6,
-                    borderRadius: 999,
-                    background: '#10b981',
-                    boxShadow: '0 0 0 2px rgba(236, 253, 245, 0.98)'
-                  }}
-                />
-              ) : null}
-            </div>
-
-            <div
-              style={{
-                minWidth: 0,
-                display: 'grid',
-                gap: 4
-              }}
-            >
-              <span
-                style={{
-                  width: 'fit-content',
-                  height: 22,
-                  padding: '0 9px',
-                  borderRadius: 999,
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: 6,
-                  background: installInstalled
-                    ? 'rgba(236, 253, 245, 0.92)'
-                    : installAvailable
-                      ? 'rgba(239, 246, 255, 0.92)'
-                      : '#f8fafc',
-                  color: installInstalled
-                    ? '#047857'
-                    : installAvailable
-                      ? '#1d4ed8'
-                      : '#475569',
-                  border: installInstalled
-                    ? '1px solid rgba(4, 120, 87, 0.14)'
-                    : installAvailable
-                      ? '1px solid rgba(29, 78, 216, 0.14)'
-                      : '1px solid rgba(71, 85, 105, 0.14)',
-                  fontSize: 11,
-                  lineHeight: 1,
-                  fontWeight: 900,
-                  whiteSpace: 'nowrap',
-                  flexShrink: 0
-                }}
-              >
-                <span
-                  aria-hidden="true"
-                  style={{
-                    width: 6,
-                    height: 6,
-                    borderRadius: 999,
-                    background: installInstalled
-                      ? '#10b981'
-                      : installAvailable
-                        ? '#3b82f6'
-                        : '#94a3b8',
-                    flexShrink: 0
-                  }}
-                />
-                {installStatusLabel}
-              </span>
-
-              <h2
-                style={{
-                  margin: 0,
-                  color: '#111827',
-                  fontSize: 16,
-                  lineHeight: 1.18,
-                  fontWeight: 900,
-                  letterSpacing: '-0.02em'
-                }}
-              >
-                {installTitle}
-              </h2>
-
-              <p
-                style={{
-                  margin: 0,
-                  color: 'rgba(17, 24, 39, 0.66)',
-                  fontSize: 12,
-                  lineHeight: 1.35,
-                  fontWeight: 600
-                }}
-              >
-                {installDescription}
-              </p>
-            </div>
-          </div>
-
-          {installAvailable ? (
-            <div
-              style={{
-                display: 'flex',
-                justifyContent: 'flex-end'
-              }}
-            >
-              <div style={{ width: 116 }}>
-                <NdjcPrimaryActionButton
-                  className="ndjc-notification-action-button"
-                  onClick={onInstall}
-                  disabled={installBusy}
-                  isLoading={installBusy}
                 >
-                  {installActionLabel}
-                </NdjcPrimaryActionButton>
+                  <path
+                    d="M12 3.75c-3.05 0-5.45 2.45-5.45 5.55v2.3c0 1.28-.45 2.52-1.28 3.49L4.35 16.2c-.54.64-.08 1.62.76 1.62h13.78c.84 0 1.3-.98.76-1.62l-.92-1.11a5.37 5.37 0 0 1-1.28-3.49V9.3c0-3.1-2.4-5.55-5.45-5.55Z"
+                    stroke="currentColor"
+                    strokeWidth="2.15"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                  <path
+                    d="M9.7 19.25c.42.75 1.22 1.25 2.3 1.25s1.88-.5 2.3-1.25"
+                    stroke="currentColor"
+                    strokeWidth="2.15"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                  <path
+                    d="M15.75 6.05c.72.62 1.18 1.52 1.25 2.55"
+                    stroke="currentColor"
+                    strokeWidth="1.75"
+                    strokeLinecap="round"
+                    opacity="0.55"
+                  />
+                </svg>
+
+                {registered ? (
+                  <span
+                    aria-hidden="true"
+                    style={{
+                      position: 'absolute',
+                      right: 4,
+                      top: 4,
+                      width: 6,
+                      height: 6,
+                      borderRadius: 999,
+                      background: '#10b981',
+                      boxShadow: '0 0 0 2px rgba(236, 253, 245, 0.98)'
+                    }}
+                  />
+                ) : null}
+
+                {blocked || failed ? (
+                  <span
+                    aria-hidden="true"
+                    style={{
+                      position: 'absolute',
+                      right: 4,
+                      top: 4,
+                      width: 6,
+                      height: 6,
+                      borderRadius: 999,
+                      background: '#fb7185',
+                      boxShadow: '0 0 0 2px rgba(255, 241, 242, 0.98)'
+                    }}
+                  />
+                ) : null}
+              </div>
+
+              <div
+                style={{
+                  minWidth: 0,
+                  display: 'grid',
+                  gap: 8
+                }}
+              >
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    gap: 8,
+                    minWidth: 0
+                  }}
+                >
+                  <h2
+                    style={{
+                      margin: 0,
+                      color: '#111827',
+                      fontSize: 15,
+                      lineHeight: 1.16,
+                      fontWeight: 900,
+                      letterSpacing: '-0.02em',
+                      minWidth: 0
+                    }}
+                  >
+                    {title}
+                  </h2>
+
+                  <span
+                    style={{
+                      height: 20,
+                      padding: '0 8px',
+                      borderRadius: 999,
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: 5,
+                      background: registrationState === 'registered'
+                        ? 'rgba(236, 253, 245, 0.92)'
+                        : blocked || failed
+                          ? 'rgba(255, 241, 242, 0.92)'
+                          : '#ffffff',
+                      color: registrationState === 'registered'
+                        ? '#047857'
+                        : blocked || failed
+                          ? '#be123c'
+                          : '#475569',
+                      border: registrationState === 'registered'
+                        ? '1px solid rgba(4, 120, 87, 0.14)'
+                        : blocked || failed
+                          ? '1px solid rgba(190, 18, 60, 0.14)'
+                          : '1px solid rgba(71, 85, 105, 0.14)',
+                      fontSize: 11,
+                      lineHeight: 1,
+                      fontWeight: 900,
+                      whiteSpace: 'nowrap',
+                      flexShrink: 0
+                    }}
+                  >
+                    <span
+                      aria-hidden="true"
+                      style={{
+                        width: 5,
+                        height: 5,
+                        borderRadius: 999,
+                        background: registrationState === 'registered'
+                          ? '#10b981'
+                          : blocked || failed
+                            ? '#fb7185'
+                            : '#94a3b8',
+                        flexShrink: 0
+                      }}
+                    />
+                    {statusLabel}
+                  </span>
+                </div>
+
+                <p
+                  style={{
+                    margin: 0,
+                    color: 'rgba(17, 24, 39, 0.66)',
+                    fontSize: 12,
+                    lineHeight: 1.36,
+                    fontWeight: 600
+                  }}
+                >
+                  {description}
+                </p>
+
+                <div
+                  style={{
+                    display: 'flex',
+                    justifyContent: 'flex-end'
+                  }}
+                >
+                  <div style={{ width: 116 }}>
+                    <NdjcControlPillButton
+                      active
+                      tone="adminAction"
+                      fullWidth
+                      onClick={onRegister}
+                      disabled={busy}
+                    >
+                      {busy ? 'Working...' : actionLabel}
+                    </NdjcControlPillButton>
+                  </div>
+                </div>
               </div>
             </div>
-          ) : null}
+          </section>
+
+          <section
+            style={{
+              borderRadius: 16,
+              padding: 10,
+              background: 'rgba(248, 250, 252, 0.78)',
+              border: '1px solid rgba(15, 23, 42, 0.07)',
+              boxShadow: 'inset 0 1px 0 rgba(255, 255, 255, 0.72)'
+            }}
+          >
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns: '32px 1fr',
+                gap: 10,
+                alignItems: 'start'
+              }}
+            >
+              <div
+                aria-hidden="true"
+                style={{
+                  width: 32,
+                  height: 32,
+                  borderRadius: 16,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  background: installInstallable
+                    ? 'linear-gradient(135deg, rgba(239, 246, 255, 0.98), rgba(219, 234, 254, 0.92))'
+                    : 'linear-gradient(135deg, rgba(248, 250, 252, 0.98), rgba(241, 245, 249, 0.92))',
+                  color: installInstallable
+                    ? '#1d4ed8'
+                    : '#475569',
+                  boxShadow: installInstallable
+                    ? 'inset 0 0 0 1px rgba(29, 78, 216, 0.14), 0 6px 14px rgba(29, 78, 216, 0.08)'
+                    : 'inset 0 0 0 1px rgba(17, 24, 39, 0.08), 0 6px 14px rgba(15, 23, 42, 0.08)',
+                  flexShrink: 0,
+                  position: 'relative',
+                  marginTop: 1
+                }}
+              >
+                <svg
+                  width="17"
+                  height="17"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  aria-hidden="true"
+                  focusable="false"
+                  style={{
+                    display: 'block'
+                  }}
+                >
+                  <rect
+                    x="7"
+                    y="2.75"
+                    width="10"
+                    height="18.5"
+                    rx="2.5"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                  />
+                  <path
+                    d="M10.25 17.75h3.5"
+                    stroke="currentColor"
+                    strokeWidth="1.75"
+                    strokeLinecap="round"
+                  />
+                  <path
+                    d="M9.5 6.25h5"
+                    stroke="currentColor"
+                    strokeWidth="1.75"
+                    strokeLinecap="round"
+                    opacity="0.6"
+                  />
+                </svg>
+
+
+              </div>
+
+              <div
+                style={{
+                  minWidth: 0,
+                  display: 'grid',
+                  gap: 8
+                }}
+              >
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    gap: 8,
+                    minWidth: 0
+                  }}
+                >
+                  <h2
+                    style={{
+                      margin: 0,
+                      color: '#111827',
+                      fontSize: 15,
+                      lineHeight: 1.16,
+                      fontWeight: 900,
+                      letterSpacing: '-0.02em',
+                      minWidth: 0
+                    }}
+                  >
+                    {installTitle}
+                  </h2>
+
+                  <span
+                    style={{
+                      height: 20,
+                      padding: '0 8px',
+                      borderRadius: 999,
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: 5,
+                      background: installInstallable
+                        ? 'rgba(239, 246, 255, 0.92)'
+                        : '#ffffff',
+                      color: installInstallable
+                        ? '#1d4ed8'
+                        : '#475569',
+                      border: installInstallable
+                        ? '1px solid rgba(29, 78, 216, 0.14)'
+                        : '1px solid rgba(71, 85, 105, 0.14)',
+                      fontSize: 11,
+                      lineHeight: 1,
+                      fontWeight: 900,
+                      whiteSpace: 'nowrap',
+                      flexShrink: 0
+                    }}
+                  >
+                    <span
+                      aria-hidden="true"
+                      style={{
+                        width: 5,
+                        height: 5,
+                        borderRadius: 999,
+                        background: installInstallable
+                          ? '#3b82f6'
+                          : '#94a3b8',
+                        flexShrink: 0
+                      }}
+                    />
+                    {installStatusLabel}
+                  </span>
+                </div>
+
+                <p
+                  style={{
+                    margin: 0,
+                    color: 'rgba(17, 24, 39, 0.66)',
+                    fontSize: 12,
+                    lineHeight: 1.36,
+                    fontWeight: 600
+                  }}
+                >
+                  {installDescription}
+                </p>
+
+                {installInstallable ? (
+                  <div
+                    style={{
+                      display: 'flex',
+                      justifyContent: 'flex-end'
+                    }}
+                  >
+                    <div style={{ width: 116 }}>
+                      <NdjcControlPillButton
+                        active
+                        tone="adminAction"
+                        fullWidth
+                        onClick={onInstall}
+                        disabled={installBusy}
+                      >
+                        {installActionLabel}
+                      </NdjcControlPillButton>
+                    </div>
+                  </div>
+                ) : null}
+              </div>
+            </div>
+          </section>
         </div>
       </NdjcWhiteCard>
     </div>
@@ -7796,7 +8911,7 @@ export function NdjcNotificationOptInFloatingButton({
   const failed = registrationState === 'failed'
   const hasProblem = failed || blocked
   const ariaLabel = open ? 'Close app setup' : 'Open app setup'
-  const iconTint = APK_SHELL_UI.white
+  const iconTint = '#111111'
 
   const notificationIcon = open ? (
     <span
@@ -8099,32 +9214,44 @@ export function SheetHeader({
   title,
   clearText = 'Clear',
   showAction = true,
+  showDivider = true,
+  headerPaddingX = APK_FILTER_UI.sheetHeaderPaddingX,
   onClear
 }: {
   title: string
   clearText?: string
   showAction?: boolean
+  showDivider?: boolean
+  headerPaddingX?: number
   onClear?: () => void
 }) {
   return (
     <header className="ndjc-sheet-header" style={apkSheetHeaderRootStyle}>
-      <div className="ndjc-sheet-header-row" style={apkSheetHeaderRowStyle}>
+      <div
+        className="ndjc-sheet-header-row"
+        style={{
+          ...apkSheetHeaderRowStyle,
+          padding: `${APK_FILTER_UI.sheetHeaderPaddingTop}px ${headerPaddingX}px ${APK_FILTER_UI.sheetHeaderPaddingBottom}px`
+        }}
+      >
         <h2 id="ndjc-filter-bottom-sheet-title" style={apkSheetHeaderTitleStyle}>
           {title}
         </h2>
 
         {showAction && onClear ? (
-          <NdjcPillButton
-            selected={false}
+          <NdjcControlPillButton
+            active
+            tone="adminAction"
             onClick={onClear}
-            className="ndjc-sheet-clear-pill"
           >
             {clearText}
-          </NdjcPillButton>
+          </NdjcControlPillButton>
         ) : null}
       </div>
 
-      <div className="ndjc-sheet-header-divider" style={apkSheetDividerStyle} aria-hidden="true" />
+      {showDivider ? (
+        <div className="ndjc-sheet-header-divider" style={apkSheetDividerStyle} aria-hidden="true" />
+      ) : null}
     </header>
   )
 }
@@ -8144,6 +9271,8 @@ function NdjcFilterBottomSheet({
   onPriceMaxDraftChange,
   showPriceFields = false,
   showHeaderAction = true,
+  showHeaderDivider = true,
+  headerPaddingX,
   showApplyButton = true,
   applyLoading = false
 }: {
@@ -8161,6 +9290,8 @@ function NdjcFilterBottomSheet({
   onPriceMaxDraftChange?: (value: string) => void
   showPriceFields?: boolean
   showHeaderAction?: boolean
+  showHeaderDivider?: boolean
+  headerPaddingX?: number
   showApplyButton?: boolean
   applyLoading?: boolean
 }) {
@@ -8350,6 +9481,8 @@ function NdjcFilterBottomSheet({
           title={title}
           clearText={clearText}
           showAction={showHeaderAction && Boolean(onClear)}
+          showDivider={showHeaderDivider}
+          headerPaddingX={headerPaddingX}
           onClear={handleClearClick}
         />
 
@@ -8361,8 +9494,8 @@ function NdjcFilterBottomSheet({
                 width: '100%',
                 display: 'grid',
                 gridTemplateColumns: '1fr 1fr',
-                gap: 10,
-                alignItems: 'center',
+                gap: NDJC_GLOBAL_UI_TOKENS.rhythm.fieldToHelper,
+                alignItems: 'start',
                 boxSizing: 'border-box'
               }}
             >
@@ -8392,19 +9525,20 @@ function NdjcFilterBottomSheet({
 
           {showApplyButton && onApply ? (
             <>
-              <div style={{ height: 6 }} aria-hidden="true" />
+              <div style={{ height: 4 }} aria-hidden="true" />
 
-              <NdjcPrimaryActionButton
-                className="ndjc-filter-bottom-sheet-apply"
+              <NdjcControlPillButton
                 disabled={applyLoading}
-                isLoading={applyLoading}
+                active
+                tone="adminAction"
+                fullWidth
                 onClick={() => {
                   if (applyLoading) return
                   handleApplyClick()
                 }}
               >
-                {applyText}
-              </NdjcPrimaryActionButton>
+                {applyLoading ? 'Applying...' : applyText}
+              </NdjcControlPillButton>
             </>
           ) : null}
         </div>
@@ -8447,13 +9581,71 @@ export function SmallActiveChip({
 export function SortNavEqualItem({
   text,
   selected,
-  onClick
+  onClick,
+  variant = 'equal'
 }: {
   text: string
   selected: boolean
   onClick: () => void
+  variant?: 'equal' | 'segmented'
 }) {
   const [pressed, setPressed] = React.useState(false)
+
+  if (variant === 'segmented') {
+    return (
+      <button
+        type="button"
+        className={cx('ndjc-sort-nav-equal-item', 'ndjc-sort-nav-segmented-item', selected && 'is-selected')}
+        onClick={onClick}
+        onPointerDown={() => setPressed(true)}
+        onPointerUp={() => setPressed(false)}
+        onPointerCancel={() => setPressed(false)}
+        onPointerLeave={() => setPressed(false)}
+        role="tab"
+        aria-selected={selected}
+        aria-pressed={selected}
+        style={{
+          width: '100%',
+          minWidth: 0,
+          height: 28,
+          minHeight: 28,
+          border: 0,
+          borderRadius: NDJC_ADMIN_TOOL_UI.segmentedInnerRadius,
+          padding: '0 10px',
+          display: 'inline-flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          color: selected ? NDJC_ADMIN_TOOL_UI.white : NDJC_ADMIN_TOOL_UI.weakText,
+          background: selected ? NDJC_ADMIN_TOOL_UI.emphasis : 'transparent',
+          boxShadow: 'none',
+          fontSize: 12,
+          lineHeight: 1,
+          fontWeight: selected ? 700 : 600,
+          whiteSpace: 'nowrap',
+          overflow: 'hidden',
+          textOverflow: 'ellipsis',
+          cursor: 'pointer',
+          appearance: 'none',
+          WebkitAppearance: 'none',
+          WebkitTapHighlightColor: 'transparent',
+          touchAction: 'manipulation',
+          transform: pressed ? 'scale(0.97)' : 'scale(1)',
+          transition: 'background 140ms ease, color 140ms ease, transform 120ms ease'
+        }}
+      >
+        <span
+          style={{
+            minWidth: 0,
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap'
+          }}
+        >
+          {text}
+        </span>
+      </button>
+    )
+  }
 
   return (
     <div
@@ -8482,11 +9674,40 @@ export function SortNavEqualItem({
 
 export function SortRow({
   children,
-  columns = APK_FILTER_UI.rowEqualColumns
+  columns = APK_FILTER_UI.rowEqualColumns,
+  variant = 'equal',
+  ariaLabel = 'Sort and filter'
 }: {
   children: React.ReactNode
   columns?: number
+  variant?: 'equal' | 'segmented'
+  ariaLabel?: string
 }) {
+  if (variant === 'segmented') {
+    return (
+      <section
+        className="ndjc-sort-row ndjc-sort-row-segmented"
+        style={{
+          width: '100%',
+          height: 36,
+          padding: 4,
+          boxSizing: 'border-box',
+          display: 'grid',
+          gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))`,
+          gap: 4,
+          alignItems: 'center',
+          borderRadius: NDJC_ADMIN_TOOL_UI.segmentedOuterRadius,
+          background: APK_EDIT_ITEM_UI.fieldBackground,
+          boxShadow: 'none'
+        }}
+        role="tablist"
+        aria-label={ariaLabel}
+      >
+        {children}
+      </section>
+    )
+  }
+
   return (
     <section
       className="ndjc-sort-row"
@@ -8499,7 +9720,7 @@ export function SortRow({
         boxSizing: 'border-box'
       }}
       role="tablist"
-      aria-label="Sort and filter"
+      aria-label={ariaLabel}
     >
       {children}
     </section>
@@ -8544,9 +9765,9 @@ export function TopSearchBar({
       <div className="ndjc-top-search-banner" style={apkTopSearchBarStyle}>
         <div className="ndjc-top-search-inner-row" style={apkTopSearchInnerRowStyle}>
           <div className="ndjc-top-search-input-wrap" style={apkTopSearchInputWrapStyle}>
-<span className="ndjc-top-search-icon" style={apkTopSearchIconStyle} aria-hidden="true">
-  <NdjcSearchOutlinedIcon />
-</span>
+            <span className="ndjc-top-search-icon" style={apkTopSearchIconStyle} aria-hidden="true">
+              <NdjcSearchOutlinedIcon />
+            </span>
 
             <span aria-hidden="true" />
 
@@ -8571,17 +9792,17 @@ export function TopSearchBar({
             </button>
           ) : null}
 
-{onProfileClick ? (
-  <button
-    type="button"
-    className="ndjc-top-search-profile-button"
-    style={apkTopSearchRoundButtonStyle}
-    onClick={onProfileClick}
-    aria-label="Profile"
-  >
-    <NdjcAccountCircleOutlinedIcon />
-  </button>
-) : null}
+          {onProfileClick ? (
+            <button
+              type="button"
+              className="ndjc-top-search-profile-button"
+              style={apkTopSearchRoundButtonStyle}
+              onClick={onProfileClick}
+              aria-label="Open store admin"
+            >
+              <NdjcTopSearchStorefrontIcon />
+            </button>
+          ) : null}
         </div>
       </div>
     </section>
@@ -8600,7 +9821,8 @@ export function NdjcShimmerImage({
   imageWidth,
   imageHeight,
   sizes,
-  blurDataUrl
+  blurDataUrl,
+  backgroundColor = APK_MEDIA_UI.imagePlaceholderBg
 }: {
   src?: string | null
   alt: string
@@ -8614,6 +9836,7 @@ export function NdjcShimmerImage({
   imageHeight?: number
   sizes?: string
   blurDataUrl?: string | null
+  backgroundColor?: string
 }) {
   const cleanSrc = src?.trim() || ''
   const imageRef = React.useRef<HTMLImageElement | null>(null)
@@ -8681,7 +9904,8 @@ export function NdjcShimmerImage({
       className={cx('ndjc-shimmer-image-root', !loaded && !failed && 'is-loading', failed && 'is-failed', className)}
       style={{
         ...apkImageRootStyle,
-        borderRadius: placeholderCornerRadius
+        borderRadius: placeholderCornerRadius,
+        background: backgroundColor
       }}
       aria-label={alt}
     >
@@ -8693,6 +9917,7 @@ export function NdjcShimmerImage({
           style={{
             ...apkImagePlaceholderStyle,
             borderRadius: placeholderCornerRadius,
+            background: backgroundColor,
             backgroundImage: blurDataUrl ? `url(${blurDataUrl})` : apkImagePlaceholderStyle.backgroundImage,
             backgroundSize: 'cover',
             backgroundPosition: 'center'
@@ -8712,7 +9937,8 @@ export function NdjcShimmerImage({
           className="ndjc-shimmer-image-failed"
           style={{
             ...apkImageFailurePlaceholderStyle,
-            borderRadius: placeholderCornerRadius
+            borderRadius: placeholderCornerRadius,
+            background: backgroundColor
           }}
           aria-hidden="true"
         >
@@ -8764,6 +9990,7 @@ export function NdjcShimmerImage({
           style={{
             ...apkImageFillStyle,
             objectFit: contentScale,
+            background: backgroundColor,
             opacity: loaded ? 1 : 0,
             userSelect: 'none',
             WebkitUserSelect: 'none',
@@ -9594,6 +10821,7 @@ export function NdjcFullscreenImageViewerScreen({
                       loading="eager"
                       fetchPriority={isActivePage ? 'high' : 'low'}
                       decoding="async"
+                      backgroundColor={APK_MEDIA_UI.fullscreenBg}
                     />
                   </span>
                 </section>
@@ -9730,6 +10958,12 @@ export function UploadTile({
   hasImage?: boolean
 }) {
   const canClick = enabled ?? !disabled
+  const [pressed, setPressed] = React.useState(false)
+  const isPressed = Boolean(pressed && canClick)
+
+  function releasePressState(): void {
+    setPressed(false)
+  }
 
   return (
     <button
@@ -9737,23 +10971,43 @@ export function UploadTile({
       className={cx('ndjc-upload-tile', !canClick && 'is-disabled', hasImage && 'has-image')}
       style={{
         ...apkUploadTileStyle,
+        borderColor: isPressed ? APK_MEDIA_UI.uploadPressedBorder : APK_MEDIA_UI.uploadBorder,
+        background: isPressed ? APK_MEDIA_UI.uploadPressedBg : APK_MEDIA_UI.uploadBg,
+        boxShadow: isPressed ? '0 8px 18px rgba(15, 23, 42, 0.08)' : 'none',
+        transform: isPressed ? `scale(${NDJC_GLOBAL_UI_TOKENS.motion.pressScale})` : 'scale(1)',
         opacity: canClick ? 1 : 0.55,
         cursor: canClick ? 'pointer' : 'not-allowed'
       }}
       disabled={!canClick}
+      onPointerDown={() => {
+        if (!canClick) return
+        setPressed(true)
+      }}
+      onPointerUp={releasePressState}
+      onPointerCancel={releasePressState}
+      onPointerLeave={releasePressState}
+      onBlur={releasePressState}
       onClick={onClick}
       aria-label={label}
     >
       <span
-        style={{
-          color: APK_MEDIA_UI.white,
-          fontSize: APK_MEDIA_UI.uploadIconSize,
-          lineHeight: 1,
-          fontWeight: 600
-        }}
         aria-hidden="true"
+        style={{
+          display: 'grid',
+          placeItems: 'center',
+          color: APK_MEDIA_UI.uploadIconColor
+        }}
       >
-        ＋
+        <span
+          style={{
+            color: APK_MEDIA_UI.uploadIconColor,
+            fontSize: APK_MEDIA_UI.uploadIconSize,
+            lineHeight: 1,
+            fontWeight: 400
+          }}
+        >
+          ＋
+        </span>
       </span>
 
       <strong className="ndjc-upload-tile-label" style={apkVisuallyHiddenStyle}>
@@ -10626,11 +11880,16 @@ export function NdjcHomeStyleMediaCard({
                 <span style={{ height: 0 }} aria-hidden="true" />
               )}
 
+              {cleanBadgeText ? (
+                <NdjcItemStatusBadge text={cleanBadgeText} />
+              ) : null}
+
               <div
                 style={{
                   width: '100%',
                   display: 'flex',
-                  alignItems: 'center'
+                  alignItems: 'center',
+                  minWidth: 0
                 }}
               >
                 <div style={{ ...apkHomePriceRowStyle, flex: '1 1 auto', minWidth: 0 }}>
@@ -10640,13 +11899,6 @@ export function NdjcHomeStyleMediaCard({
                     <span style={apkHomeSecondaryPriceStyle}>{cleanSecondaryText}</span>
                   ) : null}
                 </div>
-
-                {cleanBadgeText ? (
-                  <>
-                    <span style={{ width: 8, flex: '0 0 8px' }} aria-hidden="true" />
-                    <NdjcItemStatusBadge text={cleanBadgeText} />
-                  </>
-                ) : null}
 
                 {bottomTrailingContent ? (
                   <>
@@ -10710,7 +11962,7 @@ export function NdjcCatalogItemCard({
       style={{
         ...apkCatalogCardStyle(pressed),
         opacity: dish.isSoldOut ? APK_SHOWCASE_ITEM_UI.disabledAlpha : 1,
-        outline: selected ? APK_SHOWCASE_ITEM_UI.selectedOutline : '0 solid transparent'
+        outline: '0 solid transparent'
       }}
     >
       <button
@@ -10781,7 +12033,7 @@ export function NdjcCatalogItemCard({
                   ) : null}
                 </span>
 
-                {resolvedMetaText ? (
+                {!trailing && resolvedMetaText ? (
                   <span style={apkCatalogMetaTextStyle}>
                     {resolvedMetaText}
                   </span>
@@ -10802,14 +12054,33 @@ export function NdjcCatalogItemCard({
         <div
           className="ndjc-catalog-item-trailing"
           style={{
-            minWidth: 0,
+            width: 72,
+            minWidth: 72,
+            minHeight: APK_SHOWCASE_ITEM_UI.catalogImageSize,
             display: 'grid',
-            placeItems: 'center'
+            gridTemplateRows: 'auto minmax(0, 1fr) auto',
+            alignItems: 'start',
+            justifyItems: 'end'
           }}
           onPointerDown={event => event.stopPropagation()}
           onClick={event => event.stopPropagation()}
         >
-          {trailing}
+          <span
+            style={{
+              display: 'grid',
+              placeItems: 'center'
+            }}
+          >
+            {trailing}
+          </span>
+
+          <span aria-hidden="true" />
+
+          {resolvedMetaText ? (
+            <span style={apkCatalogMetaTextStyle}>
+              {resolvedMetaText}
+            </span>
+          ) : null}
         </div>
       ) : null}
 
@@ -10839,7 +12110,8 @@ export function NdjcLinkedCatalogItemCard({
   onToggleSelect,
   trailing,
   middle,
-  bottom
+  bottom,
+  titleStyle
 }: {
   title: string
   imageUrl?: string | null
@@ -10857,6 +12129,7 @@ export function NdjcLinkedCatalogItemCard({
   trailing?: React.ReactNode
   middle?: React.ReactNode
   bottom?: React.ReactNode
+  titleStyle?: React.CSSProperties
 }) {
   const cleanTitle = title || 'Untitled item'
   const cleanPrice = String(price || '').trim()
@@ -10949,7 +12222,13 @@ export function NdjcLinkedCatalogItemCard({
         </span>
 
         <span className="ndjc-catalog-item-body" style={apkCatalogBodyStyle}>
-          <strong className="ndjc-catalog-item-title" style={apkCatalogTitleStyle}>
+          <strong
+            className="ndjc-catalog-item-title"
+            style={{
+              ...apkCatalogTitleStyle,
+              ...titleStyle
+            }}
+          >
             {cleanTitle}
           </strong>
 
@@ -11104,7 +12383,7 @@ export function NdjcAdminPageProgressSlot({
         height: 4,
         borderRadius: 999,
         overflow: 'hidden',
-        background: active ? 'rgba(38, 198, 164, 0.18)' : 'transparent',
+        background: active ? `rgba(${APK_SHOWCASE_COLOR_TOKENS.primaryRgb}, 0.25)` : 'transparent',
         transition: 'background 120ms ease',
         flexShrink: 0,
         position: 'relative',
@@ -11132,6 +12411,43 @@ export function NdjcAdminPageProgressSlot({
     </div>
   )
 }
+function NdjcPullRefreshHintSpinner() {
+  const bars = Array.from({ length: 12 }, (_, index) => index)
+
+  return (
+    <span
+      className="ndjc-pull-refresh-hint-spinner"
+      aria-hidden="true"
+      style={{
+        position: 'relative',
+        width: 16,
+        height: 16,
+        display: 'inline-block',
+        flexShrink: 0,
+        animation: 'ndjcSpinnerRotate 0.85s steps(12, end) infinite'
+      }}
+    >
+      {bars.map((index) => (
+        <span
+          key={index}
+          style={{
+            position: 'absolute',
+            left: '50%',
+            top: 1,
+            width: 2,
+            height: 4,
+            borderRadius: 999,
+            background: APK_SHOWCASE_COLOR_TOKENS.primary,
+            opacity: 0.22 + index * 0.055,
+            transform: `translateX(-50%) rotate(${index * 30}deg)`,
+            transformOrigin: '1px 7px'
+          }}
+        />
+      ))}
+    </span>
+  )
+}
+
 export function NdjcPullRefreshContainer({
   children,
   isRefreshing = false,
@@ -11289,10 +12605,20 @@ export function NdjcPullRefreshContainer({
             style={{
               ...apkPullRefreshHintPillStyle,
               opacity: hintText ? 1 : 0,
-              transform: hintText ? 'translateY(18px)' : 'translateY(-120%)'
+              transform: hintText ? 'translateY(18px)' : 'translateY(-120%)',
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: activeRefreshing ? 7 : 0
             }}
           >
-            {hintText || 'Pull to refresh'}
+            {activeRefreshing ? (
+              <NdjcPullRefreshHintSpinner />
+            ) : null}
+
+            <span>
+              {hintText || 'Pull to refresh'}
+            </span>
           </span>
         </div>
       ) : null}
@@ -11971,13 +13297,58 @@ function AppointmentDatePill({
   onClick: () => void
 }) {
   return (
-    <AppointmentCalendarDayButton
-      title={title}
-      subtitle={subtitle}
+    <NdjcPillButton
       selected={selected}
       disabled={disabled}
+      variant="date"
       onClick={onClick}
-    />
+    >
+      <span
+        style={{
+          minWidth: 0,
+          display: 'grid',
+          justifyItems: 'center',
+          gap: 2
+        }}
+      >
+        <strong
+          style={{
+            maxWidth: '100%',
+            color: 'currentColor',
+            fontSize: APK_CORE_UI.pillFontSize,
+            lineHeight: 1.1,
+            fontWeight: selected ? 700 : 650,
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap'
+          }}
+        >
+          {title}
+        </strong>
+
+        {subtitle ? (
+          <span
+            style={{
+              maxWidth: '100%',
+              color: selected
+                ? 'currentColor'
+                : disabled
+                  ? APK_APPOINTMENT_UI.disabledText
+                  : 'currentColor',
+              opacity: selected ? 0.72 : 1,
+              fontSize: 12,
+              lineHeight: 1.1,
+              fontWeight: 550,
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap'
+            }}
+          >
+            {subtitle}
+          </span>
+        ) : null}
+      </span>
+    </NdjcPillButton>
   )
 }
 
@@ -12387,6 +13758,25 @@ function NdjcBottomTabVertical({
     </button>
   )
 }
+function NdjcStaticMapPreview() {
+  return (
+    <img
+      className="ndjc-static-map-preview"
+      src={mapMarkerSvgUrl}
+      alt=""
+      aria-hidden="true"
+      draggable={false}
+      style={{
+        width: 56,
+        height: 56,
+        flex: '0 0 56px',
+        display: 'block',
+        objectFit: 'contain',
+        opacity: 0.9
+      }}
+    />
+  )
+}
 
 function StoreProfileMapPreview({
   address,
@@ -12404,56 +13794,111 @@ function StoreProfileMapPreview({
   const openValue = cleanMapUrl || cleanAddress
   const displayValue = cleanAddress || openValue
   const handleOpen = onOpen || onOpenMap
+  const [pressed, setPressed] = React.useState(false)
 
   if (!cleanAddress && !cleanMapUrl) return null
+
+  function clearPressed(): void {
+    setPressed(false)
+  }
 
   return (
     <button
       type="button"
       className="ndjc-store-profile-map-preview"
       style={{
-        ...apkStoreCardSurfaceStyle,
+        width: '100%',
+        minHeight: 82,
+        border: `1px solid ${NDJC_GLOBAL_UI_TOKENS.colors.border}`,
+        outline: 'none',
+        borderRadius: 16,
+        padding: '10px 14px',
+        display: 'flex',
+        alignItems: 'center',
+        gap: 14,
+        overflow: 'hidden',
         textAlign: 'left',
-        cursor: handleOpen ? 'pointer' : 'default'
+        color: NDJC_GLOBAL_UI_TOKENS.colors.textBody,
+        background: pressed
+          ? NDJC_GLOBAL_UI_TOKENS.colors.surfaceSoft
+          : NDJC_GLOBAL_UI_TOKENS.colors.surface,
+        boxShadow: 'none',
+        boxSizing: 'border-box',
+        cursor: handleOpen ? 'pointer' : 'default',
+        transform: pressed ? 'scale(0.985)' : 'scale(1)',
+        transformOrigin: 'center',
+        transition: 'transform 140ms ease, background 140ms ease, opacity 140ms ease',
+        opacity: pressed ? 0.96 : 1,
+        WebkitTapHighlightColor: 'transparent',
+        touchAction: 'manipulation'
       }}
       disabled={!handleOpen}
+      onPointerDown={() => {
+        if (!handleOpen) return
+        setPressed(true)
+      }}
+      onPointerUp={clearPressed}
+      onPointerCancel={clearPressed}
+      onPointerLeave={clearPressed}
+      onBlur={clearPressed}
       onClick={() => {
+        clearPressed()
         if (openValue) handleOpen?.(openValue)
       }}
     >
-      <span
-        style={{
-          color: APK_STORE_PROFILE_UI.ink70,
-          fontSize: 14,
-          lineHeight: 1.25,
-          fontWeight: 600
-        }}
-      >
-        Address
-      </span>
+      <NdjcStaticMapPreview />
 
-      <span
+      <div
         style={{
-          color: APK_STORE_PROFILE_UI.ink90,
-          fontSize: 14,
-          lineHeight: 1.45,
-          fontWeight: 400,
-          overflowWrap: 'anywhere'
+          minWidth: 0,
+          flex: '1 1 auto',
+          display: 'grid',
+          gap: 5,
+          boxSizing: 'border-box'
         }}
       >
-        {displayValue}
-      </span>
+        <span
+          style={{
+            color: NDJC_GLOBAL_UI_TOKENS.colors.controlEmphasis,
+            fontSize: NDJC_GLOBAL_UI_TOKENS.typography.bodyMedium.fontSize,
+            lineHeight: NDJC_GLOBAL_UI_TOKENS.typography.bodyMedium.lineHeight,
+            fontWeight: 700,
+            letterSpacing: '-0.15px',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap'
+          }}
+        >
+          Address
+        </span>
 
-      <span
-        style={{
-          color: APK_STORE_PROFILE_UI.ink45,
-          fontSize: 12,
-          lineHeight: 1.25,
-          fontWeight: 500
-        }}
-      >
-        Tap to open
-      </span>
+        <span
+          style={{
+            color: NDJC_GLOBAL_UI_TOKENS.colors.textBody,
+            fontSize: NDJC_GLOBAL_UI_TOKENS.typography.bodyMedium.fontSize,
+            lineHeight: NDJC_GLOBAL_UI_TOKENS.typography.bodyMedium.lineHeight,
+            fontWeight: NDJC_GLOBAL_UI_TOKENS.typography.bodyMedium.fontWeight,
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap'
+          }}
+        >
+          {displayValue}
+        </span>
+
+        <span
+          style={{
+            width: 'fit-content',
+            color: NDJC_GLOBAL_UI_TOKENS.colors.controlEmphasis,
+            fontSize: NDJC_GLOBAL_UI_TOKENS.typography.bodySmall.fontSize,
+            lineHeight: NDJC_GLOBAL_UI_TOKENS.typography.bodySmall.lineHeight,
+            fontWeight: 700,
+            whiteSpace: 'nowrap'
+          }}
+        >
+          Open map →
+        </span>
+      </div>
     </button>
   )
 }
@@ -12623,7 +14068,10 @@ function UniversalStoreBrandHeader({
                 boxShadow: 'none',
                 transform: pressedBrandCoverIndex === index ? `scale(${APK_STORE_PROFILE_UI.coverPressedScale})` : 'scale(1)',
                 transition: 'transform 120ms ease',
-                cursor: 'pointer'
+                cursor: 'pointer',
+                touchAction: 'pan-x',
+                userSelect: 'none',
+                scrollSnapAlign: 'start'
               }}
               onPointerDown={() => setPressedBrandCoverIndex(index)}
               onPointerUp={() => setPressedBrandCoverIndex(null)}
@@ -12647,10 +14095,10 @@ function UniversalStoreBrandHeader({
         className="ndjc-apk-store-brand-main-row"
         style={{
           width: '100%',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          gap: 12
+          display: 'grid',
+          gridTemplateColumns: `${APK_STORE_PROFILE_UI.logoSize}px minmax(0, 1fr)`,
+          gap: 14,
+          alignItems: 'center'
         }}
       >
         {cleanLogoUrl ? (
@@ -12693,46 +14141,75 @@ function UniversalStoreBrandHeader({
               minWidth: APK_STORE_PROFILE_UI.logoSize,
               height: APK_STORE_PROFILE_UI.logoSize,
               borderRadius: 999,
-              overflow: 'hidden',
-              flex: '0 0 auto'
+              overflow: 'hidden'
             }}
           >
             <UniversalStoreLogoPlaceholder />
           </div>
         )}
 
-        <div
+        <section
           className="ndjc-apk-store-brand-text"
           style={{
             minWidth: 0,
-            flex: '1 1 auto',
             display: 'grid',
-            gap: 3
+            gap: 4
           }}
         >
-          <h1
+          <section
+            className="ndjc-apk-store-brand-title-row"
             style={{
-              margin: 0,
-              color: APK_STORE_PROFILE_UI.ink,
-              fontSize: 22,
-              lineHeight: 1.15,
-              fontWeight: 600,
-              overflow: 'hidden',
-              textOverflow: 'ellipsis',
-              whiteSpace: 'nowrap'
+              width: '100%',
+              minWidth: 0,
+              display: 'grid',
+              gridTemplateColumns: cleanBusinessStatus ? 'minmax(0, 1fr) auto' : 'minmax(0, 1fr)',
+              gap: 10,
+              alignItems: 'center'
             }}
           >
-            {title.trim() || 'Store'}
-          </h1>
+            <h1
+              style={{
+                margin: 0,
+                color: NDJC_GLOBAL_UI_TOKENS.colors.textPrimary,
+                fontSize: 22,
+                lineHeight: 1.15,
+                fontWeight: 700,
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap'
+              }}
+            >
+              {title.trim() || 'Store'}
+            </h1>
+
+            {cleanBusinessStatus ? (
+              <span
+                className="ndjc-apk-store-business-status"
+                style={{
+                  flexShrink: 0,
+                  borderRadius: APK_STORE_PROFILE_UI.statusRadius,
+                  padding: `${APK_STORE_PROFILE_UI.statusPaddingY}px ${APK_STORE_PROFILE_UI.statusPaddingX}px`,
+                  color: '#FFFFFF',
+                  background: APK_STORE_PROFILE_UI.pink,
+                  fontSize: 12,
+                  lineHeight: 1.25,
+                  fontWeight: 500,
+                  whiteSpace: 'nowrap'
+                }}
+              >
+                {cleanBusinessStatus}
+              </span>
+            ) : null}
+          </section>
 
           {cleanSubtitle ? (
             <p
               style={{
                 margin: 0,
-                color: APK_STORE_PROFILE_UI.muted,
-                fontSize: 14,
-                lineHeight: 1.35,
-                fontWeight: 400,
+                color: NDJC_GLOBAL_UI_TOKENS.colors.textSecondary,
+                fontSize: NDJC_GLOBAL_UI_TOKENS.typography.bodyMedium.fontSize,
+                lineHeight: NDJC_GLOBAL_UI_TOKENS.typography.bodyMedium.lineHeight,
+                fontWeight: NDJC_GLOBAL_UI_TOKENS.typography.bodyMedium.fontWeight,
                 overflow: 'hidden',
                 textOverflow: 'ellipsis',
                 display: '-webkit-box',
@@ -12743,26 +14220,7 @@ function UniversalStoreBrandHeader({
               {cleanSubtitle}
             </p>
           ) : null}
-        </div>
-
-        {cleanBusinessStatus ? (
-          <span
-            className="ndjc-apk-store-business-status"
-            style={{
-              flexShrink: 0,
-              borderRadius: APK_STORE_PROFILE_UI.statusRadius,
-              padding: `${APK_STORE_PROFILE_UI.statusPaddingY}px ${APK_STORE_PROFILE_UI.statusPaddingX}px`,
-              color: '#FFFFFF',
-              background: APK_STORE_PROFILE_UI.pink,
-              fontSize: 12,
-              lineHeight: 1.25,
-              fontWeight: 500,
-              whiteSpace: 'nowrap'
-            }}
-          >
-            {cleanBusinessStatus}
-          </span>
-        ) : null}
+        </section>
       </section>
     </section>
   )
@@ -12816,12 +14274,12 @@ function UniversalStoreAboutSection({ description }: { description?: string | nu
               border: 0,
               borderRadius: 0,
               padding: `${APK_STORE_PROFILE_UI.aboutToggleTopGap}px 0 0`,
-              color: APK_STORE_PROFILE_UI.pink,
+              color: NDJC_GLOBAL_UI_TOKENS.colors.controlEmphasis,
               background: 'transparent',
               boxShadow: 'none',
-              fontSize: 14,
-              lineHeight: 1.25,
-              fontWeight: 600
+              fontSize: NDJC_GLOBAL_UI_TOKENS.typography.bodySmall.fontSize,
+              lineHeight: NDJC_GLOBAL_UI_TOKENS.typography.bodySmall.lineHeight,
+              fontWeight: 650
             }}
             onClick={() => setExpanded(value => !value)}
           >
@@ -12854,14 +14312,25 @@ function UniversalStoreAppAboutSection({
   const cleanPrivacyUrl = privacyUrl?.trim() || ''
 
   return (
-    <section className="ndjc-apk-store-section" style={apkStoreSectionStyle}>
+    <section
+      className="ndjc-apk-store-section"
+      style={{
+        ...apkStoreSectionStyle,
+        gap: 12,
+        marginTop: 4,
+        opacity: 0.9
+      }}
+    >
       <StoreProfileSectionHeader title="About this app" />
 
       <div
         style={{
           width: '100%',
           display: 'grid',
-          gap: APK_STORE_PROFILE_UI.appAboutGap
+          gap: 10,
+          color: NDJC_GLOBAL_UI_TOKENS.colors.textBody,
+          background: 'transparent',
+          boxSizing: 'border-box'
         }}
       >
         <ProfileReadOnlyRow label="App Name" value={cleanAppName} />
@@ -12872,27 +14341,56 @@ function UniversalStoreAppAboutSection({
           className="ndjc-profile-read-only-row"
           style={{
             width: '100%',
+            minHeight: 34,
+            paddingBottom: 10,
             display: 'grid',
-            gap: APK_STORE_PROFILE_UI.profileReadOnlyGap
+            gridTemplateColumns: 'minmax(0, 0.92fr) 14px minmax(0, 1.08fr)',
+            alignItems: 'center',
+            borderBottom: `1px solid ${NDJC_GLOBAL_UI_TOKENS.colors.divider}`,
+            boxSizing: 'border-box'
           }}
         >
-          <span style={apkStoreLabelStyle}>Privacy Policy</span>
+          <span
+            style={{
+              paddingLeft: 4,
+              color: NDJC_GLOBAL_UI_TOKENS.colors.textMuted,
+              fontSize: NDJC_GLOBAL_UI_TOKENS.typography.bodySmall.fontSize,
+              lineHeight: NDJC_GLOBAL_UI_TOKENS.typography.bodySmall.lineHeight,
+              fontWeight: 500,
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap',
+              boxSizing: 'border-box'
+            }}
+          >
+            Privacy
+          </span>
+
+          <span aria-hidden="true" />
 
           <button
             type="button"
             style={{
-              width: 'fit-content',
+              width: '100%',
               border: 0,
               borderRadius: 0,
               padding: 0,
-              color: cleanPrivacyUrl ? APK_STORE_PROFILE_UI.pink : APK_STORE_PROFILE_UI.ink45,
+              color: cleanPrivacyUrl
+                ? NDJC_GLOBAL_UI_TOKENS.colors.controlEmphasis
+                : NDJC_GLOBAL_UI_TOKENS.colors.textMuted,
               background: 'transparent',
               boxShadow: 'none',
-              fontSize: APK_STORE_PROFILE_UI.readOnlyValueSize,
-              lineHeight: APK_STORE_PROFILE_UI.readOnlyValueLineHeight,
-              fontWeight: 400,
-              textDecoration: cleanPrivacyUrl ? 'underline' : 'none',
-              cursor: cleanPrivacyUrl ? 'pointer' : 'default'
+              fontSize: NDJC_GLOBAL_UI_TOKENS.typography.bodySmall.fontSize,
+              lineHeight: NDJC_GLOBAL_UI_TOKENS.typography.bodySmall.lineHeight,
+              fontWeight: cleanPrivacyUrl ? 700 : 400,
+              textAlign: 'right',
+              textDecoration: 'none',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap',
+              cursor: cleanPrivacyUrl ? 'pointer' : 'default',
+              WebkitTapHighlightColor: 'transparent',
+              touchAction: 'manipulation'
             }}
             disabled={!cleanPrivacyUrl}
             onClick={() => {
@@ -12939,19 +14437,51 @@ function UniversalStoreLocationSection({
           ) : null}
 
           {cleanHours ? (
-            <section style={apkStoreCardSurfaceStyle}>
+            <section
+              className="ndjc-store-profile-hours-row"
+              style={{
+                width: '100%',
+                minHeight: 34,
+                padding: '0',
+                display: 'grid',
+                gridTemplateColumns: 'minmax(0, 0.92fr) 14px minmax(0, 1.08fr)',
+                alignItems: 'center',
+                color: NDJC_GLOBAL_UI_TOKENS.colors.textBody,
+                background: 'transparent',
+                borderBottom: 0,
+                boxSizing: 'border-box'
+              }}
+            >
               <span
                 style={{
-                  color: APK_STORE_PROFILE_UI.ink70,
-                  fontSize: 14,
-                  lineHeight: 1.25,
-                  fontWeight: 600
+                  paddingLeft: 4,
+                  color: NDJC_GLOBAL_UI_TOKENS.colors.textMuted,
+                  fontSize: NDJC_GLOBAL_UI_TOKENS.typography.bodySmall.fontSize,
+                  lineHeight: NDJC_GLOBAL_UI_TOKENS.typography.bodySmall.lineHeight,
+                  fontWeight: 500,
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  whiteSpace: 'nowrap',
+                  boxSizing: 'border-box'
                 }}
               >
                 Hours
               </span>
 
-              <span style={apkStoreBodyTextStyle}>
+              <span aria-hidden="true" />
+
+              <span
+                style={{
+                  color: NDJC_GLOBAL_UI_TOKENS.colors.textBody,
+                  fontSize: NDJC_GLOBAL_UI_TOKENS.typography.bodySmall.fontSize,
+                  lineHeight: NDJC_GLOBAL_UI_TOKENS.typography.bodySmall.lineHeight,
+                  fontWeight: 500,
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  whiteSpace: 'nowrap',
+                  textAlign: 'right'
+                }}
+              >
                 {cleanHours}
               </span>
             </section>
@@ -12981,9 +14511,9 @@ function UniversalStoreServicesSection({ services }: { services: string[] }) {
           role="list"
         >
           {cleanServices.map((service, index) => (
-            <span key={`${service}-${index}`} style={apkStoreServiceChipStyle}>
+            <NdjcPillBadge key={`${service}-${index}`} selected>
               {service}
-            </span>
+            </NdjcPillBadge>
           ))}
         </div>
       ) : (
@@ -13033,18 +14563,20 @@ function UniversalContactRow({
       className="ndjc-universal-contact-row"
       style={{
         width: '100%',
-        minHeight: APK_STORE_PROFILE_UI.contactRowHeight,
+        minHeight: 34,
         border: 0,
         borderRadius: 0,
-        padding: `0 ${APK_STORE_PROFILE_UI.contactCardPaddingX}px`,
+        padding: 0,
         display: 'grid',
-        gridTemplateColumns: `${APK_STORE_PROFILE_UI.contactLabelWidth}px 10px minmax(0, 1fr)`,
+        gridTemplateColumns: 'minmax(0, 0.92fr) 14px minmax(0, 1.08fr)',
         alignItems: 'center',
-        color: APK_STORE_PROFILE_UI.ink,
+        color: NDJC_GLOBAL_UI_TOKENS.colors.textBody,
         background: 'transparent',
         boxShadow: 'none',
         textAlign: 'left',
-        WebkitTapHighlightColor: 'transparent'
+        borderBottom: 0,
+        WebkitTapHighlightColor: 'transparent',
+        touchAction: 'manipulation'
       }}
       onPointerDown={startLongPressCopy}
       onPointerUp={clearLongPressTimer}
@@ -13062,13 +14594,15 @@ function UniversalContactRow({
     >
       <span
         style={{
-          color: APK_STORE_PROFILE_UI.ink60,
-          fontSize: APK_STORE_PROFILE_UI.contactLabelSize,
-          lineHeight: 1.25,
+          paddingLeft: 4,
+          color: NDJC_GLOBAL_UI_TOKENS.colors.textMuted,
+          fontSize: NDJC_GLOBAL_UI_TOKENS.typography.bodySmall.fontSize,
+          lineHeight: NDJC_GLOBAL_UI_TOKENS.typography.bodySmall.lineHeight,
           fontWeight: 500,
           overflow: 'hidden',
           textOverflow: 'ellipsis',
-          whiteSpace: 'nowrap'
+          whiteSpace: 'nowrap',
+          boxSizing: 'border-box'
         }}
       >
         {label}
@@ -13078,9 +14612,11 @@ function UniversalContactRow({
 
       <span
         style={{
-          color: onClick ? APK_STORE_PROFILE_UI.pink : APK_STORE_PROFILE_UI.ink,
-          fontSize: APK_STORE_PROFILE_UI.contactValueSize,
-          lineHeight: 1.35,
+          color: onClick
+            ? NDJC_GLOBAL_UI_TOKENS.colors.controlEmphasis
+            : NDJC_GLOBAL_UI_TOKENS.colors.textBody,
+          fontSize: NDJC_GLOBAL_UI_TOKENS.typography.bodyMedium.fontSize,
+          lineHeight: NDJC_GLOBAL_UI_TOKENS.typography.bodyMedium.lineHeight,
           fontWeight: 500,
           overflow: 'hidden',
           textOverflow: 'ellipsis',
@@ -13109,30 +14645,34 @@ function UniversalStoreExtraContactsSection({
     .filter(contact => contact.name.length > 0 && contact.value.length > 0)
 
   return (
-    <section className="ndjc-apk-store-section" style={apkStoreSectionStyle}>
+    <section
+      className="ndjc-apk-store-section"
+      style={{
+        ...apkStoreSectionStyle,
+        marginTop: 4
+      }}
+    >
       <StoreProfileSectionHeader title="More" />
 
       {cleanContacts.length > 0 ? (
-        <div className="ndjc-apk-store-contact-list" style={apkStoreContactCardStyle}>
-          {cleanContacts.map((contact, index) => (
-            <React.Fragment key={`${contact.name}-${contact.value}-${index}`}>
-              <UniversalContactRow
-                label={contact.name}
-                value={contact.value}
-                onCopy={onCopyAccountValue}
-              />
-
-              {index !== cleanContacts.length - 1 ? (
-                <div
-                  style={{
-                    height: APK_STORE_PROFILE_UI.contactDividerHeight,
-                    margin: `0 ${APK_STORE_PROFILE_UI.contactCardPaddingX}px`,
-                    background: APK_STORE_PROFILE_UI.ink10
-                  }}
-                  aria-hidden="true"
-                />
-              ) : null}
-            </React.Fragment>
+        <div
+          className="ndjc-apk-store-contact-list"
+          style={{
+            width: '100%',
+            display: 'grid',
+            gap: 8,
+            color: NDJC_GLOBAL_UI_TOKENS.colors.textBody,
+            background: 'transparent',
+            boxSizing: 'border-box'
+          }}
+        >
+          {cleanContacts.map(contact => (
+            <UniversalContactRow
+              key={`${contact.name}-${contact.value}`}
+              label={contact.name}
+              value={contact.value}
+              onCopy={onCopyAccountValue}
+            />
           ))}
         </div>
       ) : (
@@ -13150,27 +14690,44 @@ function ProfileReadOnlyRow({ label, value }: { label: string; value?: string | 
       className="ndjc-profile-read-only-row"
       style={{
         width: '100%',
+        minHeight: 34,
+        paddingBottom: 10,
         display: 'grid',
-        gap: APK_STORE_PROFILE_UI.profileReadOnlyGap
+        gridTemplateColumns: 'minmax(0, 0.92fr) 14px minmax(0, 1.08fr)',
+        alignItems: 'center',
+        borderBottom: `1px solid ${NDJC_GLOBAL_UI_TOKENS.colors.divider}`,
+        boxSizing: 'border-box'
       }}
     >
       <span
         style={{
-          ...apkStoreLabelStyle,
-          color: APK_STORE_PROFILE_UI.ink55
+          paddingLeft: 4,
+          color: NDJC_GLOBAL_UI_TOKENS.colors.textMuted,
+          fontSize: NDJC_GLOBAL_UI_TOKENS.typography.bodySmall.fontSize,
+          lineHeight: NDJC_GLOBAL_UI_TOKENS.typography.bodySmall.lineHeight,
+          fontWeight: 500,
+          overflow: 'hidden',
+          textOverflow: 'ellipsis',
+          whiteSpace: 'nowrap',
+          boxSizing: 'border-box'
         }}
       >
         {label}
       </span>
 
+      <span aria-hidden="true" />
+
       <span
         style={{
           margin: 0,
-          color: APK_STORE_PROFILE_UI.ink90,
-          fontSize: APK_STORE_PROFILE_UI.readOnlyValueSize,
-          lineHeight: APK_STORE_PROFILE_UI.readOnlyValueLineHeight,
-          fontWeight: 400,
-          overflowWrap: 'anywhere'
+          color: NDJC_GLOBAL_UI_TOKENS.colors.textBody,
+          fontSize: NDJC_GLOBAL_UI_TOKENS.typography.bodySmall.fontSize,
+          lineHeight: NDJC_GLOBAL_UI_TOKENS.typography.bodySmall.lineHeight,
+          fontWeight: 500,
+          overflow: 'hidden',
+          textOverflow: 'ellipsis',
+          whiteSpace: 'nowrap',
+          textAlign: 'right'
         }}
       >
         {cleanValue}
@@ -13779,21 +15336,56 @@ function CategoryChipsRow({
   manualCategories,
   onCategorySelected,
   showAllChip = true,
-  useOuterHorizontalPadding = true
+  useOuterHorizontalPadding = true,
+  chipVariant = 'pill'
 }: {
   selectedCategory: string | null
   manualCategories: string[]
   onCategorySelected: (value: string | null) => void
   showAllChip?: boolean
   useOuterHorizontalPadding?: boolean
+  chipVariant?: 'pill' | 'textOnly'
 }) {
   const [expanded, setExpanded] = React.useState(false)
   const [morePressed, setMorePressed] = React.useState(false)
+  const [pressedTextOnlyCategoryKey, setPressedTextOnlyCategoryKey] = React.useState<string | null>(null)
   const horizontalScroll = useNdjcHorizontalDragScroll()
   const maxVisibleCategories = 6
   const shouldShowMore = manualCategories.length > maxVisibleCategories
   const visibleCategories = shouldShowMore ? manualCategories.slice(0, maxVisibleCategories) : manualCategories
   const remainingCategories = shouldShowMore ? manualCategories.slice(maxVisibleCategories) : []
+  const useTextOnlyChips = chipVariant === 'textOnly'
+  const textOnlyCategoryChipStyle = (selected: boolean, pressed: boolean): React.CSSProperties => ({
+    height: APK_FILTER_UI.chipHeight,
+    minHeight: APK_FILTER_UI.chipHeight,
+    flex: '0 0 auto',
+    maxWidth: 'none',
+    border: 0,
+    borderRadius: 0,
+    padding: `0 ${APK_CORE_UI.pillPaddingX}px`,
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    color: selected ? NDJC_ADMIN_TOOL_UI.emphasis : NDJC_ADMIN_TOOL_UI.weakText,
+    background: 'transparent',
+    boxShadow: 'none',
+    fontSize: APK_CORE_UI.pillFontSize,
+    lineHeight: 1,
+    fontWeight: selected ? 700 : 600,
+    whiteSpace: 'nowrap',
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+    opacity: pressed ? 0.72 : 1,
+    cursor: 'pointer',
+    boxSizing: 'border-box',
+    appearance: 'none',
+    WebkitAppearance: 'none',
+    WebkitTapHighlightColor: 'transparent',
+    touchAction: 'manipulation',
+    transform: pressed ? 'scale(0.97)' : 'scale(1)',
+    transition: 'color 140ms ease, font-weight 140ms ease, opacity 120ms ease, transform 120ms ease'
+  })
 
   return (
     <section
@@ -13872,16 +15464,51 @@ function CategoryChipsRow({
                   whiteSpace: 'nowrap'
                 }}
               >
-                <NdjcPillButton
-                  selected={selectedCategory == null}
+                {useTextOnlyChips ? (
+                  <button
+                    type="button"
+                    className={cx('ndjc-category-text-chip', selectedCategory == null && 'is-selected')}
+                    style={textOnlyCategoryChipStyle(selectedCategory == null, pressedTextOnlyCategoryKey === '__all__')}
+                    onPointerDown={() => setPressedTextOnlyCategoryKey('__all__')}
+                    onPointerUp={() => setPressedTextOnlyCategoryKey(null)}
+                    onPointerCancel={() => setPressedTextOnlyCategoryKey(null)}
+                    onPointerLeave={() => setPressedTextOnlyCategoryKey(null)}
 onClick={() => {
   if (horizontalScroll.shouldSuppressClick()) return
   onCategorySelected(null)
   setExpanded(false)
 }}
-                >
-                  All
-                </NdjcPillButton>
+                    aria-pressed={selectedCategory == null}
+                  >
+                    <span
+                      style={{
+                        minWidth: 0,
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        height: '100%',
+                        lineHeight: 1,
+                        transform: 'translateY(1px)',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        whiteSpace: 'nowrap'
+                      }}
+                    >
+                      All
+                    </span>
+                  </button>
+                ) : (
+                  <NdjcPillButton
+                    selected={selectedCategory == null}
+onClick={() => {
+  if (horizontalScroll.shouldSuppressClick()) return
+  onCategorySelected(null)
+  setExpanded(false)
+}}
+                  >
+                    All
+                  </NdjcPillButton>
+                )}
               </span>
             ) : null}
 
@@ -13900,16 +15527,51 @@ onClick={() => {
                     whiteSpace: 'nowrap'
                   }}
                 >
-                  <NdjcPillButton
-                    selected={selected}
+                  {useTextOnlyChips ? (
+                    <button
+                      type="button"
+                      className={cx('ndjc-category-text-chip', selected && 'is-selected')}
+                      style={textOnlyCategoryChipStyle(selected, pressedTextOnlyCategoryKey === category)}
+                      onPointerDown={() => setPressedTextOnlyCategoryKey(category)}
+                      onPointerUp={() => setPressedTextOnlyCategoryKey(null)}
+                      onPointerCancel={() => setPressedTextOnlyCategoryKey(null)}
+                      onPointerLeave={() => setPressedTextOnlyCategoryKey(null)}
 onClick={() => {
   if (horizontalScroll.shouldSuppressClick()) return
   onCategorySelected(category)
   setExpanded(false)
 }}
-                  >
-                    {category}
-                  </NdjcPillButton>
+                      aria-pressed={selected}
+                    >
+                      <span
+                        style={{
+                          minWidth: 0,
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          height: '100%',
+                          lineHeight: 1,
+                          transform: 'translateY(1px)',
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          whiteSpace: 'nowrap'
+                        }}
+                      >
+                        {category}
+                      </span>
+                    </button>
+                  ) : (
+                    <NdjcPillButton
+                      selected={selected}
+onClick={() => {
+  if (horizontalScroll.shouldSuppressClick()) return
+  onCategorySelected(category)
+  setExpanded(false)
+}}
+                    >
+                      {category}
+                    </NdjcPillButton>
+                  )}
                 </span>
               )
             })}
@@ -14039,35 +15701,36 @@ function SectionDivider() {
 }
 
 const APK_ADMIN_UI = {
-  cardGap: 10,
-  cloudInnerGap: 10,
-  cloudLineGap: 4,
-  spacer8: 8,
-  spacer6: 6,
-  statusSpacer: 14,
-  titleFontSize: 24,
-  titleLineHeight: 1.25,
-  titleFontWeight: 600,
-  cloudTitleFontSize: 14,
-  cloudTitleLineHeight: 1.3,
-  cloudTitleFontWeight: 600,
-  labelFontSize: 12,
-  labelLineHeight: 1.35,
-  labelFontWeight: 500,
-  bodySmallFontSize: 12,
-  bodySmallLineHeight: 1.35,
-  bodySmallFontWeight: 400,
-  titleMediumFontSize: 16,
-  titleMediumLineHeight: 1.35,
-  titleMediumFontWeight: 600,
-  bodyMediumFontSize: 14,
-  bodyMediumLineHeight: 1.45,
-  bodyMediumFontWeight: 400,
-  black: '#000000',
-  cloudPlanColor: '#475467',
-  cloudStatusColor: '#344054',
-  cloudDaysColor: '#101828',
-  cloudDateColor: '#667085'
+  cardGap: NDJC_GLOBAL_UI_TOKENS.admin.cardGap,
+  cloudInnerGap: NDJC_GLOBAL_UI_TOKENS.admin.cloudInnerGap,
+  cloudLineGap: NDJC_GLOBAL_UI_TOKENS.admin.cloudLineGap,
+  spacer8: NDJC_GLOBAL_UI_TOKENS.admin.spacer8,
+  spacer6: NDJC_GLOBAL_UI_TOKENS.admin.spacer6,
+  statusSpacer: NDJC_GLOBAL_UI_TOKENS.admin.statusSpacer,
+  titleFontSize: NDJC_GLOBAL_UI_TOKENS.typography.adminPageTitle.fontSize,
+  titleLineHeight: NDJC_GLOBAL_UI_TOKENS.typography.adminPageTitle.lineHeight,
+  titleFontWeight: NDJC_GLOBAL_UI_TOKENS.typography.adminPageTitle.fontWeight,
+  titleLetterSpacing: NDJC_GLOBAL_UI_TOKENS.typography.adminPageTitle.letterSpacing,
+  cloudTitleFontSize: NDJC_GLOBAL_UI_TOKENS.typography.adminCloudTitle.fontSize,
+  cloudTitleLineHeight: NDJC_GLOBAL_UI_TOKENS.typography.adminCloudTitle.lineHeight,
+  cloudTitleFontWeight: NDJC_GLOBAL_UI_TOKENS.typography.adminCloudTitle.fontWeight,
+  labelFontSize: NDJC_GLOBAL_UI_TOKENS.typography.adminSectionLabel.fontSize,
+  labelLineHeight: NDJC_GLOBAL_UI_TOKENS.typography.adminSectionLabel.lineHeight,
+  labelFontWeight: NDJC_GLOBAL_UI_TOKENS.typography.adminSectionLabel.fontWeight,
+  bodySmallFontSize: NDJC_GLOBAL_UI_TOKENS.typography.bodySmall.fontSize,
+  bodySmallLineHeight: NDJC_GLOBAL_UI_TOKENS.typography.bodySmall.lineHeight,
+  bodySmallFontWeight: NDJC_GLOBAL_UI_TOKENS.typography.bodySmall.fontWeight,
+  titleMediumFontSize: NDJC_GLOBAL_UI_TOKENS.typography.titleMedium.fontSize,
+  titleMediumLineHeight: NDJC_GLOBAL_UI_TOKENS.typography.titleMedium.lineHeight,
+  titleMediumFontWeight: NDJC_GLOBAL_UI_TOKENS.typography.titleMedium.fontWeight,
+  bodyMediumFontSize: NDJC_GLOBAL_UI_TOKENS.typography.bodyMedium.fontSize,
+  bodyMediumLineHeight: NDJC_GLOBAL_UI_TOKENS.typography.bodyMedium.lineHeight,
+  bodyMediumFontWeight: NDJC_GLOBAL_UI_TOKENS.typography.bodyMedium.fontWeight,
+  black: NDJC_GLOBAL_UI_TOKENS.colors.textPrimary,
+  cloudPlanColor: NDJC_GLOBAL_UI_TOKENS.colors.textSecondary,
+  cloudStatusColor: NDJC_GLOBAL_UI_TOKENS.colors.textSoft,
+  cloudDaysColor: NDJC_GLOBAL_UI_TOKENS.colors.textStrong,
+  cloudDateColor: NDJC_GLOBAL_UI_TOKENS.colors.textMuted
 } as const
 
 function AdminSpacer({ height }: { height: number }) {
@@ -14079,14 +15742,79 @@ function AdminTitleText({ children }: { children: React.ReactNode }) {
     <h1
       style={{
         margin: 0,
+        marginLeft: NDJC_GLOBAL_UI_TOKENS.layout.titleInsetX,
         color: APK_ADMIN_UI.black,
         fontSize: APK_ADMIN_UI.titleFontSize,
         lineHeight: APK_ADMIN_UI.titleLineHeight,
-        fontWeight: APK_ADMIN_UI.titleFontWeight
+        fontWeight: APK_ADMIN_UI.titleFontWeight,
+        letterSpacing: APK_ADMIN_UI.titleLetterSpacing,
+        textRendering: 'geometricPrecision'
       }}
     >
       {children}
     </h1>
+  )
+}
+
+function AdminInlineSyncSpinner() {
+  const bars = Array.from({ length: 12 }, (_, index) => index)
+
+  return (
+    <span
+      className="ndjc-admin-inline-sync-spinner"
+      aria-hidden="true"
+      style={{
+        position: 'relative',
+        width: 18,
+        height: 18,
+        display: 'inline-block',
+        flexShrink: 0,
+        animation: 'ndjcAdminSyncSpinnerRotate 0.85s steps(12, end) infinite'
+      }}
+    >
+      {bars.map((index) => (
+        <span
+          key={index}
+          style={{
+            position: 'absolute',
+            left: '50%',
+            top: 1,
+            width: 2,
+            height: 5,
+            borderRadius: 999,
+            background: '#111111',
+            opacity: 0.22 + index * 0.055,
+            transform: `translateX(-50%) rotate(${index * 30}deg)`,
+            transformOrigin: '1px 8px'
+          }}
+        />
+      ))}
+    </span>
+  )
+}
+
+function AdminInlineSyncStatus({ children }: { children: React.ReactNode }) {
+  return (
+    <span
+      className="ndjc-admin-inline-sync-status"
+      style={{
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: 8,
+        color: '#475467',
+        fontSize: 12,
+        lineHeight: 1,
+        fontWeight: 600,
+        whiteSpace: 'nowrap',
+        transform: 'translateY(1px)'
+      }}
+    >
+      <AdminInlineSyncSpinner />
+
+      <span>
+        {children}
+      </span>
+    </span>
   )
 }
 
@@ -14173,6 +15901,35 @@ function AdminTitleMediumText({ children }: { children: React.ReactNode }) {
     </span>
   )
 }
+
+function NdjcAdminCloudMark() {
+  return (
+<svg
+  width="74"
+  height="74"
+  viewBox="-4 -4 82 82"
+  fill="none"
+  aria-hidden="true"
+  style={{
+    display: 'block'
+  }}
+>
+      <path
+        d="M24.4 48.6h27.8c6.2 0 11.2-4.6 11.2-10.4 0-5.3-4.1-9.7-9.5-10.3C51.9 18.2 43.2 11 33 11c-11.4 0-20.7 8.8-21.2 19.8C5.7 32.2 1.2 37.2 1.2 43.1c0 6.2 5.1 11.2 11.5 11.2h11.7"
+        stroke="currentColor"
+        strokeWidth="5.2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M32.5 36.6h18.8"
+        stroke="currentColor"
+        strokeWidth="5.2"
+        strokeLinecap="round"
+      />
+    </svg>
+  )
+}
 function AdminStatusMessageText({ children }: { children: React.ReactNode }) {
   return (
     <p
@@ -14189,44 +15946,6 @@ function AdminStatusMessageText({ children }: { children: React.ReactNode }) {
     </p>
   )
 }
-
-const APK_EDIT_ITEM_UI = {
-  topContentPadding: APK_PAGE_SHELL_UI.topCardOffset,
-  screenPadding: APK_PAGE_SHELL_UI.screenPadding,
-  sectionTop: 18,
-  titleToHint: 6,
-  hintToContent: 10,
-  fieldGap: 10,
-  sectionBottom: 8,
-  spacer8: 8,
-  chipGap: 10,
-  mediaGridTop: 10,
-  labelGap: 6,
-  smallGap: 4,
-  midGap: 12,
-  saveHintTop: 16,
-  saveButtonTop: 10,
-  titleFontSize: 24,
-  titleLineHeight: 1.25,
-  titleFontWeight: 600,
-  sectionTitleFontSize: 16,
-  sectionTitleLineHeight: 1.35,
-  sectionTitleFontWeight: 600,
-  labelFontSize: 12,
-  labelLineHeight: 1.35,
-  labelFontWeight: 500,
-  bodySmallFontSize: 12,
-  bodySmallLineHeight: 1.35,
-  bodySmallFontWeight: 400,
-  bodyMediumFontSize: 14,
-  bodyMediumLineHeight: 1.45,
-  bodyMediumFontWeight: 400,
-  black: '#000000',
-  sectionLabelColor: 'rgba(0, 0, 0, 0.90)',
-  body70: 'rgba(0, 0, 0, 0.70)',
-  body55: 'rgba(0, 0, 0, 0.55)',
-  error80: 'rgba(185, 28, 28, 0.80)'
-} as const
 
 function EditItemSpacer({ height }: { height: number }) {
   return <div style={{ height, flexShrink: 0 }} />
@@ -14254,7 +15973,10 @@ function EditItemHeaderText({
           color: APK_EDIT_ITEM_UI.black,
           fontSize: APK_EDIT_ITEM_UI.titleFontSize,
           lineHeight: APK_EDIT_ITEM_UI.titleLineHeight,
-          fontWeight: APK_EDIT_ITEM_UI.titleFontWeight
+          fontWeight: APK_EDIT_ITEM_UI.titleFontWeight,
+          letterSpacing: APK_EDIT_ITEM_UI.titleLetterSpacing,
+          textRendering: 'geometricPrecision',
+          whiteSpace: 'pre-line'
         }}
       >
         {title}
@@ -14380,6 +16102,299 @@ const EditItemFieldBlock = React.forwardRef<HTMLElement, {
     </section>
   )
 })
+
+function EditItemSectionCard({
+  children,
+  className
+}: {
+  children: React.ReactNode
+  className?: string
+}) {
+  return (
+    <section
+      className={cx('ndjc-apk-edit-section-card', className)}
+      style={{
+        width: '100%',
+        boxSizing: 'border-box',
+        borderRadius: 0,
+        padding: 0,
+        background: 'transparent',
+        boxShadow: 'none',
+        display: 'grid',
+        gap: APK_EDIT_ITEM_UI.sectionCardGap
+      }}
+    >
+      {children}
+    </section>
+  )
+}
+
+function EditItemModernTextField({
+  value,
+  onChange,
+  placeholder,
+  label,
+  type = 'text',
+  multiline = false,
+  disabled = false,
+  isError = false,
+  singleLine,
+  minLines = 1,
+  inputMode,
+  autoComplete
+}: {
+  value: string
+  onChange: (value: string) => void
+  placeholder?: string
+  label: string
+  type?: string
+  multiline?: boolean
+  disabled?: boolean
+  isError?: boolean
+  singleLine?: boolean
+  minLines?: number
+  inputMode?: React.HTMLAttributes<HTMLInputElement>['inputMode']
+  autoComplete?: string
+}) {
+  const [isFocused, setIsFocused] = React.useState(false)
+  const isMultiline = multiline || singleLine === false
+  const fieldMinHeight = isMultiline
+    ? Math.max(APK_EDIT_ITEM_UI.fieldMinHeight, APK_EDIT_ITEM_UI.fieldMinHeight + Math.max(0, minLines - 1) * 28)
+    : APK_EDIT_ITEM_UI.fieldMinHeight
+
+  const borderColor = isError
+    ? APK_EDIT_ITEM_UI.fieldErrorBorderColor
+    : isFocused
+      ? APK_EDIT_ITEM_UI.fieldFocusBorderColor
+      : APK_EDIT_ITEM_UI.fieldBorderColor
+
+  const nativeFieldStyle: React.CSSProperties = {
+    width: '100%',
+    maxWidth: '100%',
+    minWidth: 0,
+    minHeight: isMultiline ? Math.max(72, fieldMinHeight - APK_EDIT_ITEM_UI.fieldPaddingY * 2) : 24,
+    height: isMultiline ? 'auto' : 24,
+    boxSizing: 'border-box',
+    border: 0,
+    outline: 0,
+    padding: 0,
+    color: disabled ? NDJC_GLOBAL_UI_TOKENS.colors.textDisabled : NDJC_GLOBAL_UI_TOKENS.colors.textPrimary,
+    caretColor: 'rgba(15, 23, 42, 0.82)',
+    background: 'transparent',
+    boxShadow: 'none',
+    fontFamily: 'inherit',
+    fontSize: 15,
+    lineHeight: isMultiline ? 1.45 : '24px',
+    fontWeight: 500,
+    letterSpacing: 0,
+    resize: 'none',
+    appearance: 'none',
+    WebkitAppearance: 'none'
+  }
+
+  return (
+    <label
+      className={cx('ndjc-apk-edit-modern-field', disabled && 'is-disabled', isError && 'is-error')}
+      style={{
+        width: '100%',
+        maxWidth: '100%',
+        minWidth: 0,
+        display: 'grid',
+        gap: 7,
+        opacity: disabled ? 0.72 : 1
+      }}
+    >
+      <span
+        className="ndjc-apk-edit-modern-field-label"
+        style={{
+          color: isError ? APK_EDIT_ITEM_UI.error80 : NDJC_GLOBAL_UI_TOKENS.colors.textStrong,
+          fontSize: APK_EDIT_ITEM_UI.labelFontSize,
+          lineHeight: APK_EDIT_ITEM_UI.labelLineHeight,
+          fontWeight: APK_EDIT_ITEM_UI.labelFontWeight
+        }}
+      >
+        {label}
+      </span>
+
+      <span
+        className="ndjc-apk-edit-modern-field-shell"
+        style={{
+          width: '100%',
+          minHeight: fieldMinHeight,
+          boxSizing: 'border-box',
+          borderRadius: APK_EDIT_ITEM_UI.fieldRadius,
+          border: `${APK_EDIT_ITEM_UI.fieldBorderWidth}px solid ${borderColor}`,
+          background: isFocused
+            ? APK_EDIT_ITEM_UI.fieldFocusedBackground
+            : APK_EDIT_ITEM_UI.fieldBackground,
+          padding: `${APK_EDIT_ITEM_UI.fieldPaddingY}px ${APK_EDIT_ITEM_UI.fieldPaddingX}px`,
+          display: 'grid',
+          alignItems: isMultiline ? 'start' : 'center',
+          transition: `border-color ${NDJC_GLOBAL_UI_TOKENS.motion.fast}, box-shadow ${NDJC_GLOBAL_UI_TOKENS.motion.fast}, background ${NDJC_GLOBAL_UI_TOKENS.motion.fast}`,
+          boxShadow: isError
+            ? APK_EDIT_ITEM_UI.fieldErrorShadow
+            : isFocused
+              ? APK_EDIT_ITEM_UI.fieldFocusShadow
+              : 'none'
+        }}
+      >
+        {isMultiline ? (
+          <textarea
+            className="ndjc-apk-edit-modern-textarea"
+            style={nativeFieldStyle}
+            value={value}
+            placeholder={placeholder}
+            disabled={disabled}
+            aria-invalid={isError}
+            autoComplete={autoComplete}
+            rows={Math.max(1, minLines)}
+            onFocus={() => setIsFocused(true)}
+            onBlur={() => setIsFocused(false)}
+            onChange={event => onChange(event.target.value)}
+          />
+        ) : (
+          <input
+            className="ndjc-apk-edit-modern-input"
+            style={nativeFieldStyle}
+            value={value}
+            type={type}
+            inputMode={inputMode}
+            placeholder={placeholder}
+            disabled={disabled}
+            aria-invalid={isError}
+            autoComplete={autoComplete}
+            onFocus={() => setIsFocused(true)}
+            onBlur={() => setIsFocused(false)}
+            onChange={event => onChange(event.target.value)}
+          />
+        )}
+      </span>
+    </label>
+  )
+}
+
+function EditItemSubmitButton({
+  children,
+  disabled,
+  isLoading,
+  onClick
+}: {
+  children: React.ReactNode
+  disabled?: boolean
+  isLoading?: boolean
+  onClick?: () => void
+}) {
+  const blocked = Boolean(disabled || isLoading)
+  const [pressed, setPressed] = React.useState(false)
+  const enabled = !blocked
+  const isPressed = Boolean(pressed && enabled)
+
+  function releasePressState(): void {
+    setPressed(false)
+  }
+
+  return (
+    <button
+      type="button"
+      className="ndjc-apk-edit-submit-button"
+      disabled={blocked}
+      aria-busy={isLoading || undefined}
+      onPointerDown={() => {
+        if (blocked) return
+        setPressed(true)
+      }}
+      onPointerUp={releasePressState}
+      onPointerCancel={releasePressState}
+      onPointerLeave={releasePressState}
+      onBlur={releasePressState}
+      onClick={() => {
+        if (blocked) return
+        onClick?.()
+      }}
+      style={{
+        width: '100%',
+        minHeight: APK_EDIT_ITEM_UI.submitButtonHeight,
+        border: 0,
+        borderRadius: APK_EDIT_ITEM_UI.submitButtonRadius,
+        padding: '0 18px',
+        boxSizing: 'border-box',
+        display: 'inline-flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 10,
+        color: enabled ? '#FFFFFF' : APK_EDIT_ITEM_UI.submitButtonDisabledText,
+        background: enabled
+          ? isPressed
+            ? NDJC_GLOBAL_UI_TOKENS.colors.brandStrongPressed
+            : NDJC_GLOBAL_UI_TOKENS.colors.brandStrong
+          : APK_EDIT_ITEM_UI.submitButtonDisabledBg,
+        boxShadow: enabled
+          ? isPressed
+            ? APK_EDIT_ITEM_UI.submitButtonPressedShadow
+            : APK_EDIT_ITEM_UI.submitButtonShadow
+          : 'none',
+        fontSize: APK_EDIT_ITEM_UI.submitButtonFontSize,
+        lineHeight: `${APK_EDIT_ITEM_UI.submitButtonLineHeight}px`,
+        fontWeight: APK_EDIT_ITEM_UI.submitButtonFontWeight,
+        letterSpacing: 0,
+        whiteSpace: 'nowrap',
+        overflow: 'hidden',
+        textOverflow: 'ellipsis',
+        outline: 'none',
+        appearance: 'none',
+        WebkitAppearance: 'none',
+        transform: isPressed
+          ? `scale(${NDJC_GLOBAL_UI_TOKENS.motion.pressScale})`
+          : 'scale(1)',
+        transformOrigin: 'center center',
+        transition: `transform ${NDJC_GLOBAL_UI_TOKENS.motion.fast}, box-shadow ${NDJC_GLOBAL_UI_TOKENS.motion.fast}, background ${NDJC_GLOBAL_UI_TOKENS.motion.fast}, color ${NDJC_GLOBAL_UI_TOKENS.motion.fast}`,
+        opacity: isLoading ? 0.9 : 1,
+        cursor: enabled ? 'pointer' : 'not-allowed',
+        WebkitTapHighlightColor: 'transparent',
+        userSelect: 'none',
+        touchAction: 'manipulation'
+      }}
+    >
+      {isLoading ? (
+        <>
+          <NdjcSpinner
+            className="ndjc-apk-edit-submit-spinner"
+            size={18}
+            stroke={2}
+            tone="light"
+          />
+          <span
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              minHeight: APK_EDIT_ITEM_UI.submitButtonLineHeight,
+              lineHeight: `${APK_EDIT_ITEM_UI.submitButtonLineHeight}px`
+            }}
+          >
+            Saving...
+          </span>
+        </>
+      ) : (
+        <span
+          style={{
+            minWidth: 0,
+            minHeight: APK_EDIT_ITEM_UI.submitButtonLineHeight,
+            display: 'inline-flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap',
+            lineHeight: `${APK_EDIT_ITEM_UI.submitButtonLineHeight}px`
+          }}
+        >
+          {children}
+        </span>
+      )}
+    </button>
+  )
+}
 
 function StoreSectionTitle({ children }: { children: React.ReactNode }) {
   return (
@@ -14508,6 +16523,12 @@ export function ShowcaseHome({
     rows.push(state.dishes.slice(index, index + 2))
   }
 
+  const filterActive = state.showFilterMenu
+    || state.filterRecommendedOnly
+    || state.filterOnSaleOnly
+    || state.appliedMinPrice != null
+    || state.appliedMaxPrice != null
+
   return (
     <NdjcUnifiedBackground
       snackbar={
@@ -14541,36 +16562,104 @@ export function ShowcaseHome({
           data-web-equivalent="compose-scaffold"
         >
           <section className="ndjc-apk-home-controls" style={apkHomeControlsStyle}>
-            <TopSearchBar
-              value={state.searchQuery}
-              placeholder="Search…"
-              onChange={actions.onSearchQueryChange}
-              onProfileClick={actions.onProfileClick}
-            />
+            <section
+              className="ndjc-home-search-admin-row"
+              style={{
+                width: '100%',
+                padding: `0 ${APK_HOME_PAGE_UI.chipRowHorizontalPadding}px`,
+                boxSizing: 'border-box',
+                display: 'grid',
+                gridTemplateColumns: 'minmax(0, 1fr) 48px',
+                gap: APK_EDIT_ITEM_UI.fieldGap,
+                alignItems: 'end'
+              }}
+            >
+              <NdjcTextField
+                value={state.searchQuery}
+                onChange={actions.onSearchQueryChange}
+                placeholder="Search by item name"
+                singleLine
+                leadingIcon={(
+                  <svg
+                    width="16"
+                    height="16"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    aria-hidden="true"
+                    focusable="false"
+                  >
+                    <path
+                      d="M10.8 18.1a7.3 7.3 0 1 1 0-14.6 7.3 7.3 0 0 1 0 14.6Z"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                    <path
+                      d="M16.1 16.1 21 21"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  </svg>
+                )}
+              />
+
+              <NdjcFilterIconButton
+                label="Open store admin"
+                onClick={actions.onProfileClick}
+                icon={(
+                  <NdjcTopSearchStorefrontIcon />
+                )}
+              />
+            </section>
 
             <div style={apkHomeControlsGapStyle} aria-hidden="true" />
 
-            {state.allTags.length ? (
-              <section style={apkHomeTagsWrapStyle}>
-                <TagsFilterRow
-                  allTags={state.allTags}
-                  selectedTags={state.selectedTags}
-                  onToggleTag={actions.onToggleTag}
-                  onClearTags={actions.onClearTags}
+            <section
+              className="ndjc-home-sort-filter-row"
+              style={{
+                width: '100%',
+                padding: `0 ${APK_HOME_PAGE_UI.chipRowHorizontalPadding}px`,
+                boxSizing: 'border-box',
+                display: 'grid',
+                gridTemplateColumns: 'minmax(0, 1fr) 48px',
+                gap: APK_EDIT_ITEM_UI.fieldGap,
+                alignItems: 'center'
+              }}
+            >
+              <SortRow
+                columns={3}
+                variant="segmented"
+                ariaLabel="Sort home items"
+              >
+                <SortNavEqualItem
+                  text="Default"
+                  selected={state.sortMode === 'Default'}
+                  onClick={() => actions.onSortModeChange('Default')}
+                  variant="segmented"
                 />
-              </section>
-            ) : null}
 
-            <section style={apkHomeSortWrapStyle}>
-              <HomeSortNavEqualRow
-                sortMode={state.sortMode}
-                onSortModeChange={actions.onSortModeChange}
-                filterRecommendedOnly={state.filterRecommendedOnly}
-                filterOnSaleOnly={state.filterOnSaleOnly}
-                appliedMinPrice={state.appliedMinPrice}
-                appliedMaxPrice={state.appliedMaxPrice}
-                showFilterMenu={state.showFilterMenu}
-                onFilterClick={() => {
+                <SortNavEqualItem
+                  text="Low–High"
+                  selected={state.sortMode === 'PriceAsc'}
+                  onClick={() => actions.onSortModeChange('PriceAsc')}
+                  variant="segmented"
+                />
+
+                <SortNavEqualItem
+                  text="High–Low"
+                  selected={state.sortMode === 'PriceDesc'}
+                  onClick={() => actions.onSortModeChange('PriceDesc')}
+                  variant="segmented"
+                />
+              </SortRow>
+
+              <NdjcFilterIconButton
+                active={filterActive}
+                label="Open item filters"
+                onClick={() => {
                   setHomeDraftRecommendedOnly(state.filterRecommendedOnly)
                   setHomeDraftOnSaleOnly(state.filterOnSaleOnly)
                   setHomeDraftPriceMin(state.priceMinDraft)
@@ -14586,7 +16675,7 @@ export function ShowcaseHome({
                 manualCategories={state.manualCategories}
                 onCategorySelected={actions.onCategorySelected}
                 showAllChip
-                useOuterHorizontalPadding
+                useOuterHorizontalPadding={false}
               />
             </section>
           </section>
@@ -14601,6 +16690,7 @@ export function ShowcaseHome({
             priceMaxDraft={homeDraftPriceMax}
             onPriceMaxDraftChange={setHomeDraftPriceMax}
             showPriceFields
+            showHeaderDivider={false}
             onClose={() => {
               setHomeDraftRecommendedOnly(state.filterRecommendedOnly)
               setHomeDraftOnSaleOnly(state.filterOnSaleOnly)
@@ -14848,7 +16938,7 @@ export function DetailScreen({
     onBack: actions.onBack,
     onHome: actions.onBackToHome,
     iconOnly: true,
-    iconTint: '#ffffff'
+    iconTint: NDJC_GLOBAL_UI_TOKENS.colors.controlEmphasis
   }}
 >
       <section className="ndjc-apk-detail" style={apkDetailRootStyle}>
@@ -14945,6 +17035,7 @@ export function DetailScreen({
                     }}
                   >
                     <NdjcShimmerImage
+                      className="ndjc-apk-detail-hero-image"
                       src={url}
                       alt={state.title || 'Item image'}
                       placeholderCornerRadius={0}
@@ -14973,34 +17064,42 @@ export function DetailScreen({
             ) : null}
           </section>
 
-          <section className="ndjc-apk-detail-header-row" style={apkDetailHeaderRowStyle}>
-            {state.isRecommended ? (
-              <span style={apkDetailPickBadgeStyle}>
-                <ApkPickBadgeIcon />
-                <span style={apkDetailPickBadgeTextStyle}>
-                  Pick
-                </span>
-              </span>
-            ) : (
-              <span style={{ height: 24 }} aria-hidden="true" />
-            )}
-
-            <button
-              type="button"
-              className={cx('ndjc-apk-detail-favorite', state.isFavorite && 'is-active')}
-              style={apkDetailFavoriteButtonStyle}
-              onClick={actions.onToggleFavorite}
-              aria-label={state.isFavorite ? 'Remove from favorites' : 'Add to favorites'}
-              aria-pressed={state.isFavorite}
-            >
-              <DetailFavoriteIcon selected={state.isFavorite} />
-            </button>
-          </section>
-
-          <div style={{ height: 6 }} aria-hidden="true" />
-
           <section className="ndjc-apk-detail-content" style={apkDetailContentStyle}>
+            <div
+              className="ndjc-apk-detail-hero-actions"
+              style={{
+                ...apkDetailHeroActionsStyle,
+                gridTemplateColumns: state.canBookAppointment
+                  ? 'repeat(2, minmax(0, 1fr))'
+                  : 'minmax(0, 1fr)'
+              }}
+            >
+              <NdjcDetailHeroActionButton
+                label={state.isFavorite ? 'Saved' : 'Save'}
+                ariaLabel={state.isFavorite ? 'Remove from favorites' : 'Add to favorites'}
+                icon={<DetailFavoriteIcon selected={state.isFavorite} />}
+                onClick={actions.onToggleFavorite}
+              />
+
+              {state.canBookAppointment ? (
+                <NdjcDetailHeroActionButton
+                  label="Book appointment"
+                  ariaLabel="Book appointment"
+                  icon={<NdjcAdminEntryIcon name="appointments" />}
+                  onClick={actions.onBookAppointment}
+                />
+              ) : null}
+            </div>
             <section style={apkDetailTitleBlockStyle}>
+              {state.isRecommended ? (
+                <span style={apkDetailPickBadgeStyle}>
+                  <ApkPickBadgeIcon />
+                  <span style={apkDetailPickBadgeTextStyle}>
+                    Pick
+                  </span>
+                </span>
+              ) : null}
+
               <h1 style={apkDetailTitleStyle}>
                 {state.title}
               </h1>
@@ -15023,11 +17122,7 @@ export function DetailScreen({
                 )}
               </div>
 
-              {state.canBookAppointment ? (
-                <NdjcPrimaryActionButton onClick={actions.onBookAppointment}>
-                  Book appointment
-                </NdjcPrimaryActionButton>
-              ) : null}
+
             </section>
 
             <div style={apkDetailDividerStyle} aria-hidden="true" />
@@ -15118,19 +17213,7 @@ export function LoginScreen({
         onHome: actions.onBackToHome
       }}
     >
-      <BgCircle
-        size={APK_HOME_PAGE_UI.heroCircleSize}
-        offsetX={APK_HOME_PAGE_UI.heroCircleLeftOffsetX}
-        offsetY={APK_HOME_PAGE_UI.heroCircleLeftOffsetY}
-        colors={APK_HOME_PAGE_UI.heroCircleLeftColors}
-      />
 
-      <BgCircle
-        size={APK_HOME_PAGE_UI.heroCircleSize}
-        offsetX={APK_HOME_PAGE_UI.heroCircleRightOffsetX}
-        offsetY={APK_HOME_PAGE_UI.heroCircleRightOffsetY}
-        colors={APK_HOME_PAGE_UI.heroCircleRightColors}
-      />
 
       <section
         className="ndjc-apk-login-content"
@@ -15140,18 +17223,26 @@ export function LoginScreen({
           width: '100%',
           height: '100%',
           minHeight: 0,
-          padding: `${APK_PAGE_SHELL_UI.topCardOffset}px ${APK_PAGE_SHELL_UI.screenPadding}px ${APK_PAGE_SHELL_UI.screenPadding}px`,
+          padding: `${NDJC_GLOBAL_UI_TOKENS.layout.contentPaddingTop}px ${NDJC_GLOBAL_UI_TOKENS.layout.contentPaddingX}px calc(${NDJC_GLOBAL_UI_TOKENS.layout.contentPaddingBottom}px + env(safe-area-inset-bottom))`,
           boxSizing: 'border-box',
           overflowY: 'auto',
           overflowX: 'hidden',
+          display: 'flex',
+          flexDirection: 'column',
           WebkitOverflowScrolling: 'touch'
         }}
       >
-        <NdjcWhiteCard
+        <section
           className="ndjc-apk-login-card"
           style={{
             width: '100%',
-            boxSizing: 'border-box'
+            maxWidth: NDJC_GLOBAL_UI_TOKENS.layout.contentMaxWidth,
+            alignSelf: 'center',
+            boxSizing: 'border-box',
+            background: 'transparent',
+            boxShadow: 'none',
+            borderRadius: 0,
+            padding: 0
           }}
         >
           <section
@@ -15166,48 +17257,52 @@ export function LoginScreen({
             <h1
               style={{
                 margin: 0,
-                color: '#000000',
-                fontSize: 24,
-                lineHeight: 1.25,
-                fontWeight: 600
+                color: '#2b3033',
+                fontSize: APK_EDIT_ITEM_UI.titleFontSize,
+                lineHeight: APK_EDIT_ITEM_UI.titleLineHeight,
+                fontWeight: APK_EDIT_ITEM_UI.titleFontWeight,
+                letterSpacing: APK_EDIT_ITEM_UI.titleLetterSpacing,
+                textRendering: 'geometricPrecision'
               }}
             >
               Sign in
             </h1>
 
-            <div style={{ height: 6, flexShrink: 0 }} />
+            <div style={{ height: APK_EDIT_ITEM_UI.titleToHint, flexShrink: 0 }} />
 
             <p
               style={{
                 margin: 0,
-                color: 'rgba(0, 0, 0, 0.70)',
-                fontSize: 14,
-                lineHeight: 1.35,
-                fontWeight: 400
+                color: APK_EDIT_ITEM_UI.body70,
+                fontSize: APK_EDIT_ITEM_UI.bodyMediumFontSize,
+                lineHeight: APK_EDIT_ITEM_UI.bodyMediumLineHeight,
+                fontWeight: APK_EDIT_ITEM_UI.bodyMediumFontWeight
               }}
             >
               Use your account to manage content and settings.
             </p>
 
-            <div style={{ height: 16, flexShrink: 0 }} />
+            <div style={{ height: APK_EDIT_ITEM_UI.sectionBottom, flexShrink: 0 }} />
 
             <NdjcTextField
               value={state.usernameDraft}
               onChange={actions.onUsernameDraftChange}
               label="Email"
+              placeholder="Enter email"
               singleLine
               autoComplete="username"
             />
 
-            <div style={{ height: 12, flexShrink: 0 }} />
+            <div style={{ height: APK_EDIT_ITEM_UI.fieldGap, flexShrink: 0 }} />
 
             <NdjcTextField
               value={state.passwordDraft}
               onChange={actions.onPasswordDraftChange}
               label="Password"
+              placeholder="Enter password"
               type="password"
               singleLine
-              autoComplete="new-password"
+              autoComplete="current-password"
             />
 
             {state.loginError ? (
@@ -15218,10 +17313,10 @@ export function LoginScreen({
                   className="ndjc-error-text"
                   style={{
                     margin: 0,
-                    color: APK_CORE_UI.danger,
-                    fontSize: 12,
-                    lineHeight: 1.35,
-                    fontWeight: 400
+                    color: APK_EDIT_ITEM_UI.error80,
+                    fontSize: APK_EDIT_ITEM_UI.bodySmallFontSize,
+                    lineHeight: APK_EDIT_ITEM_UI.bodySmallLineHeight,
+                    fontWeight: APK_EDIT_ITEM_UI.bodySmallFontWeight
                   }}
                 >
                   {state.loginError}
@@ -15238,32 +17333,34 @@ export function LoginScreen({
               labelColor={APK_CORE_UI.black}
             />
 
-            <div style={{ height: 16, flexShrink: 0 }} />
+            <div style={{ height: APK_EDIT_ITEM_UI.submitButtonTopGap, flexShrink: 0 }} />
 
-            <NdjcPrimaryActionButton
-              disabled={!state.canLogin}
-              isLoading={state.isLoading}
+            <NdjcControlPillButton
+              active
+              tone="adminAction"
+              fullWidth
+              disabled={!state.canLogin || state.isLoading}
               onClick={() => actions.onLogin(state.usernameDraft, state.passwordDraft)}
             >
-              Sign in
-            </NdjcPrimaryActionButton>
+              {state.isLoading ? 'Signing in...' : 'Sign in'}
+            </NdjcControlPillButton>
 
-            <div style={{ height: 12, flexShrink: 0 }} />
+            <div style={{ height: APK_EDIT_ITEM_UI.submitButtonBottomGap, flexShrink: 0 }} />
 
             <p
               className="ndjc-apk-login-security-note"
               style={{
                 margin: 0,
-                color: 'rgba(0, 0, 0, 0.55)',
-                fontSize: 12,
-                lineHeight: 1.35,
-                fontWeight: 400
+                color: APK_EDIT_ITEM_UI.body55,
+                fontSize: APK_EDIT_ITEM_UI.bodySmallFontSize,
+                lineHeight: APK_EDIT_ITEM_UI.bodySmallLineHeight,
+                fontWeight: APK_EDIT_ITEM_UI.bodySmallFontWeight
               }}
             >
               Access is limited to administrators.
             </p>
           </section>
-        </NdjcWhiteCard>
+        </section>
       </section>
     </NdjcUnifiedBackground>
   )
@@ -15276,40 +17373,36 @@ export function ShowcaseStoreProfileView({
   state: ShowcaseStoreProfileUiState
   actions: ShowcaseStoreProfileActions
 }) {
-  const selectedStoreCoverUrl = selectStoreCoverUrl(state) || state.coverUrl
+  const selectedStoreCoverUrl = state.coverUrl?.trim()
+    ? state.coverUrl
+    : selectStoreCoverUrl(state) || ''
   const selectedStoreLogoUrl = selectStoreLogoUrl(state) || state.logoUrl
 
-  const covers = Array.from(
-    new Set(
-      selectedStoreCoverUrl
-        .split('\n')
-        .map(item => item.trim())
-        .filter(Boolean)
-    )
-  ).slice(0, 9)
+  const covers = selectedStoreCoverUrl
+    .replace(/\\n/g, '\n')
+    .split('\n')
+    .map(item => item.trim())
+    .filter(Boolean)
+    .slice(0, 9)
 
   const [imagePreview, setImagePreview] = React.useState<{
     images: string[]
     startIndex: number
   } | null>(null)
-  const [isDraggingImages, setIsDraggingImages] = React.useState(false)
-  const [pressedCoverIndex, setPressedCoverIndex] = React.useState<number | null>(null)
-  const coverRowRef = React.useRef<HTMLDivElement | null>(null)
-  const coverDragStateRef = React.useRef<{
-    x: number
-    y: number
-    scrollLeft: number
-    dragging: boolean
-    pointerId: number | null
-    targetIndex: number | null
-  } | null>(null)
+  const [activeCoverIndex, setActiveCoverIndex] = React.useState(0)
+  const coverHorizontalScroll = useNdjcHorizontalDragScroll()
   const storeProfileBackRef = React.useRef(actions.onBack)
 
   React.useEffect(() => {
     storeProfileBackRef.current = actions.onBack
   }, [actions.onBack])
 
-
+  React.useEffect(() => {
+    setActiveCoverIndex(0)
+    if (coverHorizontalScroll.scrollRef.current) {
+      coverHorizontalScroll.scrollRef.current.scrollLeft = 0
+    }
+  }, [selectedStoreCoverUrl])
 
   React.useEffect(() => {
     if (typeof window === 'undefined') return
@@ -15325,80 +17418,17 @@ export function ShowcaseStoreProfileView({
     }
   }, [])
 
-  const stopImageDragging = () => {
-    const row = coverRowRef.current
-    const pointerId = coverDragStateRef.current?.pointerId
-
-    if (row && pointerId != null) {
-      try {
-        row.releasePointerCapture?.(pointerId)
-      } catch {
-      }
-    }
-
-    coverDragStateRef.current = null
-    setIsDraggingImages(false)
-    setPressedCoverIndex(null)
-  }
-
-  const handleCoverPointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
-    const active = document.activeElement as HTMLElement | null
-    active?.blur?.()
-
+  const handleCoverScroll = (event: React.UIEvent<HTMLDivElement>) => {
     const row = event.currentTarget
-    const target = event.target as HTMLElement | null
-    const coverButton = target?.closest?.('[data-cover-index]') as HTMLElement | null
-    const coverIndexRaw = coverButton?.getAttribute('data-cover-index') ?? ''
-    const parsedCoverIndex = coverIndexRaw.trim() ? Number(coverIndexRaw) : Number.NaN
-    const targetIndex = Number.isFinite(parsedCoverIndex) ? parsedCoverIndex : null
+    const firstCard = row.querySelector('[data-cover-index="0"]') as HTMLElement | null
+    const cardWidth = firstCard?.offsetWidth || APK_STORE_PROFILE_UI.coverCardWidth
+    const step = cardWidth + APK_STORE_PROFILE_UI.coverGap
+    const nextIndex = Math.max(
+      0,
+      Math.min(covers.length - 1, Math.round(row.scrollLeft / Math.max(1, step)))
+    )
 
-    coverDragStateRef.current = {
-      x: event.clientX,
-      y: event.clientY,
-      scrollLeft: row.scrollLeft,
-      dragging: false,
-      pointerId: event.pointerId,
-      targetIndex
-    }
-
-    try {
-      row.setPointerCapture?.(event.pointerId)
-    } catch {
-    }
-
-    setIsDraggingImages(false)
-    setPressedCoverIndex(targetIndex)
-  }
-
-  const handleCoverPointerMove = (event: React.PointerEvent<HTMLDivElement>) => {
-    const stateRef = coverDragStateRef.current
-    const row = coverRowRef.current
-
-    if (!stateRef || !row) return
-
-    const rawDx = event.clientX - stateRef.x
-    const dx = Math.abs(rawDx)
-    const dy = Math.abs(event.clientY - stateRef.y)
-
-    if (dx > 6 && dx >= dy) {
-      event.preventDefault()
-      stateRef.dragging = true
-      setIsDraggingImages(true)
-      setPressedCoverIndex(null)
-      row.scrollLeft = stateRef.scrollLeft - rawDx
-    }
-  }
-
-  const handleCoverPointerEnd = () => {
-    const stateRef = coverDragStateRef.current
-    const wasDragging = Boolean(stateRef?.dragging)
-    const targetIndex = stateRef?.targetIndex ?? null
-
-    stopImageDragging()
-
-    if (!wasDragging && targetIndex != null) {
-      openCoverPreview(covers, targetIndex)
-    }
+    setActiveCoverIndex(nextIndex)
   }
 
   function openCoverPreview(images: string[], startIndex: number): void {
@@ -15414,19 +17444,15 @@ export function ShowcaseStoreProfileView({
     })
   }
 
-  const sectionDivider = (
-    <>
-      <div style={{ height: 14 }} aria-hidden="true" />
-      <div
-        style={{
-          width: '100%',
-          height: 1,
-          background: 'rgba(17, 24, 39, 0.06)'
-        }}
-        aria-hidden="true"
-      />
-      <div style={{ height: 14 }} aria-hidden="true" />
-    </>
+  const brandInfoDivider = (
+    <div
+      style={{
+        width: '100%',
+        height: 1,
+        background: NDJC_GLOBAL_UI_TOKENS.colors.divider
+      }}
+      aria-hidden="true"
+    />
   )
 
   const snackbarMessage =
@@ -15447,7 +17473,7 @@ export function ShowcaseStoreProfileView({
         onBack: actions.onBack,
         onHome: actions.onBackToHome,
         iconOnly: true,
-        iconTint: APK_SHELL_UI.brand
+        iconTint: NDJC_GLOBAL_UI_TOKENS.colors.controlEmphasis
       }}
       bottomBar={
 <ShowcaseBottomBar
@@ -15468,13 +17494,13 @@ export function ShowcaseStoreProfileView({
           className="ndjc-apk-store-profile"
           style={{
             position: 'relative',
-          width: '100%',
-          height: '100%',
-          minHeight: 0,
-          background: APK_SHELL_UI.pageBg,
-          overflow: 'hidden'
-        }}
-      >
+            width: '100%',
+            height: '100%',
+            minHeight: 0,
+            background: APK_SHELL_UI.pageBg,
+            overflow: 'hidden'
+          }}
+        >
         <BgCircle
           size={APK_HOME_PAGE_UI.heroCircleSize}
           offsetX={APK_HOME_PAGE_UI.heroCircleLeftOffsetX}
@@ -15489,36 +17515,54 @@ export function ShowcaseStoreProfileView({
           colors={APK_HOME_PAGE_UI.heroCircleRightColors}
         />
 
-        <section
-          className="ndjc-apk-store-profile-scroll"
-          style={{
-            position: 'relative',
-            zIndex: 2,
-            width: '100%',
-            height: '100%',
-            minHeight: 0,
-            padding: `36px ${APK_PAGE_SHELL_UI.screenPadding}px ${APK_PAGE_SHELL_UI.noBottomBarReserve}px`,
-            overflowY: isDraggingImages ? 'hidden' : 'auto',
-            overflowX: 'hidden',
-            WebkitOverflowScrolling: 'touch',
-            overscrollBehaviorY: 'none',
-            overscrollBehaviorX: 'none',
-            touchAction: 'auto',
-            boxSizing: 'border-box'
-          }}
-        >
+          <section
+            className="ndjc-apk-store-profile-scroll"
+            style={{
+              position: 'relative',
+              zIndex: 2,
+              width: '100%',
+              height: '100%',
+              minHeight: 0,
+              padding: `60px ${APK_PAGE_SHELL_UI.screenPadding}px calc(${APK_PAGE_SHELL_UI.noBottomBarReserve}px + 16px)`,
+              background: APK_SHELL_UI.pageBg,
+              overflowY: 'auto',
+              overflowX: 'hidden',
+              WebkitOverflowScrolling: 'touch',
+              overscrollBehaviorY: 'none',
+              overscrollBehaviorX: 'none',
+              touchAction: 'auto',
+              boxSizing: 'border-box'
+            }}
+          >
           <section
             className="ndjc-apk-store-cover-layer"
             style={{
               position: 'relative',
               width: '100%',
               minHeight: APK_STORE_PROFILE_UI.coverHeight,
+              background: APK_SHELL_UI.pageBg,
               boxSizing: 'border-box'
             }}
           >
+            <span
+              className="ndjc-apk-store-cover-header-bg"
+              style={{
+                position: 'absolute',
+                left: -APK_PAGE_SHELL_UI.screenPadding,
+                right: -APK_PAGE_SHELL_UI.screenPadding,
+                top: -60,
+                height: APK_STORE_PROFILE_UI.coverHeight + 78,
+                zIndex: 0,
+                display: 'block',
+                background: APK_SHELL_UI.pageBg,
+                pointerEvents: 'none'
+              }}
+              aria-hidden="true"
+            />
+
             {covers.length ? (
               <div
-                ref={coverRowRef}
+                ref={coverHorizontalScroll.scrollRef}
                 className="ndjc-apk-store-cover-row"
                 style={{
                   position: 'absolute',
@@ -15540,13 +17584,15 @@ export function ShowcaseStoreProfileView({
                   userSelect: 'none',
                   cursor: covers.length > 1 ? 'grab' : 'pointer',
                   boxSizing: 'border-box',
-                  pointerEvents: 'auto'
+                  pointerEvents: 'auto',
+                  paddingRight: covers.length > 1 ? APK_STORE_PROFILE_UI.coverGap : 0
                 }}
-                onPointerDown={handleCoverPointerDown}
-                onPointerMove={handleCoverPointerMove}
-                onPointerUp={handleCoverPointerEnd}
-                onPointerCancel={handleCoverPointerEnd}
-                onPointerLeave={stopImageDragging}
+                onPointerDown={coverHorizontalScroll.onPointerDown}
+                onPointerMove={coverHorizontalScroll.onPointerMove}
+                onPointerUp={coverHorizontalScroll.onPointerUp}
+                onPointerCancel={coverHorizontalScroll.onPointerCancel}
+                onPointerLeave={coverHorizontalScroll.onPointerLeave}
+                onScroll={handleCoverScroll}
               >
                 {covers.map((url, index) => (
                   <button
@@ -15565,9 +17611,8 @@ export function ShowcaseStoreProfileView({
                       overflow: 'hidden',
                       background: APK_STORE_PROFILE_UI.softSurface,
                       boxShadow: 'none',
-                      transform: pressedCoverIndex === index ? `scale(${APK_STORE_PROFILE_UI.coverPressedScale})` : 'scale(1)',
                       transition: 'transform 120ms ease',
-                      cursor: isDraggingImages ? 'grabbing' : 'pointer',
+                      cursor: 'pointer',
                       touchAction: 'pan-x',
                       userSelect: 'none'
                     }}
@@ -15578,10 +17623,13 @@ export function ShowcaseStoreProfileView({
                     onClick={event => {
                       event.preventDefault()
                       event.stopPropagation()
+                      if (coverHorizontalScroll.shouldSuppressClick()) return
+                      openCoverPreview(covers, index)
                     }}
                     onKeyDown={event => {
                       if (event.key === 'Enter' || event.key === ' ') {
                         event.preventDefault()
+                        if (coverHorizontalScroll.shouldSuppressClick()) return
                         openCoverPreview(covers, index)
                       }
                     }}
@@ -15636,74 +17684,106 @@ export function ShowcaseStoreProfileView({
               </div>
             )}
 
+            {covers.length > 1 ? (
+              <span
+                className="ndjc-apk-store-cover-count"
+                style={{
+                  position: 'absolute',
+                  right: 10,
+                  top: APK_STORE_PROFILE_UI.coverHeight - 30,
+                  zIndex: 3,
+                  borderRadius: 999,
+                  padding: '4px 8px',
+                  color: '#FFFFFF',
+                  background: 'rgba(0, 0, 0, 0.42)',
+                  fontSize: 12,
+                  lineHeight: 1,
+                  fontWeight: 650,
+                  pointerEvents: 'none',
+                  whiteSpace: 'nowrap',
+                  backdropFilter: 'blur(8px)'
+                }}
+              >
+                {Math.min(activeCoverIndex + 1, covers.length)}/{covers.length}
+              </span>
+            ) : null}
+
+            <span
+              className="ndjc-apk-store-cover-info-divider"
+              style={{
+                position: 'absolute',
+                left: -APK_PAGE_SHELL_UI.screenPadding,
+                right: -APK_PAGE_SHELL_UI.screenPadding,
+                top: APK_STORE_PROFILE_UI.coverHeight + 18,
+                zIndex: 2,
+                height: 1,
+                display: 'block',
+                background: NDJC_GLOBAL_UI_TOKENS.colors.divider,
+                boxShadow: 'none',
+                pointerEvents: 'none'
+              }}
+              aria-hidden="true"
+            />
+
             <section
               className="ndjc-apk-store-white-card-wrap"
               style={{
                 position: 'relative',
                 zIndex: 2,
                 width: '100%',
-                paddingTop: APK_STORE_PROFILE_UI.topContentPadding,
+                paddingTop: APK_STORE_PROFILE_UI.coverHeight + 38,
                 boxSizing: 'border-box',
                 pointerEvents: 'none'
               }}
             >
-              <NdjcWhiteCard
-                className="ndjc-apk-store-white-card"
+              <section
+                className="ndjc-apk-store-profile-content"
                 style={{
+                  width: '100%',
+                  paddingLeft: Math.max(0, NDJC_GLOBAL_UI_TOKENS.layout.contentPaddingX - APK_PAGE_SHELL_UI.screenPadding),
+                  paddingRight: Math.max(0, NDJC_GLOBAL_UI_TOKENS.layout.contentPaddingX - APK_PAGE_SHELL_UI.screenPadding),
+                  background: APK_SHELL_UI.pageBg,
+                  boxSizing: 'border-box',
+                  display: 'grid',
+                  gap: NDJC_GLOBAL_UI_TOKENS.rhythm.sectionToSection,
                   pointerEvents: 'auto'
                 }}
               >
-                <section
-                  style={{
-                    width: '100%',
-                    display: 'grid',
-                    gap: APK_PAGE_SHELL_UI.normalGap
-                  }}
-                >
-                  <UniversalStoreBrandHeader
-                    coverUrl=""
-                    logoUrl={selectedStoreLogoUrl || ''}
-                    title={state.title || ''}
-                    subtitle={state.subtitle || ''}
-                    businessStatus={state.businessStatus || ''}
-                    onPreview={openCoverPreview}
-                  />
+                <UniversalStoreBrandHeader
+                  coverUrl=""
+                  logoUrl={selectedStoreLogoUrl || ''}
+                  title={state.title || ''}
+                  subtitle={state.subtitle || ''}
+                  businessStatus={state.businessStatus || ''}
+                  onPreview={openCoverPreview}
+                />
 
-                  {sectionDivider}
+                {brandInfoDivider}
 
-                  <UniversalStoreAboutSection description={state.description} />
+                <UniversalStoreAboutSection description={state.description} />
 
-                  {sectionDivider}
+                <UniversalStoreServicesSection services={state.services} />
 
-                  <UniversalStoreServicesSection services={state.services} />
+                <UniversalStoreLocationSection
+                  address={state.address}
+                  hours={state.hours}
+                  mapUrl={state.mapUrl}
+                  onOpenMap={actions.onOpenMap}
+                />
 
-                  {sectionDivider}
+                <UniversalStoreExtraContactsSection
+                  extraContacts={state.extraContacts}
+                  onCopyAccountValue={actions.onCopy}
+                />
 
-                  <UniversalStoreLocationSection
-                    address={state.address}
-                    hours={state.hours}
-                    mapUrl={state.mapUrl}
-                    onOpenMap={actions.onOpenMap}
-                  />
-
-                  {sectionDivider}
-
-                  <UniversalStoreExtraContactsSection
-                    extraContacts={state.extraContacts}
-                    onCopyAccountValue={actions.onCopy}
-                  />
-
-                  {sectionDivider}
-
-                  <UniversalStoreAppAboutSection
-                    appName={state.appName}
-                    versionName={state.versionName}
-                    merchantEmail={state.merchantEmail}
-                    privacyUrl={state.privacyUrl}
-                    onOpenPrivacy={actions.onOpenMap}
-                  />
-                </section>
-              </NdjcWhiteCard>
+                <UniversalStoreAppAboutSection
+                  appName={state.appName}
+                  versionName={state.versionName}
+                  merchantEmail={state.merchantEmail}
+                  privacyUrl={state.privacyUrl}
+                  onOpenPrivacy={actions.onOpenMap}
+                />
+              </section>
             </section>
           </section>
 
@@ -15803,8 +17883,35 @@ export function ShowcaseFavoritesScreen({
   actions: ShowcaseFavoritesActions
 }) {
   const hasSelection = state.selectedIds.length > 0
-  const headerRef = React.useRef<HTMLElement | null>(null)
-  const [headerHeight, setHeaderHeight] = React.useState(0)
+  const savedListPaddingX = '25px'
+  const savedExpandedHeaderContentHeight = 340
+  const savedCollapsedHeaderContentHeight = 220
+  const {
+    collapsed: savedHeaderCollapsed,
+    headerRef,
+    headerBottomPadding: savedHeaderBottomPadding,
+    headerTotalHeight: savedHeaderHeight,
+    listTopPadding,
+    handleCollapseScroll
+  } = useNdjcCollapsibleAdminHeader({
+    headerBottomPadding: APK_EDIT_ITEM_UI.sectionCardGap,
+    collapsedHeaderBottomPadding: 8,
+    expandedHeaderContentHeight: savedExpandedHeaderContentHeight,
+    collapsedHeaderContentHeight: savedCollapsedHeaderContentHeight,
+    measureKey: [
+      state.items.length,
+      state.query,
+      state.selectedCategory || '',
+      state.sortMode,
+      state.selectedIds.join(','),
+      state.categories.join(','),
+      state.showFilterMenu,
+      state.filterRecommendedOnly,
+      state.filterOnSaleOnly,
+      state.appliedMinPrice ?? '',
+      state.appliedMaxPrice ?? ''
+    ].join('|')
+  })
   const [favoritesDraftRecommendedOnly, setFavoritesDraftRecommendedOnly] = React.useState(state.filterRecommendedOnly)
   const [favoritesDraftOnSaleOnly, setFavoritesDraftOnSaleOnly] = React.useState(state.filterOnSaleOnly)
   const [favoritesDraftPriceMin, setFavoritesDraftPriceMin] = React.useState(state.priceMinDraft)
@@ -15819,24 +17926,6 @@ export function ShowcaseFavoritesScreen({
     }
   }, [state.showFilterMenu, state.filterRecommendedOnly, state.filterOnSaleOnly, state.priceMinDraft, state.priceMaxDraft])
 
-  React.useEffect(() => {
-    const target = headerRef.current
-    if (!target) return
-
-    const updateHeight = () => {
-      setHeaderHeight(target.getBoundingClientRect().height)
-    }
-
-    updateHeight()
-
-    const observer = new ResizeObserver(updateHeight)
-    observer.observe(target)
-
-    return () => observer.disconnect()
-  }, [])
-
-  const headerTopPadding = APK_PAGE_SHELL_UI.topCardOffset
-  const listTopPadding = headerTopPadding + headerHeight + APK_SHOWCASE_ITEM_UI.adminItemsHeaderToListGap
   const filterActive =
     state.showFilterMenu ||
     state.filterRecommendedOnly ||
@@ -15879,7 +17968,8 @@ export function ShowcaseFavoritesScreen({
             zIndex: 1,
             width: '100%',
             minHeight: 0,
-            padding: `${listTopPadding}px ${APK_PAGE_SHELL_UI.screenPadding}px var(${NDJC_BOTTOM_BAR_RESERVE_CSS_VAR}, ${APK_PAGE_SHELL_UI.tabBottomReserve}px)`,
+            background: '#e9efed',
+            padding: `${listTopPadding}px ${savedListPaddingX} calc(var(${NDJC_BOTTOM_BAR_RESERVE_CSS_VAR}, ${APK_PAGE_SHELL_UI.tabBottomReserve}px) + ${APK_SHOWCASE_ITEM_UI.adminItemsListGap}px)`,
             display: 'grid',
             alignContent: state.items.length ? 'start' : 'stretch',
             gridTemplateRows: state.items.length ? undefined : 'minmax(0, 1fr)',
@@ -15889,6 +17979,7 @@ export function ShowcaseFavoritesScreen({
             WebkitOverflowScrolling: 'touch',
             boxSizing: 'border-box'
           }}
+          onScroll={handleCollapseScroll}
         >
           {state.items.length ? (
             <>
@@ -15914,24 +18005,25 @@ export function ShowcaseFavoritesScreen({
           )}
         </section>
 
-        <NdjcTopScrollFadeMask
-          className="ndjc-apk-favorites-header-scroll-mask"
-          solidRatio={0.58}
-          style={{
-            zIndex: 2
-          }}
-        />
-
-        <NdjcWhiteCard
+        <section
           className="ndjc-apk-favorites-header-card"
           style={{
             position: 'absolute',
             zIndex: 3,
-            top: headerTopPadding,
-            left: APK_PAGE_SHELL_UI.screenPadding,
-            right: APK_PAGE_SHELL_UI.screenPadding,
-            width: `calc(100% - ${APK_PAGE_SHELL_UI.screenPadding * 2}px)`,
-            boxSizing: 'border-box'
+            top: 0,
+            left: 0,
+            right: 0,
+            width: '100%',
+            height: savedHeaderHeight,
+            boxSizing: 'border-box',
+            background: APK_SHELL_UI.pageBg,
+            backdropFilter: 'none',
+            WebkitBackdropFilter: 'none',
+            borderBottom: `1px solid ${NDJC_GLOBAL_UI_TOKENS.colors.divider}`,
+            boxShadow: '0 8px 20px rgba(15, 23, 42, 0.04)',
+            padding: `${NDJC_GLOBAL_UI_TOKENS.layout.contentPaddingTop}px ${NDJC_GLOBAL_UI_TOKENS.layout.contentPaddingX}px ${savedHeaderBottomPadding}px`,
+            overflow: 'hidden',
+            transition: 'height 180ms cubic-bezier(0.2, 0, 0, 1), padding-bottom 180ms cubic-bezier(0.2, 0, 0, 1)'
           }}
         >
           <section
@@ -15939,143 +18031,227 @@ export function ShowcaseFavoritesScreen({
             className="ndjc-apk-favorites-header-column"
             style={{
               width: '100%',
-              display: 'grid',
-              gap: 10
+              maxWidth: NDJC_GLOBAL_UI_TOKENS.layout.contentMaxWidth,
+              margin: '0 auto',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: savedHeaderCollapsed
+                ? 4
+                : APK_EDIT_ITEM_UI.sectionCardGap,
+              transition: 'gap 180ms cubic-bezier(0.2, 0, 0, 1)'
             }}
           >
-              <section
-                className="ndjc-apk-favorites-title-block"
+            <section
+              className="ndjc-apk-favorites-title-block"
+              style={{
+                width: '100%',
+                display: 'grid',
+                gap: savedHeaderCollapsed ? 0 : APK_EDIT_ITEM_UI.titleToHint
+              }}
+            >
+              <h1
                 style={{
-                  width: '100%',
-                  display: 'grid',
-                  gap: 4
+                  margin: 0,
+                  color: NDJC_ADMIN_TOOL_UI.emphasis,
+                  fontSize: APK_EDIT_ITEM_UI.titleFontSize,
+                  lineHeight: APK_EDIT_ITEM_UI.titleLineHeight,
+                  fontWeight: APK_EDIT_ITEM_UI.titleFontWeight,
+                  letterSpacing: APK_EDIT_ITEM_UI.titleLetterSpacing,
+                  textRendering: 'geometricPrecision',
+                  transformOrigin: 'left top',
+                  transform: savedHeaderCollapsed
+                    ? 'translateY(-3px) scale(0.78)'
+                    : 'translateY(0) scale(1)',
+                  willChange: 'transform',
+                  transition: 'transform 180ms cubic-bezier(0.2, 0, 0, 1)'
                 }}
               >
-                <h1
-                  style={{
-                    margin: 0,
-                    color: APK_CORE_UI.black,
-                    fontSize: 22,
-                    lineHeight: 1.2,
-                    fontWeight: 600
-                  }}
-                >
-                  Saved
-                </h1>
+                Saved
+              </h1>
 
-                <p
-                  style={{
-                    margin: 0,
-                    color: 'rgba(0, 0, 0, 0.70)',
-                    fontSize: 14,
-                    lineHeight: 1.35,
-                    fontWeight: 400
-                  }}
-                >
-                  Your saved items.
-                </p>
+              <p
+                style={{
+                  margin: 0,
+                  height: savedHeaderCollapsed ? 0 : 21,
+                  color: APK_EDIT_ITEM_UI.body70,
+                  fontSize: APK_EDIT_ITEM_UI.bodyMediumFontSize,
+                  lineHeight: APK_EDIT_ITEM_UI.bodyMediumLineHeight,
+                  fontWeight: APK_EDIT_ITEM_UI.bodyMediumFontWeight,
+                  opacity: savedHeaderCollapsed ? 0 : 1,
+                  overflow: 'hidden',
+                  transform: savedHeaderCollapsed ? 'translateY(-4px)' : 'translateY(0)',
+                  willChange: 'opacity, transform',
+                  transition: 'opacity 160ms cubic-bezier(0.2, 0, 0, 1), transform 180ms cubic-bezier(0.2, 0, 0, 1)'
+                }}
+              >
+                Your saved items.
+              </p>
 
-                <span
-                  style={{
-                    color: 'rgba(0, 0, 0, 0.70)',
-                    fontSize: 12,
-                    lineHeight: 1.25,
-                    fontWeight: 400
-                  }}
-                >
-                  {state.items.length} saved items
-                </span>
-              </section>
+              <span
+                style={{
+                  height: savedHeaderCollapsed ? 0 : 17,
+                  color: APK_EDIT_ITEM_UI.body55,
+                  fontSize: APK_EDIT_ITEM_UI.bodySmallFontSize,
+                  lineHeight: APK_EDIT_ITEM_UI.bodySmallLineHeight,
+                  fontWeight: APK_EDIT_ITEM_UI.bodySmallFontWeight,
+                  opacity: savedHeaderCollapsed ? 0 : 1,
+                  overflow: 'hidden',
+                  transform: savedHeaderCollapsed ? 'translateY(-4px)' : 'translateY(0)',
+                  willChange: 'opacity, transform',
+                  transition: 'opacity 160ms cubic-bezier(0.2, 0, 0, 1), transform 180ms cubic-bezier(0.2, 0, 0, 1)'
+                }}
+              >
+                {state.items.length} saved items
+              </span>
+            </section>
 
+            <section
+              className="ndjc-apk-favorites-search-filter-row"
+              style={{
+                width: '100%',
+                display: 'grid',
+                gridTemplateColumns: 'minmax(0, 1fr) 48px',
+                gap: APK_EDIT_ITEM_UI.fieldGap,
+                alignItems: 'end'
+              }}
+            >
               <NdjcTextField
                 label="Search saved"
                 value={state.query}
                 onChange={actions.onQueryChange}
                 placeholder="Search saved"
                 singleLine
+                leadingIcon={(
+                  <svg
+                    width="16"
+                    height="16"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    aria-hidden="true"
+                    focusable="false"
+                  >
+                    <path
+                      d="M10.8 18.1a7.3 7.3 0 1 1 0-14.6 7.3 7.3 0 0 1 0 14.6Z"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                    <path
+                      d="M16.1 16.1 21 21"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  </svg>
+                )}
               />
 
-              <SortRow columns={4}>
-                <SortNavEqualItem
-                  text="Default"
-                  selected={state.sortMode === 'Default'}
-                  onClick={() => actions.onSortModeChange('Default')}
-                />
-
-                <SortNavEqualItem
-                  text="Low–High"
-                  selected={state.sortMode === 'PriceAsc'}
-                  onClick={() => actions.onSortModeChange('PriceAsc')}
-                />
-
-                <SortNavEqualItem
-                  text="High–Low"
-                  selected={state.sortMode === 'PriceDesc'}
-                  onClick={() => actions.onSortModeChange('PriceDesc')}
-                />
-
-                <SortNavEqualItem
-                  text="Filter"
-                  selected={filterActive}
-                  onClick={() => {
-                    setFavoritesDraftRecommendedOnly(state.filterRecommendedOnly)
-                    setFavoritesDraftOnSaleOnly(state.filterOnSaleOnly)
-                    setFavoritesDraftPriceMin(state.priceMinDraft)
-                    setFavoritesDraftPriceMax(state.priceMaxDraft)
-                    actions.onShowFilterMenuChange(true)
-                  }}
-                />
-              </SortRow>
-
-              <CategoryChipsRow
-                selectedCategory={state.selectedCategory}
-                manualCategories={state.categories}
-                onCategorySelected={actions.onCategorySelected}
+              <NdjcFilterIconButton
+                active={filterActive}
+                label="Open saved filters"
+                onClick={() => {
+                  setFavoritesDraftRecommendedOnly(state.filterRecommendedOnly)
+                  setFavoritesDraftOnSaleOnly(state.filterOnSaleOnly)
+                  setFavoritesDraftPriceMin(state.priceMinDraft)
+                  setFavoritesDraftPriceMax(state.priceMaxDraft)
+                  actions.onShowFilterMenuChange(true)
+                }}
               />
-
-              <p
-                style={{
-                  margin: 0,
-                  color: 'rgba(0, 0, 0, 0.70)',
-                  fontSize: 12,
-                  lineHeight: 1.35,
-                  fontWeight: 400
-                }}
-              >
-                Select items to delete or clear selection.
-              </p>
-
-              <section
-                className="ndjc-apk-favorites-bulk-row"
-                style={{
-                  width: '100%',
-                  display: 'grid',
-                  gridTemplateColumns: '1fr 1fr',
-                  gap: 10
-                }}
-              >
-                <NdjcPrimaryActionButton
-                  disabled={!hasSelection}
-                  onClick={() => {
-                    if (!hasSelection) return
-                    actions.onClearSelection()
-                  }}
-                >
-                  Clear
-                </NdjcPrimaryActionButton>
-
-                <NdjcPrimaryActionButton
-                  disabled={!hasSelection}
-                  onClick={() => {
-                    if (!hasSelection) return
-                    actions.onDeleteSelected()
-                  }}
-                >
-                  Delete ({state.selectedIds.length})
-                </NdjcPrimaryActionButton>
-              </section>
             </section>
-          </NdjcWhiteCard>
+
+            <SortRow
+              columns={3}
+              variant="segmented"
+              ariaLabel="Sort saved items"
+            >
+              <SortNavEqualItem
+                text="Default"
+                selected={state.sortMode === 'Default'}
+                onClick={() => actions.onSortModeChange('Default')}
+                variant="segmented"
+              />
+
+              <SortNavEqualItem
+                text="Low–High"
+                selected={state.sortMode === 'PriceAsc'}
+                onClick={() => actions.onSortModeChange('PriceAsc')}
+                variant="segmented"
+              />
+
+              <SortNavEqualItem
+                text="High–Low"
+                selected={state.sortMode === 'PriceDesc'}
+                onClick={() => actions.onSortModeChange('PriceDesc')}
+                variant="segmented"
+              />
+            </SortRow>
+
+            <CategoryChipsRow
+              selectedCategory={state.selectedCategory}
+              manualCategories={state.categories}
+              onCategorySelected={actions.onCategorySelected}
+              showAllChip
+              useOuterHorizontalPadding={false}
+              chipVariant="textOnly"
+            />
+
+            <p
+              style={{
+                margin: 0,
+                height: savedHeaderCollapsed ? 0 : 17,
+                color: APK_EDIT_ITEM_UI.body55,
+                fontSize: APK_EDIT_ITEM_UI.bodySmallFontSize,
+                lineHeight: APK_EDIT_ITEM_UI.bodySmallLineHeight,
+                fontWeight: APK_EDIT_ITEM_UI.bodySmallFontWeight,
+                opacity: savedHeaderCollapsed ? 0 : 1,
+                overflow: 'hidden',
+                transform: savedHeaderCollapsed ? 'translateY(-4px)' : 'translateY(0)',
+                willChange: 'opacity, transform',
+                transition: 'height 180ms cubic-bezier(0.2, 0, 0, 1), opacity 160ms cubic-bezier(0.2, 0, 0, 1), transform 180ms cubic-bezier(0.2, 0, 0, 1)'
+              }}
+            >
+              Select items to delete or clear selection.
+            </p>
+
+            <section
+              className="ndjc-apk-favorites-bulk-row"
+              style={{
+                width: '100%',
+                display: 'grid',
+                gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
+                gap: APK_EDIT_ITEM_UI.fieldGap
+              }}
+            >
+              <NdjcControlPillButton
+                disabled={!hasSelection}
+                active={hasSelection}
+                tone="adminAction"
+                fullWidth
+                onClick={() => {
+                  if (!hasSelection) return
+                  actions.onClearSelection()
+                }}
+              >
+                Clear
+              </NdjcControlPillButton>
+
+              <NdjcControlPillButton
+                disabled={!hasSelection}
+                active={hasSelection}
+                tone="adminAction"
+                fullWidth
+                onClick={() => {
+                  if (!hasSelection) return
+                  actions.onDeleteSelected()
+                }}
+              >
+                Delete {state.selectedIds.length}
+              </NdjcControlPillButton>
+            </section>
+          </section>
+        </section>
 
         <NdjcFilterBottomSheet
           open={state.showFilterMenu}
@@ -16087,6 +18263,7 @@ export function ShowcaseFavoritesScreen({
           priceMaxDraft={favoritesDraftPriceMax}
           onPriceMaxDraftChange={setFavoritesDraftPriceMax}
           showPriceFields
+          showHeaderDivider={false}
           onClose={() => {
             setFavoritesDraftRecommendedOnly(state.filterRecommendedOnly)
             setFavoritesDraftOnSaleOnly(state.filterOnSaleOnly)
@@ -16284,6 +18461,7 @@ function AppointmentCatalogItemCard({
   itemAvailable = true,
   allowClickWhenUnavailable = false,
   onOpen,
+  middle,
   bottom,
   trailing
 }: {
@@ -16298,6 +18476,7 @@ function AppointmentCatalogItemCard({
   itemAvailable?: boolean
   allowClickWhenUnavailable?: boolean
   onOpen?: () => void
+  middle?: React.ReactNode
   bottom?: React.ReactNode
   trailing?: React.ReactNode
 }) {
@@ -16313,12 +18492,14 @@ function AppointmentCatalogItemCard({
       allowClickWhenUnavailable={allowClickWhenUnavailable}
       onOpen={onOpen}
       middle={
-        showRecommendedBadge ? (
-          <NdjcItemStatusBadgeRow
-            recommended={isRecommended}
-            hidden={false}
-          />
-        ) : null
+        middle || (
+          showRecommendedBadge ? (
+            <NdjcItemStatusBadgeRow
+              recommended={isRecommended}
+              hidden={false}
+            />
+          ) : null
+        )
       }
       bottom={bottom}
       trailing={trailing}
@@ -16346,8 +18527,11 @@ function AppointmentBookingProductSection({
           title={product.title}
           imageUrl={product.imageUrl}
           priceTextValue={product.priceText}
+          originalPriceTextValue={product.originalPriceText}
+          discountPriceTextValue={product.discountPriceText}
           categoryText={null}
           isRecommended={product.isRecommended}
+          showRecommendedBadge
           itemAvailable={enabled}
           allowClickWhenUnavailable={false}
           onOpen={() => onOpenProductDetail(product.dishId)}
@@ -16520,6 +18704,8 @@ function AppointmentCustomerDateRow({
   enabled: boolean
   onSelected: (value: string) => void
 }) {
+  const horizontalScroll = useNdjcHorizontalDragScroll()
+
   if (!options.length) {
     return (
       <section className="ndjc-appointment-customer-date-row" style={apkAppointmentColumnStyle}>
@@ -16539,6 +18725,12 @@ function AppointmentCustomerDateRow({
       </h3>
 
       <div
+        ref={horizontalScroll.scrollRef}
+        onPointerDown={horizontalScroll.onPointerDown}
+        onPointerMove={horizontalScroll.onPointerMove}
+        onPointerUp={horizontalScroll.onPointerUp}
+        onPointerCancel={horizontalScroll.onPointerCancel}
+        onPointerLeave={horizontalScroll.onPointerLeave}
         style={{
           width: '100%',
           maxWidth: '100%',
@@ -16551,7 +18743,8 @@ function AppointmentCustomerDateRow({
           scrollbarWidth: 'none',
           msOverflowStyle: 'none',
           touchAction: 'pan-x',
-          overscrollBehaviorX: 'contain'
+          overscrollBehaviorX: 'contain',
+          cursor: 'grab'
         }}
       >
         {options.map(option => (
@@ -16569,6 +18762,7 @@ function AppointmentCustomerDateRow({
               selected={selected === option.value}
               disabled={!enabled || !option.available}
               onClick={() => {
+                if (horizontalScroll.shouldSuppressClick()) return
                 if (enabled && option.available) {
                   onSelected(option.value)
                 }
@@ -16619,10 +18813,9 @@ function AppointmentCustomerTimeGrid({
             const active = selected === option
 
             return (
-              <NdjcControlPillButton
+              <NdjcPillButton
                 key={option}
-                active={active}
-                tone="subtle"
+                selected={active}
                 disabled={!enabled}
                 onClick={() => {
                   if (enabled) {
@@ -16631,7 +18824,7 @@ function AppointmentCustomerTimeGrid({
                 }}
               >
                 {normalized}
-              </NdjcControlPillButton>
+              </NdjcPillButton>
             )
           })}
         </div>
@@ -16651,32 +18844,42 @@ function AppointmentSubmitConfirmLine({
   isSubmitting: boolean
   onSubmit: () => void
 }) {
+  const submitDisabled = !enabled || !canSubmit || isSubmitting
+
   return (
-    <NdjcPrimaryActionButton
-      disabled={!enabled || !canSubmit || isSubmitting}
-      isLoading={isSubmitting}
+    <NdjcControlPillButton
+      disabled={submitDisabled}
+      active={!submitDisabled}
+      tone="adminAction"
+      fullWidth
       onClick={() => {
-        if (isSubmitting) return
+        if (submitDisabled) return
         onSubmit()
       }}
     >
-      Submit request
-    </NdjcPrimaryActionButton>
+      {isSubmitting ? 'Submitting...' : 'Submit request'}
+    </NdjcControlPillButton>
   )
 }
 
 function AppointmentSubmitConfirmInfo({
   label,
-  value
+  value,
+  maxLines = 2
 }: {
   label: string
   value: string
+  maxLines?: number | null
 }) {
+  const cleanValue = value.trim()
+  if (!cleanValue) return null
+
   return (
-    <section style={apkAppointmentDetailLineStyle}>
-      <span style={apkAppointmentDetailLabelStyle}>{label}</span>
-      <strong style={apkAppointmentDetailValueStyle}>{value}</strong>
-    </section>
+    <CustomerBookingDetailInfoLine
+      label={label}
+      value={cleanValue}
+      maxLines={maxLines}
+    />
   )
 }
 
@@ -16694,6 +18897,82 @@ function AppointmentDetailInfoLine({
     <section className="ndjc-appointment-detail-info-line" style={apkAppointmentDetailLineStyle}>
       <span style={apkAppointmentDetailLabelStyle}>{label}</span>
       <strong style={apkAppointmentDetailValueStyle}>{cleanValue}</strong>
+    </section>
+  )
+}
+
+function CustomerBookingDetailInfoLine({
+  label,
+  value,
+  valueNode,
+  maxLines = 2
+}: {
+  label: string
+  value?: string | null
+  valueNode?: React.ReactNode
+  maxLines?: number | null
+}) {
+  const cleanValue = value?.trim() || ''
+  if (!cleanValue && !valueNode) return null
+
+  const valueStyle: React.CSSProperties = {
+    margin: 0,
+    minWidth: 0,
+    color: NDJC_GLOBAL_UI_TOKENS.colors.controlEmphasis,
+    fontSize: APK_EDIT_ITEM_UI.bodyMediumFontSize,
+    lineHeight: APK_EDIT_ITEM_UI.bodyMediumLineHeight,
+    fontWeight: 650,
+    overflowWrap: 'anywhere'
+  }
+
+  if (typeof maxLines === 'number') {
+    valueStyle.overflow = 'hidden'
+    valueStyle.textOverflow = 'ellipsis'
+    valueStyle.display = '-webkit-box'
+    valueStyle.WebkitLineClamp = maxLines
+    valueStyle.WebkitBoxOrient = 'vertical'
+  }
+
+  return (
+    <section
+      className="ndjc-customer-booking-detail-info-line"
+      style={{
+        width: '100%',
+        display: 'grid',
+        gridTemplateColumns: '92px minmax(0, 1fr)',
+        gap: APK_EDIT_ITEM_UI.fieldGap,
+        alignItems: 'start'
+      }}
+    >
+      <span
+        style={{
+          margin: 0,
+          color: APK_EDIT_ITEM_UI.body55,
+          fontSize: APK_EDIT_ITEM_UI.bodySmallFontSize,
+          lineHeight: APK_EDIT_ITEM_UI.bodySmallLineHeight,
+          fontWeight: 650,
+          whiteSpace: 'nowrap'
+        }}
+      >
+        {label}
+      </span>
+
+      {valueNode ? (
+        <span
+          style={{
+            minWidth: 0,
+            display: 'inline-flex',
+            justifyContent: 'flex-start',
+            alignItems: 'center'
+          }}
+        >
+          {valueNode}
+        </span>
+      ) : (
+        <strong style={valueStyle}>
+          {cleanValue}
+        </strong>
+      )}
     </section>
   )
 }
@@ -16731,11 +19010,21 @@ function AppointmentDetailsBottomSheet({
 
   if (!item) return null
 
-  const canOpenProduct = Boolean(item.itemAvailable && item.sourceDishId && onOpenProduct)
+  const sourceDishId = item.sourceDishId?.trim() || ''
+  const canOpenProduct = Boolean(item.itemAvailable && sourceDishId && onOpenProduct)
   const statusSubmitting = Boolean(adminActions && statusSubmittingId === item.id)
   const customerCancelledLock = Boolean(adminActions && isAppointmentCancelledByCustomer(item))
   const statusActionDisabled = statusSubmitting || customerCancelledLock
   const displayStatusLabel = appointmentStatusDisplayLabel(item)
+  const appointmentDetailInnerPaddingX = Math.max(
+    0,
+    APK_EDIT_ITEM_UI.screenPadding - APK_FILTER_UI.sheetContentPaddingX
+  )
+  const appointmentDetailProductCardPaddingX = Math.max(
+    0,
+    25 - APK_FILTER_UI.sheetContentPaddingX
+  )
+  const appointmentDetailTitlePaddingX = APK_EDIT_ITEM_UI.screenPadding
 
   return (
     <NdjcFilterBottomSheet
@@ -16745,131 +19034,208 @@ function AppointmentDetailsBottomSheet({
       applyText="Done"
       showPriceFields={false}
       showHeaderAction={false}
+      showHeaderDivider={false}
+      headerPaddingX={appointmentDetailTitlePaddingX}
       showApplyButton={false}
       onClose={onClose}
       onClear={onClose}
       onApply={onClose}
     >
-      <div style={{ height: APK_APPOINTMENT_UI.bottomSheetSpacerTop }} aria-hidden="true" />
+      <section
+        className="ndjc-appointment-detail-content"
+        style={{
+          width: '100%',
+          boxSizing: 'border-box',
+          display: 'grid',
+          gap: APK_EDIT_ITEM_UI.sectionCardGap
+        }}
+      >
+        <section
+          className="ndjc-appointment-detail-product-wrap"
+          style={{
+            width: '100%',
+            boxSizing: 'border-box',
+            paddingLeft: appointmentDetailProductCardPaddingX,
+            paddingRight: appointmentDetailProductCardPaddingX
+          }}
+        >
+          <AppointmentCatalogItemCard
+            title={item.serviceTitle || 'General appointment'}
+            imageUrl={item.imageUrl}
+            priceTextValue={item.priceText}
+            originalPriceTextValue={item.originalPriceText}
+            discountPriceTextValue={item.discountPriceText}
+            categoryText={null}
+            isRecommended={item.isRecommended}
+            showRecommendedBadge
+            itemAvailable={item.itemAvailable && Boolean(sourceDishId)}
+            allowClickWhenUnavailable={false}
+            onOpen={canOpenProduct
+              ? () => {
+                  onClose()
+                  onOpenProduct?.(sourceDishId)
+                }
+              : undefined}
+          />
+        </section>
 
-      <AppointmentCatalogItemCard
-        title={item.serviceTitle || 'General appointment'}
-        imageUrl={item.imageUrl}
-        priceTextValue={item.priceText}
-        originalPriceTextValue={item.originalPriceText}
-        discountPriceTextValue={item.discountPriceText}
-        categoryText={null}
-        isRecommended={item.isRecommended}
-        showRecommendedBadge
-        itemAvailable={item.itemAvailable && Boolean(item.sourceDishId)}
-        allowClickWhenUnavailable={false}
-        onOpen={
-          canOpenProduct && item.sourceDishId
-            ? () => {
-                onClose()
-                onOpenProduct?.(item.sourceDishId!)
-              }
-            : undefined
-        }
-      />
-
-      <AppointmentDetailSectionTitle>
-        {adminActions ? 'Appointment info' : 'Booking info'}
-      </AppointmentDetailSectionTitle>
-
-      <AppointmentDetailInfoLine
-        label="Time"
-        value={appointmentDetailTimeText(item.preferredDate, item.preferredTime)}
-      />
-
-      <AppointmentDetailInfoLine
-        label="Customer"
-        value={item.customerName || 'Customer'}
-      />
-
-      <AppointmentContactCopyLine
-        label="Contact"
-        value={item.customerContact || 'No contact provided'}
-      />
-
-      {adminActions ? (
-        <AppointmentDetailInfoLine label="Status" value={displayStatusLabel} />
-      ) : null}
-
-      <AppointmentDetailInfoLine label="Note" value={item.note} />
-      <AppointmentDetailInfoLine label="Requested" value={item.createdAtText} />
-
-      {adminActions ? (
-        <>
-          <AppointmentDetailSectionTitle>Appointment status</AppointmentDetailSectionTitle>
-
+        <EditItemSectionCard className="ndjc-appointment-detail-info-card">
           <section
+            className="ndjc-appointment-detail-info-inner"
             style={{
               width: '100%',
-              display: 'flex',
-              flexWrap: 'wrap',
-              alignItems: 'center',
-              gap: 8
+              boxSizing: 'border-box',
+              paddingLeft: appointmentDetailInnerPaddingX,
+              paddingRight: appointmentDetailInnerPaddingX,
+              display: 'grid',
+              gap: APK_EDIT_ITEM_UI.sectionCardGap
             }}
           >
-            {['Pending', 'Confirmed', 'Cancelled', 'Completed', 'No-show'].map(status => (
-              <NdjcPillButton
-                key={status}
-                selected={draftStatus === status}
-                disabled={statusActionDisabled}
-                onClick={() => {
-                  if (statusActionDisabled) return
-                  setDraftStatus(status)
-                }}
-              >
-                {status}
-              </NdjcPillButton>
-            ))}
-          </section>
+            <EditItemSectionTitle
+              title={adminActions ? 'Appointment info' : 'Booking info'}
+              subtitle={adminActions
+                ? 'Review the customer appointment details.'
+                : 'Review your appointment details.'}
+            />
 
-          {customerCancelledLock ? (
             <section
+              className="ndjc-appointment-detail-info-list"
               style={{
                 width: '100%',
-                borderRadius: 16,
-                padding: '10px 12px',
-                boxSizing: 'border-box',
-                color: 'rgba(0, 0, 0, 0.66)',
-                background: 'rgba(0, 0, 0, 0.05)',
-                fontSize: 13,
-                lineHeight: 1.4,
-                fontWeight: 600
+                display: 'grid',
+                gap: APK_EDIT_ITEM_UI.fieldGap
               }}
             >
-              This booking was cancelled by the customer and can no longer be changed.
+              <CustomerBookingDetailInfoLine
+                label="Status"
+                valueNode={(
+                  <NdjcPillBadge selected>
+                    {displayStatusLabel}
+                  </NdjcPillBadge>
+                )}
+              />
+
+              <CustomerBookingDetailInfoLine
+                label="Time"
+                value={appointmentDetailTimeText(item.preferredDate, item.preferredTime)}
+              />
+
+              {item.createdAtText ? (
+                <CustomerBookingDetailInfoLine
+                  label="Requested"
+                  value={item.createdAtText}
+                  maxLines={2}
+                />
+              ) : null}
+
+              <CustomerBookingDetailInfoLine
+                label="Customer"
+                value={item.customerName || 'Customer'}
+              />
+
+              <CustomerBookingDetailInfoLine
+                label="Contact"
+                value={item.customerContact || 'No contact provided'}
+              />
+
+              {item.note ? (
+                <CustomerBookingDetailInfoLine
+                  label="Note"
+                  value={item.note}
+                  maxLines={null}
+                />
+              ) : null}
             </section>
-          ) : null}
+          </section>
+        </EditItemSectionCard>
 
-          <NdjcPrimaryActionButton
-            disabled={statusActionDisabled}
-            isLoading={statusSubmitting}
-            onClick={() => {
-              if (statusActionDisabled) return
+        {adminActions ? (
+          <EditItemSectionCard className="ndjc-appointment-detail-action-card">
+            <section
+              className="ndjc-appointment-detail-action-inner"
+              style={{
+                width: '100%',
+                boxSizing: 'border-box',
+                paddingLeft: appointmentDetailInnerPaddingX,
+                paddingRight: appointmentDetailInnerPaddingX,
+                display: 'grid',
+                gap: APK_EDIT_ITEM_UI.sectionCardGap
+              }}
+            >
+              <EditItemSectionTitle
+                title="Appointment status"
+                subtitle="Select a status, then save the change."
+              />
 
-              let actionResult: void | Promise<void> | null = null
+              <section
+                style={{
+                  width: '100%',
+                  display: 'flex',
+                  flexWrap: 'wrap',
+                  alignItems: 'center',
+                  gap: 8
+                }}
+              >
+                {['Pending', 'Confirmed', 'Cancelled', 'Completed', 'No-show'].map(status => (
+                  <NdjcPillButton
+                    key={status}
+                    selected={draftStatus === status}
+                    disabled={statusActionDisabled}
+                    onClick={() => {
+                      if (statusActionDisabled) return
+                      setDraftStatus(status)
+                    }}
+                  >
+                    {status}
+                  </NdjcPillButton>
+                ))}
+              </section>
 
-              if (draftStatus === 'Pending') actionResult = adminActions.onPending(item.id)
-              if (draftStatus === 'Confirmed') actionResult = adminActions.onConfirm(item.id)
-              if (draftStatus === 'Cancelled') actionResult = adminActions.onCancel(item.id)
-              if (draftStatus === 'Completed') actionResult = adminActions.onComplete(item.id)
-              if (draftStatus === 'No-show') actionResult = adminActions.onNoShow(item.id)
+              {customerCancelledLock ? (
+                <section
+                  style={{
+                    width: '100%',
+                    borderRadius: APK_EDIT_ITEM_UI.fieldRadius,
+                    padding: `${APK_EDIT_ITEM_UI.fieldPaddingY}px ${APK_EDIT_ITEM_UI.fieldPaddingX}px`,
+                    boxSizing: 'border-box',
+                    color: APK_EDIT_ITEM_UI.body70,
+                    background: APK_EDIT_ITEM_UI.fieldBackground,
+                    fontSize: APK_EDIT_ITEM_UI.bodySmallFontSize,
+                    lineHeight: APK_EDIT_ITEM_UI.bodySmallLineHeight,
+                    fontWeight: APK_EDIT_ITEM_UI.bodySmallFontWeight
+                  }}
+                >
+                  This booking was cancelled by the customer and can no longer be changed.
+                </section>
+              ) : null}
 
-              void Promise.resolve(actionResult).finally(() => {
-                onClose()
-              })
-            }}
-          >
-            Save status
-          </NdjcPrimaryActionButton>
-        </>
-      ) : (
-        <AppointmentDetailInfoLine label="Status" value={displayStatusLabel} />
-      )}
+              <NdjcControlPillButton
+                disabled={statusActionDisabled}
+                active={!statusActionDisabled}
+                tone="adminAction"
+                fullWidth
+                onClick={() => {
+                  if (statusActionDisabled) return
+
+                  let actionResult: void | Promise<void> | null = null
+
+                  if (draftStatus === 'Pending') actionResult = adminActions.onPending(item.id)
+                  if (draftStatus === 'Confirmed') actionResult = adminActions.onConfirm(item.id)
+                  if (draftStatus === 'Cancelled') actionResult = adminActions.onCancel(item.id)
+                  if (draftStatus === 'Completed') actionResult = adminActions.onComplete(item.id)
+                  if (draftStatus === 'No-show') actionResult = adminActions.onNoShow(item.id)
+
+                  void Promise.resolve(actionResult).finally(() => {
+                    onClose()
+                  })
+                }}
+              >
+                {statusSubmitting ? 'Saving...' : 'Save status'}
+              </NdjcControlPillButton>
+            </section>
+          </EditItemSectionCard>
+        ) : null}
+      </section>
     </NdjcFilterBottomSheet>
   )
 }
@@ -16897,11 +19263,20 @@ function CustomerBookingDetailsBottomSheet({
 
   if (!item) return null
 
-  const sourceDishId = item.sourceDishId?.trim() || ''
-  const canOpenProduct = Boolean(item.itemAvailable && sourceDishId && onOpenProduct)
-  const canCancelBooking = Boolean(item.canCancelByCustomer && onCancelBooking)
+const sourceDishId = item.sourceDishId?.trim() || ''
+const canOpenProduct = Boolean(item.itemAvailable && sourceDishId && onOpenProduct)
+const canCancelBooking = Boolean(item.canCancelByCustomer && onCancelBooking)
   const isCancelling = cancellationSubmittingId === item.id
   const submitChangeDisabled = !cancelSelected || isCancelling
+  const customerBookingDetailInnerPaddingX = Math.max(
+    0,
+    APK_EDIT_ITEM_UI.screenPadding - APK_FILTER_UI.sheetContentPaddingX
+  )
+  const customerBookingDetailAppointmentCardPaddingX = Math.max(
+    0,
+    25 - APK_FILTER_UI.sheetContentPaddingX
+  )
+  const customerBookingDetailTitlePaddingX = APK_EDIT_ITEM_UI.screenPadding
 
   return (
     <>
@@ -16912,107 +19287,238 @@ function CustomerBookingDetailsBottomSheet({
         applyText="Done"
         showPriceFields={false}
         showHeaderAction={false}
+        showHeaderDivider={false}
+        headerPaddingX={customerBookingDetailTitlePaddingX}
         showApplyButton={false}
         onClose={onClose}
         onClear={onClose}
         onApply={onClose}
       >
-        <AppointmentCatalogItemCard
-          title={item.serviceTitle || 'General appointment'}
-          imageUrl={item.imageUrl}
-          priceTextValue={item.priceText}
-          originalPriceTextValue={item.originalPriceText}
-          discountPriceTextValue={item.discountPriceText}
-          categoryText={null}
-          isRecommended={item.isRecommended}
-          showRecommendedBadge
-          itemAvailable={item.itemAvailable && Boolean(sourceDishId)}
-          allowClickWhenUnavailable={false}
-          onOpen={canOpenProduct
-            ? () => {
-                onClose()
-                onOpenProduct?.(sourceDishId)
-              }
-            : undefined}
-        />
+        <section
+          className="ndjc-customer-booking-detail-content"
+          style={{
+            width: '100%',
+            boxSizing: 'border-box',
+            display: 'grid',
+            gap: APK_EDIT_ITEM_UI.sectionCardGap
+          }}
+        >
+          <section
+            className="ndjc-customer-booking-detail-product-wrap"
+            style={{
+              width: '100%',
+              boxSizing: 'border-box',
+              paddingLeft: customerBookingDetailAppointmentCardPaddingX,
+              paddingRight: customerBookingDetailAppointmentCardPaddingX
+            }}
+          >
+            <AppointmentCatalogItemCard
+              title={item.serviceTitle || 'General appointment'}
+              imageUrl={item.imageUrl}
+              priceTextValue={item.priceText}
+              originalPriceTextValue={item.originalPriceText}
+              discountPriceTextValue={item.discountPriceText}
+              categoryText={null}
+              isRecommended={item.isRecommended}
+              showRecommendedBadge
+              itemAvailable={item.itemAvailable && Boolean(sourceDishId)}
+              allowClickWhenUnavailable={false}
+              onOpen={canOpenProduct
+                ? () => {
+                    onClose()
+                    onOpenProduct?.(sourceDishId)
+                  }
+                : undefined}
+            />
+          </section>
 
-        <AppointmentDetailSectionTitle>
-          Booking info
-        </AppointmentDetailSectionTitle>
-
-        <AppointmentDetailInfoLine
-          label="Time"
-          value={appointmentDetailTimeText(item.preferredDate, item.preferredTime)}
-        />
-
-        <AppointmentDetailInfoLine
-          label="Status"
-          value={item.statusLabel}
-        />
-
-        <AppointmentDetailInfoLine
-          label="Customer"
-          value={item.customerName || 'Customer'}
-        />
-
-        <AppointmentDetailInfoLine
-          label="Contact"
-          value={item.customerContact || 'No contact provided'}
-        />
-
-        {item.note ? (
-          <AppointmentDetailInfoLine
-            label="Note"
-            value={item.note}
-          />
-        ) : null}
-
-        {item.createdAtText ? (
-          <AppointmentDetailInfoLine
-            label="Requested"
-            value={item.createdAtText}
-          />
-        ) : null}
-
-        {canCancelBooking ? (
-          <>
-            <AppointmentDetailSectionTitle>
-              Booking action
-            </AppointmentDetailSectionTitle>
-
+          <EditItemSectionCard className="ndjc-customer-booking-detail-info-card">
             <section
+              className="ndjc-customer-booking-detail-info-inner"
               style={{
                 width: '100%',
-                display: 'flex',
-                flexWrap: 'wrap',
-                alignItems: 'center',
-                gap: 8
+                boxSizing: 'border-box',
+                paddingLeft: customerBookingDetailInnerPaddingX,
+                paddingRight: customerBookingDetailInnerPaddingX,
+                display: 'grid',
+                gap: APK_EDIT_ITEM_UI.sectionCardGap
               }}
             >
-              <NdjcPillButton
-                selected={cancelSelected}
-                disabled={isCancelling}
-                onClick={() => {
-                  if (isCancelling) return
-                  setCancelSelected(value => !value)
+              <EditItemSectionTitle
+                title="Booking info"
+                subtitle="Review your appointment details."
+              />
+
+              <section
+                className="ndjc-customer-booking-detail-info-list"
+                style={{
+                  width: '100%',
+                  display: 'grid',
+                  gap: APK_EDIT_ITEM_UI.fieldGap
                 }}
               >
-                Cancel booking
-              </NdjcPillButton>
-            </section>
+<CustomerBookingDetailInfoLine
+  label="Status"
+  valueNode={(
+    <NdjcPillBadge selected>
+      {item.statusLabel}
+    </NdjcPillBadge>
+  )}
+/>
 
-            <NdjcPrimaryActionButton
-              disabled={submitChangeDisabled}
-              isLoading={isCancelling}
-              onClick={() => {
-                if (submitChangeDisabled) return
-                setCancelConfirmOpen(true)
-              }}
-            >
-              Submit change
-            </NdjcPrimaryActionButton>
-          </>
-        ) : null}
+<CustomerBookingDetailInfoLine
+  label="Time"
+  value={appointmentDetailTimeText(item.preferredDate, item.preferredTime)}
+/>
+
+{item.createdAtText ? (
+  <CustomerBookingDetailInfoLine
+    label="Requested"
+    value={item.createdAtText}
+    maxLines={2}
+  />
+) : null}
+
+<CustomerBookingDetailInfoLine
+  label="Customer"
+  value={item.customerName || 'Customer'}
+/>
+
+<CustomerBookingDetailInfoLine
+  label="Contact"
+  value={item.customerContact || 'No contact provided'}
+/>
+
+{item.note ? (
+  <CustomerBookingDetailInfoLine
+    label="Note"
+    value={item.note}
+    maxLines={null}
+  />
+) : null}
+              </section>
+            </section>
+          </EditItemSectionCard>
+
+          {canCancelBooking ? (
+            <EditItemSectionCard className="ndjc-customer-booking-detail-action-card">
+              <section
+                className="ndjc-customer-booking-detail-action-inner"
+                style={{
+                  width: '100%',
+                  boxSizing: 'border-box',
+                  paddingLeft: customerBookingDetailInnerPaddingX,
+                  paddingRight: customerBookingDetailInnerPaddingX,
+                  display: 'grid',
+                  gap: APK_EDIT_ITEM_UI.sectionCardGap
+                }}
+              >
+                <EditItemSectionTitle
+                  title="Booking action"
+                  subtitle="Select cancellation, then submit the change."
+                />
+
+                <button
+                  type="button"
+                  role="checkbox"
+                  aria-checked={cancelSelected}
+                  disabled={isCancelling}
+                  className="ndjc-customer-booking-cancel-choice"
+                  style={{
+                    width: '100%',
+                    minHeight: APK_EDIT_ITEM_UI.fieldMinHeight,
+                    border: 0,
+                    borderRadius: APK_EDIT_ITEM_UI.fieldRadius,
+                    padding: '0 2px',
+                    boxSizing: 'border-box',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: APK_EDIT_ITEM_UI.fieldGap,
+                    color: isCancelling
+                      ? NDJC_GLOBAL_UI_TOKENS.colors.controlWeakText
+                      : NDJC_GLOBAL_UI_TOKENS.colors.controlEmphasis,
+                    background: 'transparent',
+                    boxShadow: 'none',
+                    cursor: isCancelling ? 'default' : 'pointer',
+                    appearance: 'none',
+                    WebkitAppearance: 'none',
+                    WebkitTapHighlightColor: 'transparent',
+                    touchAction: 'manipulation'
+                  }}
+                  onClick={() => {
+                    if (isCancelling) return
+                    setCancelSelected(value => !value)
+                  }}
+                >
+<span
+  aria-hidden="true"
+  style={{
+    position: 'relative',
+    width: 20,
+    height: 20,
+    minWidth: 20,
+    borderRadius: 999,
+    boxSizing: 'border-box',
+    display: 'block',
+    border: `1.5px solid ${
+      cancelSelected
+        ? APK_APPOINTMENT_UI.brand
+        : NDJC_GLOBAL_UI_TOKENS.colors.controlWeakText
+    }`,
+    background: cancelSelected
+      ? APK_APPOINTMENT_UI.brand
+      : 'transparent',
+    transition: 'background 140ms ease, border-color 140ms ease'
+  }}
+>
+  {cancelSelected ? (
+    <span
+      style={{
+        position: 'absolute',
+        left: '50%',
+        top: '50%',
+        width: 7,
+        height: 7,
+        borderRadius: 999,
+        background: '#ffffff',
+        transform: 'translate(-50%, -50%)'
+      }}
+    />
+  ) : null}
+</span>
+
+                  <span
+                    style={{
+                      minWidth: 0,
+                      color: cancelSelected
+                        ? NDJC_GLOBAL_UI_TOKENS.colors.controlEmphasis
+                        : APK_EDIT_ITEM_UI.body70,
+                      fontSize: APK_EDIT_ITEM_UI.bodyMediumFontSize,
+                      lineHeight: APK_EDIT_ITEM_UI.bodyMediumLineHeight,
+                      fontWeight: 600,
+                      textAlign: 'left'
+                    }}
+                  >
+                    Cancel this booking
+                  </span>
+                </button>
+
+                <NdjcControlPillButton
+                  disabled={submitChangeDisabled}
+                  active={!submitChangeDisabled}
+                  tone="adminAction"
+                  fullWidth
+                  onClick={() => {
+                    if (submitChangeDisabled) return
+                    setCancelConfirmOpen(true)
+                  }}
+                >
+                  {isCancelling ? 'Submitting...' : 'Submit change'}
+                </NdjcControlPillButton>
+              </section>
+            </EditItemSectionCard>
+          ) : null}
+        </section>
       </NdjcFilterBottomSheet>
 
       {cancelConfirmOpen ? (
@@ -17068,28 +19574,25 @@ function AppointmentCard({
       itemAvailable={linkedItemAvailable}
       allowClickWhenUnavailable
       onOpen={() => onOpenDetails?.(item)}
+      middle={
+        <span
+          style={{
+            color: NDJC_GLOBAL_UI_TOKENS.colors.controlWeakText,
+            fontSize: APK_EDIT_ITEM_UI.bodyMediumFontSize,
+            lineHeight: APK_EDIT_ITEM_UI.bodyMediumLineHeight,
+            fontWeight: 600,
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap'
+          }}
+        >
+          {appointmentListTimeText(item.preferredDate, item.preferredTime)}
+        </span>
+      }
       bottom={
-        <>
-          <span
-            style={{
-              color: APK_APPOINTMENT_UI.black75,
-              fontSize: APK_APPOINTMENT_UI.bodyMediumSize,
-              lineHeight: APK_APPOINTMENT_UI.bodyMediumLineHeight,
-              fontWeight: 500,
-              overflow: 'hidden',
-              textOverflow: 'ellipsis',
-              whiteSpace: 'nowrap'
-            }}
-          >
-            {appointmentListTimeText(item.preferredDate, item.preferredTime)}
-          </span>
-
-          <div style={{ height: 4 }} aria-hidden="true" />
-
-          <NdjcPillBadge selected>
-            {item.statusLabel}
-          </NdjcPillBadge>
-        </>
+        <NdjcPillBadge selected>
+          {item.statusLabel}
+        </NdjcPillBadge>
       }
       trailing={
         onContactMerchant && linkedItemAvailable ? (
@@ -17105,7 +19608,7 @@ function AppointmentCard({
               padding: 0,
               display: 'grid',
               placeItems: 'center',
-              color: APK_APPOINTMENT_UI.brand,
+              color: NDJC_GLOBAL_UI_TOKENS.colors.controlEmphasis,
               background: 'transparent',
               boxShadow: 'none',
               cursor: 'pointer'
@@ -17115,7 +19618,7 @@ function AppointmentCard({
               onContactMerchant(item.id)
             }}
           >
-            <NdjcChatBubbleIcon filled />
+            <NdjcChatBubbleIcon />
           </button>
         ) : null
       }
@@ -17131,27 +19634,31 @@ export function ShowcaseCustomerBookingsScreen({
   actions: ShowcaseCustomerBookingsActions
 }) {
   const [detailsItem, setDetailsItem] = React.useState<ShowcaseAppointmentCard | null>(null)
-  const headerRef = React.useRef<HTMLElement | null>(null)
-  const [headerHeight, setHeaderHeight] = React.useState(0)
-
-  React.useEffect(() => {
-    const target = headerRef.current
-    if (!target) return
-
-    const updateHeight = () => {
-      setHeaderHeight(target.getBoundingClientRect().height)
-    }
-
-    updateHeight()
-
-    const observer = new ResizeObserver(updateHeight)
-    observer.observe(target)
-
-    return () => observer.disconnect()
-  }, [])
-
-  const headerTopPadding = APK_PAGE_SHELL_UI.topCardOffset
-  const listTopPadding = headerTopPadding + headerHeight + 8
+  const bookingsListPaddingX = '25px'
+  const bookingsExpandedHeaderContentHeight = 185
+  const bookingsCollapsedHeaderContentHeight = 130
+  const {
+    collapsed: bookingsHeaderCollapsed,
+    headerRef,
+    headerBottomPadding: bookingsHeaderBottomPadding,
+    headerTotalHeight: bookingsHeaderHeight,
+    listTopPadding,
+    handleCollapseScroll
+  } = useNdjcCollapsibleAdminHeader({
+    headerBottomPadding: APK_EDIT_ITEM_UI.sectionCardGap,
+    collapsedHeaderBottomPadding: 8,
+    expandedHeaderContentHeight: bookingsExpandedHeaderContentHeight,
+    collapsedHeaderContentHeight: bookingsCollapsedHeaderContentHeight,
+    measureKey: [
+      state.items.length,
+      state.selectedDateFilter,
+      state.selectedStatusFilter,
+      state.selectedServiceFilter,
+      state.dateFilterOptions.join(','),
+      state.statusFilterOptions.join(','),
+      state.serviceFilterOptions.join(',')
+    ].join('|')
+  })
 
 return (
   <NdjcUnifiedBackground
@@ -17193,24 +19700,39 @@ return (
               width: '100%',
               height: '100%',
               minHeight: 0,
-              padding: `${listTopPadding}px ${APK_PAGE_SHELL_UI.screenPadding}px var(${NDJC_BOTTOM_BAR_RESERVE_CSS_VAR}, 84px)`,
+              background: '#e9efed',
+              padding: `${listTopPadding}px ${bookingsListPaddingX} calc(var(${NDJC_BOTTOM_BAR_RESERVE_CSS_VAR}, 84px) + ${APK_SHOWCASE_ITEM_UI.adminItemsListGap}px)`,
               display: 'grid',
               alignContent: state.items.length ? 'start' : 'stretch',
               gridTemplateRows: state.items.length ? undefined : 'minmax(0, 1fr)',
-              gap: 10,
+              gap: APK_SHOWCASE_ITEM_UI.adminItemsListGap,
               overflowY: 'auto',
               overflowX: 'hidden',
               WebkitOverflowScrolling: 'touch',
               boxSizing: 'border-box'
             }}
-            onScroll={event => ndjcHandleLoadMoreScroll(
-              event,
-              state.pagination,
-              actions.onLoadMore
-            )}
+            onScroll={event => {
+              handleCollapseScroll(event)
+
+              ndjcHandleLoadMoreScroll(
+                event,
+                state.pagination,
+                actions.onLoadMore
+              )
+            }}
           >
             {state.items.length ? (
-              <>
+              <section
+                className="ndjc-bookings-list-items"
+                style={{
+                  width: '100%',
+                  maxWidth: NDJC_GLOBAL_UI_TOKENS.layout.contentMaxWidth,
+                  margin: '0 auto',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: APK_SHOWCASE_ITEM_UI.adminItemsListGap
+                }}
+              >
                 {state.items.map(item => (
                   <AppointmentCard
                     key={item.id}
@@ -17228,57 +19750,137 @@ return (
                   endText="No more bookings"
                   onLoadMore={actions.onLoadMore}
                 />
-              </>
+              </section>
             ) : (
-              <NdjcInlineEmptyState
-                title="No bookings yet"
-                message="Your appointment requests will appear here after you submit a booking."
-                verticalPadding={0}
-                fillParentMaxSize
-              />
+              <section
+                className="ndjc-bookings-empty-wrap"
+                style={{
+                  width: '100%',
+                  maxWidth: NDJC_GLOBAL_UI_TOKENS.layout.contentMaxWidth,
+                  margin: '0 auto'
+                }}
+              >
+                <NdjcInlineEmptyState
+                  title="No bookings yet"
+                  message="Your appointment requests will appear here after you submit a booking."
+                  verticalPadding={40}
+                />
+              </section>
             )}
           </section>
         </NdjcCustomerPullRefreshContainer>
 
-        <NdjcTopScrollFadeMask
-          className="ndjc-bookings-header-scroll-mask"
-          solidRatio={0.58}
-          style={{
-            zIndex: 2
-          }}
-        />
-
         <section
-          ref={headerRef}
           className="ndjc-bookings-filter-card-wrap"
           style={{
             position: 'absolute',
-            left: APK_PAGE_SHELL_UI.screenPadding,
-            right: APK_PAGE_SHELL_UI.screenPadding,
-            top: headerTopPadding,
-            zIndex: 3
+            zIndex: 3,
+            top: 0,
+            left: 0,
+            right: 0,
+            width: '100%',
+            height: bookingsHeaderHeight,
+            boxSizing: 'border-box',
+            background: APK_SHELL_UI.pageBg,
+            backdropFilter: 'none',
+            WebkitBackdropFilter: 'none',
+            borderBottom: `1px solid ${NDJC_GLOBAL_UI_TOKENS.colors.divider}`,
+            boxShadow: '0 8px 20px rgba(15, 23, 42, 0.04)',
+            padding: `${NDJC_GLOBAL_UI_TOKENS.layout.contentPaddingTop}px ${NDJC_GLOBAL_UI_TOKENS.layout.contentPaddingX}px ${bookingsHeaderBottomPadding}px`,
+            overflow: 'hidden',
+            transition: 'height 180ms cubic-bezier(0.2, 0, 0, 1), padding-bottom 180ms cubic-bezier(0.2, 0, 0, 1)'
           }}
         >
-          <NdjcWhiteCard className="ndjc-bookings-filter-card">
+          <section
+            ref={headerRef}
+            className="ndjc-bookings-filter-card"
+            style={{
+              width: '100%',
+              maxWidth: NDJC_GLOBAL_UI_TOKENS.layout.contentMaxWidth,
+              margin: '0 auto',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: bookingsHeaderCollapsed
+                ? 4
+                : 8,
+              transition: 'gap 180ms cubic-bezier(0.2, 0, 0, 1)'
+            }}
+          >
             <section
+              className="ndjc-bookings-title-block"
               style={{
                 width: '100%',
                 display: 'grid',
-                gap: 6
+                gap: bookingsHeaderCollapsed ? 0 : APK_EDIT_ITEM_UI.titleToHint
               }}
             >
               <h1
                 style={{
                   margin: 0,
-                  color: APK_CORE_UI.black,
-                  fontSize: 24,
-                  lineHeight: 1.25,
-                  fontWeight: 600
+                  color: NDJC_ADMIN_TOOL_UI.emphasis,
+                  fontSize: APK_EDIT_ITEM_UI.titleFontSize,
+                  lineHeight: APK_EDIT_ITEM_UI.titleLineHeight,
+                  fontWeight: APK_EDIT_ITEM_UI.titleFontWeight,
+                  letterSpacing: APK_EDIT_ITEM_UI.titleLetterSpacing,
+                  textRendering: 'geometricPrecision',
+                  transformOrigin: 'left top',
+                  transform: bookingsHeaderCollapsed
+                    ? 'translateY(-3px) scale(0.78)'
+                    : 'translateY(0) scale(1)',
+                  willChange: 'transform',
+                  transition: 'transform 180ms cubic-bezier(0.2, 0, 0, 1)'
                 }}
               >
                 My bookings
               </h1>
 
+              <p
+                style={{
+                  margin: 0,
+                  height: bookingsHeaderCollapsed ? 0 : 21,
+                  color: APK_EDIT_ITEM_UI.body70,
+                  fontSize: APK_EDIT_ITEM_UI.bodyMediumFontSize,
+                  lineHeight: APK_EDIT_ITEM_UI.bodyMediumLineHeight,
+                  fontWeight: APK_EDIT_ITEM_UI.bodyMediumFontWeight,
+                  opacity: bookingsHeaderCollapsed ? 0 : 1,
+                  overflow: 'hidden',
+                  transform: bookingsHeaderCollapsed ? 'translateY(-4px)' : 'translateY(0)',
+                  willChange: 'opacity, transform',
+                  transition: 'opacity 160ms cubic-bezier(0.2, 0, 0, 1), transform 180ms cubic-bezier(0.2, 0, 0, 1)'
+                }}
+              >
+                Manage your appointment requests.
+              </p>
+
+              <p
+                style={{
+                  margin: 0,
+                  height: bookingsHeaderCollapsed ? 0 : 17,
+                  color: APK_EDIT_ITEM_UI.body55,
+                  fontSize: APK_EDIT_ITEM_UI.bodySmallFontSize,
+                  lineHeight: APK_EDIT_ITEM_UI.bodySmallLineHeight,
+                  fontWeight: APK_EDIT_ITEM_UI.bodySmallFontWeight,
+                  opacity: bookingsHeaderCollapsed ? 0 : 1,
+                  overflow: 'hidden',
+                  transform: bookingsHeaderCollapsed ? 'translateY(-4px)' : 'translateY(0)',
+                  willChange: 'opacity, transform',
+                  transition: 'opacity 160ms cubic-bezier(0.2, 0, 0, 1), transform 180ms cubic-bezier(0.2, 0, 0, 1)'
+                }}
+              >
+                {state.items.length} bookings
+              </p>
+            </section>
+
+            <section
+              className="ndjc-bookings-filter-column"
+              style={{
+                width: '100%',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: bookingsHeaderCollapsed ? 2 : 6,
+                transition: 'gap 180ms cubic-bezier(0.2, 0, 0, 1)'
+              }}
+            >
               <AppointmentFilterRow
                 label="Date"
                 options={state.dateFilterOptions}
@@ -17301,7 +19903,7 @@ return (
                 onSelected={actions.onServiceFilterChange}
               />
             </section>
-          </NdjcWhiteCard>
+          </section>
         </section>
 
         <NdjcSnackbarHost
@@ -17353,148 +19955,123 @@ function AnnouncementDraftCard({
   onPreview: (id: string) => void
   onToggleSelect: (id: string) => void
 }) {
+  const coverUrl = selectAnnouncementCoverUrl(item, 'announcementCard')
+  const previewText = String(item.bodyPreview || item.bodyText || 'This is a short preview...').trim()
+  const timeText = String(item.timeText || 'Draft').trim()
+
   return (
-    <section
-      className="ndjc-announcement-draft-card-wrap"
-      style={{
-        width: '100%',
-        minWidth: 0,
-        borderRadius: APK_ANNOUNCEMENT_UI.draftRadius,
-        boxSizing: 'border-box'
+    <NdjcLinkedCatalogItemCard
+      title="Draft announcement"
+      titleStyle={{
+        color: NDJC_GLOBAL_UI_TOKENS.colors.controlEmphasis,
+        fontSize: 15,
+        lineHeight: 1.25,
+        fontWeight: 700,
+        letterSpacing: '-0.15px'
       }}
-    >
-      <NdjcHomeStyleMediaCard
-        title=""
-        imageUrl={selectAnnouncementCoverUrl(item, 'announcementCard')}
-        primaryText=""
-        secondaryText={null}
-        badgeText={null}
-        onClick={() => onPreview(item.id)}
-        showTitleInBottom={false}
-        primaryTextStyle={{
-          fontSize: APK_ANNOUNCEMENT_UI.draftActionSize
-        }}
-        bottomContentOverride={
-          <section
-            className="ndjc-announcement-draft-bottom"
+      imageUrl={coverUrl}
+      selected={selected}
+      available={Boolean(coverUrl)}
+      allowClickWhenUnavailable
+      imageUnavailableText="No image"
+      showSelectedOutline={false}
+      onOpen={() => onPreview(item.id)}
+      middle={
+        <span
+          className="ndjc-announcement-draft-preview"
+          style={{
+            width: '100%',
+            minWidth: 0,
+            display: 'block',
+            color: NDJC_GLOBAL_UI_TOKENS.colors.textMuted,
+            fontSize: 12,
+            lineHeight: 1.25,
+            fontWeight: 400,
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap'
+          }}
+        >
+          {previewText}
+        </span>
+      }
+      bottom={
+        <span
+          className="ndjc-announcement-draft-meta-row"
+          style={{
+            width: '100%',
+            minWidth: 0,
+            display: 'block',
+            color: NDJC_GLOBAL_UI_TOKENS.colors.textMuted,
+            fontSize: 12,
+            lineHeight: 1.25,
+            fontWeight: 400,
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap'
+          }}
+        >
+          {timeText}
+        </span>
+      }
+      trailing={
+        <span
+          className="ndjc-announcement-draft-trailing"
+          style={{
+            height: APK_SHOWCASE_ITEM_UI.catalogImageSize,
+            minWidth: APK_CORE_UI.checkboxSize,
+            display: 'grid',
+            gridTemplateRows: `${APK_CORE_UI.checkboxSize}px 1fr auto`,
+            alignItems: 'start',
+            justifyItems: 'end'
+          }}
+          onPointerDown={event => {
+            event.stopPropagation()
+          }}
+          onClick={event => {
+            event.stopPropagation()
+          }}
+        >
+          <NdjcSelectionCheckbox
+            selected={selected}
+            onClick={() => onToggleSelect(item.id)}
+            label="Select announcement draft"
+          />
+
+          <span aria-hidden="true" />
+
+          <button
+            type="button"
+            className="ndjc-announcement-draft-edit-button"
             style={{
-              width: '100%',
-              height: '100%',
-              padding: `0 ${APK_ANNOUNCEMENT_UI.draftBottomPaddingX}px`,
-              display: 'flex',
-              flexDirection: 'column'
+              border: 0,
+              borderRadius: 0,
+              padding: 0,
+              display: 'block',
+              color: NDJC_GLOBAL_UI_TOKENS.colors.controlEmphasis,
+              background: 'transparent',
+              boxShadow: 'none',
+              fontSize: 12,
+              lineHeight: 1.25,
+              fontWeight: 700,
+              cursor: 'pointer',
+              WebkitTapHighlightColor: 'transparent',
+              touchAction: 'manipulation'
+            }}
+            onPointerDown={event => {
+              event.stopPropagation()
+            }}
+            onClick={event => {
+              event.preventDefault()
+              event.stopPropagation()
+              onOpen(item.id)
             }}
           >
-            <div
-              style={{
-                flex: APK_ANNOUNCEMENT_UI.draftTimeWeight,
-                minHeight: 0,
-                width: '100%',
-                display: 'grid',
-                placeItems: 'center'
-              }}
-            >
-              <span
-                style={{
-                  width: '100%',
-                  color: 'rgba(0, 0, 0, 0.75)',
-                  fontSize: APK_ANNOUNCEMENT_UI.draftTimeSize,
-                  lineHeight: 1.2,
-                  fontWeight: 500,
-                  textAlign: 'center',
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
-                  whiteSpace: 'nowrap'
-                }}
-              >
-                {item.timeText || 'Draft'}
-              </span>
-            </div>
-
-            <div
-              style={{
-                flex: APK_ANNOUNCEMENT_UI.draftSpacerWeight,
-                minHeight: 0,
-                width: '100%'
-              }}
-              aria-hidden="true"
-            />
-
-            <div
-              style={{
-                flex: APK_ANNOUNCEMENT_UI.draftActionWeight,
-                minHeight: 0,
-                width: '100%',
-                display: 'grid',
-                gridTemplateColumns: '1fr 1fr 1fr',
-                alignItems: 'center'
-              }}
-            >
-              <div
-                style={{
-                  height: '100%',
-                  display: 'grid',
-                  alignItems: 'center',
-                  justifyItems: 'start',
-                  transform: 'translateY(25px)'
-                }}
-              >
-                <button
-                  type="button"
-                  style={{
-                    height: APK_ANNOUNCEMENT_UI.draftEditHeight,
-                    border: 0,
-                    borderRadius: APK_ANNOUNCEMENT_UI.draftEditRadius,
-                    padding: `0 ${APK_ANNOUNCEMENT_UI.draftEditPaddingX}px`,
-                    display: 'grid',
-                    placeItems: 'center',
-                    color: APK_ANNOUNCEMENT_UI.brand,
-                    background: 'transparent',
-                    boxShadow: 'none',
-                    fontSize: APK_ANNOUNCEMENT_UI.draftActionSize,
-                    lineHeight: 1,
-                    fontWeight: 500,
-                    cursor: 'pointer',
-                    WebkitTapHighlightColor: 'transparent',
-                    touchAction: 'manipulation'
-                  }}
-                  onClick={event => {
-                    event.stopPropagation()
-                    onOpen(item.id)
-                  }}
-                >
-                  Edit
-                </button>
-              </div>
-
-              <div aria-hidden="true" />
-
-              <div
-                style={{
-                  height: '100%',
-                  display: 'grid',
-                  alignItems: 'center',
-                  justifyItems: 'end',
-                  transform: 'translateY(25px)'
-                }}
-              >
-                <span
-                  onClick={event => {
-                    event.stopPropagation()
-                  }}
-                >
-                  <NdjcSelectionCheckbox
-                    checked={selected}
-                    onCheckedChange={() => onToggleSelect(item.id)}
-                    label="Select announcement draft"
-                  />
-                </span>
-              </div>
-            </div>
-          </section>
-        }
-      />
-    </section>
+            Edit
+          </button>
+        </span>
+      }
+    />
   )
 }
 
@@ -19274,9 +21851,11 @@ function NdjcChatTextBubbleFrame({
   )
 }
 function NdjcChatBodyText({
-  body
+  body,
+  outgoing
 }: {
   body: string
+  outgoing?: boolean
 }) {
   const cleanBody = body.trim()
   if (!cleanBody) return null
@@ -19290,6 +21869,7 @@ function NdjcChatBodyText({
         maxWidth: '100%',
         boxSizing: 'border-box',
         padding: `${APK_CHAT_UI.textBubblePaddingY}px ${APK_CHAT_UI.textBubblePaddingX}px`,
+        color: outgoing ? NDJC_GLOBAL_UI_TOKENS.colors.surface : NDJC_GLOBAL_UI_TOKENS.colors.textBody,
         whiteSpace: 'pre-wrap',
         overflowWrap: 'anywhere',
         wordBreak: 'break-word'
@@ -19323,7 +21903,7 @@ function NdjcChatPlainTextBubble({
       focused={focused}
       matched={matched}
     >
-      <NdjcChatBodyText body={cleanBody} />
+      <NdjcChatBodyText body={cleanBody} outgoing={outgoing} />
     </NdjcChatTextBubbleFrame>
   )
 }
@@ -19357,7 +21937,7 @@ function NdjcChatTextQuoteBubble({
       focused={focused}
       matched={matched}
     >
-      <NdjcChatBodyText body={cleanBody} />
+      <NdjcChatBodyText body={cleanBody} outgoing={outgoing} />
 
       {cleanQuoteText ? (
         <section
@@ -19407,7 +21987,7 @@ function NdjcChatProductQuoteBubble({
       focused={focused}
       matched={matched}
     >
-      <NdjcChatBodyText body={cleanBody} />
+      <NdjcChatBodyText body={cleanBody} outgoing={outgoing} />
 
 <section
   className="ndjc-chat-product-quote-shell"
@@ -20203,20 +22783,20 @@ function MerchantChatThreadRow({
         style={{
           width: '100%',
           minWidth: 0,
-          border: 0,
-          borderRadius: APK_CHAT_UI.merchantRowRadius,
-          padding: '12px 16px',
+          border: `1px solid ${NDJC_GLOBAL_UI_TOKENS.colors.divider}`,
+          borderRadius: APK_SHOWCASE_ITEM_UI.catalogCardRadius,
+          padding: APK_SHOWCASE_ITEM_UI.catalogCardPadding,
           display: 'grid',
           gridTemplateRows: 'auto auto',
-          gap: 4,
-          color: APK_CHAT_UI.black,
-          background: APK_CHAT_UI.white,
-          boxShadow: pressed ? APK_SHELL_UI.backButtonPressedShadow : '0 1px 1px rgba(0, 0, 0, 0.08)',
+          gap: APK_SHOWCASE_ITEM_UI.adminItemsListGap,
+          color: NDJC_GLOBAL_UI_TOKENS.colors.controlEmphasis,
+          background: NDJC_GLOBAL_UI_TOKENS.colors.surface,
+          boxShadow: 'none',
           textAlign: 'left',
           cursor: 'pointer',
-          transform: pressed ? `scale(${APK_SHELL_UI.backButtonPressedScale})` : 'scale(1)',
+          transform: pressed ? `scale(${APK_SHOWCASE_ITEM_UI.catalogPressedScale})` : 'scale(1)',
           transformOrigin: 'center center',
-          transition: `transform ${APK_SHELL_UI.backButtonPressedDurationMs}ms ease, box-shadow ${APK_SHELL_UI.backButtonPressedDurationMs}ms ease`,
+          transition: `transform ${APK_SHOWCASE_ITEM_UI.catalogTransitionMs}ms ease`,
           WebkitTapHighlightColor: 'transparent',
           touchAction: 'manipulation'
         }}
@@ -20271,9 +22851,9 @@ function MerchantChatThreadRow({
                 overflow: 'hidden',
                 textOverflow: 'ellipsis',
                 whiteSpace: 'nowrap',
-                color: 'rgba(0, 0, 0, 0.90)',
-                fontSize: 16,
-                lineHeight: 1.35,
+                color: NDJC_GLOBAL_UI_TOKENS.colors.controlEmphasis,
+                fontSize: APK_EDIT_ITEM_UI.bodyMediumFontSize,
+                lineHeight: APK_EDIT_ITEM_UI.bodyMediumLineHeight,
                 fontWeight: hasUnread ? 700 : 600
               }}
             >
@@ -20293,7 +22873,7 @@ function MerchantChatThreadRow({
                     flexShrink: 0,
                     display: 'inline-grid',
                     placeItems: 'center',
-                    color: 'rgba(0, 0, 0, 0.62)',
+                    color: NDJC_GLOBAL_UI_TOKENS.colors.controlWeakText,
                     fontSize: 13,
                     lineHeight: 1
                   }}
@@ -20306,10 +22886,10 @@ function MerchantChatThreadRow({
 
           <span
             style={{
-              color: hasUnread ? 'rgba(0, 0, 0, 0.70)' : 'rgba(0, 0, 0, 0.62)',
-              fontSize: 11,
-              lineHeight: 1.35,
-              fontWeight: hasUnread ? 600 : 400,
+              color: NDJC_GLOBAL_UI_TOKENS.colors.controlWeakText,
+              fontSize: APK_EDIT_ITEM_UI.bodySmallFontSize,
+              lineHeight: APK_EDIT_ITEM_UI.bodySmallLineHeight,
+              fontWeight: hasUnread ? 600 : APK_EDIT_ITEM_UI.bodySmallFontWeight,
               whiteSpace: 'nowrap'
             }}
           >
@@ -20334,10 +22914,10 @@ function MerchantChatThreadRow({
               overflow: 'hidden',
               textOverflow: 'ellipsis',
               whiteSpace: 'nowrap',
-              color: hasUnread ? 'rgba(0, 0, 0, 0.70)' : 'rgba(0, 0, 0, 0.62)',
-              fontSize: 12,
-              lineHeight: 1.45,
-              fontWeight: hasUnread ? 600 : 400
+              color: NDJC_GLOBAL_UI_TOKENS.colors.controlWeakText,
+              fontSize: APK_EDIT_ITEM_UI.bodySmallFontSize,
+              lineHeight: APK_EDIT_ITEM_UI.bodySmallLineHeight,
+              fontWeight: hasUnread ? 600 : APK_EDIT_ITEM_UI.bodySmallFontWeight
             }}
           >
             {previewText}
@@ -20354,8 +22934,8 @@ function MerchantChatThreadRow({
                 boxSizing: 'border-box',
                 display: 'inline-grid',
                 placeItems: 'center',
-                color: APK_CHAT_UI.white,
-                background: APK_SHELL_UI.brand,
+                color: NDJC_GLOBAL_UI_TOKENS.colors.surface,
+                background: NDJC_GLOBAL_UI_TOKENS.colors.controlEmphasis,
                 fontSize: 11,
                 lineHeight: 1,
                 fontWeight: 700
@@ -20464,24 +23044,28 @@ export function ShowcaseMerchantChatListScreen({
   const [pendingDeleteThreadId, setPendingDeleteThreadId] = React.useState<string | null>(null)
   const [pendingDeleteThreadTitle, setPendingDeleteThreadTitle] = React.useState('')
   const [threadSubmittingAction, setThreadSubmittingAction] = React.useState<'rename' | 'delete' | null>(null)
-  const headerRef = React.useRef<HTMLElement | null>(null)
-  const [headerHeight, setHeaderHeight] = React.useState(0)
-
-  React.useEffect(() => {
-    const target = headerRef.current
-    if (!target) return
-
-    const updateHeight = () => {
-      setHeaderHeight(target.getBoundingClientRect().height)
-    }
-
-    updateHeight()
-
-    const observer = new ResizeObserver(updateHeight)
-    observer.observe(target)
-
-    return () => observer.disconnect()
-  }, [])
+  const chatListPaddingX = '25px'
+  const chatListExpandedHeaderContentHeight = 165
+  const chatListCollapsedHeaderContentHeight = 110
+  const {
+    collapsed: chatListHeaderCollapsed,
+    headerRef,
+    headerBottomPadding: chatListHeaderBottomPadding,
+    headerTotalHeight: chatListHeaderHeight,
+    listTopPadding,
+    handleCollapseScroll
+  } = useNdjcCollapsibleAdminHeader({
+    headerBottomPadding: APK_EDIT_ITEM_UI.sectionCardGap,
+    collapsedHeaderBottomPadding: 8,
+    expandedHeaderContentHeight: chatListExpandedHeaderContentHeight,
+    collapsedHeaderContentHeight: chatListCollapsedHeaderContentHeight,
+    measureKey: [
+      threads.length,
+      searchQuery,
+      pagination.isLoadingMore,
+      pagination.hasMore
+    ].join('|')
+  })
 
   function openRenameDialog(threadId: string, title: string): void {
     setRenameThreadId(threadId)
@@ -20511,8 +23095,6 @@ export function ShowcaseMerchantChatListScreen({
 
   const visibleThreads = threads
   const queryIsBlank = searchQuery.trim().length === 0
-  const headerTopPadding = APK_PAGE_SHELL_UI.topCardOffset
-  const listTopPadding = headerTopPadding + headerHeight + 8
 
   return (
     <NdjcUnifiedBackground
@@ -20544,23 +23126,38 @@ export function ShowcaseMerchantChatListScreen({
               width: '100%',
               height: '100%',
               minHeight: 0,
-              padding: `${listTopPadding}px ${APK_PAGE_SHELL_UI.screenPadding}px ${APK_PAGE_SHELL_UI.screenPadding}px`,
+              background: '#e9efed',
+              padding: `${listTopPadding}px ${chatListPaddingX} calc(var(${NDJC_BOTTOM_BAR_RESERVE_CSS_VAR}, ${APK_PAGE_SHELL_UI.tabBottomReserve}px) + ${APK_SHOWCASE_ITEM_UI.adminItemsListGap}px)`,
               overflowY: 'auto',
               overflowX: 'hidden',
               WebkitOverflowScrolling: 'touch',
               display: 'flex',
               flexDirection: 'column',
-              gap: 8,
+              gap: APK_SHOWCASE_ITEM_UI.adminItemsListGap,
               boxSizing: 'border-box'
             }}
-            onScroll={event => ndjcHandleLoadMoreScroll(
-              event,
-              pagination,
-              actions.onLoadMore
-            )}
+            onScroll={event => {
+              handleCollapseScroll(event)
+
+              ndjcHandleLoadMoreScroll(
+                event,
+                pagination,
+                actions.onLoadMore
+              )
+            }}
           >
             {visibleThreads.length ? (
-              <>
+              <section
+                className="ndjc-merchant-chat-list-items"
+                style={{
+                  width: '100%',
+                  maxWidth: NDJC_GLOBAL_UI_TOKENS.layout.contentMaxWidth,
+                  margin: '0 auto',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: APK_SHOWCASE_ITEM_UI.adminItemsListGap
+                }}
+              >
                 {visibleThreads.map(thread => (
                   <MerchantChatThreadRow
                     key={thread.conversationId}
@@ -20578,63 +23175,91 @@ export function ShowcaseMerchantChatListScreen({
                   endText="No more conversations"
                   onLoadMore={actions.onLoadMore}
                 />
-              </>
+              </section>
             ) : (
-              <NdjcInlineEmptyState
-                title={queryIsBlank ? 'No messages yet' : 'No results'}
-                message={queryIsBlank
-                  ? 'New conversations will appear here.'
-                  : 'Try a different name.'}
-                verticalPadding={0}
-                fillParentMaxSize
-              />
+              <section
+                className="ndjc-merchant-chat-list-empty-wrap"
+                style={{
+                  width: '100%',
+                  height: '100%',
+                  minHeight: 0,
+                  maxWidth: NDJC_GLOBAL_UI_TOKENS.layout.contentMaxWidth,
+                  margin: '0 auto',
+                  display: 'grid',
+                  placeItems: 'center',
+                  boxSizing: 'border-box'
+                }}
+              >
+                <NdjcInlineEmptyState
+                  title={queryIsBlank ? 'No messages yet' : 'No results'}
+                  message={queryIsBlank
+                    ? 'New conversations will appear here.'
+                    : 'Try a different name.'}
+                  verticalPadding={0}
+                />
+              </section>
             )}
           </section>
 
-          <NdjcTopScrollFadeMask
-            className="ndjc-merchant-chat-header-scroll-mask"
-            solidRatio={0.58}
-            style={{
-              zIndex: 2
-            }}
-          />
-
           <section
-            ref={headerRef}
             className="ndjc-merchant-chat-header-wrap"
             style={{
               position: 'absolute',
               zIndex: 3,
-              top: headerTopPadding,
-              left: APK_PAGE_SHELL_UI.screenPadding,
-              right: APK_PAGE_SHELL_UI.screenPadding,
-              width: `calc(100% - ${APK_PAGE_SHELL_UI.screenPadding * 2}px)`,
-              boxSizing: 'border-box'
+              top: 0,
+              left: 0,
+              right: 0,
+              width: '100%',
+              height: chatListHeaderHeight,
+              boxSizing: 'border-box',
+              background: APK_SHELL_UI.pageBg,
+              backdropFilter: 'none',
+              WebkitBackdropFilter: 'none',
+              borderBottom: `1px solid ${NDJC_GLOBAL_UI_TOKENS.colors.divider}`,
+              boxShadow: '0 8px 20px rgba(15, 23, 42, 0.04)',
+              padding: `${NDJC_GLOBAL_UI_TOKENS.layout.contentPaddingTop}px ${NDJC_GLOBAL_UI_TOKENS.layout.contentPaddingX}px ${chatListHeaderBottomPadding}px`,
+              overflow: 'hidden',
+              transition: 'height 180ms cubic-bezier(0.2, 0, 0, 1), padding-bottom 180ms cubic-bezier(0.2, 0, 0, 1)'
             }}
           >
-            <NdjcWhiteCard
-              className="ndjc-merchant-chat-header-card"
+            <section
+              ref={headerRef}
+              className="ndjc-merchant-chat-header-column"
               style={{
                 width: '100%',
-                boxSizing: 'border-box'
+                maxWidth: NDJC_GLOBAL_UI_TOKENS.layout.contentMaxWidth,
+                margin: '0 auto',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: chatListHeaderCollapsed
+                  ? 4
+                  : APK_EDIT_ITEM_UI.sectionCardGap,
+                transition: 'gap 180ms cubic-bezier(0.2, 0, 0, 1)'
               }}
             >
               <section
-                className="ndjc-merchant-chat-header-column"
+                className="ndjc-merchant-chat-title-block"
                 style={{
                   width: '100%',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: 10
+                  display: 'grid',
+                  gap: chatListHeaderCollapsed ? 0 : APK_EDIT_ITEM_UI.titleToHint
                 }}
               >
                 <h1
                   style={{
                     margin: 0,
-                    color: '#000000',
-                    fontSize: 24,
-                    lineHeight: 1.25,
-                    fontWeight: 600
+                    color: NDJC_ADMIN_TOOL_UI.emphasis,
+                    fontSize: APK_EDIT_ITEM_UI.titleFontSize,
+                    lineHeight: APK_EDIT_ITEM_UI.titleLineHeight,
+                    fontWeight: APK_EDIT_ITEM_UI.titleFontWeight,
+                    letterSpacing: APK_EDIT_ITEM_UI.titleLetterSpacing,
+                    textRendering: 'geometricPrecision',
+                    transformOrigin: 'left top',
+                    transform: chatListHeaderCollapsed
+                      ? 'translateY(-3px) scale(0.78)'
+                      : 'translateY(0) scale(1)',
+                    willChange: 'transform',
+                    transition: 'transform 180ms cubic-bezier(0.2, 0, 0, 1)'
                   }}
                 >
                   Customer messages
@@ -20643,25 +23268,73 @@ export function ShowcaseMerchantChatListScreen({
                 <p
                   style={{
                     margin: 0,
-                    color: 'rgba(0, 0, 0, 0.70)',
-                    fontSize: 12,
-                    lineHeight: 1.35,
-                    fontWeight: 400
+                    height: chatListHeaderCollapsed ? 0 : 21,
+                    color: APK_EDIT_ITEM_UI.body70,
+                    fontSize: APK_EDIT_ITEM_UI.bodyMediumFontSize,
+                    lineHeight: APK_EDIT_ITEM_UI.bodyMediumLineHeight,
+                    fontWeight: APK_EDIT_ITEM_UI.bodyMediumFontWeight,
+                    opacity: chatListHeaderCollapsed ? 0 : 1,
+                    overflow: 'hidden',
+                    transform: chatListHeaderCollapsed ? 'translateY(-4px)' : 'translateY(0)',
+                    willChange: 'opacity, transform',
+                    transition: 'opacity 160ms cubic-bezier(0.2, 0, 0, 1), transform 180ms cubic-bezier(0.2, 0, 0, 1)'
                   }}
                 >
-                  Manage conversations
+                  Manage conversations.
                 </p>
 
-                <NdjcAdminPageProgressSlot active={refreshing} />
-
-                <NdjcTextField
-                  value={searchQuery}
-                  onChange={actions.onSearchQueryChange}
-                  label="Search customers"
-                  singleLine
-                />
+                <p
+                  style={{
+                    margin: 0,
+                    height: chatListHeaderCollapsed ? 0 : 17,
+                    color: APK_EDIT_ITEM_UI.body55,
+                    fontSize: APK_EDIT_ITEM_UI.bodySmallFontSize,
+                    lineHeight: APK_EDIT_ITEM_UI.bodySmallLineHeight,
+                    fontWeight: APK_EDIT_ITEM_UI.bodySmallFontWeight,
+                    opacity: chatListHeaderCollapsed ? 0 : 1,
+                    overflow: 'hidden',
+                    transform: chatListHeaderCollapsed ? 'translateY(-4px)' : 'translateY(0)',
+                    willChange: 'opacity, transform',
+                    transition: 'opacity 160ms cubic-bezier(0.2, 0, 0, 1), transform 180ms cubic-bezier(0.2, 0, 0, 1)'
+                  }}
+                >
+                  {visibleThreads.length} conversations
+                </p>
               </section>
-            </NdjcWhiteCard>
+
+              <NdjcTextField
+                value={searchQuery}
+                onChange={actions.onSearchQueryChange}
+                label="Search customers"
+                placeholder="Search customers"
+                singleLine
+                leadingIcon={(
+                  <svg
+                    width="16"
+                    height="16"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    aria-hidden="true"
+                    focusable="false"
+                  >
+                    <path
+                      d="M10.8 18.1a7.3 7.3 0 1 1 0-14.6 7.3 7.3 0 0 1 0 14.6Z"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                    <path
+                      d="M16.1 16.1 21 21"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  </svg>
+                )}
+              />
+            </section>
           </section>
         </NdjcAdminPullRefreshContainer>
 
@@ -20743,6 +23416,28 @@ export function ShowcaseChatSearchResults({
 }) {
   const results = state.searchResults
   const [pressedSearchResultKey, setPressedSearchResultKey] = React.useState<string | null>(null)
+  const chatSearchListPaddingX = '25px'
+  const chatSearchExpandedHeaderContentHeight = 165
+  const chatSearchCollapsedHeaderContentHeight = 110
+  const {
+    collapsed: chatSearchHeaderCollapsed,
+    headerRef,
+    headerBottomPadding: chatSearchHeaderBottomPadding,
+    headerTotalHeight: chatSearchHeaderHeight,
+    listTopPadding,
+    handleCollapseScroll
+  } = useNdjcCollapsibleAdminHeader({
+    headerBottomPadding: APK_EDIT_ITEM_UI.sectionCardGap,
+    collapsedHeaderBottomPadding: 8,
+    expandedHeaderContentHeight: chatSearchExpandedHeaderContentHeight,
+    collapsedHeaderContentHeight: chatSearchCollapsedHeaderContentHeight,
+    measureKey: [
+      state.findQuery,
+      results.length,
+      state.searchPagination.isLoadingMore,
+      state.searchPagination.hasMore
+    ].join('|')
+  })
 
   const hint = state.findQuery.trim()
     ? `${results.length} result${results.length === 1 ? '' : 's'}`
@@ -20757,325 +23452,352 @@ export function ShowcaseChatSearchResults({
       }}
     >
       <section
-        className="ndjc-chat-search-results-content"
+        className="ndjc-chat-search-results-shell"
         style={{
           position: 'relative',
-          zIndex: 2,
           width: '100%',
           height: '100%',
           minHeight: 0,
-          padding: `${APK_PAGE_SHELL_UI.topCardOffset}px ${APK_PAGE_SHELL_UI.screenPadding}px ${APK_PAGE_SHELL_UI.screenPadding}px`,
-          boxSizing: 'border-box',
-          overflowY: 'auto',
-          overflowX: 'hidden',
-          WebkitOverflowScrolling: 'touch'
+          overflow: 'hidden'
         }}
-        onScroll={event => ndjcHandleLoadMoreScroll(
-          event,
-          state.searchPagination,
-          actions.onLoadMoreSearchResults
-        )}
       >
-        <NdjcTopScrollFadeMask
-          className="ndjc-chat-search-results-scroll-mask"
-          solidRatio={0.58}
+        <section
+          className="ndjc-chat-search-results-list-layer"
           style={{
-            zIndex: 2
-          }}
-        />
-
-        <NdjcWhiteCard
-          className="ndjc-chat-search-results-card"
-          style={{
-            position: 'relative',
-            zIndex: 3,
+            position: 'absolute',
+            inset: 0,
+            zIndex: 1,
             width: '100%',
-            boxSizing: 'border-box'
+            minHeight: 0,
+            background: '#e9efed',
+            padding: `${listTopPadding}px ${chatSearchListPaddingX} calc(var(${NDJC_BOTTOM_BAR_RESERVE_CSS_VAR}, ${APK_PAGE_SHELL_UI.tabBottomReserve}px) + ${APK_SHOWCASE_ITEM_UI.adminItemsListGap}px)`,
+            boxSizing: 'border-box',
+            overflowY: 'auto',
+            overflowX: 'hidden',
+            WebkitOverflowScrolling: 'touch',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: APK_SHOWCASE_ITEM_UI.adminItemsListGap
+          }}
+          onScroll={event => {
+            handleCollapseScroll(event)
+
+            ndjcHandleLoadMoreScroll(
+              event,
+              state.searchPagination,
+              actions.onLoadMoreSearchResults
+            )
+          }}
+        >
+          {results.length ? (
+            <section
+              className="ndjc-chat-search-results-list"
+              style={{
+                width: '100%',
+                maxWidth: NDJC_GLOBAL_UI_TOKENS.layout.contentMaxWidth,
+                margin: '0 auto',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: APK_SHOWCASE_ITEM_UI.adminItemsListGap
+              }}
+            >
+              {results.map(result => {
+                const resultKey = `${result.conversationId}-${result.messageId || 'name'}-${result.createdAtText}`
+                const pressed = pressedSearchResultKey === resultKey
+
+                return (
+                  <section
+                    key={resultKey}
+                    className="ndjc-chat-search-result-row"
+                    style={{
+                      width: '100%',
+                      border: `1px solid ${NDJC_GLOBAL_UI_TOKENS.colors.divider}`,
+                      borderRadius: APK_SHOWCASE_ITEM_UI.catalogCardRadius,
+                      background: NDJC_GLOBAL_UI_TOKENS.colors.surface,
+                      boxShadow: 'none',
+                      overflow: 'hidden',
+                      transform: pressed ? `scale(${APK_SHOWCASE_ITEM_UI.catalogPressedScale})` : 'scale(1)',
+                      transformOrigin: 'center center',
+                      transition: `transform ${APK_SHOWCASE_ITEM_UI.catalogTransitionMs}ms ease`
+                    }}
+                  >
+                    <button
+                      type="button"
+                      style={{
+                        width: '100%',
+                        border: 0,
+                        padding: APK_SHOWCASE_ITEM_UI.catalogCardPadding,
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'stretch',
+                        color: NDJC_GLOBAL_UI_TOKENS.colors.controlEmphasis,
+                        background: 'transparent',
+                        boxShadow: 'none',
+                        textAlign: 'left',
+                        cursor: 'pointer',
+                        WebkitTapHighlightColor: 'transparent',
+                        touchAction: 'manipulation'
+                      }}
+                      onPointerDown={() => {
+                        setPressedSearchResultKey(resultKey)
+                      }}
+                      onPointerUp={() => {
+                        setPressedSearchResultKey(null)
+                      }}
+                      onPointerCancel={() => {
+                        setPressedSearchResultKey(null)
+                      }}
+                      onPointerLeave={() => {
+                        setPressedSearchResultKey(null)
+                      }}
+                      onClick={() => {
+                        setPressedSearchResultKey(null)
+                        actions.onOpenThreadFromSearch(result.conversationId, result.messageId)
+                      }}
+                    >
+                      <section
+                        style={{
+                          width: '100%',
+                          display: 'grid',
+                          gridTemplateColumns: 'minmax(0, 1fr) auto',
+                          alignItems: 'center',
+                          gap: APK_EDIT_ITEM_UI.fieldGap
+                        }}
+                      >
+                        <span
+                          style={{
+                            minWidth: 0,
+                            color: NDJC_GLOBAL_UI_TOKENS.colors.controlEmphasis,
+                            fontSize: APK_EDIT_ITEM_UI.bodySmallFontSize,
+                            lineHeight: APK_EDIT_ITEM_UI.bodySmallLineHeight,
+                            fontWeight: 700,
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            whiteSpace: 'nowrap'
+                          }}
+                        >
+                          {result.senderLabel}
+                        </span>
+
+                        <span
+                          style={{
+                            flexShrink: 0,
+                            color: NDJC_GLOBAL_UI_TOKENS.colors.controlWeakText,
+                            fontSize: APK_EDIT_ITEM_UI.bodySmallFontSize,
+                            lineHeight: APK_EDIT_ITEM_UI.bodySmallLineHeight,
+                            fontWeight: APK_EDIT_ITEM_UI.bodySmallFontWeight,
+                            whiteSpace: 'nowrap'
+                          }}
+                        >
+                          {result.createdAtText}
+                        </span>
+                      </section>
+
+                      <div style={{ height: APK_SHOWCASE_ITEM_UI.adminItemsListGap, flexShrink: 0 }} />
+
+                      <p
+                        style={{
+                          margin: 0,
+                          color: NDJC_GLOBAL_UI_TOKENS.colors.controlWeakText,
+                          fontSize: APK_EDIT_ITEM_UI.bodyMediumFontSize,
+                          lineHeight: APK_EDIT_ITEM_UI.bodyMediumLineHeight,
+                          fontWeight: APK_EDIT_ITEM_UI.bodyMediumFontWeight,
+                          display: '-webkit-box',
+                          WebkitLineClamp: 2,
+                          WebkitBoxOrient: 'vertical',
+                          overflow: 'hidden'
+                        }}
+                      >
+                        {highlightQueryText(result.snippet, state.findQuery)}
+                      </p>
+                    </button>
+                  </section>
+                )
+              })}
+
+              <NdjcPaginationFooter
+                pagination={state.searchPagination}
+                idleText="Load more"
+                loadingText="Loading more..."
+                endText="No more results"
+                onLoadMore={actions.onLoadMoreSearchResults}
+              />
+            </section>
+          ) : state.findQuery.trim() && !state.searchPagination.isLoadingMore ? (
+            <section
+              className="ndjc-chat-search-results-empty-wrap"
+              style={{
+                width: '100%',
+                height: '100%',
+                minHeight: 0,
+                maxWidth: NDJC_GLOBAL_UI_TOKENS.layout.contentMaxWidth,
+                margin: '0 auto',
+                display: 'grid',
+                placeItems: 'center',
+                boxSizing: 'border-box'
+              }}
+            >
+              <NdjcInlineEmptyState
+                title="No results found"
+                message="Try a different keyword."
+                verticalPadding={0}
+              />
+            </section>
+          ) : state.findQuery.trim() ? (
+            <section
+              className="ndjc-chat-search-results-pagination-wrap"
+              style={{
+                width: '100%',
+                maxWidth: NDJC_GLOBAL_UI_TOKENS.layout.contentMaxWidth,
+                margin: '0 auto'
+              }}
+            >
+              <NdjcPaginationFooter
+                pagination={state.searchPagination}
+                idleText="Load more"
+                loadingText="Loading more..."
+                endText=""
+                onLoadMore={actions.onLoadMoreSearchResults}
+              />
+            </section>
+          ) : null}
+        </section>
+
+        <section
+          className="ndjc-chat-search-results-header-card"
+          style={{
+            position: 'absolute',
+            zIndex: 3,
+            top: 0,
+            left: 0,
+            right: 0,
+            width: '100%',
+            height: chatSearchHeaderHeight,
+            boxSizing: 'border-box',
+            background: APK_SHELL_UI.pageBg,
+            backdropFilter: 'none',
+            WebkitBackdropFilter: 'none',
+            borderBottom: `1px solid ${NDJC_GLOBAL_UI_TOKENS.colors.divider}`,
+            boxShadow: '0 8px 20px rgba(15, 23, 42, 0.04)',
+            padding: `${NDJC_GLOBAL_UI_TOKENS.layout.contentPaddingTop}px ${NDJC_GLOBAL_UI_TOKENS.layout.contentPaddingX}px ${chatSearchHeaderBottomPadding}px`,
+            overflow: 'hidden',
+            transition: 'height 180ms cubic-bezier(0.2, 0, 0, 1), padding-bottom 180ms cubic-bezier(0.2, 0, 0, 1)'
           }}
         >
           <section
-            className="ndjc-chat-search-results-column"
+            ref={headerRef}
+            className="ndjc-chat-search-results-header-column"
             style={{
               width: '100%',
+              maxWidth: NDJC_GLOBAL_UI_TOKENS.layout.contentMaxWidth,
+              margin: '0 auto',
               display: 'flex',
               flexDirection: 'column',
-              gap: 12
+              gap: chatSearchHeaderCollapsed
+                ? 4
+                : APK_EDIT_ITEM_UI.sectionCardGap,
+              transition: 'gap 180ms cubic-bezier(0.2, 0, 0, 1)'
             }}
           >
             <section
+              className="ndjc-chat-search-results-title-block"
               style={{
                 width: '100%',
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                gap: 12
+                display: 'grid',
+                gap: chatSearchHeaderCollapsed ? 0 : APK_EDIT_ITEM_UI.titleToHint
               }}
             >
-              <section
+              <h1
                 style={{
-                  minWidth: 0,
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: 4
+                  margin: 0,
+                  color: NDJC_ADMIN_TOOL_UI.emphasis,
+                  fontSize: APK_EDIT_ITEM_UI.titleFontSize,
+                  lineHeight: APK_EDIT_ITEM_UI.titleLineHeight,
+                  fontWeight: APK_EDIT_ITEM_UI.titleFontWeight,
+                  letterSpacing: APK_EDIT_ITEM_UI.titleLetterSpacing,
+                  textRendering: 'geometricPrecision',
+                  transformOrigin: 'left top',
+                  transform: chatSearchHeaderCollapsed
+                    ? 'translateY(-3px) scale(0.78)'
+                    : 'translateY(0) scale(1)',
+                  willChange: 'transform',
+                  transition: 'transform 180ms cubic-bezier(0.2, 0, 0, 1)'
                 }}
               >
-                <h1
-                  style={{
-                    margin: 0,
-                    color: '#000000',
-                    fontSize: 24,
-                    lineHeight: 1.25,
-                    fontWeight: 600
-                  }}
-                >
-                  Chat history
-                </h1>
+                Chat history
+              </h1>
 
-                <p
-                  style={{
-                    margin: 0,
-                    color: 'rgba(0, 0, 0, 0.60)',
-                    fontSize: 12,
-                    lineHeight: 1.35,
-                    fontWeight: 400
-                  }}
-                >
-                  Search your conversation history
-                </p>
-              </section>
+              <p
+                style={{
+                  margin: 0,
+                  height: chatSearchHeaderCollapsed ? 0 : 21,
+                  color: APK_EDIT_ITEM_UI.body70,
+                  fontSize: APK_EDIT_ITEM_UI.bodyMediumFontSize,
+                  lineHeight: APK_EDIT_ITEM_UI.bodyMediumLineHeight,
+                  fontWeight: APK_EDIT_ITEM_UI.bodyMediumFontWeight,
+                  opacity: chatSearchHeaderCollapsed ? 0 : 1,
+                  overflow: 'hidden',
+                  transform: chatSearchHeaderCollapsed ? 'translateY(-4px)' : 'translateY(0)',
+                  willChange: 'opacity, transform',
+                  transition: 'opacity 160ms cubic-bezier(0.2, 0, 0, 1), transform 180ms cubic-bezier(0.2, 0, 0, 1)'
+                }}
+              >
+                Search your conversation history.
+              </p>
+
+              <p
+                style={{
+                  margin: 0,
+                  height: chatSearchHeaderCollapsed ? 0 : 17,
+                  color: APK_EDIT_ITEM_UI.body55,
+                  fontSize: APK_EDIT_ITEM_UI.bodySmallFontSize,
+                  lineHeight: APK_EDIT_ITEM_UI.bodySmallLineHeight,
+                  fontWeight: APK_EDIT_ITEM_UI.bodySmallFontWeight,
+                  opacity: chatSearchHeaderCollapsed ? 0 : 1,
+                  overflow: 'hidden',
+                  transform: chatSearchHeaderCollapsed ? 'translateY(-4px)' : 'translateY(0)',
+                  willChange: 'opacity, transform',
+                  transition: 'opacity 160ms cubic-bezier(0.2, 0, 0, 1), transform 180ms cubic-bezier(0.2, 0, 0, 1)'
+                }}
+              >
+                {hint}
+              </p>
             </section>
 
-            <section
-              style={{
-                width: '100%',
-                display: 'flex',
-                flexDirection: 'column',
-                gap: 10
-              }}
-            >
-              <NdjcTextField
-                value={state.findQuery}
-                onChange={actions.onFindQueryChange}
-                label="Search messages"
-                singleLine
-              />
-
-              <section
-                style={{
-                  width: '100%',
-                  borderRadius: 12,
-                  padding: '8px 12px',
-                  boxSizing: 'border-box',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 8,
-                  color: 'rgba(0, 0, 0, 0.62)',
-                  background: 'rgba(0, 0, 0, 0.045)'
-                }}
-              >
-                <span
+            <NdjcTextField
+              value={state.findQuery}
+              onChange={actions.onFindQueryChange}
+              label="Search messages"
+              placeholder="Search messages"
+              singleLine
+              leadingIcon={(
+                <svg
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
                   aria-hidden="true"
-                  style={{
-                    width: 18,
-                    height: 18,
-                    flexShrink: 0,
-                    display: 'inline-grid',
-                    placeItems: 'center',
-                    color: 'rgba(0, 0, 0, 0.62)',
-                    lineHeight: 1
-                  }}
+                  focusable="false"
                 >
-                  <NdjcSearchOutlinedIcon />
-                </span>
-
-                <span
-                  style={{
-                    minWidth: 0,
-                    color: 'rgba(0, 0, 0, 0.62)',
-                    fontSize: 12,
-                    lineHeight: 1.35,
-                    fontWeight: 600,
-                    overflow: 'hidden',
-                    textOverflow: 'ellipsis',
-                    whiteSpace: 'nowrap'
-                  }}
-                >
-                  {hint}
-                </span>
-              </section>
-            </section>
-          </section>
-        </NdjcWhiteCard>
-
-        {results.length ? (
-          <section
-            className="ndjc-chat-search-results-outside-list"
-            style={{
-              position: 'relative',
-              zIndex: 3,
-              width: '100%',
-              boxSizing: 'border-box',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: 8,
-              marginTop: 8
-            }}
-          >
-            {results.map(result => {
-              const resultKey = `${result.conversationId}-${result.messageId || 'name'}-${result.createdAtText}`
-              const pressed = pressedSearchResultKey === resultKey
-
-              return (
-                <section
-                  key={resultKey}
-                  className="ndjc-chat-search-result-row"
-                  style={{
-                    width: '100%',
-                    borderRadius: 14,
-                    background: '#FFFFFF',
-                    boxShadow: pressed ? APK_SHELL_UI.backButtonPressedShadow : '0 2px 8px rgba(0, 0, 0, 0.10)',
-                    overflow: 'hidden',
-                    transform: pressed ? `scale(${APK_SHELL_UI.backButtonPressedScale})` : 'scale(1)',
-                    transformOrigin: 'center center',
-                    transition: `transform ${APK_SHELL_UI.backButtonPressedDurationMs}ms ease, box-shadow ${APK_SHELL_UI.backButtonPressedDurationMs}ms ease`
-                  }}
-                >
-                  <button
-                    type="button"
-                    style={{
-                      width: '100%',
-                      border: 0,
-                      padding: '10px 12px',
-                      display: 'flex',
-                      flexDirection: 'column',
-                      alignItems: 'stretch',
-                      color: '#000000',
-                      background: 'transparent',
-                      boxShadow: 'none',
-                      textAlign: 'left',
-                      cursor: 'pointer',
-                      WebkitTapHighlightColor: 'transparent',
-                      touchAction: 'manipulation'
-                    }}
-                    onPointerDown={() => {
-                      setPressedSearchResultKey(resultKey)
-                    }}
-                    onPointerUp={() => {
-                      setPressedSearchResultKey(null)
-                    }}
-                    onPointerCancel={() => {
-                      setPressedSearchResultKey(null)
-                    }}
-                    onPointerLeave={() => {
-                      setPressedSearchResultKey(null)
-                    }}
-                    onClick={() => {
-                      setPressedSearchResultKey(null)
-                      actions.onOpenThreadFromSearch(result.conversationId, result.messageId)
-                    }}
-                  >
-                  <section
-                    style={{
-                      width: '100%',
-                      display: 'flex',
-                      justifyContent: 'space-between',
-                      alignItems: 'center',
-                      gap: 10
-                    }}
-                  >
-                    <span
-                      style={{
-                        minWidth: 0,
-                        color: 'rgba(0, 0, 0, 0.62)',
-                        fontSize: 12,
-                        lineHeight: 1.35,
-                        fontWeight: 400,
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis',
-                        whiteSpace: 'nowrap'
-                      }}
-                    >
-                      {result.senderLabel}
-                    </span>
-
-                    <span
-                      style={{
-                        flexShrink: 0,
-                        color: 'rgba(0, 0, 0, 0.62)',
-                        fontSize: 12,
-                        lineHeight: 1.35,
-                        fontWeight: 400,
-                        whiteSpace: 'nowrap'
-                      }}
-                    >
-                      {result.createdAtText}
-                    </span>
-                  </section>
-
-                  <div style={{ height: 6, flexShrink: 0 }} />
-
-                  <p
-                    style={{
-                      margin: 0,
-                      color: 'rgba(0, 0, 0, 0.62)',
-                      fontSize: 14,
-                      lineHeight: 1.45,
-                      fontWeight: 400,
-                      display: '-webkit-box',
-                      WebkitLineClamp: 2,
-                      WebkitBoxOrient: 'vertical',
-                      overflow: 'hidden'
-                    }}
-                  >
-                    {highlightQueryText(result.snippet, state.findQuery)}
-                  </p>
-                  </button>
-                </section>
-              )
-            })}
-          </section>
-        ) : null}
-
-        {state.findQuery.trim() && !results.length && !state.searchPagination.isLoadingMore ? (
-          <section
-            className="ndjc-chat-search-results-empty-wrap"
-            style={{
-              position: 'relative',
-              zIndex: 3,
-              width: '100%',
-              boxSizing: 'border-box',
-              marginTop: 8
-            }}
-          >
-            <NdjcInlineEmptyState
-              title="No results found"
-              message="Try a different keyword."
-              verticalPadding={32}
+                  <path
+                    d="M10.8 18.1a7.3 7.3 0 1 1 0-14.6 7.3 7.3 0 0 1 0 14.6Z"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                  <path
+                    d="M16.1 16.1 21 21"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </svg>
+              )}
             />
           </section>
-        ) : null}
-
-        {state.findQuery.trim() || results.length ? (
-          <section
-            className="ndjc-chat-search-results-pagination-wrap"
-            style={{
-              position: 'relative',
-              zIndex: 3,
-              width: '100%',
-              boxSizing: 'border-box',
-              marginTop: 8,
-              paddingBottom: 12
-            }}
-          >
-            <NdjcPaginationFooter
-              pagination={state.searchPagination}
-              idleText="Load more"
-              loadingText="Loading more..."
-              endText={results.length > 0 ? 'No more results' : ''}
-              onLoadMore={actions.onLoadMoreSearchResults}
-            />
-          </section>
-        ) : null}
+        </section>
       </section>
     </NdjcUnifiedBackground>
   )
@@ -22009,8 +24731,8 @@ export function ShowcaseChatThread({
                     margin: 0,
                     display: 'grid',
                     placeItems: 'center',
-                    color: '#ffffff',
-                    background: APK_FILTER_UI.chipSelectedBg,
+                    color: canSend ? NDJC_GLOBAL_UI_TOKENS.colors.surface : NDJC_GLOBAL_UI_TOKENS.colors.textMuted,
+                    background: canSend ? NDJC_GLOBAL_UI_TOKENS.colors.controlEmphasis : NDJC_GLOBAL_UI_TOKENS.colors.controlDisabledSurface,
                     boxShadow: canSend ? '0 2px 6px rgba(0, 0, 0, 0.10)' : 'none',
                     fontSize: 14,
                     lineHeight: 1,
@@ -22018,7 +24740,7 @@ export function ShowcaseChatThread({
                     fontFamily: 'inherit',
                     textAlign: 'center',
                     whiteSpace: 'nowrap',
-                    opacity: canSend ? 1 : 0.58,
+                    opacity: 1,
                     cursor: canSend ? 'pointer' : 'not-allowed',
                     overflow: 'hidden',
                     boxSizing: 'border-box',
@@ -22158,6 +24880,53 @@ export function ShowcaseChatThread({
   )
 }
 
+const NDJC_APPOINTMENT_NOTE_MAX_BYTES = 100
+
+function ndjcUtf8ByteLength(value: string): number {
+  let bytes = 0
+
+  for (const char of value) {
+    const codePoint = char.codePointAt(0) ?? 0
+
+    if (codePoint <= 0x7f) {
+      bytes += 1
+    } else if (codePoint <= 0x7ff) {
+      bytes += 2
+    } else if (codePoint <= 0xffff) {
+      bytes += 3
+    } else {
+      bytes += 4
+    }
+  }
+
+  return bytes
+}
+
+function ndjcTrimToUtf8Bytes(value: string, maxBytes: number): string {
+  let bytes = 0
+  let endIndex = 0
+
+  for (const char of value) {
+    const codePoint = char.codePointAt(0) ?? 0
+    const charBytes = codePoint <= 0x7f
+      ? 1
+      : codePoint <= 0x7ff
+        ? 2
+        : codePoint <= 0xffff
+          ? 3
+          : 4
+
+    if (bytes + charBytes > maxBytes) {
+      break
+    }
+
+    bytes += charBytes
+    endIndex += char.length
+  }
+
+  return value.slice(0, endIndex)
+}
+
 export function ShowcaseAppointmentsScreen({
   state,
   actions
@@ -22171,7 +24940,7 @@ export function ShowcaseAppointmentsScreen({
   const confirmTime = appointmentDetailTimeText(state.dateDraft, state.timeDraft)
   const confirmCustomer = state.nameDraft.trim() || 'Customer'
   const confirmContact = state.contactDraft.trim() || 'No contact provided'
-  const confirmNote = state.noteDraft.trim()
+  const confirmNote = ndjcTrimToUtf8Bytes(state.noteDraft, NDJC_APPOINTMENT_NOTE_MAX_BYTES).trim()
 
   return (
     <NdjcUnifiedBackground
@@ -22208,49 +24977,57 @@ export function ShowcaseAppointmentsScreen({
             <section
               style={{
                 width: '100%',
-                display: 'flex',
-                flexDirection: 'column',
-                gap: 10
+                display: 'grid',
+                gap: APK_EDIT_ITEM_UI.sectionCardGap
               }}
             >
               <p
                 style={{
                   margin: 0,
-                  color: 'rgba(0, 0, 0, 0.70)',
-                  fontSize: 14,
-                  lineHeight: 1.45,
-                  fontWeight: 400
+                  color: APK_EDIT_ITEM_UI.body70,
+                  fontSize: APK_EDIT_ITEM_UI.bodyMediumFontSize,
+                  lineHeight: APK_EDIT_ITEM_UI.bodyMediumLineHeight,
+                  fontWeight: APK_EDIT_ITEM_UI.bodyMediumFontWeight
                 }}
               >
                 Please review your booking details before sending this request.
               </p>
 
-              <AppointmentSubmitConfirmInfo
-                label="Booking for"
-                value={confirmProductTitle}
-              />
-
-              <AppointmentSubmitConfirmInfo
-                label="Time"
-                value={confirmTime}
-              />
-
-              <AppointmentSubmitConfirmInfo
-                label="Customer"
-                value={confirmCustomer}
-              />
-
-              <AppointmentSubmitConfirmInfo
-                label="Contact"
-                value={confirmContact}
-              />
-
-              {confirmNote ? (
+              <section
+                style={{
+                  width: '100%',
+                  display: 'grid',
+                  gap: APK_EDIT_ITEM_UI.fieldGap
+                }}
+              >
                 <AppointmentSubmitConfirmInfo
-                  label="Note"
-                  value={confirmNote}
+                  label="Booking for"
+                  value={confirmProductTitle}
                 />
-              ) : null}
+
+                <AppointmentSubmitConfirmInfo
+                  label="Time"
+                  value={confirmTime}
+                />
+
+                <AppointmentSubmitConfirmInfo
+                  label="Customer"
+                  value={confirmCustomer}
+                />
+
+                <AppointmentSubmitConfirmInfo
+                  label="Contact"
+                  value={confirmContact}
+                />
+
+                {confirmNote ? (
+                  <AppointmentSubmitConfirmInfo
+                    label="Note"
+                    value={confirmNote}
+                    maxLines={null}
+                  />
+                ) : null}
+              </section>
             </section>
           }
         />
@@ -22274,70 +25051,68 @@ export function ShowcaseAppointmentsScreen({
             width: '100%',
             height: '100%',
             minHeight: 0,
-            padding: `${APK_PAGE_SHELL_UI.topCardOffset}px ${APK_PAGE_SHELL_UI.screenPadding}px ${APK_PAGE_SHELL_UI.noBottomBarReserve}px`,
+            padding: `${APK_EDIT_ITEM_UI.topContentPadding}px ${APK_EDIT_ITEM_UI.screenPadding}px calc(${APK_EDIT_ITEM_UI.bottomContentPadding}px + env(safe-area-inset-bottom))`,
             boxSizing: 'border-box',
             overflowY: 'auto',
             overflowX: 'hidden',
-            WebkitOverflowScrolling: 'touch'
+            WebkitOverflowScrolling: 'touch',
+            overscrollBehavior: 'contain'
           }}
         >
-          <NdjcWhiteCard
-            className="ndjc-appointment-form-card"
+          <section
+            className="ndjc-appointment-form-root-card"
             style={{
               width: '100%',
-              boxSizing: 'border-box'
+              maxWidth: NDJC_GLOBAL_UI_TOKENS.layout.contentMaxWidth,
+              alignSelf: 'center',
+              boxSizing: 'border-box',
+              borderRadius: 0,
+              padding: 0,
+              background: 'transparent',
+              boxShadow: 'none',
+              display: 'flex',
+              flexDirection: 'column'
             }}
           >
             <section
+              className="ndjc-appointment-form-card-column"
               style={{
                 width: '100%',
                 display: 'flex',
-                flexDirection: 'column',
-                gap: 10
+                flexDirection: 'column'
               }}
             >
-              <h1
-                style={{
-                  margin: 0,
-                  color: APK_CORE_UI.black,
-                  fontSize: 24,
-                  lineHeight: 1.25,
-                  fontWeight: 600
-                }}
-              >
-                Book appointment
-              </h1>
+              <EditItemHeaderText
+                title={'Book\nappointment'}
+                subtitle="Send a booking request. The business can confirm or contact you later."
+              />
 
-              <p
-                style={{
-                  margin: 0,
-                  color: '#667085',
-                  fontSize: 12,
-                  lineHeight: 1.35,
-                  fontWeight: 400
-                }}
-              >
-                Send a booking request to the business. They can confirm or contact you later.
-              </p>
+              <EditItemSpacer height={APK_EDIT_ITEM_UI.sectionBottom} />
+
+              <EditItemSectionCard className="ndjc-appointment-form-details-card">
+                <EditItemSectionTitle
+                  title="Details"
+                  subtitle="Fields marked * are required. Optional note can help the business understand your request."
+                />
 
               {!state.enabled ? (
                 <section
                   style={{
                     width: '100%',
-                    borderRadius: 16,
-                    padding: 14,
+                    borderRadius: APK_EDIT_ITEM_UI.fieldRadius,
+                    padding: '10px 12px',
                     boxSizing: 'border-box',
-                    color: '#7A4E00',
-                    background: '#FFF4E5'
+                    color: NDJC_GLOBAL_UI_TOKENS.colors.warning,
+                    background: NDJC_GLOBAL_UI_TOKENS.colors.warningSoft
                   }}
                 >
                   <p
                     style={{
                       margin: 0,
-                      color: '#7A4E00',
-                      fontSize: 14,
-                      lineHeight: 1.45,
-                      fontWeight: 400
+                      color: NDJC_GLOBAL_UI_TOKENS.colors.warning,
+                      fontSize: APK_EDIT_ITEM_UI.bodyMediumFontSize,
+                      lineHeight: APK_EDIT_ITEM_UI.bodyMediumLineHeight,
+                      fontWeight: APK_EDIT_ITEM_UI.bodyMediumFontWeight
                     }}
                   >
                     Appointment booking is currently disabled.
@@ -22356,6 +25131,7 @@ export function ShowcaseAppointmentsScreen({
                 onChange={actions.onNameChange}
                 disabled={!state.enabled}
                 label="Your name *"
+                placeholder="Enter your name"
                 singleLine
               />
 
@@ -22364,6 +25140,7 @@ export function ShowcaseAppointmentsScreen({
                 onChange={actions.onContactChange}
                 disabled={!state.enabled}
                 label="Phone, email, or social account *"
+                placeholder="Enter phone, email, or social account"
                 singleLine
               />
 
@@ -22372,14 +25149,15 @@ export function ShowcaseAppointmentsScreen({
                   minWidth: 0,
                   display: 'flex',
                   flexDirection: 'column',
-                  gap: APK_ANNOUNCEMENT_UI.editComposerTextGap
+                  gap: APK_EDIT_ITEM_UI.fieldGap
                 }}
               >
                 <NdjcTextField
-                  value={state.noteDraft}
-                  onChange={value => actions.onNoteChange(value.slice(0, 200))}
+                  value={ndjcTrimToUtf8Bytes(state.noteDraft, NDJC_APPOINTMENT_NOTE_MAX_BYTES)}
+                  onChange={value => actions.onNoteChange(ndjcTrimToUtf8Bytes(value, NDJC_APPOINTMENT_NOTE_MAX_BYTES))}
                   disabled={!state.enabled}
                   label="Optional note"
+                  placeholder="Add details for the business"
                   singleLine={false}
                   minLines={3}
                 />
@@ -22388,53 +25166,43 @@ export function ShowcaseAppointmentsScreen({
                   style={{
                     width: '100%',
                     display: 'flex',
-                    alignItems: 'center'
+                    alignItems: 'center',
+                    gap: APK_EDIT_ITEM_UI.fieldGap
                   }}
                 >
-                  <span style={{ flex: 1, minWidth: 0 }} />
+                  <span
+                    style={{
+                      flex: 1,
+                      minWidth: 0
+                    }}
+                  >
+                    <EditItemBodySmallText>
+                      Share anything the business should know before confirming. Up to 100 bytes.
+                    </EditItemBodySmallText>
+                  </span>
 
                   <span
                     style={{
-                      color: 'rgba(0, 0, 0, 0.55)',
-                      fontSize: 12,
-                      lineHeight: 1.35,
-                      fontWeight: 400,
+                      color: NDJC_GLOBAL_UI_TOKENS.colors.textMuted,
+                      fontSize: APK_EDIT_ITEM_UI.bodySmallFontSize,
+                      lineHeight: APK_EDIT_ITEM_UI.bodySmallLineHeight,
+                      fontWeight: APK_EDIT_ITEM_UI.bodySmallFontWeight,
                       whiteSpace: 'nowrap'
                     }}
                   >
-                    {Math.min(state.noteDraft.length, 200)}/200
+                    {Math.min(ndjcUtf8ByteLength(state.noteDraft), NDJC_APPOINTMENT_NOTE_MAX_BYTES)}/{NDJC_APPOINTMENT_NOTE_MAX_BYTES}
                   </span>
                 </section>
               </section>
+            </EditItemSectionCard>
 
-              {state.bookingRuleSummary?.trim() ? (
-                <section
-                  style={{
-                    width: '100%',
-                    borderRadius: 14,
-                    padding: '10px 12px',
-                    boxSizing: 'border-box',
-                    color: '#667085',
-                    background: '#F7F7FB'
-                  }}
-                >
-                  <p
-                    style={{
-                      margin: 0,
-                      color: '#667085',
-                      fontSize: 12,
-                      lineHeight: 1.35,
-                      fontWeight: 400,
-                      display: '-webkit-box',
-                      WebkitLineClamp: 2,
-                      WebkitBoxOrient: 'vertical',
-                      overflow: 'hidden'
-                    }}
-                  >
-                    {state.bookingRuleSummary}
-                  </p>
-                </section>
-              ) : null}
+            <EditItemSpacer height={APK_EDIT_ITEM_UI.sectionTop} />
+
+            <EditItemSectionCard className="ndjc-appointment-form-schedule-card">
+              <EditItemSectionTitle
+                title="Schedule"
+                subtitle="Choose an available date and time."
+              />
 
               <AppointmentCustomerDateRow
                 title="Date"
@@ -22459,10 +25227,10 @@ export function ShowcaseAppointmentsScreen({
                 <p
                   style={{
                     margin: 0,
-                    color: APK_CORE_UI.danger,
-                    fontSize: 12,
-                    lineHeight: 1.35,
-                    fontWeight: 400
+                    color: NDJC_GLOBAL_UI_TOKENS.colors.danger,
+                    fontSize: APK_EDIT_ITEM_UI.bodySmallFontSize,
+                    lineHeight: APK_EDIT_ITEM_UI.bodySmallLineHeight,
+                    fontWeight: APK_EDIT_ITEM_UI.bodySmallFontWeight
                   }}
                 >
                   {state.errorMessage}
@@ -22473,10 +25241,10 @@ export function ShowcaseAppointmentsScreen({
                 <p
                   style={{
                     margin: 0,
-                    color: '#027A48',
-                    fontSize: 12,
-                    lineHeight: 1.35,
-                    fontWeight: 400
+                    color: NDJC_GLOBAL_UI_TOKENS.colors.success,
+                    fontSize: APK_EDIT_ITEM_UI.bodySmallFontSize,
+                    lineHeight: APK_EDIT_ITEM_UI.bodySmallLineHeight,
+                    fontWeight: APK_EDIT_ITEM_UI.bodySmallFontWeight
                   }}
                 >
                   {state.successMessage}
@@ -22489,8 +25257,9 @@ export function ShowcaseAppointmentsScreen({
                 isSubmitting={state.isSubmitting}
                 onSubmit={() => setShowSubmitConfirmDialog(true)}
               />
+              </EditItemSectionCard>
             </section>
-          </NdjcWhiteCard>
+          </section>
         </section>
       </section>
     </NdjcUnifiedBackground>
@@ -22523,16 +25292,18 @@ export function ShowcaseAdmin({
             height: '100%',
             minHeight: 0,
             overflowY: 'auto',
-            padding: `${APK_PAGE_SHELL_UI.topCardOffset}px ${APK_PAGE_SHELL_UI.screenPadding}px ${APK_PAGE_SHELL_UI.noBottomBarReserve}px`,
+            padding: `${NDJC_GLOBAL_UI_TOKENS.layout.contentPaddingTop}px ${NDJC_GLOBAL_UI_TOKENS.layout.contentPaddingX}px ${NDJC_GLOBAL_UI_TOKENS.layout.contentPaddingBottom}px`,
             boxSizing: 'border-box',
             display: 'flex',
             flexDirection: 'column'
           }}
         >
-          <NdjcWhiteCard
-            className="ndjc-apk-admin-root-card"
+          <section
+            className="ndjc-apk-admin-root-panel"
             style={{
               width: '100%',
+              maxWidth: NDJC_GLOBAL_UI_TOKENS.layout.contentMaxWidth,
+              alignSelf: 'center',
               boxSizing: 'border-box'
             }}
           >
@@ -22551,7 +25322,7 @@ export function ShowcaseAdmin({
                   width: '100%',
                   display: 'flex',
                   flexDirection: 'column',
-                  gap: 4,
+                  gap: 8,
                   flexShrink: 0
                 }}
               >
@@ -22559,167 +25330,341 @@ export function ShowcaseAdmin({
                   Admin
                 </AdminTitleText>
 
-                <NdjcAdminPageProgressSlot active={state.syncOverviewState === 'Syncing'} />
-
-{state.syncOverviewState !== 'Syncing' && state.syncNoticeLabel ? (
-  <AdminSyncNoticeText>
-    {state.syncNoticeLabel}
-  </AdminSyncNoticeText>
-) : (
-  <div style={{ height: 0, flexShrink: 0 }} aria-hidden="true" />
-)}
+                {state.syncOverviewState !== 'Syncing' && state.syncNoticeLabel ? (
+                  <AdminSyncNoticeText>
+                    {state.syncNoticeLabel}
+                  </AdminSyncNoticeText>
+                ) : (
+                  <div style={{ height: 0, flexShrink: 0 }} aria-hidden="true" />
+                )}
               </section>
 
 {state.cloudStatus ? (
   <>
-    <div
-      style={{
-        height: 0,
-        marginTop: -16,
-        flexShrink: 0
-      }}
-      aria-hidden="true"
-    />
+    <AdminSpacer height={10} />
 
     <section
       className="ndjc-apk-admin-section ndjc-apk-admin-cloud-section"
       style={{
         width: '100%',
+        position: 'relative',
+        overflow: 'hidden',
+        borderRadius: NDJC_GLOBAL_UI_TOKENS.components.card.radius,
+        padding: `${NDJC_GLOBAL_UI_TOKENS.components.card.paddingTop}px ${NDJC_GLOBAL_UI_TOKENS.components.card.paddingX}px ${NDJC_GLOBAL_UI_TOKENS.components.card.paddingBottom}px`,
+        boxSizing: 'border-box',
+        background: NDJC_GLOBAL_UI_TOKENS.colors.cardBackground,
+        boxShadow: NDJC_GLOBAL_UI_TOKENS.shadow.card,
         display: 'flex',
         flexDirection: 'column',
-        gap: APK_ADMIN_UI.cloudInnerGap
+        gap: NDJC_GLOBAL_UI_TOKENS.spacing.lg
       }}
     >
-                    <AdminCloudTitleText>
-                      Cloud
-                    </AdminCloudTitleText>
+      <div
+        aria-hidden="true"
+        style={{
+          position: 'absolute',
+          right: NDJC_GLOBAL_UI_TOKENS.spacing.xl,
+          top: NDJC_GLOBAL_UI_TOKENS.spacing.lg,
+          color: `rgba(${NDJC_GLOBAL_UI_TOKENS.colors.brandStrongRgb}, 0.075)`,
+          pointerEvents: 'none'
+        }}
+      >
+        <NdjcAdminCloudMark />
+      </div>
 
-                    <p
-                      style={{
-                        margin: 0
-                      }}
-                    >
-                      <AdminBodySmallText color={APK_ADMIN_UI.cloudPlanColor}>
-                        {state.cloudStatus.planLabel} · {state.cloudStatus.storeId}
-                      </AdminBodySmallText>
-                    </p>
+      <div
+        style={{
+          position: 'relative',
+          zIndex: 1,
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 12
+        }}
+      >
+        <AdminCloudTitleText>
+          Cloud status
+        </AdminCloudTitleText>
 
-                    <div
-                      className="ndjc-apk-admin-cloud-lines"
-                      style={{
-                        display: 'flex',
-                        flexDirection: 'column',
-                        gap: APK_ADMIN_UI.cloudLineGap
-                      }}
-                    >
-                      <AdminBodySmallText color={APK_ADMIN_UI.cloudStatusColor}>
-                        {state.cloudStatus.statusLabel}
-                      </AdminBodySmallText>
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 8,
+            flexWrap: 'wrap'
+          }}
+        >
+          {state.cloudStatus.daysRemainingLabel ? (
+            <span
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                minHeight: 24,
+                padding: '0 10px',
+                borderRadius: 999,
+                background: `rgba(${APK_SHOWCASE_COLOR_TOKENS.primaryRgb}, 0.08)`,
+                color: APK_SHOWCASE_COLOR_TOKENS.primary,
+                fontSize: 12,
+                lineHeight: 1,
+                fontWeight: 650
+              }}
+            >
+              {state.cloudStatus.daysRemainingLabel}
+            </span>
+          ) : null}
 
-                      {state.cloudStatus.daysRemainingLabel ? (
-                        <AdminTitleMediumText>
-                          {state.cloudStatus.daysRemainingLabel}
-                        </AdminTitleMediumText>
-                      ) : null}
-                    </div>
+          <AdminBodySmallText color={APK_ADMIN_UI.cloudStatusColor}>
+            {state.cloudStatus.statusLabel}
+          </AdminBodySmallText>
+        </div>
 
-                    <div
-                      style={{
-                        display: 'flex',
-                        flexDirection: 'column',
-                        gap: APK_ADMIN_UI.cloudLineGap
-                      }}
-                    >
-                      {state.cloudStatus.serviceEndAtLabel ? (
-                        <AdminBodySmallText color={APK_ADMIN_UI.cloudDateColor}>
-                          Expires · {state.cloudStatus.serviceEndAtLabel}
-                        </AdminBodySmallText>
-                      ) : null}
+        <div
+          style={{
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 4
+          }}
+        >
+          <span
+            style={{
+              color: '#667085',
+              fontSize: 12,
+              lineHeight: 1.25,
+              fontWeight: 500
+            }}
+          >
+            {state.cloudStatus.planLabel} plan
+          </span>
 
-                      {state.cloudStatus.deleteAtLabel ? (
-                        <AdminBodySmallText color={APK_ADMIN_UI.cloudDateColor}>
-                          Deletes · {state.cloudStatus.deleteAtLabel}
-                        </AdminBodySmallText>
-                      ) : null}
-                    </div>
-                  </section>
+          <span
+            style={{
+              color: APK_ADMIN_UI.cloudPlanColor,
+              fontSize: 13,
+              lineHeight: 1.35,
+              fontWeight: 500,
+              overflowWrap: 'anywhere'
+            }}
+          >
+            {state.cloudStatus.storeId}
+          </span>
+        </div>
 
-                  <AdminSpacer height={APK_ADMIN_UI.spacer6} />
-                  <SectionDivider />
-                </>
-              ) : null}
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateColumns: '58px minmax(0, 1fr)',
+            rowGap: 6,
+            columnGap: 10,
+            alignItems: 'baseline'
+          }}
+        >
+          {state.cloudStatus.serviceEndAtLabel ? (
+            <>
+              <span
+                style={{
+                  color: '#98A2B3',
+                  fontSize: 12,
+                  lineHeight: 1.25,
+                  fontWeight: 500
+                }}
+              >
+                Expires
+              </span>
 
-              <AdminSpacer height={APK_ADMIN_UI.spacer6} />
+              <span
+                style={{
+                  color: APK_ADMIN_UI.cloudDateColor,
+                  fontSize: 12,
+                  lineHeight: 1.25,
+                  fontWeight: 500
+                }}
+              >
+                {state.cloudStatus.serviceEndAtLabel}
+              </span>
+            </>
+          ) : null}
 
-              <AdminSectionLabel>
-                Quick action
-              </AdminSectionLabel>
+          {state.cloudStatus.deleteAtLabel ? (
+            <>
+              <span
+                style={{
+                  color: '#98A2B3',
+                  fontSize: 12,
+                  lineHeight: 1.25,
+                  fontWeight: 500
+                }}
+              >
+                Deletes
+              </span>
 
-              <NdjcPrimaryActionButton onClick={actions.onAddNewDish}>
-                Add Item
-              </NdjcPrimaryActionButton>
+              <span
+                style={{
+                  color: APK_ADMIN_UI.cloudDateColor,
+                  fontSize: 12,
+                  lineHeight: 1.25,
+                  fontWeight: 500
+                }}
+              >
+                {state.cloudStatus.deleteAtLabel}
+              </span>
+            </>
+          ) : null}
+        </div>
+      </div>
+    </section>
 
-              <AdminSpacer height={APK_ADMIN_UI.spacer6} />
-              <SectionDivider />
-              <AdminSpacer height={APK_ADMIN_UI.spacer6} />
+    <AdminSpacer height={APK_ADMIN_UI.spacer6} />
+  </>
+) : null}
 
-              <AdminSectionLabel>
-                Catalog
-              </AdminSectionLabel>
+              <AdminSpacer height={18} />
 
-              <NdjcPrimaryActionButton onClick={actions.onOpenItemsManager}>
-                Items
-              </NdjcPrimaryActionButton>
+              <section
+                className="ndjc-apk-admin-action-group"
+                style={{
+                  width: '100%',
+                  marginLeft: 0,
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: 8
+                }}
+              >
+                <AdminSectionLabel>
+                  Quick action
+                </AdminSectionLabel>
 
-              <NdjcPrimaryActionButton onClick={actions.onOpenCategoriesManager}>
-                Categories
-              </NdjcPrimaryActionButton>
+                <NdjcAdminEntryButton
+                  iconName="add"
+                  description="Create a new product or service"
+                  onClick={actions.onAddNewDish}
+                >
+                  Add Item
+                </NdjcAdminEntryButton>
+              </section>
 
-              <AdminSpacer height={APK_ADMIN_UI.spacer6} />
-              <SectionDivider />
-              <AdminSpacer height={APK_ADMIN_UI.spacer6} />
+              <AdminSpacer height={22} />
 
-              <AdminSectionLabel>
-                Store
-              </AdminSectionLabel>
+              <section
+                className="ndjc-apk-admin-catalog-group"
+                style={{
+                  width: '100%',
+                  marginLeft: 0,
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: 8
+                }}
+              >
+                <AdminSectionLabel>
+                  Catalog
+                </AdminSectionLabel>
 
-              <NdjcPrimaryActionButton onClick={actions.onOpenStoreProfile}>
-                Store settings
-              </NdjcPrimaryActionButton>
+                <NdjcAdminEntryButton
+                  iconName="items"
+                  description="Manage products, prices and visibility"
+                  onClick={actions.onOpenItemsManager}
+                >
+                  Items
+                </NdjcAdminEntryButton>
 
-              <NdjcPrimaryActionButton onClick={actions.onOpenMerchantChatList}>
-                {state.unreadMessageCount > 0
-                  ? `Messages (${state.unreadMessageCount} unread)`
-                  : 'Messages'}
-              </NdjcPrimaryActionButton>
+                <NdjcAdminEntryButton
+                  iconName="categories"
+                  description="Organize your catalog"
+                  onClick={actions.onOpenCategoriesManager}
+                >
+                  Categories
+                </NdjcAdminEntryButton>
+              </section>
 
-              <NdjcPrimaryActionButton onClick={actions.onOpenAnnouncementPublisher}>
-                Announcements
-              </NdjcPrimaryActionButton>
+              <AdminSpacer height={22} />
 
-              <NdjcPrimaryActionButton onClick={actions.onOpenAppointmentManager}>
-                {state.pendingAppointmentCount > 0
-                  ? `Appointments (${state.pendingAppointmentCount} pending)`
-                  : 'Appointments'}
-              </NdjcPrimaryActionButton>
+              <section
+                className="ndjc-apk-admin-store-group"
+                style={{
+                  width: '100%',
+                  marginLeft: 0,
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: 8
+                }}
+              >
+                <AdminSectionLabel>
+                  Store
+                </AdminSectionLabel>
 
-              <AdminSpacer height={APK_ADMIN_UI.spacer6} />
-              <SectionDivider />
-              <AdminSpacer height={APK_ADMIN_UI.spacer6} />
+                <NdjcAdminEntryButton
+                  iconName="store"
+                  description="Profile, opening hours and contact"
+                  onClick={actions.onOpenStoreProfile}
+                >
+                  Store settings
+                </NdjcAdminEntryButton>
 
-              <AdminSectionLabel>
-                Account
-              </AdminSectionLabel>
+                <NdjcAdminEntryButton
+                  iconName="messages"
+                  description={
+                    state.unreadMessageCount > 0
+                      ? `${state.unreadMessageCount} unread conversations`
+                      : 'Customer conversations'
+                  }
+                  onClick={actions.onOpenMerchantChatList}
+                >
+                  Messages
+                </NdjcAdminEntryButton>
 
-              <NdjcPrimaryActionButton onClick={actions.onOpenChangePassword}>
-                Password
-              </NdjcPrimaryActionButton>
+                <NdjcAdminEntryButton
+                  iconName="announcements"
+                  description="Post updates and promotions"
+                  onClick={actions.onOpenAnnouncementPublisher}
+                >
+                  Announcements
+                </NdjcAdminEntryButton>
 
-              <NdjcPrimaryActionButton onClick={actions.onLogout}>
-                Sign out
-              </NdjcPrimaryActionButton>
+                <NdjcAdminEntryButton
+                  iconName="appointments"
+                  description={
+                    state.pendingAppointmentCount > 0
+                      ? `${state.pendingAppointmentCount} pending bookings`
+                      : 'Manage customer bookings'
+                  }
+                  onClick={actions.onOpenAppointmentManager}
+                >
+                  Appointments
+                </NdjcAdminEntryButton>
+              </section>
+
+              <AdminSpacer height={22} />
+
+              <section
+                className="ndjc-apk-admin-account-group"
+                style={{
+                  width: '100%',
+                  marginLeft: 0,
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: 8
+                }}
+              >
+                <AdminSectionLabel>
+                  Account
+                </AdminSectionLabel>
+
+                <NdjcAdminEntryButton
+                  iconName="password"
+                  description="Update merchant password"
+                  onClick={actions.onOpenChangePassword}
+                >
+                  Password
+                </NdjcAdminEntryButton>
+
+                <NdjcAdminEntryButton
+                  iconName="signOut"
+                  description="Leave merchant mode"
+                  onClick={actions.onLogout}
+                >
+                  Sign out
+                </NdjcAdminEntryButton>
+              </section>
             </section>
-          </NdjcWhiteCard>
+          </section>
 
           {state.statusMessage ? (
             <>
@@ -22750,8 +25695,6 @@ export function ShowcaseAdminItems({
   const [itemsDraftDiscountOnly, setItemsDraftDiscountOnly] = React.useState(state.filterDiscountOnly)
   const [itemsDraftPriceMin, setItemsDraftPriceMin] = React.useState(state.priceMinDraft)
   const [itemsDraftPriceMax, setItemsDraftPriceMax] = React.useState(state.priceMaxDraft)
-  const headerRef = React.useRef<HTMLElement | null>(null)
-  const [headerHeight, setHeaderHeight] = React.useState(0)
 
   React.useEffect(() => {
     if (!showItemsFilterSheet) {
@@ -22762,40 +25705,6 @@ export function ShowcaseAdminItems({
       setItemsDraftPriceMax(state.priceMaxDraft)
     }
   }, [showItemsFilterSheet, state.filterRecommended, state.filterHiddenOnly, state.filterDiscountOnly, state.priceMinDraft, state.priceMaxDraft])
-
-  React.useEffect(() => {
-    const element = headerRef.current
-    if (!element) return
-
-    const update = () => {
-      setHeaderHeight(element.getBoundingClientRect().height)
-    }
-
-    update()
-
-    if (typeof ResizeObserver === 'undefined') {
-      window.setTimeout(update, 0)
-      return
-    }
-
-    const observer = new ResizeObserver(update)
-    observer.observe(element)
-
-    return () => observer.disconnect()
-  }, [
-    state.itemsSearchQuery,
-    state.itemsSortMode,
-    state.filterRecommended,
-    state.filterHiddenOnly,
-    state.filterDiscountOnly,
-    state.appliedMinPrice,
-    state.appliedMaxPrice,
-    state.selectedCategory,
-    state.manualCategories.length,
-    state.selectedDishIds.length,
-    state.dishes.length,
-    state.isLoading
-  ])
 
   const selectedCount = state.selectedDishIds.length
   const singleSelectedDishTitle = selectedCount === 1
@@ -22813,8 +25722,35 @@ export function ShowcaseAdminItems({
     state.appliedMinPrice != null ||
     state.appliedMaxPrice != null
 
-  const listTopPadding = APK_PAGE_SHELL_UI.topCardOffset + headerHeight + APK_SHOWCASE_ITEM_UI.adminItemsHeaderToListGap
-
+  const adminItemsListPaddingX = '25px'
+  const adminItemsExpandedHeaderContentHeight = 340
+  const adminItemsCollapsedHeaderContentHeight = 238
+  const {
+    collapsed: adminItemsHeaderCollapsed,
+    headerRef: adminItemsHeaderRef,
+    headerBottomPadding: adminItemsHeaderBottomPadding,
+    headerTotalHeight: adminItemsHeaderHeight,
+    listTopPadding,
+    handleCollapseScroll
+  } = useNdjcCollapsibleAdminHeader({
+    headerBottomPadding: APK_EDIT_ITEM_UI.sectionCardGap,
+    collapsedHeaderBottomPadding: 8,
+    expandedHeaderContentHeight: adminItemsExpandedHeaderContentHeight,
+    collapsedHeaderContentHeight: adminItemsCollapsedHeaderContentHeight,
+    measureKey: [
+      state.dishes.length,
+      state.itemsSearchQuery,
+      state.selectedCategory || '',
+      state.itemsSortMode,
+      state.selectedDishIds.join(','),
+      state.manualCategories.join(','),
+      state.filterRecommended,
+      state.filterHiddenOnly,
+      state.filterDiscountOnly,
+      state.appliedMinPrice ?? '',
+      state.appliedMaxPrice ?? ''
+    ].join('|')
+  })
   return (
     <NdjcUnifiedBackground
       className="ndjc-apk-admin-items-screen"
@@ -22837,24 +25773,31 @@ export function ShowcaseAdminItems({
           refreshing={state.isLoading}
           onRefresh={actions.onRefresh}
         >
-          <section
-            className="ndjc-apk-admin-items-list-layer"
-            style={{
-              position: 'absolute',
-            inset: 0,
-            overflowY: 'auto',
-            padding: `${listTopPadding}px ${APK_PAGE_SHELL_UI.screenPadding}px ${APK_PAGE_SHELL_UI.noBottomBarReserve}px`,
-            boxSizing: 'border-box',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: APK_SHOWCASE_ITEM_UI.adminItemsListGap
-          }}
-          onScroll={event => ndjcHandleLoadMoreScroll(
-            event,
-            state.itemsPagination,
-            actions.onLoadMoreItems
-          )}
-        >
+<section
+  className="ndjc-apk-admin-items-list-layer"
+  style={{
+    position: 'absolute',
+    inset: 0,
+    overflowY: 'auto',
+    background: '#e9efed',
+    padding: `${listTopPadding}px ${adminItemsListPaddingX} calc(${APK_SHOWCASE_ITEM_UI.adminItemsListGap}px + env(safe-area-inset-bottom))`,
+    boxSizing: 'border-box',
+    display: 'flex',
+    flexDirection: 'column',
+    gap: APK_SHOWCASE_ITEM_UI.adminItemsListGap,
+    WebkitOverflowScrolling: 'touch',
+    overscrollBehavior: 'contain'
+  }}
+  onScroll={event => {
+    handleCollapseScroll(event)
+
+    ndjcHandleLoadMoreScroll(
+      event,
+      state.itemsPagination,
+      actions.onLoadMoreItems
+    )
+  }}
+>
           {state.dishes.length ? (
             <>
               {state.dishes.map(dish => (
@@ -22872,6 +25815,9 @@ export function ShowcaseAdminItems({
                 loadingText="Loading more..."
                 endText="No more items"
                 onLoadMore={actions.onLoadMoreItems}
+                style={{
+                  padding: '15px 0'
+                }}
               />
             </>
           ) : (
@@ -22884,112 +25830,151 @@ export function ShowcaseAdminItems({
           )}
         </section>
 
-        <NdjcTopScrollFadeMask
-          className="ndjc-apk-admin-items-header-scroll-mask"
-          solidRatio={0.58}
-          style={{
-            zIndex: 2
-          }}
-        />
 
-        <NdjcWhiteCard
-          className="ndjc-apk-admin-items-header-card"
-          style={{
-            position: 'absolute',
-            zIndex: 3,
-            top: APK_PAGE_SHELL_UI.topCardOffset,
-            left: APK_PAGE_SHELL_UI.screenPadding,
-            right: APK_PAGE_SHELL_UI.screenPadding,
-            width: `calc(100% - ${APK_PAGE_SHELL_UI.screenPadding * 2}px)`,
-            boxSizing: 'border-box'
-          }}
-        >
-          <section
-            ref={headerRef}
-            className="ndjc-apk-admin-items-header-column"
-            style={{
-              width: '100%',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: 10
-            }}
-          >
+
+<section
+  className="ndjc-apk-admin-items-header-card"
+  style={{
+    position: 'absolute',
+    zIndex: 3,
+    top: 0,
+    left: 0,
+    right: 0,
+    width: '100%',
+    height: adminItemsHeaderHeight,
+    boxSizing: 'border-box',
+    background: APK_SHELL_UI.pageBg,
+    backdropFilter: 'none',
+    WebkitBackdropFilter: 'none',
+    borderBottom: `1px solid ${NDJC_GLOBAL_UI_TOKENS.colors.divider}`,
+    boxShadow: '0 8px 20px rgba(15, 23, 42, 0.04)',
+    padding: `${NDJC_GLOBAL_UI_TOKENS.layout.contentPaddingTop}px ${NDJC_GLOBAL_UI_TOKENS.layout.contentPaddingX}px ${adminItemsHeaderBottomPadding}px`,
+    overflow: 'hidden',
+    contain: 'layout paint',
+    transition: 'none'
+  }}
+>
+<section
+  ref={adminItemsHeaderRef}
+  className="ndjc-apk-admin-items-header-column"
+  style={{
+    width: '100%',
+    maxWidth: NDJC_GLOBAL_UI_TOKENS.layout.contentMaxWidth,
+    margin: '0 auto',
+    display: 'flex',
+    flexDirection: 'column',
+    gap: adminItemsHeaderCollapsed ? 4 : APK_EDIT_ITEM_UI.sectionCardGap
+  }}
+>
+<section
+  className="ndjc-apk-admin-items-title-block"
+  style={{
+    width: '100%',
+    display: 'grid',
+    gap: adminItemsHeaderCollapsed ? 0 : APK_EDIT_ITEM_UI.titleToHint
+  }}
+>
+<h1
+  style={{
+    margin: 0,
+    color: NDJC_ADMIN_TOOL_UI.emphasis,
+    fontSize: APK_EDIT_ITEM_UI.titleFontSize,
+    lineHeight: APK_EDIT_ITEM_UI.titleLineHeight,
+    fontWeight: APK_EDIT_ITEM_UI.titleFontWeight,
+    letterSpacing: APK_EDIT_ITEM_UI.titleLetterSpacing,
+    textRendering: 'geometricPrecision',
+    transformOrigin: 'left top',
+    transform: adminItemsHeaderCollapsed ? 'translateY(-3px) scale(0.78)' : 'translateY(0) scale(1)',
+    willChange: 'transform',
+    transition: 'transform 180ms cubic-bezier(0.2, 0, 0, 1)'
+  }}
+>
+  Items
+</h1>
+
+  <p
+    style={{
+      margin: 0,
+      height: adminItemsHeaderCollapsed ? 0 : 21,
+      color: APK_EDIT_ITEM_UI.body70,
+      fontSize: APK_EDIT_ITEM_UI.bodyMediumFontSize,
+      lineHeight: APK_EDIT_ITEM_UI.bodyMediumLineHeight,
+      fontWeight: APK_EDIT_ITEM_UI.bodyMediumFontWeight,
+      opacity: adminItemsHeaderCollapsed ? 0 : 1,
+      overflow: 'hidden',
+      transform: adminItemsHeaderCollapsed ? 'translateY(-4px)' : 'translateY(0)',
+      willChange: 'opacity, transform',
+      transition: 'opacity 160ms cubic-bezier(0.2, 0, 0, 1), transform 180ms cubic-bezier(0.2, 0, 0, 1)'
+    }}
+  >
+    Manage your product catalog and visibility.
+  </p>
+
+  <p
+    style={{
+      margin: 0,
+      height: adminItemsHeaderCollapsed ? 0 : 17,
+      color: APK_EDIT_ITEM_UI.body55,
+      fontSize: APK_EDIT_ITEM_UI.bodySmallFontSize,
+      lineHeight: APK_EDIT_ITEM_UI.bodySmallLineHeight,
+      fontWeight: APK_EDIT_ITEM_UI.bodySmallFontWeight,
+      opacity: adminItemsHeaderCollapsed ? 0 : 1,
+      overflow: 'hidden',
+      transform: adminItemsHeaderCollapsed ? 'translateY(-4px)' : 'translateY(0)',
+      willChange: 'opacity, transform',
+      transition: 'opacity 160ms cubic-bezier(0.2, 0, 0, 1), transform 180ms cubic-bezier(0.2, 0, 0, 1)'
+    }}
+  >
+    {state.dishes.length} items • Loaded locally
+  </p>
+</section>
+
             <section
-              className="ndjc-apk-admin-items-title-block"
+              className="ndjc-admin-items-search-filter-row"
               style={{
                 width: '100%',
                 display: 'grid',
-                gap: 4
+                gridTemplateColumns: 'minmax(0, 1fr) 48px',
+                gap: APK_EDIT_ITEM_UI.fieldGap,
+                alignItems: 'end'
               }}
             >
-              <h1
-                style={{
-                  margin: 0,
-                  color: '#000000',
-                  fontSize: 22,
-                  lineHeight: 1.3,
-                  fontWeight: 600
-                }}
-              >
-                Items
-              </h1>
-
-              <p
-                style={{
-                  margin: 0,
-                  color: 'rgba(0, 0, 0, 0.70)',
-                  fontSize: 14,
-                  lineHeight: 1.45,
-                  fontWeight: 400
-                }}
-              >
-                Manage your product catalog and visibility.
-              </p>
-
-              <p
-                style={{
-                  margin: 0,
-                  color: 'rgba(0, 0, 0, 0.70)',
-                  fontSize: 12,
-                  lineHeight: 1.35,
-                  fontWeight: 400
-                }}
-              >
-                {state.dishes.length} items • Loaded locally
-              </p>
-            </section>
-
-            <NdjcAdminPageProgressSlot active={state.isLoading} />
-
-            <NdjcTextField
-              value={state.itemsSearchQuery}
-              onChange={actions.onItemsSearchQueryChange}
-              label="Search items"
-              singleLine
-            />
-
-            <SortRow columns={4}>
-              <SortNavEqualItem
-                text="Default"
-                selected={defaultSelected}
-                onClick={() => actions.onItemsSortModeChange('Default')}
+              <NdjcTextField
+                value={state.itemsSearchQuery}
+                onChange={actions.onItemsSearchQueryChange}
+                label="Search items"
+                placeholder="Search by item name"
+                singleLine
+                leadingIcon={(
+                  <svg
+                    width="16"
+                    height="16"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    aria-hidden="true"
+                    focusable="false"
+                  >
+                    <path
+                      d="M10.8 18.1a7.3 7.3 0 1 1 0-14.6 7.3 7.3 0 0 1 0 14.6Z"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                    <path
+                      d="M16.1 16.1 21 21"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  </svg>
+                )}
               />
 
-              <SortNavEqualItem
-                text="Low–High"
-                selected={lowHighSelected}
-                onClick={() => actions.onItemsSortModeChange('PriceAsc')}
-              />
-
-              <SortNavEqualItem
-                text="High–Low"
-                selected={highLowSelected}
-                onClick={() => actions.onItemsSortModeChange('PriceDesc')}
-              />
-
-              <SortNavEqualItem
-                text="Filter"
-                selected={filterActive}
+              <NdjcFilterIconButton
+                active={filterActive}
+                label="Open item filters"
                 onClick={() => {
                   setItemsDraftRecommended(state.filterRecommended)
                   setItemsDraftHiddenOnly(state.filterHiddenOnly)
@@ -22998,6 +25983,33 @@ export function ShowcaseAdminItems({
                   setItemsDraftPriceMax(state.priceMaxDraft)
                   setShowItemsFilterSheet(true)
                 }}
+              />
+            </section>
+
+            <SortRow
+              columns={3}
+              variant="segmented"
+              ariaLabel="Sort items"
+            >
+              <SortNavEqualItem
+                text="Default"
+                selected={defaultSelected}
+                onClick={() => actions.onItemsSortModeChange('Default')}
+                variant="segmented"
+              />
+
+              <SortNavEqualItem
+                text="Low–High"
+                selected={lowHighSelected}
+                onClick={() => actions.onItemsSortModeChange('PriceAsc')}
+                variant="segmented"
+              />
+
+              <SortNavEqualItem
+                text="High–Low"
+                selected={highLowSelected}
+                onClick={() => actions.onItemsSortModeChange('PriceDesc')}
+                variant="segmented"
               />
             </SortRow>
 
@@ -23012,10 +26024,10 @@ export function ShowcaseAdminItems({
             <p
               style={{
                 margin: 0,
-                color: 'rgba(0, 0, 0, 0.70)',
-                fontSize: 12,
-                lineHeight: 1.35,
-                fontWeight: 400
+                color: APK_EDIT_ITEM_UI.body55,
+                fontSize: APK_EDIT_ITEM_UI.bodySmallFontSize,
+                lineHeight: APK_EDIT_ITEM_UI.bodySmallLineHeight,
+                fontWeight: APK_EDIT_ITEM_UI.bodySmallFontWeight
               }}
             >
               Select items to delete or clear selection.
@@ -23027,25 +26039,31 @@ export function ShowcaseAdminItems({
                 width: '100%',
                 display: 'grid',
                 gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
-                gap: 10
+                gap: APK_EDIT_ITEM_UI.fieldGap
               }}
             >
-              <NdjcPrimaryActionButton
+              <NdjcControlPillButton
                 disabled={selectedCount <= 0}
+                active={selectedCount > 0}
+                tone="adminAction"
+                fullWidth
                 onClick={actions.onClearSelectedDishes}
               >
                 Clear
-              </NdjcPrimaryActionButton>
+              </NdjcControlPillButton>
 
-              <NdjcPrimaryActionButton
+              <NdjcControlPillButton
                 disabled={selectedCount <= 0}
+                active={selectedCount > 0}
+                tone="adminAction"
+                fullWidth
                 onClick={() => setShowDeleteSelectedConfirm(true)}
               >
-                Delete ({selectedCount})
-              </NdjcPrimaryActionButton>
+                Delete {selectedCount}
+              </NdjcControlPillButton>
             </section>
           </section>
-        </NdjcWhiteCard>
+        </section>
         </NdjcAdminPullRefreshContainer>
       </section>
 
@@ -23057,6 +26075,7 @@ export function ShowcaseAdminItems({
         priceMaxDraft={itemsDraftPriceMax}
         onPriceMaxDraftChange={setItemsDraftPriceMax}
         showPriceFields
+        showHeaderDivider={false}
         onClose={() => {
           setItemsDraftRecommended(state.filterRecommended)
           setItemsDraftHiddenOnly(state.filterHiddenOnly)
@@ -23145,10 +26164,6 @@ export function ShowcaseAdminCategories({
   const [renameFrom, setRenameFrom] = React.useState<string | null>(null)
   const [renameTo, setRenameTo] = React.useState('')
 
-  const sectionGap = 14
-  const titleToHint = 4
-  const hintToContent = 10
-  const rowGap = 10
   const categorySubmittingAction = state.categorySubmittingAction
   const categorySubmitting = Boolean(categorySubmittingAction)
 
@@ -23184,20 +26199,27 @@ export function ShowcaseAdminCategories({
             className="ndjc-apk-admin-categories-scroll-column"
             style={{
               width: '100%',
-            height: '100%',
-            minHeight: 0,
-            overflowY: 'auto',
-            padding: `${APK_PAGE_SHELL_UI.topCardOffset}px ${APK_PAGE_SHELL_UI.screenPadding}px ${APK_PAGE_SHELL_UI.noBottomBarReserve}px`,
-            boxSizing: 'border-box',
-            display: 'flex',
-            flexDirection: 'column'
-          }}
-        >
-          <NdjcWhiteCard
+              height: '100%',
+              minHeight: 0,
+              overflowY: 'auto',
+              padding: `${NDJC_GLOBAL_UI_TOKENS.layout.contentPaddingTop}px ${NDJC_GLOBAL_UI_TOKENS.layout.contentPaddingX}px calc(${NDJC_GLOBAL_UI_TOKENS.layout.contentPaddingBottom}px + env(safe-area-inset-bottom))`,
+              boxSizing: 'border-box',
+              display: 'flex',
+              flexDirection: 'column',
+              WebkitOverflowScrolling: 'touch'
+            }}
+          >
+          <section
             className="ndjc-apk-admin-categories-root-card"
             style={{
               width: '100%',
-              boxSizing: 'border-box'
+              maxWidth: NDJC_GLOBAL_UI_TOKENS.layout.contentMaxWidth,
+              alignSelf: 'center',
+              boxSizing: 'border-box',
+              background: 'transparent',
+              boxShadow: 'none',
+              borderRadius: 0,
+              padding: 0
             }}
           >
             <section
@@ -23211,57 +26233,60 @@ export function ShowcaseAdminCategories({
               <h1
                 style={{
                   margin: 0,
-                  color: '#000000',
-                  fontSize: 24,
-                  lineHeight: 1.25,
-                  fontWeight: 600
+                  color: NDJC_GLOBAL_UI_TOKENS.colors.textPrimary,
+                  fontSize: APK_EDIT_ITEM_UI.titleFontSize,
+                  lineHeight: APK_EDIT_ITEM_UI.titleLineHeight,
+                  fontWeight: APK_EDIT_ITEM_UI.titleFontWeight,
+                  letterSpacing: APK_EDIT_ITEM_UI.titleLetterSpacing,
+                  textRendering: 'geometricPrecision'
                 }}
               >
                 Categories
               </h1>
 
-              <div style={{ height: 6, flexShrink: 0 }} />
+              <div style={{ height: APK_EDIT_ITEM_UI.hintToContent, flexShrink: 0 }} />
 
               <NdjcAdminPageProgressSlot active={state.isLoading} />
 
-              <div style={{ height: sectionGap, flexShrink: 0 }} />
+              <div style={{ height: APK_EDIT_ITEM_UI.sectionBottom, flexShrink: 0 }} />
 
               <h2
                 style={{
                   margin: 0,
-                  color: 'rgba(0, 0, 0, 0.90)',
-                  fontSize: 16,
-                  lineHeight: 1.35,
-                  fontWeight: 600
+                  color: APK_EDIT_ITEM_UI.sectionLabelColor,
+                  fontSize: APK_EDIT_ITEM_UI.sectionTitleFontSize,
+                  lineHeight: APK_EDIT_ITEM_UI.sectionTitleLineHeight,
+                  fontWeight: APK_EDIT_ITEM_UI.sectionTitleFontWeight
                 }}
               >
                 Create category
               </h2>
 
-              <div style={{ height: titleToHint, flexShrink: 0 }} />
+              <div style={{ height: APK_EDIT_ITEM_UI.titleToHint, flexShrink: 0 }} />
 
               <p
                 style={{
                   margin: 0,
-                  color: 'rgba(0, 0, 0, 0.55)',
-                  fontSize: 12,
-                  lineHeight: 1.35,
-                  fontWeight: 400
+                  color: APK_EDIT_ITEM_UI.body55,
+                  fontSize: APK_EDIT_ITEM_UI.bodySmallFontSize,
+                  lineHeight: APK_EDIT_ITEM_UI.bodySmallLineHeight,
+                  fontWeight: APK_EDIT_ITEM_UI.bodySmallFontWeight
                 }}
               >
                 Category names must be unique.
               </p>
 
-              <div style={{ height: hintToContent, flexShrink: 0 }} />
+              <div style={{ height: APK_EDIT_ITEM_UI.hintToContent, flexShrink: 0 }} />
 
               <NdjcTextField
                 value={newCategory}
                 onChange={setNewCategory}
                 label="Category name"
+                placeholder="Enter category name"
                 singleLine
               />
 
-              <div style={{ height: 10, flexShrink: 0 }} />
+              <div style={{ height: APK_EDIT_ITEM_UI.submitButtonTopGap, flexShrink: 0 }} />
 
               <section
                 className="ndjc-apk-admin-categories-add-row"
@@ -23269,47 +26294,49 @@ export function ShowcaseAdminCategories({
                   width: '100%',
                   display: 'grid',
                   gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr)',
-                  gap: rowGap
+                  gap: APK_EDIT_ITEM_UI.fieldGap
                 }}
               >
                 <span aria-hidden="true" />
 
-                <NdjcPrimaryActionButton
+                <NdjcControlPillButton
                   disabled={!newCategory.trim() || categorySubmitting}
-                  isLoading={categorySubmittingAction === 'add'}
+                  active={Boolean(newCategory.trim()) && !categorySubmitting}
+                  tone="adminAction"
+                  fullWidth
                   onClick={() => {
                     if (categorySubmitting) return
                     actions.onAddCategory(newCategory)
                     setNewCategory('')
                   }}
                 >
-                  Add
-                </NdjcPrimaryActionButton>
+                  {categorySubmittingAction === 'add' ? 'Adding...' : 'Add'}
+                </NdjcControlPillButton>
               </section>
 
-              <div style={{ height: sectionGap, flexShrink: 0 }} />
+              <div style={{ height: APK_EDIT_ITEM_UI.sectionTop, flexShrink: 0 }} />
 
               <h2
                 style={{
                   margin: 0,
-                  color: 'rgba(0, 0, 0, 0.90)',
-                  fontSize: 16,
-                  lineHeight: 1.35,
-                  fontWeight: 600
+                  color: APK_EDIT_ITEM_UI.sectionLabelColor,
+                  fontSize: APK_EDIT_ITEM_UI.sectionTitleFontSize,
+                  lineHeight: APK_EDIT_ITEM_UI.sectionTitleLineHeight,
+                  fontWeight: APK_EDIT_ITEM_UI.sectionTitleFontWeight
                 }}
               >
                 Edit or delete categories
               </h2>
 
-              <div style={{ height: titleToHint, flexShrink: 0 }} />
+              <div style={{ height: APK_EDIT_ITEM_UI.titleToHint, flexShrink: 0 }} />
 
               <p
                 style={{
                   margin: 0,
-                  color: 'rgba(0, 0, 0, 0.55)',
-                  fontSize: 12,
-                  lineHeight: 1.35,
-                  fontWeight: 400
+                  color: APK_EDIT_ITEM_UI.body55,
+                  fontSize: APK_EDIT_ITEM_UI.bodySmallFontSize,
+                  lineHeight: APK_EDIT_ITEM_UI.bodySmallLineHeight,
+                  fontWeight: APK_EDIT_ITEM_UI.bodySmallFontWeight
                 }}
               >
                 {selectedCategoryName
@@ -23317,7 +26344,7 @@ export function ShowcaseAdminCategories({
                   : 'Select a category below to edit or delete.'}
               </p>
 
-              <div style={{ height: hintToContent, flexShrink: 0 }} />
+              <div style={{ height: APK_EDIT_ITEM_UI.hintToContent, flexShrink: 0 }} />
 
               <section
                 className="ndjc-apk-admin-categories-action-row"
@@ -23325,12 +26352,14 @@ export function ShowcaseAdminCategories({
                   width: '100%',
                   display: 'grid',
                   gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
-                  gap: rowGap
+                  gap: APK_EDIT_ITEM_UI.fieldGap
                 }}
               >
-                <NdjcPrimaryActionButton
+                <NdjcControlPillButton
                   disabled={!selectedCategoryName || categorySubmitting}
-                  isLoading={categorySubmittingAction === 'rename'}
+                  active={Boolean(selectedCategoryName) && !categorySubmitting}
+                  tone="adminAction"
+                  fullWidth
                   onClick={() => {
                     if (categorySubmitting) return
                     const name = selectedCategoryName
@@ -23340,12 +26369,14 @@ export function ShowcaseAdminCategories({
                     setShowRenameDialog(true)
                   }}
                 >
-                  Edit
-                </NdjcPrimaryActionButton>
+                  {categorySubmittingAction === 'rename' ? 'Editing...' : 'Edit'}
+                </NdjcControlPillButton>
 
-                <NdjcPrimaryActionButton
+                <NdjcControlPillButton
                   disabled={!selectedCategoryName || categorySubmitting}
-                  isLoading={categorySubmittingAction === 'delete'}
+                  active={Boolean(selectedCategoryName) && !categorySubmitting}
+                  tone="adminAction"
+                  fullWidth
                   onClick={() => {
                     if (categorySubmitting) return
                     const name = selectedCategoryName
@@ -23353,39 +26384,39 @@ export function ShowcaseAdminCategories({
                     actions.onRequestDeleteCategory(name)
                   }}
                 >
-                  Delete
-                </NdjcPrimaryActionButton>
+                  {categorySubmittingAction === 'delete' ? 'Deleting...' : 'Delete'}
+                </NdjcControlPillButton>
               </section>
 
-              <div style={{ height: sectionGap, flexShrink: 0 }} />
+              <div style={{ height: APK_EDIT_ITEM_UI.sectionTop, flexShrink: 0 }} />
 
               <h2
                 style={{
                   margin: 0,
-                  color: 'rgba(0, 0, 0, 0.90)',
-                  fontSize: 16,
-                  lineHeight: 1.35,
-                  fontWeight: 600
+                  color: APK_EDIT_ITEM_UI.sectionLabelColor,
+                  fontSize: APK_EDIT_ITEM_UI.sectionTitleFontSize,
+                  lineHeight: APK_EDIT_ITEM_UI.sectionTitleLineHeight,
+                  fontWeight: APK_EDIT_ITEM_UI.sectionTitleFontWeight
                 }}
               >
                 All categories
               </h2>
 
-              <div style={{ height: titleToHint, flexShrink: 0 }} />
+              <div style={{ height: APK_EDIT_ITEM_UI.titleToHint, flexShrink: 0 }} />
 
               <p
                 style={{
                   margin: 0,
-                  color: 'rgba(0, 0, 0, 0.55)',
-                  fontSize: 12,
-                  lineHeight: 1.35,
-                  fontWeight: 400
+                  color: APK_EDIT_ITEM_UI.body55,
+                  fontSize: APK_EDIT_ITEM_UI.bodySmallFontSize,
+                  lineHeight: APK_EDIT_ITEM_UI.bodySmallLineHeight,
+                  fontWeight: APK_EDIT_ITEM_UI.bodySmallFontWeight
                 }}
               >
                 Tap a category to select.
               </p>
 
-              <div style={{ height: hintToContent, flexShrink: 0 }} />
+              <div style={{ height: APK_EDIT_ITEM_UI.hintToContent, flexShrink: 0 }} />
 
               <section
                 className="ndjc-apk-admin-categories-flow-row"
@@ -23393,7 +26424,7 @@ export function ShowcaseAdminCategories({
                   width: '100%',
                   display: 'flex',
                   flexWrap: 'wrap',
-                  gap: rowGap
+                  gap: APK_EDIT_ITEM_UI.chipGap
                 }}
               >
                 {state.manualCategories.map(category => (
@@ -23411,7 +26442,7 @@ export function ShowcaseAdminCategories({
                 ))}
               </section>
             </section>
-          </NdjcWhiteCard>
+          </section>
           </section>
         </NdjcAdminPullRefreshContainer>
 
@@ -23443,6 +26474,7 @@ export function ShowcaseAdminCategories({
               value={renameTo}
               onChange={setRenameTo}
               label="Category name"
+              placeholder="Enter category name"
               singleLine
             />
           }
@@ -23597,9 +26629,20 @@ export function ShowcaseEditDish({
 
     if (!target || !scrollRoot) return
 
+    const fieldShell = target.closest('.ndjc-apk-edit-modern-field')
+    const scrollTarget = fieldShell instanceof HTMLElement ? fieldShell : target
+
     const rootRect = scrollRoot.getBoundingClientRect()
-    const targetRect = target.getBoundingClientRect()
-    const nextTop = scrollRoot.scrollTop + targetRect.top - rootRect.top - 24
+    const targetRect = scrollTarget.getBoundingClientRect()
+    const safeTop = NDJC_GLOBAL_UI_TOKENS.layout.keyboardFocusTopGap
+    const safeBottom = Math.max(rootRect.height * 0.58, safeTop + 180)
+
+    const targetTopInRoot = targetRect.top - rootRect.top
+    const targetBottomInRoot = targetRect.bottom - rootRect.top
+
+    if (targetTopInRoot >= safeTop && targetBottomInRoot <= safeBottom) return
+
+    const nextTop = scrollRoot.scrollTop + targetTopInRoot - safeTop
 
     scrollRoot.scrollTo({
       top: Math.max(0, nextTop),
@@ -23693,23 +26736,31 @@ export function ShowcaseEditDish({
           height: '100%',
           minHeight: 0,
           overflowY: state.isBlocking || isDraggingImages ? 'hidden' : 'auto',
-          padding: `${APK_EDIT_ITEM_UI.topContentPadding}px ${APK_EDIT_ITEM_UI.screenPadding}px calc(${APK_EDIT_ITEM_UI.screenPadding}px + env(safe-area-inset-bottom) + 96px)`,
+          padding: `${APK_EDIT_ITEM_UI.topContentPadding}px ${APK_EDIT_ITEM_UI.screenPadding}px calc(${APK_EDIT_ITEM_UI.bottomContentPadding}px + env(safe-area-inset-bottom))`,
           boxSizing: 'border-box',
           display: 'flex',
           flexDirection: 'column',
           touchAction: isDraggingImages ? 'none' : 'pan-y',
-          scrollPaddingTop: APK_EDIT_ITEM_UI.topContentPadding,
-          scrollPaddingBottom: 140,
+          scrollPaddingTop: NDJC_GLOBAL_UI_TOKENS.layout.keyboardFocusTopGap,
+          scrollPaddingBottom: APK_EDIT_ITEM_UI.bottomContentPadding,
           WebkitOverflowScrolling: 'touch',
           overscrollBehavior: 'contain'
         }}
         onFocusCapture={handleEditScrollFocusCapture}
       >
-        <NdjcWhiteCard
+        <section
           className="ndjc-apk-edit-root-card"
           style={{
             width: '100%',
-            boxSizing: 'border-box'
+            maxWidth: NDJC_GLOBAL_UI_TOKENS.layout.contentMaxWidth,
+            alignSelf: 'center',
+            boxSizing: 'border-box',
+            borderRadius: 0,
+            padding: 0,
+            background: 'transparent',
+            boxShadow: 'none',
+            display: 'flex',
+            flexDirection: 'column'
           }}
         >
           <section
@@ -23727,312 +26778,345 @@ export function ShowcaseEditDish({
                 : 'Update details, category, and visibility.'}
             />
 
-            <EditItemSpacer height={APK_EDIT_ITEM_UI.sectionBottom + 8} />
+            <EditItemSpacer height={APK_EDIT_ITEM_UI.sectionBottom} />
 
-            <EditItemSectionTitle
-              title="Details"
-              subtitle="Fields marked * are required. Sale price is optional."
-            />
-
-            <EditItemSpacer height={APK_EDIT_ITEM_UI.hintToContent} />
-
-            <section
-              className="ndjc-apk-edit-fields-column"
-              style={{
-                width: '100%',
-                display: 'grid',
-                gap: APK_EDIT_ITEM_UI.fieldGap
-              }}
-            >
-              <EditItemFieldBlock ref={nameFieldRef}>
-                <NdjcTextField
-                  value={state.name}
-                  onChange={actions.onNameChange}
-                  label="Name *"
-                  placeholder="Item name"
-                  singleLine
-                  isError={state.nameRequiredError}
-                />
-
-                {state.nameRequiredError ? (
-                  <EditItemErrorText>
-                    Name is required.
-                  </EditItemErrorText>
-                ) : null}
-              </EditItemFieldBlock>
-
-              <EditItemFieldBlock ref={priceFieldRef}>
-                <NdjcTextField
-                  value={state.originalPrice}
-                  onChange={actions.onPriceChange}
-                  label="Price *"
-                  placeholder="0"
-                  type="number"
-                  inputMode="numeric"
-                  singleLine
-                  isError={state.priceRequiredError}
-                />
-
-                {state.priceRequiredError ? (
-                  <EditItemErrorText>
-                    Price is required.
-                  </EditItemErrorText>
-                ) : null}
-              </EditItemFieldBlock>
-
-              <NdjcTextField
-                value={state.discountPrice}
-                onChange={actions.onDiscountPriceChange}
-                label="Sale price"
-                placeholder="Optional"
-                type="number"
-                inputMode="numeric"
-                singleLine
+            <EditItemSectionCard className="ndjc-apk-edit-details-card">
+              <EditItemSectionTitle
+                title="Details"
+                subtitle="Fields marked * are required. Sale price is optional."
               />
 
-              <EditItemBodySmallText>
-                Leave empty if no discount. If set, it should be lower than Price.
-              </EditItemBodySmallText>
-
-              {state.discountErrorText ? (
-                <EditItemErrorText>
-                  {state.discountErrorText}
-                </EditItemErrorText>
-              ) : null}
-
-              <EditItemFieldBlock ref={descriptionFieldRef}>
-                <NdjcTextField
-                  value={descriptionText}
-                  onChange={value => actions.onDescriptionChange(value.slice(0, descriptionMax))}
-                  label="Description *"
-                  placeholder="Description"
-                  multiline
-                  minLines={3}
-                  isError={state.descriptionRequiredError}
-                />
-
-                {state.descriptionRequiredError ? (
-                  <EditItemErrorText>
-                    Description is required.
-                  </EditItemErrorText>
-                ) : null}
-              </EditItemFieldBlock>
-
               <section
-                className="ndjc-apk-edit-description-helper-row"
+                className="ndjc-apk-edit-fields-column"
                 style={{
                   width: '100%',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 10
+                  display: 'grid',
+                  gap: APK_EDIT_ITEM_UI.fieldGap
                 }}
               >
-                <span
+                <EditItemFieldBlock ref={nameFieldRef}>
+                  <NdjcTextField
+                    value={state.name}
+                    onChange={actions.onNameChange}
+                    label="Name *"
+                    placeholder="Item name"
+                    singleLine
+                    isError={state.nameRequiredError}
+                  />
+
+                  {state.nameRequiredError ? (
+                    <EditItemErrorText>
+                      Name is required.
+                    </EditItemErrorText>
+                  ) : null}
+                </EditItemFieldBlock>
+
+                <EditItemFieldBlock ref={priceFieldRef}>
+                  <NdjcTextField
+                    value={state.originalPrice}
+                    onChange={actions.onPriceChange}
+                    label="Price *"
+                    placeholder="0"
+                    type="text"
+                    inputMode="decimal"
+                    singleLine
+                    isError={state.priceRequiredError}
+                  />
+
+                  {state.priceRequiredError ? (
+                    <EditItemErrorText>
+                      Price is required.
+                    </EditItemErrorText>
+                  ) : null}
+                </EditItemFieldBlock>
+
+                <NdjcTextField
+                  value={state.discountPrice}
+                  onChange={actions.onDiscountPriceChange}
+                  label="Sale price"
+                  placeholder="Optional"
+                  type="text"
+                  inputMode="decimal"
+                  singleLine
+                />
+
+                <section
+                  className="ndjc-apk-edit-helper-block"
                   style={{
-                    flex: 1,
-                    minWidth: 0
+                    width: '100%',
+                    display: 'grid',
+                    gap: APK_EDIT_ITEM_UI.labelGap
                   }}
                 >
                   <EditItemBodySmallText>
-                    Appears on the item detail page.
+                    Leave empty if no discount. If set, it should be lower than Price.
                   </EditItemBodySmallText>
-                </span>
 
-                <span
-                  style={{
-                    color: APK_EDIT_ITEM_UI.body55,
-                    fontSize: APK_EDIT_ITEM_UI.bodySmallFontSize,
-                    lineHeight: APK_EDIT_ITEM_UI.bodySmallLineHeight,
-                    fontWeight: APK_EDIT_ITEM_UI.bodySmallFontWeight,
-                    whiteSpace: 'nowrap'
-                  }}
-                >
-                  {descriptionLength}/{descriptionMax}
-                </span>
-              </section>
-            </section>
+                  {state.discountErrorText ? (
+                    <EditItemErrorText>
+                      {state.discountErrorText}
+                    </EditItemErrorText>
+                  ) : null}
+                </section>
 
-            <EditItemSpacer height={APK_EDIT_ITEM_UI.sectionTop} />
+                <EditItemSpacer height={Math.max(0, APK_EDIT_ITEM_UI.midGap - APK_EDIT_ITEM_UI.fieldGap)} />
 
-            <EditItemSectionTitle
-              title="Organization"
-              subtitle="Required. You can select an existing category or type to create a new one."
-            />
+                <EditItemFieldBlock ref={descriptionFieldRef}>
+                  <NdjcTextField
+                    value={descriptionText}
+                    onChange={value => actions.onDescriptionChange(value.slice(0, descriptionMax))}
+                    label="Description *"
+                    placeholder="Description"
+                    multiline
+                    minLines={3}
+                    isError={state.descriptionRequiredError}
+                  />
 
-            <EditItemSpacer height={APK_EDIT_ITEM_UI.hintToContent} />
-
-            <EditItemFieldBlock ref={categoryFieldRef}>
-              <NdjcTextField
-                value={state.category || ''}
-                onChange={value => actions.onCategorySelected(value || null)}
-                label="Category *"
-                placeholder="Category"
-                singleLine
-                isError={state.categoryRequiredError}
-              />
-
-              {state.categoryRequiredError ? (
-                <EditItemErrorText>
-                  Category is required.
-                </EditItemErrorText>
-              ) : null}
-            </EditItemFieldBlock>
-
-            {state.availableCategories.length > 0 ? (
-              <>
-                <EditItemSpacer height={APK_EDIT_ITEM_UI.midGap} />
-
-                <EditItemBodySmallText>
-                  Or select an existing category:
-                </EditItemBodySmallText>
-
-                <EditItemSpacer height={APK_EDIT_ITEM_UI.spacer8} />
+                  {state.descriptionRequiredError ? (
+                    <EditItemErrorText>
+                      Description is required.
+                    </EditItemErrorText>
+                  ) : null}
+                </EditItemFieldBlock>
 
                 <section
-                  className="ndjc-apk-edit-category-chip-row"
+                  className="ndjc-apk-edit-description-helper-row"
                   style={{
                     width: '100%',
                     display: 'flex',
-                    flexWrap: 'wrap',
-                    gap: APK_EDIT_ITEM_UI.chipGap
+                    alignItems: 'center',
+                    gap: APK_EDIT_ITEM_UI.fieldGap
                   }}
                 >
-                  {state.availableCategories.map(category => (
-                    <NdjcPillButton
-                      key={category}
-                      selected={state.category === category}
-                      onClick={() => actions.onCategorySelected(category)}
-                    >
-                      {category}
-                    </NdjcPillButton>
-                  ))}
+                  <span
+                    style={{
+                      flex: 1,
+                      minWidth: 0
+                    }}
+                  >
+                    <EditItemBodySmallText>
+                      Appears on the item detail page.
+                    </EditItemBodySmallText>
+                  </span>
+
+                  <span
+                    style={{
+                      color: NDJC_GLOBAL_UI_TOKENS.colors.textMuted,
+                      fontSize: APK_EDIT_ITEM_UI.bodySmallFontSize,
+                      lineHeight: APK_EDIT_ITEM_UI.bodySmallLineHeight,
+                      fontWeight: APK_EDIT_ITEM_UI.bodySmallFontWeight,
+                      whiteSpace: 'nowrap'
+                    }}
+                  >
+                    {descriptionLength}/{descriptionMax}
+                  </span>
                 </section>
-              </>
-            ) : null}
+              </section>
+            </EditItemSectionCard>
 
             <EditItemSpacer height={APK_EDIT_ITEM_UI.sectionTop} />
 
-            <EditItemSectionTitle
-              title="Media"
-              subtitle="Images displayed on the item detail page."
-            />
-
-            <EditItemSpacer height={APK_EDIT_ITEM_UI.hintToContent} />
-
-            <section
-              ref={imagesFieldRef}
-              className="ndjc-apk-edit-images-block"
-              style={{
-                width: '100%',
-                display: 'grid',
-                gap: 4
-              }}
-            >
-              <h2
-                style={{
-                  margin: 0,
-                  color: state.imagesRequiredError ? APK_EDIT_ITEM_UI.error80 : APK_EDIT_ITEM_UI.black,
-                  fontSize: APK_EDIT_ITEM_UI.labelFontSize,
-                  lineHeight: APK_EDIT_ITEM_UI.labelLineHeight,
-                  fontWeight: APK_EDIT_ITEM_UI.labelFontWeight
-                }}
-              >
-                Images *
-              </h2>
-
-              <EditItemBodySmallText>
-                Add images displayed on the item detail page. At least 1 image is required. The first image is used as the cover. Up to 9 images.
-              </EditItemBodySmallText>
-
-              <EditItemSpacer height={APK_EDIT_ITEM_UI.mediaGridTop} />
-
-              <NdjcEditableImageGrid
-                imageUrls={state.imageUrls}
-                maxImages={state.maxImages}
-                onPickImage={openEditImagePicker}
-                onRemoveImage={actions.onRemoveImage}
-                onMoveImage={actions.onMoveImage}
-                onDraggingChange={setIsDraggingImages}
+            <EditItemSectionCard className="ndjc-apk-edit-organization-card">
+              <EditItemSectionTitle
+                title="Organization"
+                subtitle="Required. You can select an existing category or type to create a new one."
               />
 
-              {state.imagesRequiredError ? (
-                <>
-                  <EditItemSpacer height={APK_EDIT_ITEM_UI.labelGap} />
+              <EditItemFieldBlock ref={categoryFieldRef}>
+                <NdjcTextField
+                  value={state.category || ''}
+                  onChange={value => actions.onCategorySelected(value || null)}
+                  label="Category *"
+                  placeholder="Category"
+                  singleLine
+                  isError={state.categoryRequiredError}
+                />
 
+                {state.categoryRequiredError ? (
+                  <EditItemErrorText>
+                    Category is required.
+                  </EditItemErrorText>
+                ) : null}
+              </EditItemFieldBlock>
+
+              {state.availableCategories.length > 0 ? (
+                <section
+                  className="ndjc-apk-edit-category-panel"
+                  style={{
+                    width: '100%',
+                    display: 'grid',
+                    gap: APK_EDIT_ITEM_UI.spacer8
+                  }}
+                >
+                  <EditItemBodySmallText>
+                    Or select an existing category:
+                  </EditItemBodySmallText>
+
+                  <section
+                    className="ndjc-apk-edit-category-chip-row"
+                    style={{
+                      width: '100%',
+                      display: 'flex',
+                      flexWrap: 'wrap',
+                      gap: APK_EDIT_ITEM_UI.chipGap
+                    }}
+                  >
+                    {state.availableCategories.map(category => (
+                      <NdjcPillButton
+                        key={category}
+                        selected={state.category === category}
+                        onClick={() => actions.onCategorySelected(category)}
+                      >
+                        {category}
+                      </NdjcPillButton>
+                    ))}
+                  </section>
+                </section>
+              ) : null}
+            </EditItemSectionCard>
+
+            <EditItemSpacer height={APK_EDIT_ITEM_UI.sectionTop} />
+
+            <EditItemSectionCard className="ndjc-apk-edit-media-card">
+              <EditItemSectionTitle
+                title="Media"
+                subtitle="Images displayed on the item detail page."
+              />
+
+              <section
+                ref={imagesFieldRef}
+                className="ndjc-apk-edit-images-block"
+                style={{
+                  width: '100%',
+                  display: 'grid',
+                  gap: APK_EDIT_ITEM_UI.labelGap
+                }}
+              >
+                <h2
+                  style={{
+                    margin: 0,
+                    color: state.imagesRequiredError
+                      ? APK_EDIT_ITEM_UI.error80
+                      : APK_EDIT_ITEM_UI.sectionLabelColor,
+                    fontSize: APK_EDIT_ITEM_UI.labelFontSize,
+                    lineHeight: APK_EDIT_ITEM_UI.labelLineHeight,
+                    fontWeight: APK_EDIT_ITEM_UI.labelFontWeight
+                  }}
+                >
+                  Images *
+                </h2>
+
+                <EditItemBodySmallText>
+                  Add images displayed on the item detail page. At least 1 image is required. The first image is used as the cover. Up to 9 images.
+                </EditItemBodySmallText>
+
+                <EditItemSpacer height={APK_EDIT_ITEM_UI.mediaGridTop} />
+
+                <NdjcEditableImageGrid
+                  imageUrls={state.imageUrls}
+                  maxImages={state.maxImages}
+                  onPickImage={openEditImagePicker}
+                  onRemoveImage={actions.onRemoveImage}
+                  onMoveImage={actions.onMoveImage}
+                  onDraggingChange={setIsDraggingImages}
+                />
+
+                {state.imagesRequiredError ? (
                   <EditItemErrorText>
                     At least 1 image is required.
                   </EditItemErrorText>
-                </>
-              ) : null}
-            </section>
+                ) : null}
+              </section>
+            </EditItemSectionCard>
 
             <EditItemSpacer height={APK_EDIT_ITEM_UI.sectionTop} />
 
-            <EditItemSectionTitle
-              title="Visibility"
-              subtitle="Choose how this item appears in the list."
-            />
-
-            <EditItemSpacer height={APK_EDIT_ITEM_UI.hintToContent} />
-
-            <section
-              className="ndjc-apk-edit-visibility-column"
-              style={{
-                width: '100%',
-                display: 'grid',
-                gap: 0
-              }}
-            >
-              <NdjcToggleRow
-                label="Pick"
-                checked={state.isRecommended}
-                onChange={actions.onToggleRecommended}
+            <EditItemSectionCard className="ndjc-apk-edit-visibility-card">
+              <EditItemSectionTitle
+                title="Visibility"
+                subtitle="Choose how this item appears in the list."
               />
 
-              <EditItemSpacer height={APK_EDIT_ITEM_UI.smallGap} />
+              <section
+                className="ndjc-apk-edit-visibility-column"
+                style={{
+                  width: '100%',
+                  display: 'grid',
+                  gap: APK_EDIT_ITEM_UI.midGap
+                }}
+              >
+                <section
+                  className="ndjc-apk-edit-toggle-block"
+                  style={{
+                    width: '100%',
+                    display: 'grid',
+                    gap: APK_EDIT_ITEM_UI.smallGap
+                  }}
+                >
+                  <NdjcToggleRow
+                    label="Pick"
+                    checked={state.isRecommended}
+                    onChange={actions.onToggleRecommended}
+                  />
 
-              <EditItemBodySmallText>
-                Marks this item as Pick in the list.
-              </EditItemBodySmallText>
+                  <EditItemBodySmallText>
+                    Marks this item as Pick in the list.
+                  </EditItemBodySmallText>
+                </section>
 
-              <EditItemSpacer height={APK_EDIT_ITEM_UI.midGap} />
+                <section
+                  className="ndjc-apk-edit-toggle-block"
+                  style={{
+                    width: '100%',
+                    display: 'grid',
+                    gap: APK_EDIT_ITEM_UI.smallGap
+                  }}
+                >
+                  <NdjcToggleRow
+                    label="Hidden from list"
+                    checked={state.isHidden}
+                    onChange={actions.onToggleHidden}
+                  />
 
-              <NdjcToggleRow
-                label="Hidden from list"
-                checked={state.isHidden}
-                onChange={actions.onToggleHidden}
-              />
-
-              <EditItemSpacer height={APK_EDIT_ITEM_UI.smallGap} />
-
-              <EditItemBodySmallText>
-                Hides this item from customers. It can still be edited.
-              </EditItemBodySmallText>
-            </section>
+                  <EditItemBodySmallText>
+                    Hides this item from customers. It can still be edited.
+                  </EditItemBodySmallText>
+                </section>
+              </section>
+            </EditItemSectionCard>
 
             <EditItemSpacer height={APK_EDIT_ITEM_UI.saveHintTop} />
 
-            <EditItemBodySmallText>
-              {state.isNew
-                ? 'After creation, the item is visible unless Hidden from list is enabled.'
-                : 'Changes take effect after saving.'}
-            </EditItemBodySmallText>
-
-            <EditItemSpacer height={APK_EDIT_ITEM_UI.saveButtonTop} />
-
-            <NdjcPrimaryActionButton
-              disabled={state.isBlocking || state.isSaving}
-              isLoading={state.isSaving}
-              onClick={() => {
-                actions.onSave()
+            <section
+              className="ndjc-apk-edit-submit-area"
+              style={{
+                width: '100%',
+                display: 'grid',
+                gap: APK_EDIT_ITEM_UI.submitButtonTopGap
               }}
             >
-              {state.isNew ? 'Create' : 'Save'}
-            </NdjcPrimaryActionButton>
+              <EditItemBodySmallText>
+                {state.isNew
+                  ? 'After creation, the item is visible unless Hidden from list is enabled.'
+                  : 'Changes take effect after saving.'}
+              </EditItemBodySmallText>
+
+              <NdjcControlPillButton
+                active
+                tone="adminAction"
+                fullWidth
+                disabled={state.isBlocking || state.isSaving}
+                onClick={() => {
+                  actions.onSave()
+                }}
+              >
+                {state.isSaving ? 'Saving...' : state.isNew ? 'Create' : 'Save'}
+              </NdjcControlPillButton>
+            </section>
 
 
           </section>
-        </NdjcWhiteCard>
+        </section>
       </section>
 
       <NdjcSnackbarHost message={state.statusMessage} />
@@ -24328,17 +27412,24 @@ export function ShowcaseStoreProfileEdit({
           height: '100%',
           minHeight: 0,
           overflowY: isDraggingCoverImages ? 'hidden' : 'auto',
-          padding: `${APK_PAGE_SHELL_UI.topCardOffset}px ${APK_PAGE_SHELL_UI.screenPadding}px ${APK_PAGE_SHELL_UI.noBottomBarReserve}px`,
+          padding: `${NDJC_GLOBAL_UI_TOKENS.layout.contentPaddingTop}px ${NDJC_GLOBAL_UI_TOKENS.layout.contentPaddingX}px calc(${NDJC_GLOBAL_UI_TOKENS.layout.contentPaddingBottom}px + env(safe-area-inset-bottom))`,
           boxSizing: 'border-box',
           display: 'flex',
-          flexDirection: 'column'
+          flexDirection: 'column',
+          WebkitOverflowScrolling: 'touch'
         }}
       >
-        <NdjcWhiteCard
+        <section
           className="ndjc-apk-store-edit-root-card"
           style={{
             width: '100%',
-            boxSizing: 'border-box'
+            maxWidth: NDJC_GLOBAL_UI_TOKENS.layout.contentMaxWidth,
+            alignSelf: 'center',
+            boxSizing: 'border-box',
+            background: 'transparent',
+            boxShadow: 'none',
+            borderRadius: 0,
+            padding: 0
           }}
         >
           <section
@@ -24353,34 +27444,36 @@ export function ShowcaseStoreProfileEdit({
             <h1
               style={{
                 margin: 0,
-                color: '#000000',
-                fontSize: 24,
-                lineHeight: 1.25,
-                fontWeight: 600
+                color: NDJC_GLOBAL_UI_TOKENS.colors.textPrimary,
+                fontSize: APK_EDIT_ITEM_UI.titleFontSize,
+                lineHeight: APK_EDIT_ITEM_UI.titleLineHeight,
+                fontWeight: APK_EDIT_ITEM_UI.titleFontWeight,
+                letterSpacing: APK_EDIT_ITEM_UI.titleLetterSpacing,
+                textRendering: 'geometricPrecision'
               }}
             >
               Edit Store Profile
             </h1>
 
-            <div style={{ height: 4, flexShrink: 0 }} />
+            <div style={{ height: APK_EDIT_ITEM_UI.titleToHint, flexShrink: 0 }} />
 
             <p
               style={{
                 margin: 0,
-                color: 'rgba(0, 0, 0, 0.70)',
-                fontSize: 14,
-                lineHeight: 1.45,
-                fontWeight: 400
+                color: APK_EDIT_ITEM_UI.body70,
+                fontSize: APK_EDIT_ITEM_UI.bodyMediumFontSize,
+                lineHeight: APK_EDIT_ITEM_UI.bodyMediumLineHeight,
+                fontWeight: APK_EDIT_ITEM_UI.bodyMediumFontWeight
               }}
             >
               Update your public store information shown to customers.
             </p>
 
-            <div style={{ height: 8, flexShrink: 0 }} />
+            <div style={{ height: APK_EDIT_ITEM_UI.hintToContent, flexShrink: 0 }} />
 
             <NdjcAdminPageProgressSlot active={state.isSaving} />
 
-            <div style={{ height: 12, flexShrink: 0 }} />
+            <div style={{ height: APK_EDIT_ITEM_UI.sectionBottom, flexShrink: 0 }} />
 
             <StoreEditSectionTitle subtitle="Displayed at the top of your public profile.">
               Brand
@@ -24391,20 +27484,22 @@ export function ShowcaseStoreProfileEdit({
                 label="Title *"
                 value={state.draftTitle}
                 onChange={actions.onTitleChange}
+                placeholder="Enter store title"
                 isError={titleRequiredError}
                 errorText={titleRequiredError ? 'Store title is required.' : null}
               />
             </section>
 
-            <div style={{ height: 10, flexShrink: 0 }} />
+            <div style={{ height: APK_EDIT_ITEM_UI.fieldGap, flexShrink: 0 }} />
 
             <ProfileField
               label="Subtitle"
               value={state.draftSubtitle}
               onChange={actions.onSubtitleChange}
+              placeholder="Enter short subtitle"
             />
 
-            <div style={{ height: 18, flexShrink: 0 }} />
+            <div style={{ height: APK_EDIT_ITEM_UI.sectionTop, flexShrink: 0 }} />
 
             <StoreEditSectionTitle subtitle="This description appears in your public profile.">
               About
@@ -24414,6 +27509,7 @@ export function ShowcaseStoreProfileEdit({
               label="Description"
               value={state.draftDescription}
               onChange={actions.onDescriptionChange}
+              placeholder="Describe your store"
               multiline
             />
 
@@ -24422,7 +27518,7 @@ export function ShowcaseStoreProfileEdit({
               max={200}
             />
 
-            <div style={{ height: 18, flexShrink: 0 }} />
+            <div style={{ height: APK_EDIT_ITEM_UI.sectionTop, flexShrink: 0 }} />
 
             <StoreEditSectionTitle subtitle="List the services or categories you provide. Empty entries will not be saved.">
               Business Scope
@@ -24442,14 +27538,14 @@ export function ShowcaseStoreProfileEdit({
                 width: '100%',
                 display: 'flex',
                 flexDirection: 'column',
-                gap: 10
+                gap: APK_EDIT_ITEM_UI.fieldGap
               }}
             >
               <NdjcTextField
                 value={serviceDraft}
                 onChange={setServiceDraft}
                 label="Add new service"
-                placeholder="Add new service"
+                placeholder="Enter service name"
                 singleLine
               />
 
@@ -24464,7 +27560,10 @@ export function ShowcaseStoreProfileEdit({
                 <span aria-hidden="true" />
                 <span aria-hidden="true" />
 
-                <NdjcPrimaryActionButton
+                <NdjcControlPillButton
+                  active
+                  tone="adminAction"
+                  fullWidth
                   disabled={!serviceDraft.trim()}
                   onClick={() => {
                     actions.onAddService(serviceDraft)
@@ -24472,11 +27571,11 @@ export function ShowcaseStoreProfileEdit({
                   }}
                 >
                   Add
-                </NdjcPrimaryActionButton>
+                </NdjcControlPillButton>
               </section>
             </section>
 
-            <div style={{ height: 18, flexShrink: 0 }} />
+            <div style={{ height: APK_EDIT_ITEM_UI.sectionTop, flexShrink: 0 }} />
 
             <StoreEditSectionTitle subtitle="If left empty, this section will not appear in your public profile.">
               Location & Hours
@@ -24487,28 +27586,31 @@ export function ShowcaseStoreProfileEdit({
                 label="Address"
                 value={state.draftAddress}
                 onChange={actions.onAddressChange}
+                placeholder="Enter store address"
                 isError={addressRequiredError}
                 errorText={addressRequiredError ? 'Address is required when Map URL is filled.' : null}
               />
             </section>
 
-            <div style={{ height: 10, flexShrink: 0 }} />
+            <div style={{ height: APK_EDIT_ITEM_UI.fieldGap, flexShrink: 0 }} />
 
             <ProfileField
               label="Hours"
               value={state.draftHours}
               onChange={actions.onHoursChange}
+              placeholder="Enter opening hours"
             />
 
-            <div style={{ height: 10, flexShrink: 0 }} />
+            <div style={{ height: APK_EDIT_ITEM_UI.fieldGap, flexShrink: 0 }} />
 
             <ProfileField
               label="Map URL (optional)"
               value={state.draftMapUrl}
               onChange={actions.onMapUrlChange}
+              placeholder="Paste map URL"
             />
 
-            <div style={{ height: 18, flexShrink: 0 }} />
+            <div style={{ height: APK_EDIT_ITEM_UI.sectionTop, flexShrink: 0 }} />
 
             <StoreEditSectionTitle subtitle="These details will be visible to customers in your profile.">
               Contact
@@ -24551,7 +27653,7 @@ export function ShowcaseStoreProfileEdit({
                       setExtraNewName(value)
                       setExtraLocalError(null)
                     }}
-                    placeholder="Name"
+                    placeholder="Contact name"
                     label="Name"
                     singleLine
                   />
@@ -24562,7 +27664,7 @@ export function ShowcaseStoreProfileEdit({
                       setExtraNewValue(value)
                       setExtraLocalError(null)
                     }}
-                    placeholder="Value"
+                    placeholder="Phone, email, or link"
                     label="Value"
                     singleLine
                   />
@@ -24579,7 +27681,10 @@ export function ShowcaseStoreProfileEdit({
                   <span aria-hidden="true" />
                   <span aria-hidden="true" />
 
-                  <NdjcPrimaryActionButton
+                  <NdjcControlPillButton
+                    active
+                    tone="adminAction"
+                    fullWidth
                     disabled={!extraNewName.trim() || !extraNewValue.trim()}
                     onClick={() => {
                       const name = extraNewName.trim()
@@ -24591,7 +27696,7 @@ export function ShowcaseStoreProfileEdit({
                     }}
                   >
                     Add
-                  </NdjcPrimaryActionButton>
+                  </NdjcControlPillButton>
                 </section>
               </section>
               </StoreExtraContactsEditor>
@@ -24603,10 +27708,10 @@ export function ShowcaseStoreProfileEdit({
                   <p
                     style={{
                       margin: 0,
-                      color: APK_STORE_EDIT_UI.error80,
-                      fontSize: 12,
-                      lineHeight: 1.35,
-                      fontWeight: 400
+                      color: APK_EDIT_ITEM_UI.error80,
+                      fontSize: APK_EDIT_ITEM_UI.bodySmallFontSize,
+                      lineHeight: APK_EDIT_ITEM_UI.bodySmallLineHeight,
+                      fontWeight: APK_EDIT_ITEM_UI.bodySmallFontWeight
                     }}
                   >
                     {contactRequiredError
@@ -24617,7 +27722,7 @@ export function ShowcaseStoreProfileEdit({
               ) : null}
             </section>
 
-            <div style={{ height: 18, flexShrink: 0 }} />
+            <div style={{ height: APK_EDIT_ITEM_UI.sectionTop, flexShrink: 0 }} />
 
             <StoreEditSectionTitle subtitle="Images displayed in your public profile. The first cover image is featured prominently. Up to 9 images.">
               Media
@@ -24641,7 +27746,7 @@ export function ShowcaseStoreProfileEdit({
               }}
             />
 
-            <div style={{ height: 10, flexShrink: 0 }} />
+            <div style={{ height: APK_EDIT_ITEM_UI.fieldGap, flexShrink: 0 }} />
 
             <StoreProfileLogoPicker
               src={state.draftLogoUrl}
@@ -24656,7 +27761,7 @@ export function ShowcaseStoreProfileEdit({
               }}
             />
 
-            <div style={{ height: 14, flexShrink: 0 }} />
+            <div style={{ height: APK_EDIT_ITEM_UI.mediaGridTop, flexShrink: 0 }} />
 
             {storeProfileErrorMessage &&
             !titleRequiredError &&
@@ -24677,11 +27782,13 @@ export function ShowcaseStoreProfileEdit({
               </>
             ) : null}
 
-            <div style={{ height: 16, flexShrink: 0 }} />
+            <div style={{ height: APK_EDIT_ITEM_UI.submitButtonTopGap, flexShrink: 0 }} />
 
-            <NdjcPrimaryActionButton
+            <NdjcControlPillButton
+              active
+              tone="adminAction"
+              fullWidth
               disabled={state.isSaving}
-              isLoading={state.isSaving}
               onClick={() => {
                 const name = extraNewName.trim()
                 const value = extraNewValue.trim()
@@ -24701,24 +27808,24 @@ export function ShowcaseStoreProfileEdit({
                 actions.onSave()
               }}
             >
-              Save
-            </NdjcPrimaryActionButton>
+              {state.isSaving ? 'Saving...' : 'Save'}
+            </NdjcControlPillButton>
 
-            <div style={{ height: 10, flexShrink: 0 }} />
+            <div style={{ height: APK_EDIT_ITEM_UI.submitButtonBottomGap, flexShrink: 0 }} />
 
             <p
               style={{
                 margin: 0,
-                color: 'rgba(0, 0, 0, 0.55)',
-                fontSize: 12,
-                lineHeight: 1.35,
-                fontWeight: 400
+                color: APK_EDIT_ITEM_UI.body55,
+                fontSize: APK_EDIT_ITEM_UI.bodySmallFontSize,
+                lineHeight: APK_EDIT_ITEM_UI.bodySmallLineHeight,
+                fontWeight: APK_EDIT_ITEM_UI.bodySmallFontWeight
               }}
             >
               Changes are saved immediately and reflected in your public profile.
             </p>
           </section>
-        </NdjcWhiteCard>
+        </section>
       </section>
 
       <NdjcSnackbarHost message={state.statusMessage || state.successMessage} />
@@ -24766,6 +27873,12 @@ export function ShowcaseChangePassword({
   state: ShowcaseChangePasswordUiState
   actions: ShowcaseChangePasswordActions
 }) {
+  const currentPasswordReady = state.current.trim().length > 0
+  const nextPasswordReady = state.next.trim().length >= 8
+  const confirmPasswordReady = state.confirm.trim().length > 0
+  const passwordsMatch = state.next === state.confirm
+  const canSubmitPasswordChange = currentPasswordReady && nextPasswordReady && confirmPasswordReady && passwordsMatch && !state.isSaving
+
   return (
     <NdjcUnifiedBackground
       className="ndjc-apk-change-password-screen"
@@ -24782,18 +27895,26 @@ export function ShowcaseChangePassword({
           width: '100%',
           height: '100%',
           minHeight: 0,
-          padding: `${APK_PAGE_SHELL_UI.topCardOffset}px ${APK_PAGE_SHELL_UI.screenPadding}px ${APK_PAGE_SHELL_UI.screenPadding}px`,
+          padding: `${NDJC_GLOBAL_UI_TOKENS.layout.contentPaddingTop}px ${NDJC_GLOBAL_UI_TOKENS.layout.contentPaddingX}px calc(${NDJC_GLOBAL_UI_TOKENS.layout.contentPaddingBottom}px + env(safe-area-inset-bottom))`,
           boxSizing: 'border-box',
           overflowY: 'auto',
           overflowX: 'hidden',
+          display: 'flex',
+          flexDirection: 'column',
           WebkitOverflowScrolling: 'touch'
         }}
       >
-        <NdjcWhiteCard
+        <section
           className="ndjc-apk-login-card"
           style={{
             width: '100%',
-            boxSizing: 'border-box'
+            maxWidth: NDJC_GLOBAL_UI_TOKENS.layout.contentMaxWidth,
+            alignSelf: 'center',
+            boxSizing: 'border-box',
+            background: 'transparent',
+            boxShadow: 'none',
+            borderRadius: 0,
+            padding: 0
           }}
         >
           <section
@@ -24808,51 +27929,57 @@ export function ShowcaseChangePassword({
             <h1
               style={{
                 margin: 0,
-                color: '#000000',
-                fontSize: 24,
-                lineHeight: 1.25,
-                fontWeight: 600
+                color: NDJC_GLOBAL_UI_TOKENS.colors.textPrimary,
+                fontSize: APK_EDIT_ITEM_UI.titleFontSize,
+                lineHeight: APK_EDIT_ITEM_UI.titleLineHeight,
+                fontWeight: APK_EDIT_ITEM_UI.titleFontWeight,
+                letterSpacing: APK_EDIT_ITEM_UI.titleLetterSpacing,
+                textRendering: 'geometricPrecision'
               }}
             >
               Change password
             </h1>
 
-            <div style={{ height: 6, flexShrink: 0 }} />
+            <div style={{ height: APK_EDIT_ITEM_UI.titleToHint, flexShrink: 0 }} />
 
             <p
               style={{
                 margin: 0,
-                color: 'rgba(0, 0, 0, 0.70)',
-                fontSize: 14,
-                lineHeight: 1.35,
-                fontWeight: 400
+                color: APK_EDIT_ITEM_UI.body70,
+                fontSize: APK_EDIT_ITEM_UI.bodyMediumFontSize,
+                lineHeight: APK_EDIT_ITEM_UI.bodyMediumLineHeight,
+                fontWeight: APK_EDIT_ITEM_UI.bodyMediumFontWeight
               }}
             >
               Update your credentials for this account.
             </p>
 
-            <div style={{ height: 8, flexShrink: 0 }} />
+            <div style={{ height: APK_EDIT_ITEM_UI.hintToContent, flexShrink: 0 }} />
 
             <NdjcAdminPageProgressSlot active={state.isSaving} />
 
-            <div style={{ height: 16, flexShrink: 0 }} />
+            <div style={{ height: APK_EDIT_ITEM_UI.sectionBottom, flexShrink: 0 }} />
 
             <NdjcTextField
               value={state.current}
               onChange={actions.onCurrentChange}
               label="Current password"
+              placeholder="Enter current password"
               type="password"
               singleLine
+              autoComplete="current-password"
             />
 
-            <div style={{ height: 12, flexShrink: 0 }} />
+            <div style={{ height: APK_EDIT_ITEM_UI.fieldGap, flexShrink: 0 }} />
 
             <NdjcTextField
               value={state.next}
               onChange={actions.onNextChange}
               label="New password"
+              placeholder="Enter new password"
               type="password"
               singleLine
+              autoComplete="new-password"
             />
 
             <div style={{ height: 6, flexShrink: 0 }} />
@@ -24860,23 +27987,25 @@ export function ShowcaseChangePassword({
             <p
               style={{
                 margin: 0,
-                color: 'rgba(0, 0, 0, 0.55)',
-                fontSize: 12,
-                lineHeight: 1.35,
-                fontWeight: 400
+                color: APK_EDIT_ITEM_UI.body55,
+                fontSize: APK_EDIT_ITEM_UI.bodySmallFontSize,
+                lineHeight: APK_EDIT_ITEM_UI.bodySmallLineHeight,
+                fontWeight: APK_EDIT_ITEM_UI.bodySmallFontWeight
               }}
             >
               Use at least 8 characters. Avoid common passwords.
             </p>
 
-            <div style={{ height: 12, flexShrink: 0 }} />
+            <div style={{ height: APK_EDIT_ITEM_UI.fieldGap, flexShrink: 0 }} />
 
             <NdjcTextField
               value={state.confirm}
               onChange={actions.onConfirmChange}
               label="Confirm new password"
+              placeholder="Confirm new password"
               type="password"
               singleLine
+              autoComplete="new-password"
             />
 
             <div style={{ height: 4, flexShrink: 0 }} />
@@ -24884,10 +28013,10 @@ export function ShowcaseChangePassword({
             <p
               style={{
                 margin: 0,
-                color: 'rgba(0, 0, 0, 0.55)',
-                fontSize: 12,
-                lineHeight: 1.35,
-                fontWeight: 400
+                color: APK_EDIT_ITEM_UI.body55,
+                fontSize: APK_EDIT_ITEM_UI.bodySmallFontSize,
+                lineHeight: APK_EDIT_ITEM_UI.bodySmallLineHeight,
+                fontWeight: APK_EDIT_ITEM_UI.bodySmallFontWeight
               }}
             >
               Must match the new password.
@@ -24901,10 +28030,10 @@ export function ShowcaseChangePassword({
                   className="ndjc-error-text"
                   style={{
                     margin: 0,
-                    color: APK_CORE_UI.danger,
-                    fontSize: 12,
-                    lineHeight: 1.35,
-                    fontWeight: 400
+                    color: APK_EDIT_ITEM_UI.error80,
+                    fontSize: APK_EDIT_ITEM_UI.bodySmallFontSize,
+                    lineHeight: APK_EDIT_ITEM_UI.bodySmallLineHeight,
+                    fontWeight: APK_EDIT_ITEM_UI.bodySmallFontWeight
                   }}
                 >
                   {state.error}
@@ -24919,10 +28048,10 @@ export function ShowcaseChangePassword({
                 <p
                   style={{
                     margin: 0,
-                    color: 'rgba(0, 0, 0, 0.70)',
-                    fontSize: 12,
-                    lineHeight: 1.35,
-                    fontWeight: 400
+                    color: APK_EDIT_ITEM_UI.body70,
+                    fontSize: APK_EDIT_ITEM_UI.bodySmallFontSize,
+                    lineHeight: APK_EDIT_ITEM_UI.bodySmallLineHeight,
+                    fontWeight: APK_EDIT_ITEM_UI.bodySmallFontWeight
                   }}
                 >
                   {state.success}
@@ -24930,31 +28059,22 @@ export function ShowcaseChangePassword({
               </>
             ) : null}
 
-            <div style={{ height: 16, flexShrink: 0 }} />
+            <div style={{ height: APK_EDIT_ITEM_UI.submitButtonTopGap, flexShrink: 0 }} />
 
-            <NdjcPrimaryActionButton
-              disabled={state.isSaving}
-              isLoading={state.isSaving}
+            <NdjcControlPillButton
+              active
+              tone="adminAction"
+              fullWidth
+              disabled={!canSubmitPasswordChange || state.isSaving}
               onClick={actions.onSubmit}
             >
-              Update password
-            </NdjcPrimaryActionButton>
+              {state.isSaving ? 'Updating...' : 'Update password'}
+            </NdjcControlPillButton>
 
-            <div style={{ height: 16, flexShrink: 0 }} />
+            <div style={{ height: APK_EDIT_ITEM_UI.submitButtonBottomGap, flexShrink: 0 }} />
 
-            <p
-              style={{
-                margin: 0,
-                color: 'rgba(0, 0, 0, 0.55)',
-                fontSize: 12,
-                lineHeight: 1.35,
-                fontWeight: 400
-              }}
-            >
-              You may need to sign in again after updating your password.
-            </p>
           </section>
-        </NdjcWhiteCard>
+        </section>
       </section>
     </NdjcUnifiedBackground>
   )
@@ -24995,6 +28115,27 @@ export function ShowcaseChatMedia({
     images: string[]
     startIndex: number
   } | null>(null)
+  const chatMediaListPaddingX = '25px'
+  const chatMediaExpandedHeaderContentHeight = 80
+  const chatMediaCollapsedHeaderContentHeight = 30
+  const {
+    collapsed: chatMediaHeaderCollapsed,
+    headerRef,
+    headerBottomPadding: chatMediaHeaderBottomPadding,
+    headerTotalHeight: chatMediaHeaderHeight,
+    listTopPadding,
+    handleCollapseScroll
+  } = useNdjcCollapsibleAdminHeader({
+    headerBottomPadding: APK_EDIT_ITEM_UI.sectionCardGap,
+    collapsedHeaderBottomPadding: 8,
+    expandedHeaderContentHeight: chatMediaExpandedHeaderContentHeight,
+    collapsedHeaderContentHeight: chatMediaCollapsedHeaderContentHeight,
+    measureKey: [
+      state.mediaItems.length,
+      state.mediaPagination.isLoadingMore,
+      state.mediaPagination.hasMore
+    ].join('|')
+  })
 
   const mediaItems = state.mediaItems
 
@@ -25023,208 +28164,297 @@ export function ShowcaseChatMedia({
       }}
     >
       <section
-        className="ndjc-chat-media-gallery-content"
+        className="ndjc-chat-media-gallery-shell"
         style={{
           position: 'relative',
-          zIndex: 2,
           width: '100%',
           height: '100%',
           minHeight: 0,
-          padding: `${APK_PAGE_SHELL_UI.topCardOffset}px ${APK_PAGE_SHELL_UI.screenPadding}px ${APK_PAGE_SHELL_UI.screenPadding}px`,
-          boxSizing: 'border-box',
-          overflowY: 'auto',
-          overflowX: 'hidden',
-          WebkitOverflowScrolling: 'touch'
+          overflow: 'hidden'
         }}
-        onScroll={event => ndjcHandleLoadMoreScroll(
-          event,
-          state.mediaPagination,
-          actions.onLoadMoreMediaItems
-        )}
       >
-        <NdjcWhiteCard
-          className="ndjc-chat-media-gallery-card"
+        <section
+          className="ndjc-chat-media-gallery-list-layer"
           style={{
+            position: 'absolute',
+            inset: 0,
+            zIndex: 1,
             width: '100%',
-            boxSizing: 'border-box'
+            minHeight: 0,
+            background: '#e9efed',
+            padding: `${listTopPadding}px ${chatMediaListPaddingX} calc(var(${NDJC_BOTTOM_BAR_RESERVE_CSS_VAR}, ${APK_PAGE_SHELL_UI.tabBottomReserve}px) + ${APK_SHOWCASE_ITEM_UI.adminItemsListGap}px)`,
+            boxSizing: 'border-box',
+            overflowY: 'auto',
+            overflowX: 'hidden',
+            WebkitOverflowScrolling: 'touch',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: APK_SHOWCASE_ITEM_UI.adminItemsListGap
+          }}
+          onScroll={event => {
+            handleCollapseScroll(event)
+
+            ndjcHandleLoadMoreScroll(
+              event,
+              state.mediaPagination,
+              actions.onLoadMoreMediaItems
+            )
           }}
         >
-          <section
-            className="ndjc-chat-media-gallery-column"
-            style={{
-              width: '100%',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: 10
-            }}
-          >
+          {mediaItems.length > 0 ? (
+            <section
+              className="ndjc-chat-media-gallery-groups"
+              style={{
+                width: '100%',
+                maxWidth: NDJC_GLOBAL_UI_TOKENS.layout.contentMaxWidth,
+                margin: '0 auto',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: APK_SHOWCASE_ITEM_UI.adminItemsListGap
+              }}
+            >
+              {mediaByDate.map(([dayKey, itemsInDay]) => (
+                <section
+                  key={dayKey}
+                  className="ndjc-chat-media-gallery-group"
+                  style={{
+                    width: '100%',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: APK_SHOWCASE_ITEM_UI.adminItemsListGap
+                  }}
+                >
+                  <section
+                    style={{
+                      width: 'fit-content',
+                      minHeight: 28,
+                      borderRadius: NDJC_ADMIN_TOOL_UI.segmentedOuterRadius,
+                      padding: '0 10px',
+                      boxSizing: 'border-box',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      color: NDJC_GLOBAL_UI_TOKENS.colors.controlWeakText,
+                      background: NDJC_GLOBAL_UI_TOKENS.colors.surfaceSoft
+                    }}
+                  >
+                    <span
+                      style={{
+                        color: NDJC_GLOBAL_UI_TOKENS.colors.controlWeakText,
+                        fontSize: APK_EDIT_ITEM_UI.bodySmallFontSize,
+                        lineHeight: APK_EDIT_ITEM_UI.bodySmallLineHeight,
+                        fontWeight: 600,
+                        display: 'block'
+                      }}
+                    >
+                      {dayKey}
+                    </span>
+                  </section>
+
+                  <section
+                    className="ndjc-chat-media-gallery-grid"
+                    style={{
+                      width: '100%',
+                      display: 'grid',
+                      gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
+                      gap: APK_SHOWCASE_ITEM_UI.adminItemsListGap
+                    }}
+                  >
+                    {itemsInDay.map(item => {
+                      const startIndex = allImagesSorted.indexOf(item.url)
+
+                      return (
+                        <button
+                          key={`${item.messageId}-${item.url}`}
+                          type="button"
+                          className="ndjc-chat-media-gallery-tile"
+                          style={{
+                            width: '100%',
+                            aspectRatio: '1 / 1',
+                            border: `1px solid ${NDJC_GLOBAL_UI_TOKENS.colors.divider}`,
+                            borderRadius: APK_SHOWCASE_ITEM_UI.catalogCardRadius,
+                            padding: 0,
+                            display: 'block',
+                            color: NDJC_GLOBAL_UI_TOKENS.colors.controlEmphasis,
+                            background: NDJC_GLOBAL_UI_TOKENS.colors.surface,
+                            boxShadow: 'none',
+                            overflow: 'hidden',
+                            cursor: 'pointer',
+                            transform: 'scale(1)',
+                            transition: 'transform 120ms ease, border-color 120ms ease'
+                          }}
+                          onPointerDown={event => {
+                            event.currentTarget.style.transform = 'scale(0.97)'
+                            event.currentTarget.style.borderColor = `rgba(43, 48, 51, 0.18)`
+                          }}
+                          onPointerUp={event => {
+                            event.currentTarget.style.transform = 'scale(1)'
+                            event.currentTarget.style.borderColor = NDJC_GLOBAL_UI_TOKENS.colors.divider
+                          }}
+                          onPointerCancel={event => {
+                            event.currentTarget.style.transform = 'scale(1)'
+                            event.currentTarget.style.borderColor = NDJC_GLOBAL_UI_TOKENS.colors.divider
+                          }}
+                          onPointerLeave={event => {
+                            event.currentTarget.style.transform = 'scale(1)'
+                            event.currentTarget.style.borderColor = NDJC_GLOBAL_UI_TOKENS.colors.divider
+                          }}
+                          onClick={() => {
+                            setPreview({
+                              images: allImagesSorted,
+                              startIndex: startIndex >= 0 ? startIndex : 0
+                            })
+                          }}
+                        >
+                          <NdjcShimmerImage
+                            src={item.url}
+                            alt="Shared photo"
+                            placeholderCornerRadius={APK_SHOWCASE_ITEM_UI.catalogCardRadius}
+                            contentScale="cover"
+                          />
+                        </button>
+                      )
+                    })}
+                  </section>
+                </section>
+              ))}
+
+              <NdjcPaginationFooter
+                pagination={state.mediaPagination}
+                idleText="Load more"
+                loadingText="Loading more..."
+                endText="No more photos"
+                onLoadMore={actions.onLoadMoreMediaItems}
+              />
+            </section>
+          ) : !state.mediaPagination.isLoadingMore ? (
             <section
               style={{
                 width: '100%',
-                display: 'flex',
-                flexDirection: 'column',
-                gap: 4
+                height: '100%',
+                minHeight: 0,
+                maxWidth: NDJC_GLOBAL_UI_TOKENS.layout.contentMaxWidth,
+                margin: '0 auto',
+                display: 'grid',
+                placeItems: 'center',
+                boxSizing: 'border-box'
               }}
             >
-              <h1
-                style={{
-                  margin: 0,
-                  color: '#000000',
-                  fontSize: 24,
-                  lineHeight: 1.25,
-                  fontWeight: 600
-                }}
-              >
-                Shared photos ({mediaItems.length})
-              </h1>
-
-              <p
-                style={{
-                  margin: 0,
-                  color: 'rgba(0, 0, 0, 0.60)',
-                  fontSize: 12,
-                  lineHeight: 1.35,
-                  fontWeight: 400
-                }}
-              >
-                Images exchanged in this conversation
-              </p>
-            </section>
-
-            {mediaItems.length > 0 ? (
-              <section
-                className="ndjc-chat-media-gallery-groups"
-                style={{
-                  width: '100%',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: 8
-                }}
-              >
-                {mediaByDate.map(([dayKey, itemsInDay], groupIndex) => (
-                  <section
-                    key={dayKey}
-                    className="ndjc-chat-media-gallery-group"
-                    style={{
-                      width: '100%',
-                      display: 'flex',
-                      flexDirection: 'column',
-                      gap: 6,
-                      marginBottom: groupIndex === mediaByDate.length - 1 ? 0 : 8
-                    }}
-                  >
-                    <section
-                      style={{
-                        width: 'fit-content',
-                        minHeight: 28,
-                        borderRadius: 16,
-                        padding: '0 10px',
-                        boxSizing: 'border-box',
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        color: 'rgba(0, 0, 0, 0.62)',
-                        background: 'rgba(0, 0, 0, 0.045)'
-                      }}
-                    >
-                      <span
-                        style={{
-                          color: 'rgba(0, 0, 0, 0.62)',
-                          fontSize: 12,
-                          lineHeight: '12px',
-                          fontWeight: 600,
-                          display: 'block'
-                        }}
-                      >
-                        {dayKey}
-                      </span>
-                    </section>
-
-                    <section
-                      className="ndjc-chat-media-gallery-grid"
-                      style={{
-                        width: '100%',
-                        display: 'grid',
-                        gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
-                        gap: 6
-                      }}
-                    >
-                      {itemsInDay.map(item => {
-                        const startIndex = allImagesSorted.indexOf(item.url)
-
-                        return (
-                          <button
-                            key={`${item.messageId}-${item.url}`}
-                            type="button"
-                            className="ndjc-chat-media-gallery-tile"
-                            style={{
-                              width: '100%',
-                              aspectRatio: '1 / 1',
-                              border: '1px solid transparent',
-                              borderRadius: 12,
-                              padding: 0,
-                              display: 'block',
-                              color: '#000000',
-                              background: 'rgba(0, 0, 0, 0.06)',
-                              boxShadow: 'none',
-                              overflow: 'hidden',
-                              cursor: 'pointer',
-                              transform: 'scale(1)',
-                              transition: 'transform 120ms ease, border-color 120ms ease'
-                            }}
-                            onPointerDown={event => {
-                              event.currentTarget.style.transform = 'scale(0.97)'
-                              event.currentTarget.style.borderColor = 'rgba(254, 149, 149, 0.35)'
-                            }}
-                            onPointerUp={event => {
-                              event.currentTarget.style.transform = 'scale(1)'
-                              event.currentTarget.style.borderColor = 'transparent'
-                            }}
-                            onPointerCancel={event => {
-                              event.currentTarget.style.transform = 'scale(1)'
-                              event.currentTarget.style.borderColor = 'transparent'
-                            }}
-                            onPointerLeave={event => {
-                              event.currentTarget.style.transform = 'scale(1)'
-                              event.currentTarget.style.borderColor = 'transparent'
-                            }}
-                            onClick={() => {
-                              setPreview({
-                                images: allImagesSorted,
-                                startIndex: startIndex >= 0 ? startIndex : 0
-                              })
-                            }}
-                          >
-                            <NdjcShimmerImage
-                              src={item.url}
-                              alt="Shared photo"
-                              placeholderCornerRadius={16}
-                              contentScale="cover"
-                            />
-                          </button>
-                        )
-                      })}
-                    </section>
-                  </section>
-                ))}
-              </section>
-            ) : !state.mediaPagination.isLoadingMore ? (
               <NdjcInlineEmptyState
                 title="No photos yet"
                 message="Photos shared here will appear automatically."
-                verticalPadding={40}
+                verticalPadding={0}
               />
-            ) : null}
+            </section>
+          ) : (
+            <section
+              style={{
+                width: '100%',
+                maxWidth: NDJC_GLOBAL_UI_TOKENS.layout.contentMaxWidth,
+                margin: '0 auto'
+              }}
+            >
+              <NdjcPaginationFooter
+                pagination={state.mediaPagination}
+                idleText="Load more"
+                loadingText="Loading more..."
+                endText=""
+                onLoadMore={actions.onLoadMoreMediaItems}
+              />
+            </section>
+          )}
+        </section>
 
-            <NdjcPaginationFooter
-              pagination={state.mediaPagination}
-              idleText="Load more"
-              loadingText="Loading more..."
-              endText={mediaItems.length > 0 ? 'No more photos' : ''}
-              onLoadMore={actions.onLoadMoreMediaItems}
-            />
+        <section
+          className="ndjc-chat-media-gallery-header-card"
+          style={{
+            position: 'absolute',
+            zIndex: 3,
+            top: 0,
+            left: 0,
+            right: 0,
+            width: '100%',
+            height: chatMediaHeaderHeight,
+            boxSizing: 'border-box',
+            background: APK_SHELL_UI.pageBg,
+            backdropFilter: 'none',
+            WebkitBackdropFilter: 'none',
+            borderBottom: `1px solid ${NDJC_GLOBAL_UI_TOKENS.colors.divider}`,
+            boxShadow: '0 8px 20px rgba(15, 23, 42, 0.04)',
+            padding: `${NDJC_GLOBAL_UI_TOKENS.layout.contentPaddingTop}px ${NDJC_GLOBAL_UI_TOKENS.layout.contentPaddingX}px ${chatMediaHeaderBottomPadding}px`,
+            overflow: 'hidden',
+            transition: 'height 180ms cubic-bezier(0.2, 0, 0, 1), padding-bottom 180ms cubic-bezier(0.2, 0, 0, 1)'
+          }}
+        >
+          <section
+            ref={headerRef}
+            className="ndjc-chat-media-gallery-header-column"
+            style={{
+              width: '100%',
+              maxWidth: NDJC_GLOBAL_UI_TOKENS.layout.contentMaxWidth,
+              margin: '0 auto',
+              display: 'grid',
+              gap: chatMediaHeaderCollapsed ? 0 : APK_EDIT_ITEM_UI.titleToHint,
+              transition: 'gap 180ms cubic-bezier(0.2, 0, 0, 1)'
+            }}
+          >
+            <h1
+              style={{
+                margin: 0,
+                color: NDJC_ADMIN_TOOL_UI.emphasis,
+                fontSize: APK_EDIT_ITEM_UI.titleFontSize,
+                lineHeight: APK_EDIT_ITEM_UI.titleLineHeight,
+                fontWeight: APK_EDIT_ITEM_UI.titleFontWeight,
+                letterSpacing: APK_EDIT_ITEM_UI.titleLetterSpacing,
+                textRendering: 'geometricPrecision',
+                transformOrigin: 'left top',
+                transform: chatMediaHeaderCollapsed
+                  ? 'translateY(-3px) scale(0.78)'
+                  : 'translateY(0) scale(1)',
+                willChange: 'transform',
+                transition: 'transform 180ms cubic-bezier(0.2, 0, 0, 1)'
+              }}
+            >
+              Shared photos
+            </h1>
+
+            <p
+              style={{
+                margin: 0,
+                height: chatMediaHeaderCollapsed ? 0 : 21,
+                color: APK_EDIT_ITEM_UI.body70,
+                fontSize: APK_EDIT_ITEM_UI.bodyMediumFontSize,
+                lineHeight: APK_EDIT_ITEM_UI.bodyMediumLineHeight,
+                fontWeight: APK_EDIT_ITEM_UI.bodyMediumFontWeight,
+                opacity: chatMediaHeaderCollapsed ? 0 : 1,
+                overflow: 'hidden',
+                transform: chatMediaHeaderCollapsed ? 'translateY(-4px)' : 'translateY(0)',
+                willChange: 'opacity, transform',
+                transition: 'opacity 160ms cubic-bezier(0.2, 0, 0, 1), transform 180ms cubic-bezier(0.2, 0, 0, 1)'
+              }}
+            >
+              Images exchanged in this conversation.
+            </p>
+
+            <p
+              style={{
+                margin: 0,
+                height: chatMediaHeaderCollapsed ? 0 : 17,
+                color: APK_EDIT_ITEM_UI.body55,
+                fontSize: APK_EDIT_ITEM_UI.bodySmallFontSize,
+                lineHeight: APK_EDIT_ITEM_UI.bodySmallLineHeight,
+                fontWeight: APK_EDIT_ITEM_UI.bodySmallFontWeight,
+                opacity: chatMediaHeaderCollapsed ? 0 : 1,
+                overflow: 'hidden',
+                transform: chatMediaHeaderCollapsed ? 'translateY(-4px)' : 'translateY(0)',
+                willChange: 'opacity, transform',
+                transition: 'opacity 160ms cubic-bezier(0.2, 0, 0, 1), transform 180ms cubic-bezier(0.2, 0, 0, 1)'
+              }}
+            >
+              {mediaItems.length} photos
+            </p>
           </section>
-        </NdjcWhiteCard>
+        </section>
       </section>
 
       {preview ? (
@@ -25249,6 +28479,7 @@ export function ShowcaseAdminAppointmentManager({
   const [detailsItem, setDetailsItem] = React.useState<ShowcaseAppointmentCard | null>(null)
   const [showBookingSettingsSheet, setShowBookingSettingsSheet] = React.useState(false)
   const [editingAvailableTimeTarget, setEditingAvailableTimeTarget] = React.useState<'start' | 'end' | null>(null)
+  const [pendingAvailableTimeValue, setPendingAvailableTimeValue] = React.useState<string | null>(null)
   const [showHistoryDatePicker, setShowHistoryDatePicker] = React.useState(false)
   const [bookingSettingsDraft, setBookingSettingsDraft] = React.useState(() => ({
     enabled: state.enabled,
@@ -25258,8 +28489,37 @@ export function ShowcaseAdminAppointmentManager({
     closedDays: state.closedDays,
     minimumNotice: state.minimumNotice
   }))
-  const headerRef = React.useRef<HTMLElement | null>(null)
-  const [headerHeight, setHeaderHeight] = React.useState(0)
+  const adminAppointmentsListPaddingX = '25px'
+  const adminAppointmentsExpandedHeaderContentHeight = 350
+  const adminAppointmentsCollapsedHeaderContentHeight = 250
+  const {
+    collapsed: adminAppointmentsHeaderCollapsed,
+    headerRef,
+    headerBottomPadding: adminAppointmentsHeaderBottomPadding,
+    headerTotalHeight: adminAppointmentsHeaderHeight,
+    listTopPadding,
+    handleCollapseScroll
+  } = useNdjcCollapsibleAdminHeader({
+    headerBottomPadding: APK_EDIT_ITEM_UI.sectionCardGap,
+    collapsedHeaderBottomPadding: 8,
+    expandedHeaderContentHeight: adminAppointmentsExpandedHeaderContentHeight,
+    collapsedHeaderContentHeight: adminAppointmentsCollapsedHeaderContentHeight,
+    measureKey: [
+      state.enabled,
+      state.bookingWindowDays,
+      state.availableHoursText,
+      state.slotIntervalMinutes,
+      state.minimumNotice,
+      state.closedDays.join(','),
+      state.historyDateFilter,
+      state.selectedDateFilter,
+      state.selectedStatusFilter,
+      state.selectedServiceFilter,
+      state.dateFilterOptions.join(','),
+      state.statusFilterOptions.join(','),
+      state.serviceFilterOptions.join(',')
+    ].join('|')
+  })
 
   function resetBookingSettingsDraftFromState(): void {
     setBookingSettingsDraft({
@@ -25308,41 +28568,6 @@ export function ShowcaseAdminAppointmentManager({
   }
 
   React.useEffect(() => {
-    const target = headerRef.current
-    if (!target) return
-
-    const updateHeight = () => {
-      setHeaderHeight(target.getBoundingClientRect().height)
-    }
-
-    updateHeight()
-
-    if (typeof ResizeObserver === 'undefined') {
-      window.setTimeout(updateHeight, 0)
-      return
-    }
-
-    const observer = new ResizeObserver(updateHeight)
-    observer.observe(target)
-
-    return () => observer.disconnect()
-  }, [
-    state.enabled,
-    state.bookingWindowDays,
-    state.availableHoursText,
-    state.slotIntervalMinutes,
-    state.minimumNotice,
-    state.closedDays.join(','),
-    state.historyDateFilter,
-    state.selectedDateFilter,
-    state.selectedStatusFilter,
-    state.selectedServiceFilter,
-    state.dateFilterOptions.join(','),
-    state.statusFilterOptions.join(','),
-    state.serviceFilterOptions.join(',')
-  ])
-
-  React.useEffect(() => {
     if (showBookingSettingsSheet) return
     resetBookingSettingsDraftFromState()
   }, [
@@ -25355,16 +28580,22 @@ export function ShowcaseAdminAppointmentManager({
     state.closedDays.join(',')
   ])
 
-  const headerTopPadding = APK_PAGE_SHELL_UI.topCardOffset
-  const listTopPadding = headerTopPadding + headerHeight + 10
   const bookingSettingsSummary = [
+    state.enabled ? 'On' : 'Off',
     `${state.bookingWindowDays} days`,
     state.availableHoursText.replace(' - ', '-'),
     `${state.slotIntervalMinutes} min`,
-    state.minimumNotice,
-    state.closedDays.length ? `Closed ${state.closedDays.join(', ')}` : ''
+    state.minimumNotice
   ].filter(Boolean).join(' · ')
+  const bookingClosedDaysSummary = state.closedDays.length
+    ? `Closed ${state.closedDays.join(', ')}`
+    : 'No closed days'
   const [availableHoursStart, availableHoursEnd] = splitAppointmentAvailableHours(bookingSettingsDraft.availableHoursText)
+  const bookingSettingsSheetInnerPaddingX = Math.max(
+    0,
+    APK_EDIT_ITEM_UI.screenPadding - APK_FILTER_UI.sheetContentPaddingX
+  )
+  const bookingSettingsSheetTitlePaddingX = APK_EDIT_ITEM_UI.screenPadding
 
   return (
     <NdjcUnifiedBackground
@@ -25396,23 +28627,38 @@ export function ShowcaseAdminAppointmentManager({
               width: '100%',
               height: '100%',
               minHeight: 0,
-              padding: `${listTopPadding}px ${APK_PAGE_SHELL_UI.screenPadding}px ${APK_PAGE_SHELL_UI.screenPadding}px`,
+              background: '#e9efed',
+              padding: `${listTopPadding}px ${adminAppointmentsListPaddingX} calc(${APK_PAGE_SHELL_UI.screenPadding}px + env(safe-area-inset-bottom))`,
               boxSizing: 'border-box',
               overflowY: 'auto',
               overflowX: 'hidden',
               WebkitOverflowScrolling: 'touch',
               display: 'flex',
               flexDirection: 'column',
-              gap: 10
+              gap: APK_SHOWCASE_ITEM_UI.adminItemsListGap
             }}
-            onScroll={event => ndjcHandleLoadMoreScroll(
-              event,
-              state.pagination,
-              actions.onLoadMore
-            )}
+            onScroll={event => {
+              handleCollapseScroll(event)
+
+              ndjcHandleLoadMoreScroll(
+                event,
+                state.pagination,
+                actions.onLoadMore
+              )
+            }}
           >
             {state.items.length ? (
-              <>
+              <section
+                className="ndjc-admin-appointments-list-items"
+                style={{
+                  width: '100%',
+                  maxWidth: NDJC_GLOBAL_UI_TOKENS.layout.contentMaxWidth,
+                  margin: '0 auto',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: APK_SHOWCASE_ITEM_UI.adminItemsListGap
+                }}
+              >
                 {state.items.map(item => {
                   const linkedItemAvailable = Boolean(
   item.itemAvailable &&
@@ -25432,28 +28678,25 @@ export function ShowcaseAdminAppointmentManager({
                       itemAvailable={linkedItemAvailable}
                       allowClickWhenUnavailable
                       onOpen={() => setDetailsItem(item)}
+                      middle={
+                        <span
+                          style={{
+                            color: NDJC_GLOBAL_UI_TOKENS.colors.controlWeakText,
+                            fontSize: APK_EDIT_ITEM_UI.bodyMediumFontSize,
+                            lineHeight: APK_EDIT_ITEM_UI.bodyMediumLineHeight,
+                            fontWeight: 600,
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            whiteSpace: 'nowrap'
+                          }}
+                        >
+                          {appointmentListTimeText(item.preferredDate, item.preferredTime)}
+                        </span>
+                      }
                       bottom={
-                        <>
-                          <span
-                            style={{
-                              color: APK_APPOINTMENT_UI.black75,
-                              fontSize: APK_APPOINTMENT_UI.bodyMediumSize,
-                              lineHeight: APK_APPOINTMENT_UI.bodyMediumLineHeight,
-                              fontWeight: 500,
-                              overflow: 'hidden',
-                              textOverflow: 'ellipsis',
-                              whiteSpace: 'nowrap'
-                            }}
-                          >
-                            {appointmentListTimeText(item.preferredDate, item.preferredTime)}
-                          </span>
-
-                          <div style={{ height: 4 }} aria-hidden="true" />
-
-                          <NdjcPillBadge selected>
-                            {appointmentStatusDisplayLabel(item)}
-                          </NdjcPillBadge>
-                        </>
+                        <NdjcPillBadge selected>
+                          {appointmentStatusDisplayLabel(item)}
+                        </NdjcPillBadge>
                       }
                       trailing={
                         linkedItemAvailable ? (
@@ -25469,7 +28712,7 @@ export function ShowcaseAdminAppointmentManager({
                               padding: 0,
                               display: 'grid',
                               placeItems: 'center',
-                              color: APK_APPOINTMENT_UI.brand,
+                              color: NDJC_GLOBAL_UI_TOKENS.colors.controlEmphasis,
                               background: 'transparent',
                               boxShadow: 'none',
                               cursor: 'pointer'
@@ -25479,7 +28722,7 @@ export function ShowcaseAdminAppointmentManager({
                               actions.onContactCustomer(item.id)
                             }}
                           >
-                            <NdjcChatBubbleIcon filled />
+                            <NdjcChatBubbleIcon />
                           </button>
                         ) : null
                       }
@@ -25494,102 +28737,186 @@ export function ShowcaseAdminAppointmentManager({
                   endText="No more appointments"
                   onLoadMore={actions.onLoadMore}
                 />
-              </>
+              </section>
             ) : (
-              <NdjcInlineEmptyState
-                title="No appointment requests yet"
-                message="New customer requests will appear here after customers submit a booking."
-                verticalPadding={0}
-                fillParentMaxSize
-              />
+              <section
+                className="ndjc-admin-appointments-empty-wrap"
+                style={{
+                  width: '100%',
+                  height: '100%',
+                  minHeight: 0,
+                  maxWidth: NDJC_GLOBAL_UI_TOKENS.layout.contentMaxWidth,
+                  margin: '0 auto',
+                  display: 'grid',
+                  placeItems: 'center',
+                  boxSizing: 'border-box'
+                }}
+              >
+                <NdjcInlineEmptyState
+                  title="No appointment requests yet"
+                  message="New customer requests will appear here after customers submit a booking."
+                  verticalPadding={0}
+                />
+              </section>
             )}
           </section>
 
-          <NdjcTopScrollFadeMask
-            className="ndjc-admin-appointments-header-scroll-mask"
-            solidRatio={0.58}
-            style={{
-              zIndex: 2
-            }}
-          />
-
           <section
-            ref={headerRef}
             className="ndjc-admin-appointments-header-wrap"
             style={{
               position: 'absolute',
               zIndex: 3,
-              top: headerTopPadding,
-              left: APK_PAGE_SHELL_UI.screenPadding,
-              right: APK_PAGE_SHELL_UI.screenPadding
+              top: 0,
+              left: 0,
+              right: 0,
+              width: '100%',
+              height: adminAppointmentsHeaderHeight,
+              boxSizing: 'border-box',
+              background: APK_SHELL_UI.pageBg,
+              backdropFilter: 'none',
+              WebkitBackdropFilter: 'none',
+              borderBottom: `1px solid ${NDJC_GLOBAL_UI_TOKENS.colors.divider}`,
+              boxShadow: '0 8px 20px rgba(15, 23, 42, 0.04)',
+              padding: `${NDJC_GLOBAL_UI_TOKENS.layout.contentPaddingTop}px ${NDJC_GLOBAL_UI_TOKENS.layout.contentPaddingX}px ${adminAppointmentsHeaderBottomPadding}px`,
+              overflow: 'hidden',
+              transition: 'height 180ms cubic-bezier(0.2, 0, 0, 1), padding-bottom 180ms cubic-bezier(0.2, 0, 0, 1)'
             }}
           >
-            <NdjcWhiteCard
-              className="ndjc-apk-admin-header-card ndjc-admin-appointments-header-card"
+            <section
+              ref={headerRef}
+              className="ndjc-admin-appointments-header-column"
               style={{
                 width: '100%',
-                boxSizing: 'border-box'
+                maxWidth: NDJC_GLOBAL_UI_TOKENS.layout.contentMaxWidth,
+                margin: '0 auto',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: adminAppointmentsHeaderCollapsed
+                  ? 4
+                  : APK_EDIT_ITEM_UI.sectionCardGap,
+                transition: 'gap 180ms cubic-bezier(0.2, 0, 0, 1)'
               }}
             >
               <section
+                className="ndjc-admin-appointments-title-block"
                 style={{
                   width: '100%',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: 12
+                  display: 'grid',
+                  gap: adminAppointmentsHeaderCollapsed ? 0 : APK_EDIT_ITEM_UI.titleToHint
                 }}
               >
                 <h1
                   style={{
                     margin: 0,
-                    color: '#000000',
-                    fontSize: 24,
-                    lineHeight: 1.25,
-                    fontWeight: 600
+                    color: NDJC_ADMIN_TOOL_UI.emphasis,
+                    fontSize: APK_EDIT_ITEM_UI.titleFontSize,
+                    lineHeight: APK_EDIT_ITEM_UI.titleLineHeight,
+                    fontWeight: APK_EDIT_ITEM_UI.titleFontWeight,
+                    letterSpacing: APK_EDIT_ITEM_UI.titleLetterSpacing,
+                    textRendering: 'geometricPrecision',
+                    transformOrigin: 'left top',
+                    transform: adminAppointmentsHeaderCollapsed
+                      ? 'translateY(-3px) scale(0.78)'
+                      : 'translateY(0) scale(1)',
+                    willChange: 'transform',
+                    transition: 'transform 180ms cubic-bezier(0.2, 0, 0, 1)'
                   }}
                 >
                   Appointments
                 </h1>
 
-                <NdjcAdminPageProgressSlot active={state.isRefreshing} />
-
-                <NdjcToggleRow
-                  label="Appointment booking"
-                  checked={state.enabled}
-                  enabled={!state.settingsSubmitting}
-                  onChange={actions.onEnabledChange}
-                />
-
-                <section
-                  className="ndjc-admin-appointments-settings-row"
+                <p
                   style={{
-                    width: '100%',
-                    borderRadius: 12,
-                    padding: '7px 10px',
-                    boxSizing: 'border-box',
-                    display: 'flex',
-                    alignItems: 'center',
-                    color: '#000000',
-                    background: '#F7F7FB',
-                    cursor: 'pointer'
+                    margin: 0,
+                    height: adminAppointmentsHeaderCollapsed ? 0 : 21,
+                    color: APK_EDIT_ITEM_UI.body70,
+                    fontSize: APK_EDIT_ITEM_UI.bodyMediumFontSize,
+                    lineHeight: APK_EDIT_ITEM_UI.bodyMediumLineHeight,
+                    fontWeight: APK_EDIT_ITEM_UI.bodyMediumFontWeight,
+                    opacity: adminAppointmentsHeaderCollapsed ? 0 : 1,
+                    overflow: 'hidden',
+                    transform: adminAppointmentsHeaderCollapsed ? 'translateY(-4px)' : 'translateY(0)',
+                    willChange: 'opacity, transform',
+                    transition: 'opacity 160ms cubic-bezier(0.2, 0, 0, 1), transform 180ms cubic-bezier(0.2, 0, 0, 1)'
                   }}
-                  onClick={openBookingSettingsSheet}
+                >
+                  Manage customer appointment requests.
+                </p>
+
+                <p
+                  style={{
+                    margin: 0,
+                    height: adminAppointmentsHeaderCollapsed ? 0 : 17,
+                    color: APK_EDIT_ITEM_UI.body55,
+                    fontSize: APK_EDIT_ITEM_UI.bodySmallFontSize,
+                    lineHeight: APK_EDIT_ITEM_UI.bodySmallLineHeight,
+                    fontWeight: APK_EDIT_ITEM_UI.bodySmallFontWeight,
+                    opacity: adminAppointmentsHeaderCollapsed ? 0 : 1,
+                    overflow: 'hidden',
+                    transform: adminAppointmentsHeaderCollapsed ? 'translateY(-4px)' : 'translateY(0)',
+                    willChange: 'opacity, transform',
+                    transition: 'opacity 160ms cubic-bezier(0.2, 0, 0, 1), transform 180ms cubic-bezier(0.2, 0, 0, 1)'
+                  }}
+                >
+                  {state.items.length} appointments
+                </p>
+              </section>
+
+              <section
+                className="ndjc-admin-appointments-settings-row"
+                style={{
+                  width: '100%',
+                  display: 'grid',
+                  gridTemplateColumns: 'minmax(0, 1fr)',
+                  gap: APK_EDIT_ITEM_UI.fieldGap,
+                  alignItems: 'center'
+                }}
+              >
+                <section
+                  className="ndjc-admin-appointments-settings-summary-card"
+                  role="button"
+                  tabIndex={state.settingsSubmitting ? -1 : 0}
+                  aria-label="Open booking settings"
+                  style={{
+                    minWidth: 0,
+                    borderRadius: APK_EDIT_ITEM_UI.fieldRadius,
+                    padding: adminAppointmentsHeaderCollapsed ? '5px 10px' : '7px 10px',
+                    boxSizing: 'border-box',
+                    display: 'grid',
+                    gridTemplateColumns: 'minmax(0, 1fr) auto',
+                    gap: APK_EDIT_ITEM_UI.fieldGap,
+                    alignItems: 'center',
+                    color: NDJC_GLOBAL_UI_TOKENS.colors.controlEmphasis,
+                    background: APK_EDIT_ITEM_UI.fieldBackground,
+                    cursor: state.settingsSubmitting ? 'not-allowed' : 'pointer',
+                    opacity: state.settingsSubmitting ? 0.62 : 1,
+                    transition: 'padding 180ms cubic-bezier(0.2, 0, 0, 1), gap 180ms cubic-bezier(0.2, 0, 0, 1), opacity 120ms ease'
+                  }}
+                  onClick={() => {
+                    if (state.settingsSubmitting) return
+                    openBookingSettingsSheet()
+                  }}
+                  onKeyDown={event => {
+                    if (state.settingsSubmitting) return
+                    if (event.key !== 'Enter' && event.key !== ' ') return
+                    event.preventDefault()
+                    openBookingSettingsSheet()
+                  }}
                 >
                   <section
                     style={{
-                      flex: 1,
                       minWidth: 0,
-                      paddingRight: 8,
                       display: 'flex',
                       flexDirection: 'column',
-                      gap: 2
+                      gap: adminAppointmentsHeaderCollapsed ? 2 : 6,
+                      transition: 'gap 180ms cubic-bezier(0.2, 0, 0, 1)'
                     }}
                   >
                     <span
                       style={{
-                        color: '#000000',
-                        fontSize: 14,
-                        lineHeight: 1.35,
+                        color: NDJC_GLOBAL_UI_TOKENS.colors.controlEmphasis,
+                        fontSize: APK_EDIT_ITEM_UI.bodyMediumFontSize,
+                        lineHeight: APK_EDIT_ITEM_UI.bodyMediumLineHeight,
                         fontWeight: 600,
                         overflow: 'hidden',
                         textOverflow: 'ellipsis',
@@ -25599,53 +28926,127 @@ export function ShowcaseAdminAppointmentManager({
                       Booking settings
                     </span>
 
-                    <span
+                    <section
                       style={{
-                        color: '#667085',
-                        fontSize: 12,
-                        lineHeight: 1.35,
-                        fontWeight: 400,
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis',
-                        whiteSpace: 'nowrap'
+                        minWidth: 0,
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: adminAppointmentsHeaderCollapsed ? 0 : 2,
+                        transition: 'gap 180ms cubic-bezier(0.2, 0, 0, 1)'
                       }}
                     >
-                      {bookingSettingsSummary}
-                    </span>
+                      <span
+                        style={{
+                          color: NDJC_GLOBAL_UI_TOKENS.colors.controlWeakText,
+                          fontSize: APK_EDIT_ITEM_UI.bodySmallFontSize,
+                          lineHeight: APK_EDIT_ITEM_UI.bodySmallLineHeight,
+                          fontWeight: APK_EDIT_ITEM_UI.bodySmallFontWeight,
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          whiteSpace: 'nowrap'
+                        }}
+                      >
+                        {bookingSettingsSummary}
+                      </span>
+
+                      <span
+                        style={{
+                          color: NDJC_GLOBAL_UI_TOKENS.colors.controlWeakText,
+                          fontSize: APK_EDIT_ITEM_UI.bodySmallFontSize,
+                          lineHeight: APK_EDIT_ITEM_UI.bodySmallLineHeight,
+                          fontWeight: APK_EDIT_ITEM_UI.bodySmallFontWeight,
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          whiteSpace: 'nowrap'
+                        }}
+                      >
+                        {bookingClosedDaysSummary}
+                      </span>
+                    </section>
                   </section>
 
-<NdjcPillButton
-  disabled={state.settingsSubmitting}
-  onClick={openBookingSettingsSheet}
->
-  Edit
-</NdjcPillButton>
+                  <svg
+                    width="18"
+                    height="18"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    aria-hidden="true"
+                    focusable="false"
+                    style={{
+                      color: NDJC_GLOBAL_UI_TOKENS.colors.controlWeakText,
+                      opacity: adminAppointmentsHeaderCollapsed ? 0 : 0.72,
+                      transform: adminAppointmentsHeaderCollapsed ? 'translateX(2px)' : 'translateX(0)',
+                      transition: 'opacity 160ms cubic-bezier(0.2, 0, 0, 1), transform 180ms cubic-bezier(0.2, 0, 0, 1)'
+                    }}
+                  >
+                    <path
+                      d="M9 6l6 6-6 6"
+                      stroke="currentColor"
+                      strokeWidth="1.8"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  </svg>
                 </section>
+              </section>
 
                 <section
                   className="ndjc-admin-appointments-filter-title-row"
                   style={{
                     width: '100%',
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'center'
+                    display: 'grid',
+                    gridTemplateColumns: 'minmax(0, 1fr) 48px',
+                    gap: adminAppointmentsHeaderCollapsed ? 8 : APK_EDIT_ITEM_UI.fieldGap,
+                    alignItems: 'center',
+                    transition: 'gap 180ms cubic-bezier(0.2, 0, 0, 1)'
                   }}
                 >
-                  <span
+                  <section
                     style={{
-                      color: '#000000',
-                      fontSize: 12,
-                      lineHeight: 1.35,
-                      fontWeight: 600,
-                      overflow: 'hidden',
-                      textOverflow: 'ellipsis',
-                      whiteSpace: 'nowrap'
+                      minWidth: 0,
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: adminAppointmentsHeaderCollapsed ? 0 : APK_EDIT_ITEM_UI.titleToHint,
+                      transition: 'gap 180ms cubic-bezier(0.2, 0, 0, 1)'
                     }}
                   >
-                    Filters
-                  </span>
+                    <span
+                      style={{
+                        color: NDJC_GLOBAL_UI_TOKENS.colors.controlEmphasis,
+                        fontSize: APK_EDIT_ITEM_UI.bodySmallFontSize,
+                        lineHeight: APK_EDIT_ITEM_UI.bodySmallLineHeight,
+                        fontWeight: 600,
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        whiteSpace: 'nowrap'
+                      }}
+                    >
+                      Filters
+                    </span>
 
-                  <NdjcPillButton
+                    <span
+                      style={{
+                        height: adminAppointmentsHeaderCollapsed ? 0 : 17,
+                        color: NDJC_GLOBAL_UI_TOKENS.colors.controlWeakText,
+                        fontSize: APK_EDIT_ITEM_UI.bodySmallFontSize,
+                        lineHeight: APK_EDIT_ITEM_UI.bodySmallLineHeight,
+                        fontWeight: APK_EDIT_ITEM_UI.bodySmallFontWeight,
+                        opacity: adminAppointmentsHeaderCollapsed ? 0 : 1,
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        whiteSpace: 'nowrap',
+                        transform: adminAppointmentsHeaderCollapsed ? 'translateY(-4px)' : 'translateY(0)',
+                        willChange: 'opacity, transform',
+                        transition: 'height 180ms cubic-bezier(0.2, 0, 0, 1), opacity 160ms cubic-bezier(0.2, 0, 0, 1), transform 180ms cubic-bezier(0.2, 0, 0, 1)'
+                      }}
+                    >
+                      Filter past bookings by date.
+                    </span>
+                  </section>
+
+                  <NdjcFilterIconButton
+                    active={Boolean(state.historyDateFilter)}
+                    label={state.historyDateFilter ? 'Clear date filter' : 'Open calendar filter'}
                     onClick={() => {
                       if (state.historyDateFilter) {
                         actions.onHistoryDateClear()
@@ -25654,9 +29055,70 @@ export function ShowcaseAdminAppointmentManager({
 
                       setShowHistoryDatePicker(true)
                     }}
-                  >
-                    {state.historyDateFilter ? 'Clear' : 'Calendar'}
-                  </NdjcPillButton>
+                    icon={state.historyDateFilter ? (
+                      <svg
+                        width="24"
+                        height="24"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        aria-hidden="true"
+                        focusable="false"
+                      >
+                        <path
+                          d="M7.2 7.2 16.8 16.8"
+                          stroke="currentColor"
+                          strokeWidth="1.8"
+                          strokeLinecap="round"
+                        />
+                        <path
+                          d="M16.8 7.2 7.2 16.8"
+                          stroke="currentColor"
+                          strokeWidth="1.8"
+                          strokeLinecap="round"
+                        />
+                      </svg>
+                    ) : (
+                      <svg
+                        width="24"
+                        height="24"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        aria-hidden="true"
+                        focusable="false"
+                      >
+                        <path
+                          d="M7 4.8v2.4"
+                          stroke="currentColor"
+                          strokeWidth="1.7"
+                          strokeLinecap="round"
+                        />
+                        <path
+                          d="M17 4.8v2.4"
+                          stroke="currentColor"
+                          strokeWidth="1.7"
+                          strokeLinecap="round"
+                        />
+                        <path
+                          d="M5.8 8.6h12.4"
+                          stroke="currentColor"
+                          strokeWidth="1.7"
+                          strokeLinecap="round"
+                        />
+                        <path
+                          d="M6.8 6.2h10.4a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H6.8a2 2 0 0 1-2-2v-9a2 2 0 0 1 2-2Z"
+                          stroke="currentColor"
+                          strokeWidth="1.7"
+                          strokeLinejoin="round"
+                        />
+                        <path
+                          d="M8.4 12.2h.1M12 12.2h.1M15.6 12.2h.1M8.4 15.4h.1M12 15.4h.1"
+                          stroke="currentColor"
+                          strokeWidth="2.2"
+                          strokeLinecap="round"
+                        />
+                      </svg>
+                    )}
+                  />
                 </section>
 
                 <section
@@ -25665,7 +29127,8 @@ export function ShowcaseAdminAppointmentManager({
                     width: '100%',
                     display: 'flex',
                     flexDirection: 'column',
-                    gap: 6
+                    gap: adminAppointmentsHeaderCollapsed ? 2 : 6,
+                    transition: 'gap 180ms cubic-bezier(0.2, 0, 0, 1)'
                   }}
                 >
 {state.historyDateFilter ? (
@@ -25701,8 +29164,7 @@ export function ShowcaseAdminAppointmentManager({
                   />
                 </section>
               </section>
-            </NdjcWhiteCard>
-          </section>
+            </section>
         </NdjcAdminPullRefreshContainer>
 
         <NdjcSnackbarHost
@@ -25736,6 +29198,9 @@ export function ShowcaseAdminAppointmentManager({
           applyText="Save settings"
           showPriceFields={false}
           showHeaderAction={false}
+          showHeaderDivider={false}
+          headerPaddingX={bookingSettingsSheetTitlePaddingX}
+          showApplyButton={false}
           applyLoading={state.settingsSubmitting}
           onClose={() => {
             if (state.settingsSubmitting) return
@@ -25745,7 +29210,14 @@ export function ShowcaseAdminAppointmentManager({
           onApply={() => {
             if (state.settingsSubmitting) return
 
-            void Promise.resolve(actions.onSettingsSave(bookingSettingsDraft)).then(() => {
+            void Promise.resolve(actions.onSettingsSave({
+              enabled: bookingSettingsDraft.enabled,
+              bookingWindowDays: bookingSettingsDraft.bookingWindowDays,
+              availableHoursText: bookingSettingsDraft.availableHoursText,
+              slotIntervalMinutes: bookingSettingsDraft.slotIntervalMinutes,
+              closedDays: bookingSettingsDraft.closedDays,
+              minimumNotice: bookingSettingsDraft.minimumNotice
+            })).then(() => {
               setShowBookingSettingsSheet(false)
             })
           }}
@@ -25762,270 +29234,378 @@ export function ShowcaseAdminAppointmentManager({
             }))
           }}
         >
-          <h3
-            style={{
-              margin: 0,
-              color: APK_APPOINTMENT_UI.black,
-              fontSize: APK_APPOINTMENT_UI.titleSmallSize,
-              lineHeight: APK_APPOINTMENT_UI.titleSmallLineHeight,
-              fontWeight: APK_APPOINTMENT_UI.titleSmallWeight
-            }}
-          >
-            Booking window
-          </h3>
-
           <section
+            className="ndjc-admin-booking-settings-content"
             style={{
               width: '100%',
-              display: 'flex',
-              flexWrap: 'wrap',
-              gap: 8
+              boxSizing: 'border-box',
+              display: 'grid',
+              gap: APK_EDIT_ITEM_UI.sectionCardGap
             }}
           >
-            {[1, 2, 3, 4, 5, 6, 7].map(days => (
-              <NdjcControlPillButton
-                key={days}
-                active={bookingSettingsDraft.bookingWindowDays === days}
-                disabled={state.settingsSubmitting}
-                onClick={() => {
-                  if (state.settingsSubmitting) return
-                  updateBookingSettingsDraft({
-                    bookingWindowDays: days
-                  })
-                }}
-              >
-                {days === 1 ? '1 day' : `${days} days`}
-              </NdjcControlPillButton>
-            ))}
-          </section>
-
-          <h3
-            style={{
-              margin: 0,
-              color: APK_APPOINTMENT_UI.black,
-              fontSize: APK_APPOINTMENT_UI.titleSmallSize,
-              lineHeight: APK_APPOINTMENT_UI.titleSmallLineHeight,
-              fontWeight: APK_APPOINTMENT_UI.titleSmallWeight
-            }}
-          >
-            Available hours
-          </h3>
-
-          <section
-            style={{
-              width: '100%',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: 8
-            }}
-          >
-            <button
-              type="button"
-              disabled={state.settingsSubmitting}
-              style={{
-                width: '100%',
-                border: 0,
-                borderRadius: APK_APPOINTMENT_UI.timeSettingRadius,
-                padding: `${APK_APPOINTMENT_UI.timeSettingPaddingY}px ${APK_APPOINTMENT_UI.timeSettingPaddingX}px`,
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                gap: 12,
-                color: APK_APPOINTMENT_UI.black,
-                background: APK_APPOINTMENT_UI.softSurface,
-                boxShadow: 'none',
-                cursor: 'pointer'
-              }}
-              onClick={() => {
-                if (state.settingsSubmitting) return
-                setEditingAvailableTimeTarget('start')
-              }}
-            >
-              <span
+            <EditItemSectionCard className="ndjc-admin-booking-settings-card">
+              <section
+                className="ndjc-admin-booking-settings-inner"
                 style={{
-                  color: APK_APPOINTMENT_UI.black,
-                  fontSize: APK_APPOINTMENT_UI.labelMediumSize,
-                  lineHeight: APK_APPOINTMENT_UI.labelMediumLineHeight,
-                  fontWeight: APK_APPOINTMENT_UI.labelMediumWeight
+                  width: '100%',
+                  boxSizing: 'border-box',
+                  paddingLeft: bookingSettingsSheetInnerPaddingX,
+                  paddingRight: bookingSettingsSheetInnerPaddingX,
+                  display: 'grid',
+                  gap: APK_EDIT_ITEM_UI.sectionCardGap
                 }}
               >
-                Start
-              </span>
+                <section
+                  className="ndjc-admin-booking-settings-section"
+                  style={{
+                    width: '100%',
+                    display: 'grid',
+                    gap: APK_EDIT_ITEM_UI.labelGap
+                  }}
+                >
+                  <NdjcToggleRow
+                    label="Appointment booking"
+                    labelNode={<EditItemSectionTitle title="Appointment booking" />}
+                    checked={bookingSettingsDraft.enabled}
+                    enabled={!state.settingsSubmitting}
+                    onCheckedChange={nextEnabled => {
+                      setBookingSettingsDraft(current => ({
+                        ...current,
+                        enabled: nextEnabled
+                      }))
+                    }}
+                  />
+                </section>
 
-              <span
-                style={{
-                  color: APK_APPOINTMENT_UI.brand,
-                  fontSize: APK_APPOINTMENT_UI.labelMediumSize,
-                  lineHeight: APK_APPOINTMENT_UI.labelMediumLineHeight,
-                  fontWeight: APK_APPOINTMENT_UI.labelMediumWeight
-                }}
-              >
-                {normalizeAppointmentTimeText(availableHoursStart)}
-              </span>
-            </button>
+                <section
+                  className="ndjc-admin-booking-settings-section"
+                  style={{
+                    width: '100%',
+                    display: 'grid',
+                    gap: APK_EDIT_ITEM_UI.labelGap
+                  }}
+                >
+                  <EditItemSectionTitle title="Booking window" />
 
-            <button
-              type="button"
-              disabled={state.settingsSubmitting}
-              style={{
-                width: '100%',
-                border: 0,
-                borderRadius: APK_APPOINTMENT_UI.timeSettingRadius,
-                padding: `${APK_APPOINTMENT_UI.timeSettingPaddingY}px ${APK_APPOINTMENT_UI.timeSettingPaddingX}px`,
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                gap: 12,
-                color: APK_APPOINTMENT_UI.black,
-                background: APK_APPOINTMENT_UI.softSurface,
-                boxShadow: 'none',
-                cursor: 'pointer'
-              }}
-              onClick={() => {
-                if (state.settingsSubmitting) return
-                setEditingAvailableTimeTarget('end')
-              }}
-            >
-              <span
-                style={{
-                  color: APK_APPOINTMENT_UI.black,
-                  fontSize: APK_APPOINTMENT_UI.labelMediumSize,
-                  lineHeight: APK_APPOINTMENT_UI.labelMediumLineHeight,
-                  fontWeight: APK_APPOINTMENT_UI.labelMediumWeight
-                }}
-              >
-                End
-              </span>
+                  <section
+                    style={{
+                      width: '100%',
+                      display: 'flex',
+                      flexWrap: 'wrap',
+                      alignItems: 'center',
+                      gap: 8
+                    }}
+                  >
+                    {[1, 2, 3, 4, 5, 6, 7].map(days => (
+                      <NdjcPillButton
+                        key={days}
+                        selected={bookingSettingsDraft.bookingWindowDays === days}
+                        disabled={state.settingsSubmitting}
+                        onClick={() => {
+                          if (state.settingsSubmitting) return
+                          updateBookingSettingsDraft({
+                            bookingWindowDays: days
+                          })
+                        }}
+                      >
+                        {days === 1 ? '1 day' : `${days} days`}
+                      </NdjcPillButton>
+                    ))}
+                  </section>
+                </section>
 
-              <span
-                style={{
-                  color: APK_APPOINTMENT_UI.brand,
-                  fontSize: APK_APPOINTMENT_UI.labelMediumSize,
-                  lineHeight: APK_APPOINTMENT_UI.labelMediumLineHeight,
-                  fontWeight: APK_APPOINTMENT_UI.labelMediumWeight
-                }}
-              >
-                {normalizeAppointmentTimeText(availableHoursEnd)}
-              </span>
-            </button>
-          </section>
+                <section
+                  className="ndjc-admin-booking-settings-section"
+                  style={{
+                    width: '100%',
+                    display: 'grid',
+                    gap: APK_EDIT_ITEM_UI.labelGap
+                  }}
+                >
+                  <EditItemSectionTitle title="Available hour" />
 
-          <h3
-            style={{
-              margin: 0,
-              color: APK_APPOINTMENT_UI.black,
-              fontSize: APK_APPOINTMENT_UI.titleSmallSize,
-              lineHeight: APK_APPOINTMENT_UI.titleSmallLineHeight,
-              fontWeight: APK_APPOINTMENT_UI.titleSmallWeight
-            }}
-          >
-            Slot interval
-          </h3>
+                  <section
+                    className="ndjc-admin-booking-available-hour-row"
+                    style={{
+                      width: '100%',
+                      minHeight: APK_EDIT_ITEM_UI.fieldMinHeight,
+                      boxSizing: 'border-box',
+                      borderRadius: APK_EDIT_ITEM_UI.fieldRadius,
+                      border: `${APK_EDIT_ITEM_UI.fieldBorderWidth}px solid ${APK_EDIT_ITEM_UI.fieldBorderColor}`,
+                      background: APK_EDIT_ITEM_UI.fieldBackground,
+                      display: 'grid',
+                      gridTemplateColumns: 'minmax(0, 1fr) 1px minmax(0, 1fr)',
+                      alignItems: 'stretch',
+                      overflow: 'hidden'
+                    }}
+                  >
+                    <button
+                      type="button"
+                      disabled={state.settingsSubmitting}
+                      style={{
+                        width: '100%',
+                        minWidth: 0,
+                        minHeight: APK_EDIT_ITEM_UI.fieldMinHeight,
+                        border: 0,
+                        borderRadius: 0,
+                        padding: `${APK_EDIT_ITEM_UI.fieldPaddingY}px ${APK_EDIT_ITEM_UI.fieldPaddingX}px`,
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                        gap: 10,
+                        color: NDJC_GLOBAL_UI_TOKENS.colors.controlEmphasis,
+                        background: 'transparent',
+                        boxShadow: 'none',
+                        cursor: state.settingsSubmitting ? 'not-allowed' : 'pointer',
+                        opacity: state.settingsSubmitting ? 0.62 : 1,
+                        appearance: 'none',
+                        WebkitAppearance: 'none',
+                        WebkitTapHighlightColor: 'transparent',
+                        touchAction: 'manipulation'
+                      }}
+                      onClick={() => {
+                        if (state.settingsSubmitting) return
+                        setPendingAvailableTimeValue(normalizeAppointmentTimeText(availableHoursStart))
+                        setEditingAvailableTimeTarget('start')
+                      }}
+                    >
+                      <span
+                        style={{
+                          margin: 0,
+                          color: APK_EDIT_ITEM_UI.body55,
+                          fontSize: APK_EDIT_ITEM_UI.bodySmallFontSize,
+                          lineHeight: APK_EDIT_ITEM_UI.bodySmallLineHeight,
+                          fontWeight: 650,
+                          whiteSpace: 'nowrap'
+                        }}
+                      >
+                        Start
+                      </span>
 
-          <section
-            style={{
-              width: '100%',
-              display: 'flex',
-              flexWrap: 'wrap',
-              gap: 8
-            }}
-          >
-            {[30, 60].map(minutes => (
-              <NdjcControlPillButton
-                key={minutes}
-                active={bookingSettingsDraft.slotIntervalMinutes === minutes}
-                disabled={state.settingsSubmitting}
-                onClick={() => {
-                  if (state.settingsSubmitting) return
-                  updateBookingSettingsDraft({
-                    slotIntervalMinutes: minutes
-                  })
-                }}
-              >
-                {minutes} min
-              </NdjcControlPillButton>
-            ))}
-          </section>
+                      <strong
+                        style={{
+                          margin: 0,
+                          color: NDJC_GLOBAL_UI_TOKENS.colors.controlEmphasis,
+                          fontSize: APK_EDIT_ITEM_UI.bodyMediumFontSize,
+                          lineHeight: APK_EDIT_ITEM_UI.bodyMediumLineHeight,
+                          fontWeight: 650,
+                          whiteSpace: 'nowrap'
+                        }}
+                      >
+                        {normalizeAppointmentTimeText(availableHoursStart)}
+                      </strong>
+                    </button>
 
-          <h3
-            style={{
-              margin: 0,
-              color: APK_APPOINTMENT_UI.black,
-              fontSize: APK_APPOINTMENT_UI.titleSmallSize,
-              lineHeight: APK_APPOINTMENT_UI.titleSmallLineHeight,
-              fontWeight: APK_APPOINTMENT_UI.titleSmallWeight
-            }}
-          >
-            Closed days
-          </h3>
+                    <span
+                      style={{
+                        width: 1,
+                        minHeight: '100%',
+                        background: APK_EDIT_ITEM_UI.fieldBorderColor
+                      }}
+                      aria-hidden="true"
+                    />
 
-          <section
-            style={{
-              width: '100%',
-              display: 'flex',
-              flexWrap: 'wrap',
-              gap: 8
-            }}
-          >
-            {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map(day => (
-              <NdjcControlPillButton
-                key={day}
-                active={bookingSettingsDraft.closedDays.includes(day)}
-                disabled={state.settingsSubmitting}
-                onClick={() => {
-                  if (state.settingsSubmitting) return
-                  toggleBookingClosedDayDraft(day)
-                }}
-              >
-                {day}
-              </NdjcControlPillButton>
-            ))}
-          </section>
+                    <button
+                      type="button"
+                      disabled={state.settingsSubmitting}
+                      style={{
+                        width: '100%',
+                        minWidth: 0,
+                        minHeight: APK_EDIT_ITEM_UI.fieldMinHeight,
+                        border: 0,
+                        borderRadius: 0,
+                        padding: `${APK_EDIT_ITEM_UI.fieldPaddingY}px ${APK_EDIT_ITEM_UI.fieldPaddingX}px`,
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                        gap: 10,
+                        color: NDJC_GLOBAL_UI_TOKENS.colors.controlEmphasis,
+                        background: 'transparent',
+                        boxShadow: 'none',
+                        cursor: state.settingsSubmitting ? 'not-allowed' : 'pointer',
+                        opacity: state.settingsSubmitting ? 0.62 : 1,
+                        appearance: 'none',
+                        WebkitAppearance: 'none',
+                        WebkitTapHighlightColor: 'transparent',
+                        touchAction: 'manipulation'
+                      }}
+                      onClick={() => {
+                        if (state.settingsSubmitting) return
+                        setPendingAvailableTimeValue(normalizeAppointmentTimeText(availableHoursEnd))
+                        setEditingAvailableTimeTarget('end')
+                      }}
+                    >
+                      <span
+                        style={{
+                          margin: 0,
+                          color: APK_EDIT_ITEM_UI.body55,
+                          fontSize: APK_EDIT_ITEM_UI.bodySmallFontSize,
+                          lineHeight: APK_EDIT_ITEM_UI.bodySmallLineHeight,
+                          fontWeight: 650,
+                          whiteSpace: 'nowrap'
+                        }}
+                      >
+                        End
+                      </span>
 
-          <h3
-            style={{
-              margin: 0,
-              color: APK_APPOINTMENT_UI.black,
-              fontSize: APK_APPOINTMENT_UI.titleSmallSize,
-              lineHeight: APK_APPOINTMENT_UI.titleSmallLineHeight,
-              fontWeight: APK_APPOINTMENT_UI.titleSmallWeight
-            }}
-          >
-            Minimum notice
-          </h3>
+                      <strong
+                        style={{
+                          margin: 0,
+                          color: NDJC_GLOBAL_UI_TOKENS.colors.controlEmphasis,
+                          fontSize: APK_EDIT_ITEM_UI.bodyMediumFontSize,
+                          lineHeight: APK_EDIT_ITEM_UI.bodyMediumLineHeight,
+                          fontWeight: 650,
+                          whiteSpace: 'nowrap'
+                        }}
+                      >
+                        {normalizeAppointmentTimeText(availableHoursEnd)}
+                      </strong>
+                    </button>
+                  </section>
+                </section>
 
-          <section
-            style={{
-              width: '100%',
-              display: 'flex',
-              flexWrap: 'wrap',
-              gap: 8
-            }}
-          >
-            {[
-              'No notice',
-              '1 hour',
-              '2 hours',
-              '6 hours',
-              '12 hours',
-              '1 day',
-              '2 days',
-              '3 days'
-            ].map(notice => (
-              <NdjcControlPillButton
-                key={notice}
-                active={bookingSettingsDraft.minimumNotice === notice}
-                disabled={state.settingsSubmitting}
-                onClick={() => {
-                  if (state.settingsSubmitting) return
-                  updateBookingSettingsDraft({
-                    minimumNotice: notice
-                  })
-                }}
-              >
-                {notice}
-              </NdjcControlPillButton>
-            ))}
+                <section
+                  className="ndjc-admin-booking-settings-section"
+                  style={{
+                    width: '100%',
+                    display: 'grid',
+                    gap: APK_EDIT_ITEM_UI.labelGap
+                  }}
+                >
+                  <EditItemSectionTitle title="Slot interval" />
+
+                  <section
+                    style={{
+                      width: '100%',
+                      display: 'flex',
+                      flexWrap: 'wrap',
+                      alignItems: 'center',
+                      gap: 8
+                    }}
+                  >
+                    {[30, 60].map(minutes => (
+                      <NdjcPillButton
+                        key={minutes}
+                        selected={bookingSettingsDraft.slotIntervalMinutes === minutes}
+                        disabled={state.settingsSubmitting}
+                        onClick={() => {
+                          if (state.settingsSubmitting) return
+                          updateBookingSettingsDraft({
+                            slotIntervalMinutes: minutes
+                          })
+                        }}
+                      >
+                        {minutes} min
+                      </NdjcPillButton>
+                    ))}
+                  </section>
+                </section>
+
+                <section
+                  className="ndjc-admin-booking-settings-section"
+                  style={{
+                    width: '100%',
+                    display: 'grid',
+                    gap: APK_EDIT_ITEM_UI.labelGap
+                  }}
+                >
+                  <EditItemSectionTitle title="Closed days" />
+
+                  <section
+                    style={{
+                      width: '100%',
+                      display: 'flex',
+                      flexWrap: 'wrap',
+                      alignItems: 'center',
+                      gap: 8
+                    }}
+                  >
+                    {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map(day => (
+                      <NdjcPillButton
+                        key={day}
+                        selected={bookingSettingsDraft.closedDays.includes(day)}
+                        disabled={state.settingsSubmitting}
+                        onClick={() => {
+                          if (state.settingsSubmitting) return
+                          toggleBookingClosedDayDraft(day)
+                        }}
+                      >
+                        {day}
+                      </NdjcPillButton>
+                    ))}
+                  </section>
+                </section>
+
+                <section
+                  className="ndjc-admin-booking-settings-section"
+                  style={{
+                    width: '100%',
+                    display: 'grid',
+                    gap: APK_EDIT_ITEM_UI.labelGap
+                  }}
+                >
+                  <EditItemSectionTitle title="Minimum notice" />
+
+                  <section
+                    style={{
+                      width: '100%',
+                      display: 'flex',
+                      flexWrap: 'wrap',
+                      alignItems: 'center',
+                      gap: 8
+                    }}
+                  >
+                    {[
+                      'No notice',
+                      '1 hour',
+                      '2 hours',
+                      '6 hours',
+                      '12 hours',
+                      '1 day',
+                      '2 days',
+                      '3 days'
+                    ].map(notice => (
+                      <NdjcPillButton
+                        key={notice}
+                        selected={bookingSettingsDraft.minimumNotice === notice}
+                        disabled={state.settingsSubmitting}
+                        onClick={() => {
+                          if (state.settingsSubmitting) return
+                          updateBookingSettingsDraft({
+                            minimumNotice: notice
+                          })
+                        }}
+                      >
+                        {notice}
+                      </NdjcPillButton>
+                    ))}
+                  </section>
+                </section>
+
+                <NdjcControlPillButton
+                  disabled={state.settingsSubmitting}
+                  active={!state.settingsSubmitting}
+                  tone="adminAction"
+                  fullWidth
+                  onClick={() => {
+                    if (state.settingsSubmitting) return
+
+                    void Promise.resolve(actions.onSettingsSave({
+                      enabled: bookingSettingsDraft.enabled,
+                      bookingWindowDays: bookingSettingsDraft.bookingWindowDays,
+                      availableHoursText: bookingSettingsDraft.availableHoursText,
+                      slotIntervalMinutes: bookingSettingsDraft.slotIntervalMinutes,
+                      closedDays: bookingSettingsDraft.closedDays,
+                      minimumNotice: bookingSettingsDraft.minimumNotice
+                    })).then(() => {
+                      setShowBookingSettingsSheet(false)
+                    })
+                  }}
+                >
+                  {state.settingsSubmitting ? 'Saving...' : 'Save settings'}
+                </NdjcControlPillButton>
+              </section>
+            </EditItemSectionCard>
           </section>
         </NdjcFilterBottomSheet>
 
@@ -26036,49 +29616,102 @@ export function ShowcaseAdminAppointmentManager({
           applyText="Done"
           showPriceFields={false}
           showHeaderAction={false}
-          onClose={() => setEditingAvailableTimeTarget(null)}
-          onApply={() => setEditingAvailableTimeTarget(null)}
-          onClear={() => setEditingAvailableTimeTarget(null)}
+          showHeaderDivider={false}
+          headerPaddingX={bookingSettingsSheetTitlePaddingX}
+          showApplyButton={false}
+          onClose={() => {
+            setEditingAvailableTimeTarget(null)
+            setPendingAvailableTimeValue(null)
+          }}
+          onApply={() => {
+            setEditingAvailableTimeTarget(null)
+            setPendingAvailableTimeValue(null)
+          }}
+          onClear={() => {
+            setEditingAvailableTimeTarget(null)
+            setPendingAvailableTimeValue(null)
+          }}
         >
           <section
+            className="ndjc-admin-booking-time-sheet-content"
             style={{
               width: '100%',
-              display: 'flex',
-              flexWrap: 'wrap',
-              justifyContent: 'center',
-              gap: 8
+              boxSizing: 'border-box',
+              display: 'grid',
+              gap: APK_EDIT_ITEM_UI.sectionCardGap
             }}
           >
-            {appointmentTimeOptions().map(time => {
-              const active = editingAvailableTimeTarget === 'start'
-                ? availableHoursStart === time
-                : availableHoursEnd === time
+            <EditItemSectionCard className="ndjc-admin-booking-time-sheet-card">
+              <section
+                className="ndjc-admin-booking-time-sheet-inner"
+                style={{
+                  width: '100%',
+                  boxSizing: 'border-box',
+                  paddingLeft: bookingSettingsSheetInnerPaddingX,
+                  paddingRight: bookingSettingsSheetInnerPaddingX,
+                  display: 'grid',
+                  gap: APK_EDIT_ITEM_UI.sectionCardGap
+                }}
+              >
+                <section
+                  className="ndjc-admin-booking-time-options"
+                  style={{
+                    width: '100%',
+                    display: 'flex',
+                    flexWrap: 'wrap',
+                    justifyContent: 'center',
+                    gap: 8
+                  }}
+                >
+                  {appointmentTimeOptions().map(time => {
+                    const currentSelectedTime = pendingAvailableTimeValue
+                      || (editingAvailableTimeTarget === 'start'
+                        ? normalizeAppointmentTimeText(availableHoursStart)
+                        : normalizeAppointmentTimeText(availableHoursEnd))
+                    const active = currentSelectedTime === time
 
-              return (
+                    return (
+                      <NdjcPillButton
+                        key={time}
+                        selected={active}
+                        disabled={state.settingsSubmitting}
+                        onClick={() => {
+                          if (state.settingsSubmitting) return
+                          setPendingAvailableTimeValue(time)
+                        }}
+                      >
+                        {time}
+                      </NdjcPillButton>
+                    )
+                  })}
+                </section>
+
                 <NdjcControlPillButton
-                  key={time}
-                  active={active}
-                  disabled={state.settingsSubmitting}
+                  disabled={state.settingsSubmitting || !pendingAvailableTimeValue}
+                  active={!state.settingsSubmitting && Boolean(pendingAvailableTimeValue)}
+                  tone="adminAction"
+                  fullWidth
                   onClick={() => {
-                    if (state.settingsSubmitting) return
+                    if (state.settingsSubmitting || !pendingAvailableTimeValue || !editingAvailableTimeTarget) return
 
                     const nextStart = editingAvailableTimeTarget === 'start'
-                      ? time
-                      : availableHoursStart
+                      ? pendingAvailableTimeValue
+                      : normalizeAppointmentTimeText(availableHoursStart)
                     const nextEnd = editingAvailableTimeTarget === 'end'
-                      ? time
-                      : availableHoursEnd
+                      ? pendingAvailableTimeValue
+                      : normalizeAppointmentTimeText(availableHoursEnd)
 
                     updateBookingSettingsDraft({
                       availableHoursText: `${nextStart} - ${nextEnd}`
                     })
                     setEditingAvailableTimeTarget(null)
+                    setPendingAvailableTimeValue(null)
                   }}
                 >
-                  {time}
+                  Done
                 </NdjcControlPillButton>
-              )
-            })}
+              </section>
+            </EditItemSectionCard>
           </section>
         </NdjcFilterBottomSheet>
       </section>
@@ -26100,9 +29733,16 @@ export function ShowcaseAdminAnnouncementEdit({
   const [pendingExitTarget, setPendingExitTarget] = React.useState<'back' | 'home' | null>(null)
   const [showDeleteDraftConfirm, setShowDeleteDraftConfirm] = React.useState(false)
   const [showPublishConfirm, setShowPublishConfirm] = React.useState(false)
+  const [announcementComposerCollapsedByUser, setAnnouncementComposerCollapsedByUser] = React.useState(false)
   const announcementCoverInputRef = React.useRef<HTMLInputElement | null>(null)
   const headerRef = React.useRef<HTMLElement | null>(null)
   const [headerHeight, setHeaderHeight] = React.useState(0)
+
+  React.useEffect(() => {
+    if (!state.composerExpanded) {
+      setAnnouncementComposerCollapsedByUser(false)
+    }
+  }, [state.composerExpanded])
 
   React.useEffect(() => {
     const target = headerRef.current
@@ -26180,9 +29820,18 @@ export function ShowcaseAdminAnnouncementEdit({
   const maxChars = 200
   const body = state.bodyDraft
   const cover = state.coverDraftUrl
-  const headerTopPadding = APK_PAGE_SHELL_UI.topCardOffset
-  const listTopPadding = headerTopPadding + headerHeight + 10
-  const deleteText = state.selectedIds.length ? `Delete (${state.selectedIds.length})` : 'Delete'
+  const selectedDraftCount = state.selectedIds.length
+  const hasEditorCover = Boolean(cover?.trim())
+  const showAnnouncementComposer = state.composerExpanded && !announcementComposerCollapsedByUser
+  const canStartNewAnnouncement = (state.canStartNew || announcementComposerCollapsedByUser) && !state.isSubmitting
+  const canPublishFromEditor = showAnnouncementComposer && hasEditorCover && selectedDraftCount === 0
+  const canPublishSelectedDraft = !hasEditorCover && selectedDraftCount === 1
+  const canPublishAnnouncement = (canPublishFromEditor || canPublishSelectedDraft) && !state.isSubmitting
+  const publishText = canPublishSelectedDraft ? 'Publish 1' : 'Publish'
+  const announcementEditHeaderBottomPadding = APK_EDIT_ITEM_UI.sectionCardGap
+  const announcementEditListPaddingX = '25px'
+  const listTopPadding = headerHeight + APK_SHOWCASE_ITEM_UI.adminItemsListGap
+  const deleteText = `Delete ${state.selectedIds.length}`
 
   return (
     <NdjcUnifiedBackground
@@ -26218,17 +29867,17 @@ export function ShowcaseAdminAnnouncementEdit({
             width: '100%',
             height: '100%',
             minHeight: 0,
-            padding: `${listTopPadding}px ${APK_PAGE_SHELL_UI.screenPadding}px ${APK_PAGE_SHELL_UI.screenPadding}px`,
+            background: APK_SHELL_UI.pageBg,
+            padding: `${listTopPadding}px ${announcementEditListPaddingX} calc(${APK_PAGE_SHELL_UI.screenPadding}px + env(safe-area-inset-bottom))`,
             boxSizing: 'border-box',
             overflowY: 'auto',
             overflowX: 'hidden',
             WebkitOverflowScrolling: 'touch',
             display: 'grid',
-            gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
+            gridTemplateColumns: 'minmax(0, 1fr)',
             gridAutoRows: 'max-content',
             alignContent: 'start',
-            columnGap: 10,
-            rowGap: 10
+            gap: APK_SHOWCASE_ITEM_UI.adminItemsListGap
           }}
           onScroll={event => ndjcHandleLoadMoreScroll(
             event,
@@ -26239,14 +29888,22 @@ export function ShowcaseAdminAnnouncementEdit({
           {state.draftItems.length || state.isSubmitting ? (
             <>
               {state.draftItems.map(item => (
-                <AnnouncementDraftCard
+                <div
                   key={item.id}
-                  item={item}
-                  selected={state.selectedIds.includes(item.id)}
-                  onOpen={actions.onOpenItem}
-                  onPreview={actions.onPreviewItem}
-                  onToggleSelect={actions.onToggleSelect}
-                />
+                  style={{
+                    width: '100%',
+                    minWidth: 0,
+                    gridColumn: '1 / -1'
+                  }}
+                >
+                  <AnnouncementDraftCard
+                    item={item}
+                    selected={state.selectedIds.includes(item.id)}
+                    onOpen={actions.onOpenItem}
+                    onPreview={actions.onPreviewItem}
+                    onToggleSelect={actions.onToggleSelect}
+                  />
+                </div>
               ))}
 
               <div
@@ -26282,123 +29939,171 @@ export function ShowcaseAdminAnnouncementEdit({
           )}
         </section>
 
-        <NdjcTopScrollFadeMask
-          className="ndjc-admin-announcement-header-scroll-mask"
-          solidRatio={0.58}
-          style={{
-            zIndex: 2
-          }}
-        />
-
         <section
           ref={headerRef}
           className="ndjc-admin-announcement-header-wrap"
           style={{
             position: 'absolute',
             zIndex: 3,
-            top: headerTopPadding,
-            left: APK_PAGE_SHELL_UI.screenPadding,
-            right: APK_PAGE_SHELL_UI.screenPadding
+            top: 0,
+            left: 0,
+            right: 0,
+            width: '100%',
+            boxSizing: 'border-box',
+            background: APK_SHELL_UI.pageBg,
+            backdropFilter: 'none',
+            WebkitBackdropFilter: 'none',
+            borderBottom: `1px solid ${NDJC_GLOBAL_UI_TOKENS.colors.divider}`,
+            boxShadow: '0 8px 20px rgba(15, 23, 42, 0.04)',
+            padding: `${NDJC_GLOBAL_UI_TOKENS.layout.contentPaddingTop}px ${NDJC_GLOBAL_UI_TOKENS.layout.contentPaddingX}px ${announcementEditHeaderBottomPadding}px`
           }}
         >
-          <NdjcWhiteCard
-            className="ndjc-apk-admin-header-card ndjc-admin-announcement-header-card"
+          <section
+            className="ndjc-admin-announcement-header-column"
             style={{
               width: '100%',
-              boxSizing: 'border-box'
+              maxWidth: NDJC_GLOBAL_UI_TOKENS.layout.contentMaxWidth,
+              margin: '0 auto',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: APK_EDIT_ITEM_UI.fieldGap
             }}
           >
             <section
+              className="ndjc-admin-announcement-title-action-row"
               style={{
                 width: '100%',
                 display: 'flex',
                 flexDirection: 'column',
-                gap: APK_ANNOUNCEMENT_UI.editHeaderGap
+                gap: APK_EDIT_ITEM_UI.sectionCardGap
               }}
             >
               <section
+                className="ndjc-admin-announcement-title-block"
+                style={{
+                  minWidth: 0,
+                  display: 'grid',
+                  gap: APK_EDIT_ITEM_UI.titleToHint
+                }}
+              >
+                <h1
+                  style={{
+                    margin: 0,
+                    color: NDJC_ADMIN_TOOL_UI.emphasis,
+                    fontSize: APK_EDIT_ITEM_UI.titleFontSize,
+                    lineHeight: APK_EDIT_ITEM_UI.titleLineHeight,
+                    fontWeight: APK_EDIT_ITEM_UI.titleFontWeight,
+                    letterSpacing: APK_EDIT_ITEM_UI.titleLetterSpacing,
+                    textRendering: 'geometricPrecision'
+                  }}
+                >
+                  <span style={{ display: 'block' }}>Publish</span>
+                  <span style={{ display: 'block' }}>announcement</span>
+                </h1>
+
+                <p
+                  style={{
+                    margin: 0,
+                    color: APK_EDIT_ITEM_UI.body70,
+                    fontSize: APK_EDIT_ITEM_UI.bodyMediumFontSize,
+                    lineHeight: APK_EDIT_ITEM_UI.bodyMediumLineHeight,
+                    fontWeight: APK_EDIT_ITEM_UI.bodyMediumFontWeight
+                  }}
+                >
+                  Only one announcement can be published at a time.
+                </p>
+
+                <p
+                  style={{
+                    margin: 0,
+                    color: APK_EDIT_ITEM_UI.body55,
+                    fontSize: APK_EDIT_ITEM_UI.bodySmallFontSize,
+                    lineHeight: APK_EDIT_ITEM_UI.bodySmallLineHeight,
+                    fontWeight: APK_EDIT_ITEM_UI.bodySmallFontWeight
+                  }}
+                >
+                  {state.draftItems.length} drafts
+                </p>
+              </section>
+
+              <section
+                className="ndjc-admin-announcement-new-row"
                 style={{
                   width: '100%',
                   display: 'grid',
-                  gridTemplateColumns: 'minmax(0, 1fr) calc((100% - 20px) / 3)',
-                  gap: 12,
+                  gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
+                  gap: APK_EDIT_ITEM_UI.fieldGap,
                   alignItems: 'center'
+                }}
+              >
+                <NdjcControlPillButton
+                  disabled={!canStartNewAnnouncement}
+                  active={canStartNewAnnouncement}
+                  tone="adminAction"
+                  fullWidth
+                  onClick={() => {
+                    if (!canStartNewAnnouncement) return
+                    setAnnouncementComposerCollapsedByUser(false)
+                    actions.onStartNew()
+                  }}
+                >
+                  New
+                </NdjcControlPillButton>
+
+                <NdjcControlPillButton
+                  disabled={!canPublishAnnouncement}
+                  active={canPublishAnnouncement}
+                  tone="adminAction"
+                  fullWidth
+                  onClick={() => {
+                    if (!canPublishAnnouncement) return
+                    setShowPublishConfirm(true)
+                  }}
+                >
+                  {state.submittingAction === 'publish' ? 'Publishing...' : publishText}
+                </NdjcControlPillButton>
+              </section>
+            </section>
+
+            {showAnnouncementComposer ? (
+              <section
+                className="ndjc-admin-announcement-composer-inline"
+                style={{
+                  width: '100%',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: APK_EDIT_ITEM_UI.sectionCardGap
                 }}
               >
                 <section
                   style={{
-                    minWidth: 0,
-                    display: 'flex',
-                    flexDirection: 'column',
-                    gap: 4
-                  }}
-                >
-                  <h1
-                    style={{
-                      margin: 0,
-                      color: '#000000',
-                      fontSize: 22,
-                      lineHeight: 1.25,
-                      fontWeight: 600
-                    }}
-                  >
-                    Publish announcement
-                  </h1>
-
-                  <p
-                    style={{
-                      margin: 0,
-                      color: 'rgba(0, 0, 0, 0.60)',
-                      fontSize: 12,
-                      lineHeight: 1.35,
-                      fontWeight: 400
-                    }}
-                  >
-                    Tap a draft card to preview it.
-                  </p>
-                </section>
-
-                <NdjcPrimaryActionButton
-                  disabled={!state.canStartNew}
-                  onClick={actions.onStartNew}
-                >
-                  New
-                </NdjcPrimaryActionButton>
-              </section>
-
-              <NdjcAdminPageProgressSlot active={state.isSubmitting || state.isBlockingInput} />
-
-              {state.composerExpanded ? (
-                <section
-                  className="ndjc-admin-announcement-composer-inline"
-                  style={{
                     width: '100%',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    gap: APK_ANNOUNCEMENT_UI.editHeaderGap
+                    display: 'grid',
+                    gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 2fr)',
+                    gap: APK_EDIT_ITEM_UI.fieldGap,
+                    alignItems: 'start'
                   }}
                 >
-                  <p
-                    style={{
-                      margin: 0,
-                      color: '#000000',
-                      fontSize: 12,
-                      lineHeight: 1.35,
-                      fontWeight: 500
-                    }}
-                  >
-                    Cover image *
-                  </p>
-
                   <section
                     style={{
-                      width: '100%',
-                      display: 'grid',
-                      gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 2fr)',
-                      gap: APK_ANNOUNCEMENT_UI.editComposerCoverGap,
-                      alignItems: 'start'
+                      minWidth: 0,
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: 7
                     }}
                   >
+                    <p
+                      style={{
+                        margin: 0,
+                        color: NDJC_GLOBAL_UI_TOKENS.colors.textStrong,
+                        fontSize: APK_EDIT_ITEM_UI.labelFontSize,
+                        lineHeight: APK_EDIT_ITEM_UI.labelLineHeight,
+                        fontWeight: APK_EDIT_ITEM_UI.labelFontWeight
+                      }}
+                    >
+                      Cover image *
+                    </p>
+
                     <NdjcSingleEditableImage
                       src={cover}
                       label="Cover"
@@ -26415,142 +30120,122 @@ export function ShowcaseAdminAnnouncementEdit({
                         })
                       } : undefined}
                     />
+                  </section>
+
+                  <section
+                    style={{
+                      minWidth: 0,
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: APK_EDIT_ITEM_UI.fieldGap
+                    }}
+                  >
+                    <NdjcTextField
+                      value={body}
+                      onChange={value => actions.onBodyChange(value.slice(0, maxChars))}
+                      label="Content"
+                      placeholder="Write the announcement…"
+                      singleLine={false}
+                      minLines={3}
+                      fieldMinHeightOverride={120}
+                    />
 
                     <section
                       style={{
-                        minWidth: 0,
+                        width: '100%',
                         display: 'flex',
-                        flexDirection: 'column',
-                        gap: APK_ANNOUNCEMENT_UI.editComposerTextGap
+                        alignItems: 'center'
                       }}
                     >
-                      <NdjcTextField
-                        value={body}
-                        onChange={value => actions.onBodyChange(value.slice(0, maxChars))}
-                        label="Content"
-                        placeholder="Write the announcement…"
-                        singleLine={false}
-                        minLines={3}
-                      />
+                      <span style={{ flex: 1, minWidth: 0 }} />
 
-                      <section
+                      <span
                         style={{
-                          width: '100%',
-                          display: 'flex',
-                          alignItems: 'center'
+                          color: APK_EDIT_ITEM_UI.body55,
+                          fontSize: APK_EDIT_ITEM_UI.bodySmallFontSize,
+                          lineHeight: APK_EDIT_ITEM_UI.bodySmallLineHeight,
+                          fontWeight: APK_EDIT_ITEM_UI.bodySmallFontWeight,
+                          whiteSpace: 'nowrap'
                         }}
                       >
-                        <span style={{ flex: 1, minWidth: 0 }} />
-
-                        <span
-                          style={{
-                            color: 'rgba(0, 0, 0, 0.55)',
-                            fontSize: 12,
-                            lineHeight: 1.35,
-                            fontWeight: 400,
-                            whiteSpace: 'nowrap'
-                          }}
-                        >
-                          {Math.min(body.length, maxChars)}/{maxChars}
-                        </span>
-                      </section>
+                        {Math.min(body.length, maxChars)}/{maxChars}
+                      </span>
                     </section>
                   </section>
                 </section>
-              ) : null}
 
-              <section
-                className="ndjc-admin-announcement-action-row"
-                style={{
-                  width: '100%',
-                  display: 'grid',
-                  gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
-                  gap: APK_ANNOUNCEMENT_UI.editActionGap
+                <section
+                  className="ndjc-admin-announcement-editor-action-row"
+                  style={{
+                    width: '100%',
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
+                    gap: APK_EDIT_ITEM_UI.fieldGap
+                  }}
+                >
+                  <NdjcControlPillButton
+                    disabled={!state.canSaveDraft || state.isSubmitting}
+                    active={state.canSaveDraft && !state.isSubmitting}
+                    tone="adminAction"
+                    fullWidth
+                    onClick={() => {
+                      if (state.isSubmitting) return
+                      actions.onSaveDraft()
+                    }}
+                  >
+                    {state.submittingAction === 'save' ? 'Saving...' : 'Save draft'}
+                  </NdjcControlPillButton>
+
+                  <NdjcControlPillButton
+                    disabled={state.isSubmitting}
+                    active={!state.isSubmitting}
+                    tone="adminAction"
+                    fullWidth
+                    onClick={() => {
+                      if (state.isSubmitting) return
+                      setAnnouncementComposerCollapsedByUser(true)
+                    }}
+                  >
+                    Collapse
+                  </NdjcControlPillButton>
+                </section>
+              </section>
+            ) : null}
+
+            <section
+              className="ndjc-admin-announcement-selection-tools"
+              style={{
+                width: '100%',
+                display: 'grid',
+                gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
+                gap: APK_EDIT_ITEM_UI.fieldGap,
+                alignItems: 'center'
+              }}
+            >
+              <NdjcControlPillButton
+                disabled={!state.selectedIds.length}
+                active={Boolean(state.selectedIds.length)}
+                tone="adminAction"
+                fullWidth
+                onClick={actions.onClearSelection}
+              >
+                Clear
+              </NdjcControlPillButton>
+
+              <NdjcControlPillButton
+                disabled={!state.canDeleteSelected || state.isSubmitting}
+                active={state.canDeleteSelected && !state.isSubmitting}
+                tone="adminAction"
+                fullWidth
+                onClick={() => {
+                  if (state.isSubmitting) return
+                  setShowDeleteDraftConfirm(true)
                 }}
               >
-                <NdjcPrimaryActionButton
-                  disabled={!state.canDeleteSelected || state.isSubmitting}
-                  isLoading={state.submittingAction === 'delete'}
-                  onClick={() => {
-                    if (state.isSubmitting) return
-                    setShowDeleteDraftConfirm(true)
-                  }}
-                >
-                  {deleteText}
-                </NdjcPrimaryActionButton>
-
-                <NdjcPrimaryActionButton
-                  disabled={!state.canSaveDraft || state.isSubmitting}
-                  isLoading={state.submittingAction === 'save'}
-                  onClick={() => {
-                    if (state.isSubmitting) return
-                    actions.onSaveDraft()
-                  }}
-                >
-                  Save draft
-                </NdjcPrimaryActionButton>
-
-                <NdjcPrimaryActionButton
-                  disabled={!state.canPublish || state.isSubmitting}
-                  isLoading={state.submittingAction === 'publish'}
-                  onClick={() => {
-                    if (state.isSubmitting) return
-                    setShowPublishConfirm(true)
-                  }}
-                >
-                  Publish
-                </NdjcPrimaryActionButton>
-              </section>
-
-              <div
-                style={{
-                  width: '100%',
-                  height: 1,
-                  background: APK_ANNOUNCEMENT_UI.editDividerColor
-                }}
-              />
-
-              <section
-                style={{
-                  width: '100%',
-                  display: 'flex',
-                  alignItems: 'center'
-                }}
-              >
-                <span
-                  style={{
-                    flex: 1,
-                    minWidth: 0,
-                    color: APK_ANNOUNCEMENT_UI.editSelectionTextColor,
-                    fontSize: 12,
-                    lineHeight: 1.35,
-                    fontWeight: 400
-                  }}
-                >
-                  {state.selectedIds.length ? `${state.selectedIds.length} selected` : 'No selection'}
-                </span>
-
-                <button
-                  type="button"
-                  disabled={!state.selectedIds.length}
-                  onClick={actions.onClearSelection}
-                  style={{
-                    border: 0,
-                    padding: 0,
-                    color: state.selectedIds.length ? APK_SHELL_UI.brand : 'rgba(0, 0, 0, 0.30)',
-                    background: 'transparent',
-                    boxShadow: 'none',
-                    fontSize: 12,
-                    lineHeight: 1.35,
-                    fontWeight: 400,
-                    cursor: state.selectedIds.length ? 'pointer' : 'default'
-                  }}
-                >
-                  Clear
-                </button>
-              </section>
+                {state.submittingAction === 'delete' ? 'Deleting...' : deleteText}
+              </NdjcControlPillButton>
             </section>
-          </NdjcWhiteCard>
+          </section>
         </section>
 
         <NdjcSnackbarHost message={state.statusMessage || state.successMessage} />

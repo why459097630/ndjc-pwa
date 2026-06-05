@@ -24,8 +24,6 @@ type StoreProfileRow = {
   title?: unknown
   subtitle?: unknown
   description?: unknown
-  logo_url?: unknown
-  logo_image_variants?: unknown
   cover_url?: unknown
   title_i18n?: unknown
   subtitle_i18n?: unknown
@@ -114,93 +112,7 @@ function normalizeAbsoluteOrRootUrl(value: unknown, fallback: string): string {
   return fallback
 }
 
-function pickLogoVariant(
-  value: unknown,
-  keys: string[],
-  fallback: string
-): string {
-  if (!value || typeof value !== 'object') return fallback
 
-  const record = value as Record<string, unknown>
-
-  for (const key of keys) {
-    const picked = normalizeAbsoluteOrRootUrl(record[key], '')
-    if (picked) return picked
-  }
-
-  return fallback
-}
-
-function hasAnyUsableLogoVariant(value: unknown): boolean {
-  if (!value || typeof value !== 'object') return false
-
-  const record = value as Record<string, unknown>
-
-  return Boolean(
-    normalizeAbsoluteOrRootUrl(record.icon192, '') ||
-    normalizeAbsoluteOrRootUrl(record.icon512, '') ||
-    normalizeAbsoluteOrRootUrl(record.maskable192, '') ||
-    normalizeAbsoluteOrRootUrl(record.maskable512, '') ||
-    normalizeAbsoluteOrRootUrl(record.appleTouchIcon, '') ||
-    normalizeAbsoluteOrRootUrl(record.mediumUrl, '') ||
-    normalizeAbsoluteOrRootUrl(record.medium_url, '') ||
-    normalizeAbsoluteOrRootUrl(record.thumbUrl, '') ||
-    normalizeAbsoluteOrRootUrl(record.thumb_url, '') ||
-    normalizeAbsoluteOrRootUrl(record.largeUrl, '') ||
-    normalizeAbsoluteOrRootUrl(record.large_url, '') ||
-    normalizeAbsoluteOrRootUrl(record.originalUrl, '') ||
-    normalizeAbsoluteOrRootUrl(record.original_url, '')
-  )
-}
-
-function buildIconVariantsFromRow(row: StoreProfileRow | null): StorePwaIconVariants {
-  if (!row) return DEFAULT_ICON_VARIANTS
-
-  const variants = row.logo_image_variants
-  const logoUrl = normalizeAbsoluteOrRootUrl(row.logo_url, '')
-
-  if (!hasAnyUsableLogoVariant(variants) && !logoUrl) {
-    return DEFAULT_ICON_VARIANTS
-  }
-
-  const icon192 = pickLogoVariant(
-    variants,
-    ['icon192', 'mediumUrl', 'medium_url', 'thumbUrl', 'thumb_url', 'largeUrl', 'large_url', 'originalUrl', 'original_url'],
-    logoUrl || DEFAULT_ICON_192
-  )
-
-  const icon512 = pickLogoVariant(
-    variants,
-    ['icon512', 'largeUrl', 'large_url', 'originalUrl', 'original_url', 'mediumUrl', 'medium_url', 'thumbUrl', 'thumb_url'],
-    logoUrl || icon192 || DEFAULT_ICON_512
-  )
-
-  const maskable192 = pickLogoVariant(
-    variants,
-    ['maskable192', 'mediumUrl', 'medium_url', 'thumbUrl', 'thumb_url', 'largeUrl', 'large_url', 'originalUrl', 'original_url'],
-    logoUrl || icon192 || DEFAULT_MASKABLE_192
-  )
-
-  const maskable512 = pickLogoVariant(
-    variants,
-    ['maskable512', 'largeUrl', 'large_url', 'originalUrl', 'original_url', 'mediumUrl', 'medium_url', 'thumbUrl', 'thumb_url'],
-    logoUrl || icon512 || DEFAULT_MASKABLE_512
-  )
-
-  const appleTouchIcon = pickLogoVariant(
-    variants,
-    ['appleTouchIcon', 'apple_touch_icon', 'mediumUrl', 'medium_url', 'thumbUrl', 'thumb_url', 'largeUrl', 'large_url', 'originalUrl', 'original_url'],
-    logoUrl || icon192 || DEFAULT_APPLE_ICON
-  )
-
-  return {
-    icon192,
-    icon512,
-    maskable192,
-    maskable512,
-    appleTouchIcon
-  }
-}
 
 function normalizeSupabaseBaseUrl(value: string): string {
   return value.replace(/\/+$/, '')
@@ -232,7 +144,7 @@ async function fetchStoreProfileRow(storeId: string): Promise<StoreProfileRow | 
 
   const baseUrl = normalizeSupabaseBaseUrl(supabaseUrl)
   const query = [
-    'select=store_id,title,title_i18n,subtitle,subtitle_i18n,description,description_i18n,logo_url,logo_image_variants,cover_url',
+    'select=store_id,title,title_i18n,subtitle,subtitle_i18n,description,description_i18n,cover_url',
     `store_id=eq.${encodeURIComponent(storeId)}`,
     'limit=1'
   ].join('&')
@@ -293,8 +205,8 @@ function buildProfileFromRow(storeIdInput: unknown, row: StoreProfileRow | null)
     DEFAULT_DESCRIPTION
   )
 
-  const iconVariants = buildIconVariantsFromRow(row)
-  const iconUrl = normalizeAbsoluteOrRootUrl(row.logo_url, iconVariants.icon512)
+  const iconVariants = DEFAULT_ICON_VARIANTS
+  const iconUrl = iconVariants.icon512
 
   return {
     storeId: normalizeStoreId(row.store_id || storeIdInput),

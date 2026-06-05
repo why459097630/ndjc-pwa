@@ -1457,11 +1457,16 @@ function normalizeAppointmentProductCard(
 
   if (!dishId || !title) return null
 
+  const priceText = normalizeText(product.priceText)
+
   return {
     dishId,
     title,
-    priceText: normalizeText(product.priceText),
+    priceText,
+    originalPriceText: normalizeNullableText(product.originalPriceText) || priceText,
+    discountPriceText: normalizeNullableText(product.discountPriceText),
     imageUrl: normalizeNullableText(product.imageUrl),
+    imageVariants: product.imageVariants ?? null,
     categoryText: normalizeNullableText(product.categoryText),
     isRecommended: Boolean(product.isRecommended)
   }
@@ -1727,16 +1732,17 @@ function buildAppointmentTimeOptions(uiState: ShowcaseUiState): string[] {
 }
 
 function buildBookingRuleSummary(uiState: ShowcaseUiState): string {
-  const parts = [
-    `${uiState.appointmentBookingWindowDays} days window`,
-    uiState.appointmentAvailableHoursText,
-    `${uiState.appointmentSlotIntervalMinutes} min slots`,
-    uiState.appointmentMinimumNotice
-  ]
-    .map(item => normalizeText(item))
-    .filter(Boolean)
+  if (!uiState.appointmentsEnabled) {
+    return 'Booking unavailable'
+  }
 
-  return parts.join(' · ')
+  const availableHoursText = normalizeText(uiState.appointmentAvailableHoursText) || '09:00 - 18:00'
+  const minimumNotice = normalizeText(uiState.appointmentMinimumNotice)
+  const minimumNoticeText = !minimumNotice || minimumNotice.toLowerCase() === 'no notice'
+    ? 'Book anytime'
+    : `Book ${minimumNotice} ahead`
+
+  return `Open for booking · ${availableHoursText.replace(/\s+-\s+/g, '-')} · ${minimumNoticeText}`
 }
 
 export function buildAppointmentsWiringState(uiState: ShowcaseUiState): ShowcaseAppointmentsUiState {

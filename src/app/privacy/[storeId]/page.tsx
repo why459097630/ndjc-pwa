@@ -2,7 +2,7 @@ export default async function PrivacyPage({ params }: { params: Promise<{ storeI
   const { storeId } = await params
 
   return (
-    <main style={{ maxWidth: 760, margin: '0 auto', padding: 24, fontFamily: 'system-ui, sans-serif' }}>
+    <main style={{ maxWidth: 760, margin: '0 auto', padding: 24, fontFamily: 'inherit' }}>
       <h1>Privacy Policy</h1>
       <p>Store: {storeId}</p>
       <p>

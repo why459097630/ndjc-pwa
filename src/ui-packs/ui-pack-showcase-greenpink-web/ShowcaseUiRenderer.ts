@@ -49,10 +49,11 @@ export type ShowcaseRendererBottomBarTab =
 
 export type ShowcasePwaInstallState =
   | 'unknown'
-  | 'installed'
-  | 'available'
-  | 'manual-ios'
-  | 'manual-safari-required'
+  | 'standalone'
+  | 'installable'
+  | 'ios-manual'
+  | 'safari-required'
+  | 'browser'
   | 'unsupported'
 
 export type ShowcaseUiRenderer = {

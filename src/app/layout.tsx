@@ -1,11 +1,17 @@
 import React from 'react'
 import type { Metadata, Viewport } from 'next'
+import { Inter } from 'next/font/google'
+
+const inter = Inter({
+  subsets: ['latin'],
+  display: 'swap',
+  variable: '--font-inter'
+})
 
 export const metadata: Metadata = {
   title: 'NDJC PWA',
   description: 'NDJC generated PWA shell',
   applicationName: 'NDJC PWA',
-  manifest: '/manifest.webmanifest',
   appleWebApp: {
     capable: true,
     title: 'NDJC PWA',
@@ -40,6 +46,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html
       lang="en"
+      className={inter.variable}
       style={{
         width: '100%',
         minWidth: 0,
@@ -50,7 +57,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         overflow: 'hidden',
         overscrollBehavior: 'none',
         overscrollBehaviorY: 'none',
-        background: '#ffffff'
+        background: '#ffffff',
+        fontFamily: 'var(--font-inter), Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif'
       }}
     >
       <body
@@ -65,7 +73,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           overscrollBehavior: 'none',
           overscrollBehaviorY: 'none',
           background: '#ffffff',
-          color: '#171717'
+          color: '#171717',
+          fontFamily: 'inherit'
         }}
       >
         {children}
