@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import { getNdjcFirebaseMessagingToken } from '@/pwa/firebaseMessaging'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
@@ -5544,9 +5544,11 @@ function backFromAppointments(): void {
       const browserOffline = isBrowserOfflineNow()
       const cloudReadFailed = repository.lastReadFailureAt >= cloudLoadStartedAt
       const cloudUnavailable = browserOffline || cloudReadFailed
-      const storeProfileMissingInCloud = !cloudStoreProfile && !cloudUnavailable
+      const cloudServiceStatus = String(serviceStatus?.serviceStatus || '').trim().toLowerCase()
+      const storeMissingInCloud = !serviceStatus && !cloudUnavailable
+      const storeDeletedInCloud = cloudServiceStatus === 'deleted'
 
-      setStoreUnavailable(storeProfileMissingInCloud)
+      setStoreUnavailable(storeMissingInCloud || storeDeletedInCloud)
 
       const localVisibleDishes = localDishes.filter(item => isAdminLoggedIn || !item.isHidden)
 
@@ -5906,9 +5908,11 @@ function backFromAppointments(): void {
       const browserOffline = isBrowserOfflineNow()
       const cloudReadFailed = repository.lastReadFailureAt >= cloudLoadStartedAt
       const cloudUnavailable = browserOffline || cloudReadFailed
-      const storeProfileMissingInCloud = !cloudStoreProfile && !cloudUnavailable
+      const cloudServiceStatus = String(serviceStatus?.serviceStatus || '').trim().toLowerCase()
+      const storeMissingInCloud = !serviceStatus && !cloudUnavailable
+      const storeDeletedInCloud = cloudServiceStatus === 'deleted'
 
-      setStoreUnavailable(storeProfileMissingInCloud)
+      setStoreUnavailable(storeMissingInCloud || storeDeletedInCloud)
 
       const localVisibleDishes = localDishes.filter(item => isAdminLoggedIn || !item.isHidden)
 
