@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useEffect } from 'react'
+import React, { useEffect, useRef } from 'react'
 import { ActiveAssembly } from '@/core/assembly/types'
 import { type Navigator, useNavigatorSwipeBackHandler } from '@/core/routing/navigator'
 import { useShowcaseViewModel, type ShowcaseScreenName } from '@/features/feature-showcase-web/useShowcaseViewModel'
@@ -15,9 +15,118 @@ let registered = false
 
 const NDJC_SHOWCASE_SCREEN_CHANGE_EVENT = 'ndjc:showcase-screen-change'
 const NDJC_SHOWCASE_CURRENT_SCREEN_KEY = '__ndjc_showcase_current_screen__'
+const NDJC_SHOWCASE_HISTORY_GUARD_STATE_KEY = '__ndjc_showcase_history_guard__'
 
 function key(moduleId: string, uiPackId: string) {
   return `${moduleId}::${uiPackId}`
+}
+
+function isShowcaseRootScreen(screen: ShowcaseScreenName): boolean {
+  return screen === 'Home'
+}
+
+function readCurrentHistoryState(): Record<string, unknown> {
+  if (typeof window === 'undefined') return {}
+
+  const state = window.history.state
+
+  if (!state || typeof state !== 'object' || Array.isArray(state)) {
+    return {}
+  }
+
+  return state as Record<string, unknown>
+}
+
+function pushShowcaseHistoryGuard(): void {
+  if (typeof window === 'undefined') return
+
+  const currentState = readCurrentHistoryState()
+
+  if (currentState[NDJC_SHOWCASE_HISTORY_GUARD_STATE_KEY] === true) {
+    return
+  }
+
+  window.history.pushState(
+    {
+      ...currentState,
+      [NDJC_SHOWCASE_HISTORY_GUARD_STATE_KEY]: true
+    },
+    '',
+    window.location.href
+  )
+}
+
+function useShowcaseSystemBackGuard(input: {
+  screen: ShowcaseScreenName
+  onBack: () => boolean
+}): void {
+  const screenRef = useRef(input.screen)
+  const onBackRef = useRef(input.onBack)
+  const forwardingExitRef = useRef(false)
+
+  useEffect(() => {
+    screenRef.current = input.screen
+  }, [input.screen])
+
+  useEffect(() => {
+    onBackRef.current = input.onBack
+  }, [input.onBack])
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+
+    if (!isShowcaseRootScreen(input.screen)) {
+      pushShowcaseHistoryGuard()
+    }
+  }, [input.screen])
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+
+    const handlePopState = () => {
+      if (forwardingExitRef.current) {
+        return
+      }
+
+      const currentScreen = screenRef.current
+
+      if (isShowcaseRootScreen(currentScreen)) {
+        forwardingExitRef.current = true
+
+        window.setTimeout(() => {
+          window.history.back()
+        }, 0)
+
+        return
+      }
+
+      const handledByBusinessBack = onBackRef.current() === true
+
+      if (!handledByBusinessBack) {
+        forwardingExitRef.current = true
+
+        window.setTimeout(() => {
+          window.history.back()
+        }, 0)
+
+        return
+      }
+
+      window.setTimeout(() => {
+        forwardingExitRef.current = false
+
+        if (!isShowcaseRootScreen(screenRef.current)) {
+          pushShowcaseHistoryGuard()
+        }
+      }, 120)
+    }
+
+    window.addEventListener('popstate', handlePopState)
+
+    return () => {
+      window.removeEventListener('popstate', handlePopState)
+    }
+  }, [])
 }
 
 export function registerModuleRenderer(moduleId: string, uiPackId: string, renderer: ModuleUiRenderer) {
@@ -86,6 +195,11 @@ function ShowcaseGreenpinkRuntime({ routeId, storeId }: { routeId: string; store
   })
 
   useNavigatorSwipeBackHandler(viewModel.handleShowcaseBack)
+
+  useShowcaseSystemBackGuard({
+    screen: viewModel.screen,
+    onBack: viewModel.handleShowcaseBack
+  })
 
   useEffect(() => {
     if (typeof window === 'undefined') return
