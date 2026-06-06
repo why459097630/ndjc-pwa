@@ -15,8 +15,9 @@ export type Navigator = {
 
 const NavigatorContext = createContext<Navigator | null>(null)
 
-const SWIPE_BACK_EDGE_WIDTH_PX = 24
-const SWIPE_BACK_MIN_DISTANCE_PX = 72
+const SWIPE_BACK_SYSTEM_EDGE_GUTTER_PX = 24
+const SWIPE_BACK_APP_EDGE_WIDTH_PX = 88
+const SWIPE_BACK_MIN_DISTANCE_PX = 64
 const SWIPE_BACK_MIN_HORIZONTAL_RATIO = 1.4
 const SWIPE_BACK_VERTICAL_CANCEL_DISTANCE_PX = 24
 
@@ -169,7 +170,11 @@ export function NavigatorProvider({ startRoute, children }: { startRoute: string
       }
 
       const touch = event.touches[0]
-      if (!touch || touch.clientX > SWIPE_BACK_EDGE_WIDTH_PX) {
+      if (
+        !touch ||
+        touch.clientX < SWIPE_BACK_SYSTEM_EDGE_GUTTER_PX ||
+        touch.clientX > SWIPE_BACK_APP_EDGE_WIDTH_PX
+      ) {
         resetSwipeBackTouch()
         return
       }
