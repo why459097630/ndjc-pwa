@@ -20,8 +20,6 @@ const SWIPE_BACK_APP_EDGE_WIDTH_PX = 88
 const SWIPE_BACK_MIN_DISTANCE_PX = 64
 const SWIPE_BACK_MIN_HORIZONTAL_RATIO = 1.4
 const SWIPE_BACK_VERTICAL_CANCEL_DISTANCE_PX = 24
-const SWIPE_BACK_CONFIRM_ANIMATION_MS = 140
-const SWIPE_BACK_CONFIRM_CLASS_NAME = 'ndjc-swipe-back-confirming'
 
 type SwipeBackTouchState = {
   startX: number
@@ -110,8 +108,6 @@ export function NavigatorProvider({ startRoute, children }: { startRoute: string
   const stackLengthRef = useRef(stack.length)
   const swipeBackTouchRef = useRef<SwipeBackTouchState | null>(null)
   const swipeBackHandlerRef = useRef<SwipeBackHandler | null>(null)
-  const swipeBackAnimationTimeoutRef = useRef<number | null>(null)
-  const swipeBackAnimationInFlightRef = useRef(false)
 
   const current = stack[stack.length - 1] ?? { routeId: startRoute || 'home', params: {} }
 
@@ -148,53 +144,11 @@ export function NavigatorProvider({ startRoute, children }: { startRoute: string
   useEffect(() => {
     if (typeof window === 'undefined') return
 
-    const clearSwipeBackConfirmAnimation = () => {
-      if (swipeBackAnimationTimeoutRef.current !== null) {
-        window.clearTimeout(swipeBackAnimationTimeoutRef.current)
-        swipeBackAnimationTimeoutRef.current = null
-      }
-
-      swipeBackAnimationInFlightRef.current = false
-
-      if (typeof document !== 'undefined') {
-        document.documentElement.classList.remove(SWIPE_BACK_CONFIRM_CLASS_NAME)
-      }
-    }
-
     const resetSwipeBackTouch = () => {
       swipeBackTouchRef.current = null
     }
 
-    const runSwipeBackConfirmAnimation = (onComplete: () => void) => {
-      if (swipeBackAnimationInFlightRef.current) return
-
-      swipeBackAnimationInFlightRef.current = true
-
-      if (typeof document !== 'undefined') {
-        document.documentElement.classList.add(SWIPE_BACK_CONFIRM_CLASS_NAME)
-      }
-
-      if (swipeBackAnimationTimeoutRef.current !== null) {
-        window.clearTimeout(swipeBackAnimationTimeoutRef.current)
-      }
-
-      swipeBackAnimationTimeoutRef.current = window.setTimeout(() => {
-        if (typeof document !== 'undefined') {
-          document.documentElement.classList.remove(SWIPE_BACK_CONFIRM_CLASS_NAME)
-        }
-
-        swipeBackAnimationTimeoutRef.current = null
-        swipeBackAnimationInFlightRef.current = false
-        onComplete()
-      }, SWIPE_BACK_CONFIRM_ANIMATION_MS)
-    }
-
     const handleTouchStart = (event: TouchEvent) => {
-      if (swipeBackAnimationInFlightRef.current) {
-        resetSwipeBackTouch()
-        return
-      }
-
       if (event.touches.length !== 1) {
         resetSwipeBackTouch()
         return
@@ -282,13 +236,11 @@ export function NavigatorProvider({ startRoute, children }: { startRoute: string
         deltaX > absDeltaY * SWIPE_BACK_MIN_HORIZONTAL_RATIO &&
         (stackLengthRef.current > 1 || Boolean(swipeBackHandlerRef.current))
       ) {
-        runSwipeBackConfirmAnimation(() => {
-          const handledByBusinessBack = swipeBackHandlerRef.current?.() === true
+        const handledByBusinessBack = swipeBackHandlerRef.current?.() === true
 
-          if (!handledByBusinessBack && stackLengthRef.current > 1) {
-            back()
-          }
-        })
+        if (!handledByBusinessBack && stackLengthRef.current > 1) {
+          back()
+        }
       }
     }
 
@@ -298,7 +250,6 @@ export function NavigatorProvider({ startRoute, children }: { startRoute: string
     window.addEventListener('touchcancel', resetSwipeBackTouch, { passive: true })
 
     return () => {
-      clearSwipeBackConfirmAnimation()
       window.removeEventListener('touchstart', handleTouchStart)
       window.removeEventListener('touchmove', handleTouchMove)
       window.removeEventListener('touchend', handleTouchEnd)
@@ -315,49 +266,7 @@ export function NavigatorProvider({ startRoute, children }: { startRoute: string
     registerSwipeBackHandler
   }), [back, current.params, current.routeId, navigate, registerSwipeBackHandler, replace])
 
-  return (
-    <NavigatorContext.Provider value={value}>
-      <style>
-        {`
-          html.${SWIPE_BACK_CONFIRM_CLASS_NAME} body {
-            pointer-events: none;
-            animation: ndjc-swipe-back-confirm ${SWIPE_BACK_CONFIRM_ANIMATION_MS}ms cubic-bezier(0.22, 1, 0.36, 1) both;
-          }
-
-          @keyframes ndjc-swipe-back-confirm {
-            0% {
-              opacity: 1;
-              transform: translateX(0);
-            }
-
-            100% {
-              opacity: 0.86;
-              transform: translateX(18px);
-            }
-          }
-
-          @media (prefers-reduced-motion: reduce) {
-            html.${SWIPE_BACK_CONFIRM_CLASS_NAME} body {
-              animation-duration: 1ms;
-            }
-
-            @keyframes ndjc-swipe-back-confirm {
-              0% {
-                opacity: 1;
-                transform: translateX(0);
-              }
-
-              100% {
-                opacity: 1;
-                transform: translateX(0);
-              }
-            }
-          }
-        `}
-      </style>
-      {children}
-    </NavigatorContext.Provider>
-  )
+  return <NavigatorContext.Provider value={value}>{children}</NavigatorContext.Provider>
 }
 
 export function useNavigator(): Navigator {
