@@ -19,15 +19,21 @@ type StorePwaProfile = {
   backgroundColor: string
 }
 
-type StoreProfileRow = {
+type StorePwaProfileRow = {
   store_id?: unknown
-  title?: unknown
-  subtitle?: unknown
+  app_name?: unknown
+  short_name?: unknown
   description?: unknown
-  cover_url?: unknown
-  title_i18n?: unknown
-  subtitle_i18n?: unknown
-  description_i18n?: unknown
+  icon_192_url?: unknown
+  icon_512_url?: unknown
+  maskable_192_url?: unknown
+  maskable_512_url?: unknown
+  apple_touch_icon_url?: unknown
+  notification_icon_url?: unknown
+  source_icon_url?: unknown
+  display_logo_url?: unknown
+  theme_color?: unknown
+  background_color?: unknown
 }
 
 const DEFAULT_APP_NAME = 'NDJC PWA'
@@ -47,7 +53,7 @@ const DEFAULT_ICON_VARIANTS: StorePwaIconVariants = {
   maskable512: DEFAULT_MASKABLE_512,
   appleTouchIcon: DEFAULT_APPLE_ICON
 }
-const STORE_PROFILES_TABLE = 'store_profiles'
+const STORE_PWA_PROFILES_TABLE = 'store_pwa_profiles'
 
 function readEnv(name: string): string {
   return typeof process !== 'undefined' ? process.env[name] || '' : ''
@@ -96,11 +102,11 @@ function normalizeManifestText(value: unknown, fallback: string): string {
   return text || fallback
 }
 
-function normalizeShortName(value: string): string {
+function normalizeShortName(value: unknown): string {
   const text = normalizeText(value)
   if (!text) return DEFAULT_SHORT_NAME
-  if (text.length <= 12) return text
-  return text.slice(0, 12)
+  if (text.length <= 24) return text
+  return text.slice(0, 24).trim()
 }
 
 function normalizeAbsoluteOrRootUrl(value: unknown, fallback: string): string {
@@ -112,8 +118,6 @@ function normalizeAbsoluteOrRootUrl(value: unknown, fallback: string): string {
   return fallback
 }
 
-
-
 function normalizeSupabaseBaseUrl(value: string): string {
   return value.replace(/\/+$/, '')
 }
@@ -122,21 +126,7 @@ function encodeStorePathPart(storeId: string): string {
   return encodeURIComponent(storeId)
 }
 
-function pickI18nText(value: unknown, fallback: string): string {
-  if (!value || typeof value !== 'object') return fallback
-
-  const record = value as Record<string, unknown>
-  const preferred =
-    normalizeText(record.default) ||
-    normalizeText(record.en) ||
-    normalizeText(record.zh) ||
-    normalizeText(record['zh-CN']) ||
-    normalizeText(record['en-US'])
-
-  return preferred || fallback
-}
-
-async function fetchStoreProfileRow(storeId: string): Promise<StoreProfileRow | null> {
+async function fetchStorePwaProfileRow(storeId: string): Promise<StorePwaProfileRow | null> {
   const supabaseUrl = resolveSupabaseUrl()
   const anonKey = resolveSupabaseAnonKey()
 
@@ -144,12 +134,12 @@ async function fetchStoreProfileRow(storeId: string): Promise<StoreProfileRow | 
 
   const baseUrl = normalizeSupabaseBaseUrl(supabaseUrl)
   const query = [
-    'select=store_id,title,title_i18n,subtitle,subtitle_i18n,description,description_i18n,cover_url',
+    'select=store_id,app_name,short_name,description,icon_192_url,icon_512_url,maskable_192_url,maskable_512_url,apple_touch_icon_url,notification_icon_url,source_icon_url,display_logo_url,theme_color,background_color',
     `store_id=eq.${encodeURIComponent(storeId)}`,
     'limit=1'
   ].join('&')
 
-  const response = await fetch(`${baseUrl}/rest/v1/${STORE_PROFILES_TABLE}?${query}`, {
+  const response = await fetch(`${baseUrl}/rest/v1/${STORE_PWA_PROFILES_TABLE}?${query}`, {
     method: 'GET',
     headers: {
       apikey: anonKey,
@@ -167,7 +157,7 @@ async function fetchStoreProfileRow(storeId: string): Promise<StoreProfileRow | 
     return null
   }
 
-  return body[0] as StoreProfileRow
+  return body[0] as StorePwaProfileRow
 }
 
 function buildFallbackProfile(storeIdInput: unknown): StorePwaProfile {
@@ -185,38 +175,36 @@ function buildFallbackProfile(storeIdInput: unknown): StorePwaProfile {
   }
 }
 
-function buildProfileFromRow(storeIdInput: unknown, row: StoreProfileRow | null): StorePwaProfile {
+function buildProfileFromRow(storeIdInput: unknown, row: StorePwaProfileRow | null): StorePwaProfile {
   const fallback = buildFallbackProfile(storeIdInput)
 
   if (!row) return fallback
 
-  const titleFallback = normalizeManifestText(row.title, DEFAULT_APP_NAME)
-  const subtitleFallback = normalizeText(row.subtitle)
-  const descriptionFallback = normalizeText(row.description)
-
-  const appName = normalizeManifestText(
-    pickI18nText(row.title_i18n, titleFallback),
-    DEFAULT_APP_NAME
-  )
-
-  const subtitle = pickI18nText(row.subtitle_i18n, subtitleFallback)
-  const description = normalizeManifestText(
-    pickI18nText(row.description_i18n, descriptionFallback || subtitle || DEFAULT_DESCRIPTION),
-    DEFAULT_DESCRIPTION
-  )
-
-  const iconVariants = DEFAULT_ICON_VARIANTS
-  const iconUrl = iconVariants.icon512
+  const appName = normalizeManifestText(row.app_name, DEFAULT_APP_NAME)
+  const shortName = normalizeShortName(row.short_name || appName)
+  const description = normalizeManifestText(row.description, DEFAULT_DESCRIPTION)
+  const icon192 = normalizeAbsoluteOrRootUrl(row.icon_192_url, DEFAULT_ICON_192)
+  const icon512 = normalizeAbsoluteOrRootUrl(row.icon_512_url, DEFAULT_ICON_512)
+  const maskable192 = normalizeAbsoluteOrRootUrl(row.maskable_192_url, DEFAULT_MASKABLE_192)
+  const maskable512 = normalizeAbsoluteOrRootUrl(row.maskable_512_url, DEFAULT_MASKABLE_512)
+  const appleTouchIcon = normalizeAbsoluteOrRootUrl(row.apple_touch_icon_url, DEFAULT_APPLE_ICON)
+  const iconVariants: StorePwaIconVariants = {
+    icon192,
+    icon512,
+    maskable192,
+    maskable512,
+    appleTouchIcon
+  }
 
   return {
     storeId: normalizeStoreId(row.store_id || storeIdInput),
     appName,
-    shortName: normalizeShortName(appName),
+    shortName,
     description,
-    iconUrl,
+    iconUrl: icon512,
     iconVariants,
-    themeColor: DEFAULT_THEME_COLOR,
-    backgroundColor: DEFAULT_BACKGROUND_COLOR
+    themeColor: normalizeManifestText(row.theme_color, DEFAULT_THEME_COLOR),
+    backgroundColor: normalizeManifestText(row.background_color, DEFAULT_BACKGROUND_COLOR)
   }
 }
 
@@ -224,7 +212,7 @@ export async function resolveStorePwaProfile(storeIdInput: unknown): Promise<Sto
   const storeId = normalizeStoreId(storeIdInput)
 
   try {
-    const row = await fetchStoreProfileRow(storeId)
+    const row = await fetchStorePwaProfileRow(storeId)
     return buildProfileFromRow(storeId, row)
   } catch {
     return buildFallbackProfile(storeId)
@@ -344,6 +332,7 @@ export async function buildStorePwaManifest(storeIdInput: unknown) {
           }
         ]
       }
-    ]
+    ],
+    x_ndjc_apple_touch_icon: profile.iconVariants.appleTouchIcon
   }
 }

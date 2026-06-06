@@ -95,6 +95,22 @@ export type CloudStoreProfile = {
   updatedAt: number | null
 }
 
+export type CloudStorePwaProfile = {
+  storeId: string
+  appName: string
+  shortName: string
+  description: string
+  notificationIconUrl: string
+  icon192Url: string
+  icon512Url: string
+  maskable192Url: string
+  maskable512Url: string
+  appleTouchIconUrl: string
+  themeColor: string
+  backgroundColor: string
+  updatedAt: number | null
+}
+
 export type CloudAnnouncement = {
   id: string
   storeId: string
@@ -311,6 +327,7 @@ export type RepositoryTableNames = {
   dishImages: string
   categories: string
   storeProfiles: string
+  storePwaProfiles: string
   pushDevices: string
   announcements: string
   appointmentSettings: string
@@ -342,6 +359,7 @@ const DEFAULT_TABLES: RepositoryTableNames = {
   dishImages: SHOWCASE_TABLES.dishImages,
   categories: SHOWCASE_TABLES.categories,
   storeProfiles: SHOWCASE_TABLES.storeProfiles,
+  storePwaProfiles: SHOWCASE_TABLES.storePwaProfiles,
   pushDevices: SHOWCASE_TABLES.pushDevices,
   announcements: SHOWCASE_TABLES.announcements,
   appointmentSettings: SHOWCASE_TABLES.appointmentSettings,
@@ -597,16 +615,18 @@ function normalizePushNotificationImageUrl(value: unknown): string {
   return ''
 }
 
-function pickCloudStorePushIconUrl(profile: CloudStoreProfile | null): string {
+function pickCloudStorePwaPushIconUrl(profile: CloudStorePwaProfile | null): string {
   if (!profile) return ''
 
-  const variants = profile.logoImageVariants
+  return normalizePushNotificationImageUrl(profile.notificationIconUrl) ||
+    normalizePushNotificationImageUrl(profile.icon192Url) ||
+    normalizePushNotificationImageUrl(profile.icon512Url)
+}
 
-  return normalizePushNotificationImageUrl(variants?.mediumUrl) ||
-    normalizePushNotificationImageUrl(variants?.thumbUrl) ||
-    normalizePushNotificationImageUrl(variants?.largeUrl) ||
-    normalizePushNotificationImageUrl(variants?.originalUrl) ||
-    normalizePushNotificationImageUrl(profile.logoUrl)
+function pickCloudStorePwaAppName(profile: CloudStorePwaProfile | null): string {
+  const appName = String(profile?.appName || '').trim()
+
+  return appName || 'NDJC'
 }
 
 function pushBadgeUrlForPushType(value: unknown): string {
@@ -890,7 +910,11 @@ export class ShowcaseCloudRepository {
   }
 
   private storeProfileTable(): string {
-    return 'store_profiles'
+    return this.tables.storeProfiles || 'store_profiles'
+  }
+
+  private storePwaProfileTable(): string {
+    return this.tables.storePwaProfiles || 'store_pwa_profiles'
   }
 
   private pushDevicesTable(): string {
@@ -1500,6 +1524,27 @@ private parseStoreProfile(raw: Record<string, unknown>, storeIdFallback: string)
     coverImageVariants: parseCloudImageVariants(raw.cover_image_variants),
     logoImageVariants: parseCloudImageVariants(raw.logo_image_variants),
     businessStatus: pickI18nText(jsonRecord(raw, 'business_status_i18n'), businessStatusFallback),
+    updatedAt: this.parseIsoMillis(raw.updated_at)
+  }
+}
+
+private parseStorePwaProfile(raw: Record<string, unknown>, storeIdFallback: string): CloudStorePwaProfile {
+  const appName = jsonString(raw, 'app_name', 'NDJC')
+  const shortName = jsonString(raw, 'short_name', appName)
+
+  return {
+    storeId: jsonString(raw, 'store_id', storeIdFallback),
+    appName,
+    shortName,
+    description: jsonString(raw, 'description', `${appName} official PWA app.`),
+    notificationIconUrl: jsonString(raw, 'notification_icon_url'),
+    icon192Url: jsonString(raw, 'icon_192_url'),
+    icon512Url: jsonString(raw, 'icon_512_url'),
+    maskable192Url: jsonString(raw, 'maskable_192_url'),
+    maskable512Url: jsonString(raw, 'maskable_512_url'),
+    appleTouchIconUrl: jsonString(raw, 'apple_touch_icon_url'),
+    themeColor: jsonString(raw, 'theme_color', '#ffffff'),
+    backgroundColor: jsonString(raw, 'background_color', '#ffffff'),
     updatedAt: this.parseIsoMillis(raw.updated_at)
   }
 }
@@ -2463,6 +2508,27 @@ async renameCategoryById(input: {
       if (!row) return null
 
       return this.parseStoreProfile(row, storeId)
+    }, null)
+  }
+
+  async fetchStorePwaProfile(storeIdInput?: string | null): Promise<CloudStorePwaProfile | null> {
+    const storeId = this.requireStoreId(storeIdInput)
+    const query = [
+      'select=store_id,app_name,short_name,description,notification_icon_url,icon_192_url,icon_512_url,maskable_192_url,maskable_512_url,apple_touch_icon_url,theme_color,background_color,updated_at',
+      `store_id=${this.encodeEq(storeId)}`,
+      'limit=1'
+    ].join('&')
+
+    const url = this.buildSelectUrl(this.storePwaProfileTable(), query)
+
+    return this.executeOnce('fetchStorePwaProfile', async () => {
+      const [code, body] = await this.httpGet(url, storeId)
+      if (code < 200 || code > 299) return null
+
+      const row = this.parseFirstObject(body)
+      if (!row) return null
+
+      return this.parseStorePwaProfile(row, storeId)
     }, null)
   }
 
@@ -3870,16 +3936,23 @@ private async dispatchPush(
     const pushType = String(payload.push_type || payload.type || '').trim().toLowerCase()
     const badgeUrl = pushBadgeUrlForPushType(pushType)
     let iconUrl = ''
+    let appName = 'NDJC'
 
     try {
-      const profile = await this.fetchStoreProfile(storeId)
-      iconUrl = pickCloudStorePushIconUrl(profile)
+      const profile = await this.fetchStorePwaProfile(storeId)
+      iconUrl = pickCloudStorePwaPushIconUrl(profile)
+      appName = pickCloudStorePwaAppName(profile)
     } catch {
       iconUrl = ''
+      appName = 'NDJC'
     }
 
+    const payloadTitle = String(payload.title || '').trim()
     const nextPayload: Record<string, ShowcaseRepositoryJson> = {
       ...payload,
+      title: payloadTitle || appName,
+      notification_app_name: appName,
+      app_name: appName,
       notification_badge: badgeUrl,
       badge: badgeUrl
     }
@@ -3893,9 +3966,25 @@ private async dispatchPush(
 
     if (rawData && typeof rawData === 'object' && !Array.isArray(rawData)) {
       const data = rawData as Record<string, ShowcaseRepositoryJson>
+      const dataTitle = String(data.title || '').trim()
 
       nextPayload.data = {
         ...data,
+        title: dataTitle || payloadTitle || appName,
+        notification_app_name: appName,
+        app_name: appName,
+        notification_badge: badgeUrl,
+        badge: badgeUrl
+      }
+
+      if (iconUrl) {
+        nextPayload.data.notification_icon = iconUrl
+        nextPayload.data.icon = iconUrl
+      }
+    } else {
+      nextPayload.data = {
+        notification_app_name: appName,
+        app_name: appName,
         notification_badge: badgeUrl,
         badge: badgeUrl
       }

@@ -49,6 +49,7 @@ export const SHOWCASE_SUPABASE_SCHEMA = 'public'
 export const SHOWCASE_TABLES = {
   stores: 'stores',
   storeProfiles: 'store_profiles',
+  storePwaProfiles: 'store_pwa_profiles',
   categories: 'categories',
   dishes: 'dishes',
   dishImages: 'dish_images',

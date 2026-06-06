@@ -11,6 +11,7 @@ type PwaManifestIcon = {
 
 type PwaManifestPayload = {
   icons?: unknown
+  x_ndjc_apple_touch_icon?: unknown
 }
 
 function buildStoreManifestHref(storeId: string): string {
@@ -45,6 +46,10 @@ function pickManifestIconHref(payload: PwaManifestPayload): string {
   const firstIcon = anyIcon || icons[0]
 
   return normalizeIconHref(firstIcon?.src)
+}
+
+function pickManifestAppleIconHref(payload: PwaManifestPayload, fallback: string): string {
+  return normalizeIconHref(payload.x_ndjc_apple_touch_icon) || fallback
 }
 
 function removeManagedIconLinks() {
@@ -89,10 +94,12 @@ async function upsertStoreIconLinks(storeId: string, manifestHref: string) {
 
     if (!iconHref) return
 
+    const appleIconHref = pickManifestAppleIconHref(payload, iconHref)
+
     removeManagedIconLinks()
     upsertIconLink('icon', iconHref, storeId, 'image/png', '192x192')
     upsertIconLink('shortcut icon', iconHref, storeId, 'image/png', '192x192')
-    upsertIconLink('apple-touch-icon', iconHref, storeId, 'image/png', '180x180')
+    upsertIconLink('apple-touch-icon', appleIconHref, storeId, 'image/png', '180x180')
   } catch {
     return
   }

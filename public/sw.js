@@ -525,11 +525,19 @@ self.addEventListener('push', event => {
     ...nestedData
   }
 
+  const fallbackNotificationTitle = String(
+    mergedData.notification_app_name ||
+    mergedData.notificationAppName ||
+    mergedData.app_name ||
+    mergedData.appName ||
+    'NDJC'
+  )
+
   const title = String(
     mergedData.title ||
     notificationData.title ||
     nestedData.title ||
-    'NDJC'
+    fallbackNotificationTitle
   )
 
   const body = String(
