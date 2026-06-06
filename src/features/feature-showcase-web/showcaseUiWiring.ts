@@ -884,7 +884,8 @@ export function buildStoreProfileWiringState(uiState: ShowcaseUiState): Showcase
     statusMessage: uiState.statusMessage,
     errorMessage: uiState.storeProfileSaveError,
     successMessage: uiState.storeProfileSaveSuccess ? 'Store profile saved.' : null,
-    hasUnsavedChanges: false
+    hasUnsavedChanges: false,
+    pendingExitTarget: null
   }
 }
 
@@ -1064,7 +1065,8 @@ function buildEmptyEditDishState(uiState: ShowcaseUiState): ShowcaseEditDishUiSt
     canSave: false,
     canAddImageSlot: true,
     maxImages: 9,
-    hasUnsavedChanges: false
+    hasUnsavedChanges: false,
+    pendingExitTarget: null
   }
 }
 
@@ -1144,7 +1146,8 @@ export function buildEditDishWiringState(uiState: ShowcaseUiState): ShowcaseEdit
     canSave: validation.canSave,
     canAddImageSlot: imageUrls.length < 9,
     maxImages: 9,
-    hasUnsavedChanges: Boolean(dish.dirty)
+    hasUnsavedChanges: Boolean(dish.dirty),
+    pendingExitTarget: null
   }
 }
 
@@ -1917,6 +1920,7 @@ export function buildAnnouncementEditWiringState(uiState: ShowcaseUiState): Show
     previewItem,
     previewVisible: Boolean(previewItem),
     hasUnsavedChanges,
+    pendingExitTarget: null,
 
     pagination: DEFAULT_PAGINATION
   }
@@ -2145,6 +2149,8 @@ export function createNoopEditDishActions(
   return {
     onBackToHome: noop,
     onBack: noop,
+    onConfirmExit: noop,
+    onDismissExitConfirm: noop,
     onNameChange: noopString,
     onPriceChange: noopString,
     onDiscountPriceChange: noopString,
@@ -2177,6 +2183,8 @@ export function createNoopStoreProfileActions(
     ...bottomNavigation,
     onBackToHome: noop,
     onBack: noop,
+    onConfirmExit: noop,
+    onDismissExitConfirm: noop,
     onRefresh: noop,
     onEdit: noop,
     onCancelEdit: noop,
@@ -2338,6 +2346,8 @@ export function createNoopAnnouncementEditActions(
   return {
     onBackToHome: noop,
     onBack: noop,
+    onConfirmExit: noop,
+    onDismissExitConfirm: noop,
     onStartNew: noop,
     onPickCover: noop,
     onRemoveCover: noop,

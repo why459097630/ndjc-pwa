@@ -26530,7 +26530,6 @@ export function ShowcaseEditDish({
   state: ShowcaseEditDishUiState
   actions: ShowcaseEditDishActions
 }) {
-  const [pendingExitTarget, setPendingExitTarget] = React.useState<'back' | 'home' | null>(null)
   const [isDraggingImages, setIsDraggingImages] = React.useState(false)
   const editImageInputRef = React.useRef<HTMLInputElement | null>(null)
   const editScrollRef = React.useRef<HTMLElement | null>(null)
@@ -26540,9 +26539,6 @@ export function ShowcaseEditDish({
   const categoryFieldRef = React.useRef<HTMLElement | null>(null)
   const imagesFieldRef = React.useRef<HTMLElement | null>(null)
   const lastValidationScrollSignatureRef = React.useRef('')
-  const editBackHandlerRef = React.useRef<(() => void) | null>(null)
-  const editHasUnsavedChangesRef = React.useRef(false)
-  const editIsBlockingRef = React.useRef(false)
 
   function openEditImagePicker(): void {
     editImageInputRef.current?.click()
@@ -26562,72 +26558,7 @@ export function ShowcaseEditDish({
   const descriptionText = state.description
   const descriptionLength = Math.min(descriptionText.length, descriptionMax)
 
-  function requestExit(target: 'back' | 'home'): void {
-    if (state.hasUnsavedChanges) {
-      setPendingExitTarget(target)
-      return
-    }
 
-    if (target === 'home') {
-      actions.onBackToHome()
-      return
-    }
-
-    actions.onBack()
-  }
-
-  React.useEffect(() => {
-    editHasUnsavedChangesRef.current = state.hasUnsavedChanges
-    editIsBlockingRef.current = state.isBlocking || state.isSaving
-    editBackHandlerRef.current = () => requestExit('back')
-  }, [
-    state.hasUnsavedChanges,
-    state.isBlocking,
-    state.isSaving,
-    actions.onBack,
-    actions.onBackToHome
-  ])
-
-  React.useEffect(() => {
-    if (typeof window === 'undefined') return
-
-    const editBackGuardState = {
-      ndjcEditDishBackGuard: true
-    }
-
-    window.history.pushState(editBackGuardState, '', window.location.href)
-
-    function handleEditDishPopState(): void {
-      if (editIsBlockingRef.current) {
-        window.history.pushState(editBackGuardState, '', window.location.href)
-        return
-      }
-
-      editBackHandlerRef.current?.()
-
-      if (editHasUnsavedChangesRef.current) {
-        window.history.pushState(editBackGuardState, '', window.location.href)
-      }
-    }
-
-    window.addEventListener('popstate', handleEditDishPopState)
-
-    return () => {
-      window.removeEventListener('popstate', handleEditDishPopState)
-    }
-  }, [])
-
-  function confirmExit(): void {
-    const target = pendingExitTarget
-    setPendingExitTarget(null)
-
-    if (target === 'home') {
-      actions.onBackToHome()
-      return
-    }
-
-    actions.onBack()
-  }
 
   function scrollEditFieldIntoView(target: HTMLElement | null): void {
     const scrollRoot = editScrollRef.current
@@ -26720,8 +26651,8 @@ export function ShowcaseEditDish({
     <NdjcUnifiedBackground
       className="ndjc-apk-edit-screen"
       topNav={{
-        onBack: () => requestExit('back'),
-        onHome: () => requestExit('home')
+        onBack: actions.onBack,
+        onHome: actions.onBackToHome
       }}
     >
       <input
@@ -27136,16 +27067,16 @@ export function ShowcaseEditDish({
         />
       ) : null}
 
-      {pendingExitTarget ? (
+      {state.pendingExitTarget ? (
         <NdjcBaseDialog
-          title="Leave this page?"
-          message="Your item changes will be saved as a draft."
-          confirmText="Leave"
+          title="Discard unsaved changes?"
+          message="You have unsaved item changes. Leave this page and discard them?"
+          confirmText="Discard"
           dismissText="Stay"
-          onConfirmClick={confirmExit}
-          onDismissClick={() => setPendingExitTarget(null)}
-          onDismissRequest={() => setPendingExitTarget(null)}
-          destructiveConfirm={false}
+          destructiveConfirm
+          onConfirmClick={actions.onConfirmExit}
+          onDismissClick={actions.onDismissExitConfirm}
+          onDismissRequest={actions.onDismissExitConfirm}
         />
       ) : null}
     </NdjcUnifiedBackground>
@@ -27282,7 +27213,6 @@ export function ShowcaseStoreProfileEdit({
   const [extraNewName, setExtraNewName] = React.useState('')
   const [extraNewValue, setExtraNewValue] = React.useState('')
   const [extraLocalError, setExtraLocalError] = React.useState<string | null>(null)
-  const [pendingExitTarget, setPendingExitTarget] = React.useState<'back' | 'home' | null>(null)
   const [showMapUrlDialog, setShowMapUrlDialog] = React.useState(false)
   const [isDraggingCoverImages, setIsDraggingCoverImages] = React.useState(false)
   const [imagePreview, setImagePreview] = React.useState<{
@@ -27329,32 +27259,6 @@ export function ShowcaseStoreProfileEdit({
     })
   }, [titleRequiredError, addressRequiredError, contactRequiredError])
 
-  function requestExit(target: 'back' | 'home'): void {
-    if (state.hasUnsavedChanges) {
-      setPendingExitTarget(target)
-      return
-    }
-
-    if (target === 'home') {
-      actions.onBackToHome()
-      return
-    }
-
-    actions.onBack()
-  }
-
-  function confirmExit(): void {
-    const target = pendingExitTarget
-    setPendingExitTarget(null)
-
-    if (target === 'home') {
-      actions.onDiscardDraftAndGoHome()
-      return
-    }
-
-    actions.onBack()
-  }
-
   function openLogoPicker(): void {
     logoInputRef.current?.click()
   }
@@ -27387,8 +27291,8 @@ export function ShowcaseStoreProfileEdit({
     <NdjcUnifiedBackground
       className="ndjc-apk-store-edit-screen"
       topNav={{
-        onBack: () => requestExit('back'),
-        onHome: () => requestExit('home')
+        onBack: actions.onBack,
+        onHome: actions.onBackToHome
       }}
     >
 
@@ -27843,16 +27747,16 @@ export function ShowcaseStoreProfileEdit({
         />
       ) : null}
 
-      {pendingExitTarget ? (
+      {state.pendingExitTarget ? (
         <NdjcBaseDialog
           title="Discard unsaved changes?"
           message="You have unsaved merchant profile changes. Leave this page and discard them?"
           confirmText="Discard"
           dismissText="Stay"
           destructiveConfirm
-          onConfirmClick={confirmExit}
-          onDismissClick={() => setPendingExitTarget(null)}
-          onDismissRequest={() => setPendingExitTarget(null)}
+          onConfirmClick={actions.onConfirmExit}
+          onDismissClick={actions.onDismissExitConfirm}
+          onDismissRequest={actions.onDismissExitConfirm}
         />
       ) : null}
 
@@ -29735,7 +29639,6 @@ export function ShowcaseAdminAnnouncementEdit({
     images: string[]
     startIndex: number
   } | null>(null)
-  const [pendingExitTarget, setPendingExitTarget] = React.useState<'back' | 'home' | null>(null)
   const [showDeleteDraftConfirm, setShowDeleteDraftConfirm] = React.useState(false)
   const [showPublishConfirm, setShowPublishConfirm] = React.useState(false)
   const [announcementComposerCollapsedByUser, setAnnouncementComposerCollapsedByUser] = React.useState(false)
@@ -29781,32 +29684,6 @@ export function ShowcaseAdminAnnouncementEdit({
     state.selectedIds.length
   ])
 
-  function requestExit(target: 'back' | 'home'): void {
-    if (state.hasUnsavedChanges) {
-      setPendingExitTarget(target)
-      return
-    }
-
-    if (target === 'home') {
-      actions.onBackToHome()
-      return
-    }
-
-    actions.onBack()
-  }
-
-  function confirmExit(): void {
-    const target = pendingExitTarget
-    setPendingExitTarget(null)
-
-    if (target === 'home') {
-      actions.onBackToHome()
-      return
-    }
-
-    actions.onBack()
-  }
-
   function openAnnouncementCoverPicker(): void {
     if (state.isBlockingInput) return
 
@@ -29841,8 +29718,8 @@ export function ShowcaseAdminAnnouncementEdit({
   return (
     <NdjcUnifiedBackground
       topNav={{
-        onBack: () => requestExit('back'),
-        onHome: () => requestExit('home')
+        onBack: actions.onBack,
+        onHome: actions.onBackToHome
       }}
     >
       <section
@@ -30272,18 +30149,18 @@ export function ShowcaseAdminAnnouncementEdit({
           />
         ) : null}
 
-        {pendingExitTarget ? (
-          <NdjcBaseDialog
-            title="Discard unsaved changes?"
-            message="You have unsaved announcement changes. Leave this page and discard them?"
-            confirmText="Discard"
-            dismissText="Stay"
-            destructiveConfirm
-            onConfirmClick={confirmExit}
-            onDismissClick={() => setPendingExitTarget(null)}
-            onDismissRequest={() => setPendingExitTarget(null)}
-          />
-        ) : null}
+      {state.pendingExitTarget ? (
+        <NdjcBaseDialog
+          title="Discard unsaved changes?"
+          message="You have unsaved item changes. Leave this page and discard them?"
+          confirmText="Discard"
+          dismissText="Stay"
+          destructiveConfirm
+          onConfirmClick={actions.onConfirmExit}
+          onDismissClick={actions.onDismissExitConfirm}
+          onDismissRequest={actions.onDismissExitConfirm}
+        />
+      ) : null}
 
         {showDeleteDraftConfirm ? (
           <NdjcBaseDialog

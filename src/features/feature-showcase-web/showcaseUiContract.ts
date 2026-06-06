@@ -558,11 +558,14 @@ export type ShowcaseEditDishUiState = {
   canAddImageSlot: boolean
   maxImages: number
   hasUnsavedChanges: boolean
+  pendingExitTarget: 'back' | 'home' | null
 }
 
 export type ShowcaseEditDishActions = {
   onBackToHome: () => void
   onBack: () => void
+  onConfirmExit: () => void
+  onDismissExitConfirm: () => void
   onNameChange: (value: string) => void
   onPriceChange: (value: string) => void
   onDiscountPriceChange: (value: string) => void
@@ -703,11 +706,14 @@ export type ShowcaseStoreProfileUiState = {
   errorMessage: string | null
   successMessage: string | null
   hasUnsavedChanges: boolean
+  pendingExitTarget: 'back' | 'home' | null
 }
 
 export type ShowcaseStoreProfileActions = ShowcaseBottomNavigationActions & {
   onBackToHome: () => void
   onBack: () => void
+  onConfirmExit: () => void
+  onDismissExitConfirm: () => void
   onRefresh: () => void
   onEdit: () => void
   onCancelEdit: () => void
@@ -1049,6 +1055,7 @@ export type ShowcaseAnnouncementEditUiState = {
   previewItem: ShowcaseAnnouncementCard | null
   previewVisible: boolean
   hasUnsavedChanges: boolean
+  pendingExitTarget: 'back' | 'home' | null
 
   pagination: ShowcasePaginationUiState
 }
@@ -1056,6 +1063,8 @@ export type ShowcaseAnnouncementEditUiState = {
 export type ShowcaseAnnouncementEditActions = {
   onBackToHome: () => void
   onBack: () => void
+  onConfirmExit: () => void
+  onDismissExitConfirm: () => void
 
   onStartNew: () => void
 

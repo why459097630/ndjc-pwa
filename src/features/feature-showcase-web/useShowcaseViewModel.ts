@@ -2358,6 +2358,9 @@ export function useShowcaseViewModel(input: UseShowcaseViewModelInput = {}): Sho
 
   const [screen, setScreen] = useState<ShowcaseScreenName>(input.initialScreen || defaultUiState.screen)
   const [previousScreen, setPreviousScreen] = useState<ShowcaseScreenName>(defaultUiState.screen)
+  const [editDishPendingExitTarget, setEditDishPendingExitTarget] = useState<'back' | 'home' | null>(null)
+  const [storeProfilePendingExitTarget, setStoreProfilePendingExitTarget] = useState<'back' | 'home' | null>(null)
+  const [adminAnnouncementPendingExitTarget, setAdminAnnouncementPendingExitTarget] = useState<'back' | 'home' | null>(null)
   const [isHydrated, setIsHydrated] = useState(false)
 
   const [clientId] = useState(initialClientIdRef.current)
@@ -4515,6 +4518,90 @@ function backFromAppointments(): void {
     setScreen(target)
   }
 
+  function requestEditDishExit(target: 'back' | 'home'): void {
+    if (isSavingEditDish || isBlockingEditDish) return
+
+    if (hasUnsavedEditDraft()) {
+      setEditDishPendingExitTarget(target)
+      return
+    }
+
+    if (target === 'home') {
+      closeToHome()
+      return
+    }
+
+    backToAdminFromEdit()
+  }
+
+  function confirmEditDishExit(): void {
+    const target = editDishPendingExitTarget
+    setEditDishPendingExitTarget(null)
+
+    if (target === 'home') {
+      closeToHome()
+      return
+    }
+
+    backToAdminFromEdit()
+  }
+
+  function requestStoreProfileExit(target: 'back' | 'home'): void {
+    if (isSavingStoreProfile) return
+
+    if (hasUnsavedStoreProfileDraft()) {
+      setStoreProfilePendingExitTarget(target)
+      return
+    }
+
+    if (target === 'home') {
+      closeToHome()
+      return
+    }
+
+    backFromStoreProfile()
+  }
+
+  function confirmStoreProfileExit(): void {
+    const target = storeProfilePendingExitTarget
+    setStoreProfilePendingExitTarget(null)
+
+    if (target === 'home') {
+      discardStoreProfileDraftAndGoHome()
+      return
+    }
+
+    backFromStoreProfile()
+  }
+
+  function requestAdminAnnouncementExit(target: 'back' | 'home'): void {
+    if (adminAnnouncementIsSubmitting || adminAnnouncementIsBlocking) return
+
+    if (hasUnsavedAdminAnnouncementDraft()) {
+      setAdminAnnouncementPendingExitTarget(target)
+      return
+    }
+
+    if (target === 'home') {
+      discardAdminAnnouncementDraftAndGoHome()
+      return
+    }
+
+    discardAdminAnnouncementDraftAndBack()
+  }
+
+  function confirmAdminAnnouncementExit(): void {
+    const target = adminAnnouncementPendingExitTarget
+    setAdminAnnouncementPendingExitTarget(null)
+
+    if (target === 'home') {
+      discardAdminAnnouncementDraftAndGoHome()
+      return
+    }
+
+    discardAdminAnnouncementDraftAndBack()
+  }
+
   const handleShowcaseBack = useCallback((): boolean => {
     if (screen === ShowcaseScreens.Home) {
       return false
@@ -4540,12 +4627,12 @@ function backFromAppointments(): void {
     }
 
     if (screen === ShowcaseScreens.Edit) {
-      backToAdminFromEdit()
+      requestEditDishExit('back')
       return true
     }
 
     if (screen === ShowcaseScreens.StoreProfileView || screen === ShowcaseScreens.StoreProfile) {
-      backFromStoreProfile()
+      requestStoreProfileExit('back')
       return true
     }
 
@@ -4580,7 +4667,7 @@ function backFromAppointments(): void {
     }
 
     if (screen === ShowcaseScreens.AdminAnnouncementEdit) {
-      discardAdminAnnouncementDraftAndBack()
+      requestAdminAnnouncementExit('back')
       return true
     }
 
@@ -4609,15 +4696,15 @@ function backFromAppointments(): void {
     screen,
     backFromDetail,
     backFromAdmin,
-    backToAdminFromEdit,
-    backFromStoreProfile,
+    requestEditDishExit,
+    requestStoreProfileExit,
     backFromChangePassword,
     closeFavoritesPage,
     backFromAppointments,
     backFromCustomerBookings,
     backFromAnnouncements,
     backFromAdminAppointmentManager,
-    discardAdminAnnouncementDraftAndBack,
+    requestAdminAnnouncementExit,
     backFromMerchantChatList,
     backFromChat,
     chatCloseSearchResults,
@@ -20076,7 +20163,8 @@ function onChatImageLimitReached(): void {
     statusMessage,
     errorMessage: storeProfileSaveError,
     successMessage: storeProfileSaveSuccess ? 'Store profile saved.' : null,
-    hasUnsavedChanges: hasUnsavedStoreProfileDraft()
+    hasUnsavedChanges: hasUnsavedStoreProfileDraft(),
+    pendingExitTarget: storeProfilePendingExitTarget
   }
 
   const favoritesState: ShowcaseFavoritesUiState = {
@@ -20235,6 +20323,7 @@ function onChatImageLimitReached(): void {
       : null,
     previewVisible: Boolean(adminAnnouncementPreviewId),
     hasUnsavedChanges: hasUnsavedAdminAnnouncementDraft(),
+    pendingExitTarget: adminAnnouncementPendingExitTarget,
 
     pagination: pageStateForUi(adminAnnouncementsPagination)
   }
@@ -20409,14 +20498,8 @@ const editDishState: ShowcaseEditDishUiState = {
     canSave: editDishCanSave,
     canAddImageSlot: editDishImageUrls.length < 9,
     maxImages: 9,
-    hasUnsavedChanges: Boolean(
-      editDishName.trim() ||
-      editDishDescription.trim() ||
-      editDishCategory ||
-      editDishOriginalPrice.trim() ||
-      editDishDiscountPrice.trim() ||
-      editDishImageUrls.length
-    )
+    hasUnsavedChanges: hasUnsavedEditDraft(),
+    pendingExitTarget: editDishPendingExitTarget
   }
 
   const changePasswordState: ShowcaseChangePasswordUiState = {
@@ -20703,9 +20786,13 @@ const editDishState: ShowcaseEditDishUiState = {
   const storeProfileActions: ShowcaseStoreProfileActions = {
     ...bottomNavigationActions,
 
-    onBackToHome: closeToHome,
+    onBackToHome: () => requestStoreProfileExit('home'),
 
     onBack: handleShowcaseBack,
+
+    onConfirmExit: confirmStoreProfileExit,
+
+    onDismissExitConfirm: () => setStoreProfilePendingExitTarget(null),
 
     onRefresh: () => {
       void refreshStoreProfile()
@@ -20984,9 +21071,13 @@ const editDishState: ShowcaseEditDishUiState = {
   }
 
   const announcementEditActions: ShowcaseAnnouncementEditActions = {
-    onBackToHome: discardAdminAnnouncementDraftAndGoHome,
+    onBackToHome: () => requestAdminAnnouncementExit('home'),
 
     onBack: handleShowcaseBack,
+
+    onConfirmExit: confirmAdminAnnouncementExit,
+
+    onDismissExitConfirm: () => setAdminAnnouncementPendingExitTarget(null),
 
     onStartNew: onAdminAnnouncementStartNew,
 
@@ -21328,9 +21419,13 @@ const editDishState: ShowcaseEditDishUiState = {
   }
 
   const editDishActions: ShowcaseEditDishActions = {
-    onBackToHome: closeToHome,
+    onBackToHome: () => requestEditDishExit('home'),
 
     onBack: handleShowcaseBack,
+
+    onConfirmExit: confirmEditDishExit,
+
+    onDismissExitConfirm: () => setEditDishPendingExitTarget(null),
 
     onNameChange: onEditNameChange,
 
