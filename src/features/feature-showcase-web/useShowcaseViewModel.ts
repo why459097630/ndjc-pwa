@@ -4515,6 +4515,115 @@ function backFromAppointments(): void {
     setScreen(target)
   }
 
+  const handleShowcaseBack = useCallback((): boolean => {
+    if (screen === ShowcaseScreens.Home) {
+      return false
+    }
+
+    if (screen === ShowcaseScreens.Detail) {
+      backFromDetail()
+      return true
+    }
+
+    if (screen === ShowcaseScreens.Login) {
+      closeToHome()
+      return true
+    }
+
+    if (
+      screen === ShowcaseScreens.Admin ||
+      screen === ShowcaseScreens.AdminItems ||
+      screen === ShowcaseScreens.AdminCategories
+    ) {
+      backFromAdmin()
+      return true
+    }
+
+    if (screen === ShowcaseScreens.Edit) {
+      backToAdminFromEdit()
+      return true
+    }
+
+    if (screen === ShowcaseScreens.StoreProfileView || screen === ShowcaseScreens.StoreProfile) {
+      backFromStoreProfile()
+      return true
+    }
+
+    if (screen === ShowcaseScreens.ChangePassword) {
+      backFromChangePassword()
+      return true
+    }
+
+    if (screen === ShowcaseScreens.Favorites) {
+      closeFavoritesPage()
+      return true
+    }
+
+    if (screen === ShowcaseScreens.Appointments) {
+      backFromAppointments()
+      return true
+    }
+
+    if (screen === ShowcaseScreens.CustomerBookings) {
+      backFromCustomerBookings()
+      return true
+    }
+
+    if (screen === ShowcaseScreens.Announcements) {
+      backFromAnnouncements()
+      return true
+    }
+
+    if (screen === ShowcaseScreens.AdminAppointmentManager) {
+      backFromAdminAppointmentManager()
+      return true
+    }
+
+    if (screen === ShowcaseScreens.AdminAnnouncementEdit) {
+      discardAdminAnnouncementDraftAndBack()
+      return true
+    }
+
+    if (screen === ShowcaseScreens.MerchantChatList) {
+      backFromMerchantChatList()
+      return true
+    }
+
+    if (screen === ShowcaseScreens.Chat) {
+      backFromChat()
+      return true
+    }
+
+    if (screen === ShowcaseScreens.ChatSearchResults) {
+      chatCloseSearchResults()
+      return true
+    }
+
+    if (screen === ShowcaseScreens.ChatMedia) {
+      chatCloseMediaGallery()
+      return true
+    }
+
+    return false
+  }, [
+    screen,
+    backFromDetail,
+    backFromAdmin,
+    backToAdminFromEdit,
+    backFromStoreProfile,
+    backFromChangePassword,
+    closeFavoritesPage,
+    backFromAppointments,
+    backFromCustomerBookings,
+    backFromAnnouncements,
+    backFromAdminAppointmentManager,
+    discardAdminAnnouncementDraftAndBack,
+    backFromMerchantChatList,
+    backFromChat,
+    chatCloseSearchResults,
+    chatCloseMediaGallery
+  ])
+
   function persistFavoritesState(
     nextIds: string[],
     nextAddedAt: Record<string, number>,
@@ -14831,15 +14940,19 @@ async function refreshCustomerAppointmentsFromCloud(
   }
 
   async function ensureActiveConversation(): Promise<ChatConversation | null> {
-    if (activeConversation) return activeConversation
-
     if (guardOfflineWriteOperation()) {
       setChatStatusMessage('You are offline. Please reconnect and try again.')
       return null
     }
 
-    const conversationId = repository.buildConversationId(storeId, clientId)
-    const ok = await repository.upsertChatConversation(conversationId, storeId, clientId)
+    const effectiveConversationId = activeConversation?.id || repository.buildConversationId(storeId, clientId)
+    const effectiveClientId = activeConversation?.clientId || clientId
+
+    if (!effectiveConversationId || !effectiveClientId) {
+      return null
+    }
+
+    const ok = await repository.upsertChatConversation(effectiveConversationId, storeId, effectiveClientId)
 
     if (!ok) {
       return null
@@ -14847,7 +14960,7 @@ async function refreshCustomerAppointmentsFromCloud(
 
     const conversation = await repository.findOrCreateChatConversation({
       storeId,
-      clientId,
+      clientId: effectiveClientId,
       customerName: DEFAULT_CUSTOMER_NAME,
       customerContact: ''
     })
@@ -15483,14 +15596,26 @@ async function refreshCustomerAppointmentsFromCloud(
   ): Promise<void> {
     setChatMode('Client')
 
-    const conversation = await repository.findOrCreateChatConversation({
+    const existingConversation = await repository.findChatConversation({
       storeId,
-      clientId,
-      customerName: DEFAULT_CUSTOMER_NAME,
-      customerContact: ''
+      clientId
     })
 
-    if (!conversation) return
+    const conversationId = existingConversation?.id || repository.buildConversationId(storeId, clientId)
+
+    if (!conversationId) return
+
+    const conversation: ChatConversation = existingConversation || {
+      id: conversationId,
+      storeId,
+      clientId,
+      merchantAuthUserId: null,
+      customerName: DEFAULT_CUSTOMER_NAME,
+      customerContact: '',
+      customerSeq: null,
+      createdAt: null,
+      updatedAt: null
+    }
 
     resetChatTransientStateForConversation(conversation.id, pendingProduct, pendingAppointment)
 
@@ -15499,18 +15624,24 @@ async function refreshCustomerAppointmentsFromCloud(
     setActiveConversationId(conversation.id)
     setRuntimeActiveConversationId(conversation.id)
 
-    void registerChatClientPushDevice(conversation.id, 'client-chat-context-restored', true)
+    if (existingConversation) {
+      void registerChatClientPushDevice(conversation.id, 'client-chat-context-restored', true)
+    }
 
     const showedLocalMessages = await applyLocalChatMessagesFirst(conversation.id)
 
     if (showedLocalMessages) {
-      void refreshChatMessages(conversation.id, true, true)
-      await acknowledgeVisibleClientConversation(conversation.id)
+      if (existingConversation) {
+        void refreshChatMessages(conversation.id, true, true)
+        await acknowledgeVisibleClientConversation(conversation.id)
+      }
       return
     }
 
-    await refreshChatMessages(conversation.id, true, true)
-    await acknowledgeVisibleClientConversation(conversation.id)
+    if (existingConversation) {
+      await refreshChatMessages(conversation.id, true, true)
+      await acknowledgeVisibleClientConversation(conversation.id)
+    }
   }
 
   async function restoreMerchantChatContext(conversationIdInput?: string | null): Promise<void> {
@@ -15608,11 +15739,12 @@ async function refreshCustomerAppointmentsFromCloud(
         return
       }
 
-      const conversation = await ensureActiveConversation()
-      if (!conversation) return
+      const conversationId = activeConversationIdRef.current || activeConversationId || ''
+
+      if (!conversationId) return
 
       if (canLoadFullMessages) {
-        await refreshChatMessages(conversation.id, true, true)
+        await refreshChatMessages(conversationId, true, true)
       }
     } catch {
       setChatStatusMessage('Chat sync failed.')
@@ -20537,7 +20669,7 @@ const editDishState: ShowcaseEditDishUiState = {
 
     onBackToHome: closeToHome,
 
-    onBack: backFromDetail,
+    onBack: handleShowcaseBack,
 
     onEdit: () => {
       if (!selectedDish) return
@@ -20573,7 +20705,7 @@ const editDishState: ShowcaseEditDishUiState = {
 
     onBackToHome: closeToHome,
 
-    onBack: backFromStoreProfile,
+    onBack: handleShowcaseBack,
 
     onRefresh: () => {
       void refreshStoreProfile()
@@ -20662,7 +20794,7 @@ const editDishState: ShowcaseEditDishUiState = {
 
     onBackToHome: closeToHome,
 
-    onBack: closeFavoritesPage,
+    onBack: handleShowcaseBack,
 
     onQueryChange: onFavoritesQueryChange,
 
@@ -20702,7 +20834,7 @@ const editDishState: ShowcaseEditDishUiState = {
   const appointmentsActions: ShowcaseAppointmentsActions = {
     onBackToHome: closeToHome,
 
-    onBack: backFromAppointments,
+    onBack: handleShowcaseBack,
 
     onServiceChange: onAppointmentServiceDraftChange,
 
@@ -20728,7 +20860,7 @@ const editDishState: ShowcaseEditDishUiState = {
 
     onBackToHome: closeToHome,
 
-    onBack: backFromCustomerBookings,
+    onBack: handleShowcaseBack,
 
     onRefresh: () => {
       void refreshCustomerAppointmentsFromCloud()
@@ -20758,7 +20890,7 @@ const editDishState: ShowcaseEditDishUiState = {
   const adminAppointmentsActions: ShowcaseAdminAppointmentsActions = {
     onBackToHome: closeToHome,
 
-    onBack: backFromAdminAppointmentManager,
+    onBack: handleShowcaseBack,
 
     onRefresh: () => {
       void refreshAdminAppointmentsFromCloud()
@@ -20826,7 +20958,7 @@ const editDishState: ShowcaseEditDishUiState = {
 
     onBackToHome: closeToHome,
 
-    onBack: backFromAnnouncements,
+    onBack: handleShowcaseBack,
 
     onRefresh: () => {
       void refreshAnnouncements()
@@ -20854,7 +20986,7 @@ const editDishState: ShowcaseEditDishUiState = {
   const announcementEditActions: ShowcaseAnnouncementEditActions = {
     onBackToHome: discardAdminAnnouncementDraftAndGoHome,
 
-    onBack: discardAdminAnnouncementDraftAndBack,
+    onBack: handleShowcaseBack,
 
     onStartNew: onAdminAnnouncementStartNew,
 
@@ -20901,7 +21033,7 @@ const editDishState: ShowcaseEditDishUiState = {
 
     onBackToHome: closeToHome,
 
-    onBack: backFromChat,
+    onBack: handleShowcaseBack,
 
     onDraftChange: onChatDraftChange,
 
@@ -21023,7 +21155,7 @@ const editDishState: ShowcaseEditDishUiState = {
       closeToHome()
     },
 
-    onBack: chatCloseMediaGallery,
+    onBack: handleShowcaseBack,
 
     onLoadMoreMediaItems: () => {
       void loadMoreChatMediaItems()
@@ -21035,7 +21167,7 @@ const editDishState: ShowcaseEditDishUiState = {
   const merchantChatListActions: ShowcaseMerchantChatListActions = {
     onBackToHome: closeMerchantChatListToHome,
 
-    onBack: backFromMerchantChatList,
+    onBack: handleShowcaseBack,
 
     onRefresh: () => {
       void refreshMerchantChatListByUser()
@@ -21069,7 +21201,7 @@ const editDishState: ShowcaseEditDishUiState = {
   const adminActions: ShowcaseAdminActions = {
     onBackToHome: closeToHome,
 
-    onBack: backFromAdmin,
+    onBack: handleShowcaseBack,
 
     onLogout: () => {
       void adminLogout()
@@ -21198,7 +21330,7 @@ const editDishState: ShowcaseEditDishUiState = {
   const editDishActions: ShowcaseEditDishActions = {
     onBackToHome: closeToHome,
 
-    onBack: backToAdminFromEdit,
+    onBack: handleShowcaseBack,
 
     onNameChange: onEditNameChange,
 
@@ -21245,7 +21377,7 @@ const editDishState: ShowcaseEditDishUiState = {
       closeToHome()
     },
 
-    onBack: backFromChangePassword,
+    onBack: handleShowcaseBack,
 
     onCurrentChange: onChangePasswordCurrentDraftChange,
 
@@ -21718,6 +21850,7 @@ const editDishState: ShowcaseEditDishUiState = {
     showcaseWiring,
     offlineStatus,
     storeUnavailableState,
+    handleShowcaseBack,
 
     homeState,
     homeActions,

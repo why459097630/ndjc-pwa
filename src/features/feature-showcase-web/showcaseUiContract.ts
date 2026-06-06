@@ -1250,6 +1250,7 @@ export type ShowcaseUiModel = {
   showcaseWiring: ShowcaseUiWiring
   offlineStatus: ShowcaseOfflineStatusUi
   storeUnavailableState: ShowcaseStoreUnavailableUiState
+  handleShowcaseBack: () => boolean
 
   homeState: ShowcaseHomeUiState
   homeActions: ShowcaseHomeActions

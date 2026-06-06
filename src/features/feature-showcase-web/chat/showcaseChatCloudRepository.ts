@@ -813,72 +813,29 @@ export class ShowcaseChatCloudRepository {
             if (!item || typeof item !== 'object' || Array.isArray(item)) return null
             return parseThreadSummaryRecord(item as Record<string, unknown>)
           })
-          .filter((item): item is CloudThreadSummaryRow => Boolean(item?.conversationId && item.storeId))
+          .filter((item): item is CloudThreadSummaryRow => Boolean(
+            item?.conversationId &&
+            item.storeId &&
+            item.lastMessageAtIso
+          ))
 
         if (rows.length) {
           console.error(`[${this.logTag}] [${tid}] fetchThreadSummaries VIEW OK rows=${rows.length}`)
           return rows
         }
 
-        console.error(`[${this.logTag}] [${tid}] fetchThreadSummaries VIEW EMPTY -> fallback conversations`)
+        console.error(`[${this.logTag}] [${tid}] fetchThreadSummaries VIEW EMPTY`)
+        return []
       } else {
-        console.error(`[${this.logTag}] [${tid}] fetchThreadSummaries VIEW FAILED code=${result.code} body=${result.body || ''} -> fallback conversations`)
-      }
-    } catch (error) {
-      console.error(`[${this.logTag}] [${tid}] fetchThreadSummaries VIEW ERROR ${error instanceof Error ? error.name : 'Error'}: ${error instanceof Error ? error.message : String(error || '')} -> fallback conversations`)
-    }
-
-    const convSelect = 'conversation_id,store_id,client_id,customer_seq,updated_at'
-    const convUrl = this.buildRestUrl(
-      `${SHOWCASE_TABLES.chatConversations}` +
-      `?select=${convSelect}` +
-      `&store_id=eq.${encodeFilterValue(storeId)}` +
-      '&order=updated_at.desc.nullslast' +
-      `&limit=${limit}` +
-      `&offset=${offset}`
-    )
-
-    console.error(`[${this.logTag}] [${tid}] fetchThreadSummaries FALLBACK REQ url=${convUrl}`)
-
-    try {
-      let result = await this.requestRaw({
-        url: convUrl,
-        method: 'GET',
-        actor: ShowcaseCloudAuthActor.MERCHANT,
-        scopeStoreId: storeId,
-        scopeClientId: null
-      })
-
-      if (!result.ok) {
-        console.error(`[${this.logTag}] [${tid}] fetchThreadSummaries FALLBACK FAILED code=${result.code} body=${result.body || ''} url=${convUrl}`)
+        console.error(`[${this.logTag}] [${tid}] fetchThreadSummaries VIEW FAILED code=${result.code} body=${result.body || ''}`)
         return []
       }
-
-      const rows = this.parseJsonArray(result.body)
-        .map((item): CloudThreadSummaryRow | null => {
-          if (!item || typeof item !== 'object' || Array.isArray(item)) return null
-
-          const record = item as Record<string, unknown>
-
-          return {
-            conversationId: String(record.conversation_id ?? '').trim(),
-            storeId: String(record.store_id ?? '').trim(),
-            clientId: String(record.client_id ?? '').trim(),
-            customerSeq: normalizePositiveInt(record.customer_seq),
-            merchantAlias: null,
-            lastMessageAtIso: null,
-            lastPreview: null,
-            updatedAtIso: normalizeIsoString(record.updated_at)
-          }
-        })
-        .filter((item): item is CloudThreadSummaryRow => Boolean(item?.conversationId && item.storeId))
-
-      console.error(`[${this.logTag}] [${tid}] fetchThreadSummaries FALLBACK OK rows=${rows.length}`)
-      return rows
     } catch (error) {
-      console.error(`[${this.logTag}] [${tid}] fetchThreadSummaries FALLBACK ERROR ${error instanceof Error ? error.name : 'Error'}: ${error instanceof Error ? error.message : String(error || '')}`)
+      console.error(`[${this.logTag}] [${tid}] fetchThreadSummaries VIEW ERROR ${error instanceof Error ? error.name : 'Error'}: ${error instanceof Error ? error.message : String(error || '')}`)
       return []
     }
+
+
   }
   async searchThreadSummariesByCustomerName(
     storeIdInput: string,

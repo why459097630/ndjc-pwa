@@ -17391,11 +17391,6 @@ export function ShowcaseStoreProfileView({
   } | null>(null)
   const [activeCoverIndex, setActiveCoverIndex] = React.useState(0)
   const coverHorizontalScroll = useNdjcHorizontalDragScroll()
-  const storeProfileBackRef = React.useRef(actions.onBack)
-
-  React.useEffect(() => {
-    storeProfileBackRef.current = actions.onBack
-  }, [actions.onBack])
 
   React.useEffect(() => {
     setActiveCoverIndex(0)
@@ -17403,20 +17398,6 @@ export function ShowcaseStoreProfileView({
       coverHorizontalScroll.scrollRef.current.scrollLeft = 0
     }
   }, [selectedStoreCoverUrl])
-
-  React.useEffect(() => {
-    if (typeof window === 'undefined') return
-
-    const handleStoreProfilePopState = () => {
-      storeProfileBackRef.current()
-    }
-
-    window.addEventListener('popstate', handleStoreProfilePopState)
-
-    return () => {
-      window.removeEventListener('popstate', handleStoreProfilePopState)
-    }
-  }, [])
 
   const handleCoverScroll = (event: React.UIEvent<HTMLDivElement>) => {
     const row = event.currentTarget
@@ -19757,13 +19738,17 @@ return (
                 style={{
                   width: '100%',
                   maxWidth: NDJC_GLOBAL_UI_TOKENS.layout.contentMaxWidth,
-                  margin: '0 auto'
+                  height: '100%',
+                  minHeight: 0,
+                  margin: '0 auto',
+                  display: 'grid',
+                  placeItems: 'center'
                 }}
               >
                 <NdjcInlineEmptyState
                   title="No bookings yet"
                   message="Your appointment requests will appear here after you submit a booking."
-                  verticalPadding={40}
+                  verticalPadding={0}
                 />
               </section>
             )}
@@ -23660,7 +23645,27 @@ export function ShowcaseChatSearchResults({
                 onLoadMore={actions.onLoadMoreSearchResults}
               />
             </section>
-          ) : null}
+          ) : (
+            <section
+              className="ndjc-chat-search-results-empty-wrap"
+              style={{
+                width: '100%',
+                height: '100%',
+                minHeight: 0,
+                maxWidth: NDJC_GLOBAL_UI_TOKENS.layout.contentMaxWidth,
+                margin: '0 auto',
+                display: 'grid',
+                placeItems: 'center',
+                boxSizing: 'border-box'
+              }}
+            >
+              <NdjcInlineEmptyState
+                title="Search your chat history"
+                message="Enter a keyword to find messages in this conversation."
+                verticalPadding={0}
+              />
+            </section>
+          )}
         </section>
 
         <section
@@ -29875,8 +29880,9 @@ export function ShowcaseAdminAnnouncementEdit({
             WebkitOverflowScrolling: 'touch',
             display: 'grid',
             gridTemplateColumns: 'minmax(0, 1fr)',
-            gridAutoRows: 'max-content',
-            alignContent: 'start',
+            gridTemplateRows: state.draftItems.length || state.isSubmitting ? undefined : 'minmax(0, 1fr)',
+            gridAutoRows: state.draftItems.length || state.isSubmitting ? 'max-content' : undefined,
+            alignContent: state.draftItems.length || state.isSubmitting ? 'start' : 'stretch',
             gap: APK_SHOWCASE_ITEM_UI.adminItemsListGap
           }}
           onScroll={event => ndjcHandleLoadMoreScroll(
@@ -29899,7 +29905,10 @@ export function ShowcaseAdminAnnouncementEdit({
                   <AnnouncementDraftCard
                     item={item}
                     selected={state.selectedIds.includes(item.id)}
-                    onOpen={actions.onOpenItem}
+                    onOpen={id => {
+                      setAnnouncementComposerCollapsedByUser(false)
+                      actions.onOpenItem(id)
+                    }}
                     onPreview={actions.onPreviewItem}
                     onToggleSelect={actions.onToggleSelect}
                   />
@@ -29925,7 +29934,8 @@ export function ShowcaseAdminAnnouncementEdit({
               style={{
                 gridColumn: '1 / -1',
                 width: '100%',
-                minHeight: 360,
+                height: '100%',
+                minHeight: 0,
                 display: 'grid',
                 placeItems: 'center'
               }}

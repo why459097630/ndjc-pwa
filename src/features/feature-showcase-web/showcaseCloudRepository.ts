@@ -3326,11 +3326,9 @@ const legacyQuery = [
     return code >= 200 && code <= 299
   }
 
-  async findOrCreateChatConversation(input: {
+  async findChatConversation(input: {
     storeId?: string | null
     clientId: string
-    customerName?: string | null
-    customerContact?: string | null
   }): Promise<ChatConversation | null> {
     const storeId = this.requireStoreId(input.storeId)
     const clientId = String(input.clientId || '').trim()
@@ -3349,10 +3347,32 @@ const legacyQuery = [
     const existingUrl = this.buildSelectUrl(this.chatConversationsTable(), query)
     const [existingCode, existingBody] = await this.httpGet(existingUrl, storeId, clientId)
 
-    if (existingCode >= 200 && existingCode <= 299) {
-      const row = this.parseFirstObject(existingBody)
-      if (row) return this.parseChatConversation(row, storeId)
-    }
+    if (existingCode < 200 || existingCode > 299) return null
+
+    const row = this.parseFirstObject(existingBody)
+    if (!row) return null
+
+    return this.parseChatConversation(row, storeId)
+  }
+
+  async findOrCreateChatConversation(input: {
+    storeId?: string | null
+    clientId: string
+    customerName?: string | null
+    customerContact?: string | null
+  }): Promise<ChatConversation | null> {
+    const storeId = this.requireStoreId(input.storeId)
+    const clientId = String(input.clientId || '').trim()
+    const conversationId = this.buildConversationId(storeId, clientId)
+
+    if (!clientId || !conversationId) return null
+
+    const existing = await this.findChatConversation({
+      storeId,
+      clientId
+    })
+
+    if (existing) return existing
 
     const rows = [
       {

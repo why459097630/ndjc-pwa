@@ -2,11 +2,14 @@
 
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
 
+export type SwipeBackHandler = () => boolean
+
 export type Navigator = {
   currentRouteId: string
   navigate: (routeId: string, params?: Record<string, unknown>) => void
   back: () => void
   replace: (routeId: string, params?: Record<string, unknown>) => void
+  registerSwipeBackHandler: (handler: SwipeBackHandler) => () => void
   params: Record<string, unknown>
 }
 
@@ -103,6 +106,7 @@ export function NavigatorProvider({ startRoute, children }: { startRoute: string
   ])
   const stackLengthRef = useRef(stack.length)
   const swipeBackTouchRef = useRef<SwipeBackTouchState | null>(null)
+  const swipeBackHandlerRef = useRef<SwipeBackHandler | null>(null)
 
   const current = stack[stack.length - 1] ?? { routeId: startRoute || 'home', params: {} }
 
@@ -122,6 +126,16 @@ export function NavigatorProvider({ startRoute, children }: { startRoute: string
     setStack(prev => (prev.length > 1 ? prev.slice(0, -1) : prev))
   }, [])
 
+  const registerSwipeBackHandler = useCallback((handler: SwipeBackHandler) => {
+    swipeBackHandlerRef.current = handler
+
+    return () => {
+      if (swipeBackHandlerRef.current === handler) {
+        swipeBackHandlerRef.current = null
+      }
+    }
+  }, [])
+
   useEffect(() => {
     stackLengthRef.current = stack.length
   }, [stack.length])
@@ -139,7 +153,7 @@ export function NavigatorProvider({ startRoute, children }: { startRoute: string
         return
       }
 
-      if (stackLengthRef.current <= 1) {
+      if (stackLengthRef.current <= 1 && !swipeBackHandlerRef.current) {
         resetSwipeBackTouch()
         return
       }
@@ -215,9 +229,13 @@ export function NavigatorProvider({ startRoute, children }: { startRoute: string
       if (
         deltaX >= SWIPE_BACK_MIN_DISTANCE_PX &&
         deltaX > absDeltaY * SWIPE_BACK_MIN_HORIZONTAL_RATIO &&
-        stackLengthRef.current > 1
+        (stackLengthRef.current > 1 || Boolean(swipeBackHandlerRef.current))
       ) {
-        back()
+        const handledByBusinessBack = swipeBackHandlerRef.current?.() === true
+
+        if (!handledByBusinessBack && stackLengthRef.current > 1) {
+          back()
+        }
       }
     }
 
@@ -239,8 +257,9 @@ export function NavigatorProvider({ startRoute, children }: { startRoute: string
     params: current.params,
     navigate,
     replace,
-    back
-  }), [back, current.params, current.routeId, navigate, replace])
+    back,
+    registerSwipeBackHandler
+  }), [back, current.params, current.routeId, navigate, registerSwipeBackHandler, replace])
 
   return <NavigatorContext.Provider value={value}>{children}</NavigatorContext.Provider>
 }
@@ -249,4 +268,14 @@ export function useNavigator(): Navigator {
   const value = useContext(NavigatorContext)
   if (!value) throw new Error('useNavigator must be used inside NavigatorProvider')
   return value
+}
+
+export function useNavigatorSwipeBackHandler(handler: SwipeBackHandler | null): void {
+  const navigator = useNavigator()
+
+  useEffect(() => {
+    if (!handler) return undefined
+
+    return navigator.registerSwipeBackHandler(handler)
+  }, [handler, navigator.registerSwipeBackHandler])
 }

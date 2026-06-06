@@ -2,7 +2,7 @@
 
 import React, { useEffect } from 'react'
 import { ActiveAssembly } from '@/core/assembly/types'
-import { Navigator } from '@/core/routing/navigator'
+import { type Navigator, useNavigatorSwipeBackHandler } from '@/core/routing/navigator'
 import { useShowcaseViewModel, type ShowcaseScreenName } from '@/features/feature-showcase-web/useShowcaseViewModel'
 import { GreenpinkShowcaseUiRenderer } from '@/ui-packs/ui-pack-showcase-greenpink-web'
 
@@ -84,6 +84,8 @@ function ShowcaseGreenpinkRuntime({ routeId, storeId }: { routeId: string; store
     storeId,
     initialScreen: routeToShowcaseScreen(debugScreen || routeId)
   })
+
+  useNavigatorSwipeBackHandler(viewModel.handleShowcaseBack)
 
   useEffect(() => {
     if (typeof window === 'undefined') return
