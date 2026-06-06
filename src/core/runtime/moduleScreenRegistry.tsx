@@ -194,7 +194,9 @@ function ShowcaseGreenpinkRuntime({ routeId, storeId }: { routeId: string; store
     initialScreen: routeToShowcaseScreen(debugScreen || routeId)
   })
 
-  useNavigatorSwipeBackHandler(viewModel.handleShowcaseBack)
+  useNavigatorSwipeBackHandler(
+    viewModel.screen === 'Home' ? null : viewModel.handleShowcaseBack
+  )
 
   useShowcaseSystemBackGuard({
     screen: viewModel.screen,
