@@ -150,6 +150,9 @@ export function ensureCoreRenderersRegistered() {
       <ShowcaseGreenpinkRuntime
         routeId={routeId}
         storeId={assembly.storeId}
+        appName={assembly.appName}
+        privacyUrl={assembly.privacyUrl}
+        merchantEmail={assembly.merchantEmail}
       />
     )
   })
@@ -184,13 +187,28 @@ export function ResolveCoreScreen({
   return <>{renderer.Render({ routeId, navigator, assembly })}</>
 }
 
-function ShowcaseGreenpinkRuntime({ routeId, storeId }: { routeId: string; storeId?: string | null }) {
+function ShowcaseGreenpinkRuntime({
+  routeId,
+  storeId,
+  appName,
+  privacyUrl,
+  merchantEmail
+}: {
+  routeId: string
+  storeId?: string | null
+  appName?: string | null
+  privacyUrl?: string | null
+  merchantEmail?: string | null
+}) {
   const debugScreen = typeof window !== 'undefined'
     ? window.location.search.match(/[?&]screen=([^&]+)/)?.[1]
     : null
 
   const viewModel = useShowcaseViewModel({
     storeId,
+    appName,
+    privacyUrl,
+    merchantEmail,
     initialScreen: routeToShowcaseScreen(debugScreen || routeId)
   })
 

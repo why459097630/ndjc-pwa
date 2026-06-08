@@ -1,6 +1,11 @@
-'use client'
+﻿'use client'
 
 import { getNdjcFirebaseMessagingToken } from '@/pwa/firebaseMessaging'
+import {
+  NDJC_SHOWCASE_APP_LIFECYCLE_EVENT,
+  readShowcaseAppLifecycleSnapshot,
+  type ShowcaseAppLifecycleDetail
+} from '@/pwa/showcaseAppLifecycle'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   clearAdminAnnouncementEditorDraftFromStorage,
@@ -38,6 +43,7 @@ import {
   type DemoDish,
   type ShowcaseFavoriteSnapshot,
   type ShowcaseImageVariants,
+  type StoreProfile,
   type SyncState
 } from './showcaseModels'
 import {
@@ -59,6 +65,7 @@ import {
   type CloudCategory,
   type CloudDishFilterRow,
   type CloudStoreProfile,
+  type CloudStorePwaProfile,
   type CloudStoreServiceStatus,
   type MerchantAuthSession,
   type MerchantStoreMembership,
@@ -66,6 +73,7 @@ import {
 } from './showcaseCloudRepository'
 import {
   SHOWCASE_APP_VERSION,
+  SHOWCASE_OFFICIAL_WEBSITE_URL,
   SHOWCASE_PAGE_SIZE
 } from './showcaseCloudConfig'
 import {
@@ -85,6 +93,15 @@ import {
   writeRememberMe as writeRememberMeToPreferences
 } from './showcaseMerchantAuthPreferences'
 import {
+  cleanupShowcaseBusinessCache,
+  loadShowcaseBusinessCache,
+  saveShowcaseBusinessCache
+} from './showcaseBusinessIndexedDb'
+import {
+  loadShowcasePendingSyncQueue,
+  saveShowcasePendingSyncQueue
+} from './showcasePendingSyncIndexedDb'
+import {
   bindMerchantSessionToRepository,
   clearMerchantSession as clearStoreMerchantSession,
   isMerchantLoggedIn as isMerchantLoggedInInStoreSession,
@@ -96,7 +113,8 @@ import { createShowcaseCloudRepositoryConfig } from './showcaseCloudConfig'
 import {
   getFreshShowcaseAuthSession,
   onShowcaseAuthStateChange,
-  refreshShowcaseAuthSession
+  restoreShowcaseAuthSession,
+  type ShowcaseAuthSessionSnapshot
 } from './showcaseAuthSessionManager'
 import {
   formatShowcaseDateAndTimeParts,
@@ -253,40 +271,53 @@ export type { ShowcaseScreenName } from './showcaseUiContract'
 
 export type UseShowcaseViewModelInput = {
   storeId?: string | null
+  appName?: string | null
+  privacyUrl?: string | null
+  merchantEmail?: string | null
   initialScreen?: ShowcaseScreenName
   previewMode?: boolean
   repository?: ShowcaseCloudRepository | null
 }
 
+type PendingSyncStatus = 'pending' | 'syncing' | 'failed'
+
+type PendingSyncMetadata = {
+  status?: PendingSyncStatus
+  retryCount?: number
+  lastError?: string | null
+  nextRetryAt?: number | null
+  updatedAt?: number
+}
+
 type PendingSyncOperation =
-  | {
+  | ({
       id: string
       type: 'dish-upsert'
       dishId: string
       createdAt: number
-    }
-  | {
+    } & PendingSyncMetadata)
+  | ({
       id: string
       type: 'dish-delete'
       dishId: string
       createdAt: number
-    }
-  | {
+    } & PendingSyncMetadata)
+  | ({
       id: string
       type: 'store-profile-upsert'
       createdAt: number
-    }
-  | {
+    } & PendingSyncMetadata)
+  | ({
       id: string
       type: 'announcement-upsert'
       announcementId: string
       createdAt: number
-    }
-  | {
+    } & PendingSyncMetadata)
+  | ({
       id: string
       type: 'appointment-settings-upsert'
       createdAt: number
-    }
+    } & PendingSyncMetadata)
 
 type PendingDeleteCategoryDialog = {
   name: string
@@ -758,8 +789,56 @@ function loadPublishedAnnouncementsLocally(storeId: string): CloudAnnouncement[]
     .map(item => fromCachedPublishedAnnouncement(storeId, item))
 }
 
+async function loadDishesFromIndexedDb(storeId: string): Promise<DemoDish[]> {
+  const items = await loadShowcaseBusinessCache<DemoDish[]>(storeId, 'dishes', [])
+
+  return Array.isArray(items)
+    ? items.filter(item => Boolean(item && typeof item === 'object' && String(item.id || '').trim()))
+    : []
+}
+
+async function loadStoreProfileFromIndexedDb(storeId: string): Promise<StoreProfile | null> {
+  const profile = await loadShowcaseBusinessCache<StoreProfile | null>(storeId, 'store-profile', null)
+
+  if (!profile || typeof profile !== 'object') return null
+
+  return profile
+}
+
+async function loadPublishedAnnouncementsFromIndexedDb(storeId: string): Promise<CloudAnnouncement[]> {
+  const items = await loadShowcaseBusinessCache<CloudAnnouncement[]>(storeId, 'announcements', [])
+
+  return Array.isArray(items)
+    ? items.filter(item => Boolean(item && typeof item === 'object' && String(item.id || '').trim()))
+    : []
+}
+
+async function loadAppointmentsFromIndexedDb(storeId: string): Promise<CloudAppointmentRequest[]> {
+  const items = await loadShowcaseBusinessCache<CloudAppointmentRequest[]>(storeId, 'appointments', [])
+
+  return Array.isArray(items)
+    ? items.filter(item => Boolean(item && typeof item === 'object' && String(item.id || '').trim()))
+    : []
+}
+
+function persistDishesLocally(storeId: string, items: DemoDish[]): void {
+  persistDishesLocally(storeId, items)
+  void saveShowcaseBusinessCache(storeId, 'dishes', items)
+}
+
+function persistStoreProfileLocally(storeId: string, profile: StoreProfile): void {
+  persistStoreProfileLocally(storeId, profile)
+  void saveShowcaseBusinessCache(storeId, 'store-profile', profile)
+}
+
+function persistAppointmentsLocally(storeId: string, items: CloudAppointmentRequest[]): void {
+  persistAppointmentsLocally(storeId, items)
+  void saveShowcaseBusinessCache(storeId, 'appointments', items)
+}
+
 function persistPublishedAnnouncementsLocally(storeId: string, items: CloudAnnouncement[]): void {
   savePublishedAnnouncementsToStorage(storeId, items.map(toCachedPublishedAnnouncement))
+  void saveShowcaseBusinessCache(storeId, 'announcements', items)
 }
 
 function pruneAnnouncementMarksWhenCompletePageLoaded(
@@ -1651,6 +1730,52 @@ function mergeCloudAndDishCategoryNames(categories: CloudCategory[], items: Demo
   return result
 }
 
+function normalizePendingSyncStatus(value: unknown): PendingSyncStatus {
+  const text = String(value || '').trim().toLowerCase()
+
+  if (text === 'syncing') return 'syncing'
+  if (text === 'failed') return 'failed'
+
+  return 'pending'
+}
+
+function normalizePendingSyncOperation<T extends PendingSyncOperation>(operation: T): T {
+  const now = nowMillis()
+
+  return {
+    ...operation,
+    status: normalizePendingSyncStatus(operation.status),
+    retryCount: Math.max(0, Number(operation.retryCount || 0)),
+    lastError: operation.lastError ? String(operation.lastError) : null,
+    nextRetryAt: operation.nextRetryAt && Number.isFinite(operation.nextRetryAt)
+      ? Number(operation.nextRetryAt)
+      : null,
+    updatedAt: operation.updatedAt && Number.isFinite(operation.updatedAt)
+      ? Number(operation.updatedAt)
+      : now
+  }
+}
+
+function nextPendingSyncRetryDelayMs(retryCountInput: number): number {
+  const retryCount = Math.max(0, retryCountInput)
+  const baseDelay = 1500
+  const maxDelay = 60 * 1000
+  const delay = baseDelay * Math.pow(2, Math.min(retryCount, 5))
+
+  return Math.min(maxDelay, delay)
+}
+
+function shouldAttemptPendingSyncOperation(operation: PendingSyncOperation, now: number): boolean {
+  const status = normalizePendingSyncStatus(operation.status)
+
+  if (status === 'syncing') return false
+  if (status === 'pending') return true
+
+  const nextRetryAt = Number(operation.nextRetryAt || 0)
+
+  return !nextRetryAt || nextRetryAt <= now
+}
+
 function buildPendingDishSyncOperations(items: DemoDish[]): PendingSyncOperation[] {
   const operations = new Map<string, PendingSyncOperation>()
 
@@ -1664,15 +1789,179 @@ function buildPendingDishSyncOperations(items: DemoDish[]): PendingSyncOperation
 
     if (!shouldSync) return
 
-    operations.set(`dish-upsert:${item.id}`, {
+    operations.set(`dish-upsert:${item.id}`, normalizePendingSyncOperation({
       id: `dish-upsert:${item.id}`,
       type: 'dish-upsert',
       dishId: item.id,
       createdAt: item.updatedAt || nowMillis()
-    })
+    }))
   })
 
   return Array.from(operations.values())
+}
+
+function legacyPendingSyncStorageKey(storeId: string): string {
+  return `ndjc:pending-sync:${storeId}`
+}
+
+function parsePendingSyncOperation(raw: unknown): PendingSyncOperation | null {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null
+
+  const record = raw as Record<string, unknown>
+  const id = String(record.id || '').trim()
+  const type = String(record.type || '').trim()
+  const createdAt = Number(record.createdAt || nowMillis())
+
+  if (!id || !type) return null
+
+  const metadata: PendingSyncMetadata = {
+    status: normalizePendingSyncStatus(record.status),
+    retryCount: Math.max(0, Number(record.retryCount || 0)),
+    lastError: record.lastError ? String(record.lastError) : null,
+    nextRetryAt: record.nextRetryAt && Number.isFinite(Number(record.nextRetryAt))
+      ? Number(record.nextRetryAt)
+      : null,
+    updatedAt: record.updatedAt && Number.isFinite(Number(record.updatedAt))
+      ? Number(record.updatedAt)
+      : nowMillis()
+  }
+
+  if (type === 'dish-upsert') {
+    const dishId = String(record.dishId || '').trim()
+    if (!dishId) return null
+
+    return normalizePendingSyncOperation({
+      id,
+      type,
+      dishId,
+      createdAt,
+      ...metadata
+    })
+  }
+
+  if (type === 'dish-delete') {
+    const dishId = String(record.dishId || '').trim()
+    if (!dishId) return null
+
+    return normalizePendingSyncOperation({
+      id,
+      type,
+      dishId,
+      createdAt,
+      ...metadata
+    })
+  }
+
+  if (type === 'store-profile-upsert') {
+    return normalizePendingSyncOperation({
+      id,
+      type,
+      createdAt,
+      ...metadata
+    })
+  }
+
+  if (type === 'announcement-upsert') {
+    const announcementId = String(record.announcementId || '').trim()
+    if (!announcementId) return null
+
+    return normalizePendingSyncOperation({
+      id,
+      type,
+      announcementId,
+      createdAt,
+      ...metadata
+    })
+  }
+
+  if (type === 'appointment-settings-upsert') {
+    return normalizePendingSyncOperation({
+      id,
+      type,
+      createdAt,
+      ...metadata
+    })
+  }
+
+  return null
+}
+
+function loadLegacyPendingSyncOperationsFromStorage(storeId: string): PendingSyncOperation[] {
+  if (!isBrowser()) return []
+
+  try {
+    const raw = window.localStorage.getItem(legacyPendingSyncStorageKey(storeId))
+    if (!raw) return []
+
+    const parsed = JSON.parse(raw)
+    if (!Array.isArray(parsed)) return []
+
+    return parsed
+      .map(parsePendingSyncOperation)
+      .filter((item): item is PendingSyncOperation => Boolean(item))
+  } catch {
+    return []
+  }
+}
+
+function clearLegacyPendingSyncOperationsFromStorage(storeId: string): void {
+  if (!isBrowser()) return
+
+  try {
+    window.localStorage.removeItem(legacyPendingSyncStorageKey(storeId))
+  } catch {
+  }
+}
+
+function parsePendingSyncOperationsFromUnknownList(items: unknown[]): PendingSyncOperation[] {
+  return items
+    .map(parsePendingSyncOperation)
+    .filter((item): item is PendingSyncOperation => Boolean(item))
+}
+
+function savePendingSyncOperationsToIndexedDb(storeId: string, operations: PendingSyncOperation[]): void {
+  const normalized = operations.map(normalizePendingSyncOperation)
+
+  void saveShowcasePendingSyncQueue(storeId, normalized)
+  clearLegacyPendingSyncOperationsFromStorage(storeId)
+}
+
+function mergePendingSyncOperations(
+  current: PendingSyncOperation[],
+  incoming: PendingSyncOperation[]
+): PendingSyncOperation[] {
+  const byId = new Map<string, PendingSyncOperation>()
+
+  current.forEach(operation => {
+    byId.set(operation.id, normalizePendingSyncOperation(operation))
+  })
+
+  incoming.forEach(operation => {
+    const existing = byId.get(operation.id)
+
+    byId.set(operation.id, normalizePendingSyncOperation({
+      ...operation,
+      status: existing?.status === 'syncing' ? 'pending' : existing?.status || operation.status || 'pending',
+      retryCount: existing?.retryCount || operation.retryCount || 0,
+      lastError: existing?.lastError || operation.lastError || null,
+      nextRetryAt: existing?.nextRetryAt || operation.nextRetryAt || null,
+      updatedAt: existing?.updatedAt || operation.updatedAt || nowMillis()
+    } as PendingSyncOperation))
+  })
+
+  return Array.from(byId.values())
+}
+
+function replaceDishPendingSyncOperationsInQueue(
+  current: PendingSyncOperation[],
+  dishesInput: DemoDish[]
+): PendingSyncOperation[] {
+  const nextDishOperations = buildPendingDishSyncOperations(dishesInput)
+  const nonDishOperations = current.filter(operation => {
+    return operation.type !== 'dish-upsert'
+  })
+
+  return mergePendingSyncOperations(nonDishOperations, nextDishOperations)
 }
 
 function cloudAnnouncementToCard(item: CloudAnnouncement): ShowcaseAnnouncementCard {
@@ -2323,6 +2612,9 @@ function ndjcTraceError(label: string, errorInput: unknown, payload?: Record<str
 
 export function useShowcaseViewModel(input: UseShowcaseViewModelInput = {}): ShowcaseUiModel {
   const storeId = normalizeStoreId(input.storeId)
+  const assemblyAppName = normalizeNullableText(input.appName)
+  const assemblyMerchantEmail = normalizeNullableText(input.merchantEmail)
+  const assemblyPrivacyUrl = normalizeNullableText(input.privacyUrl)
   setCurrentStoreId(storeId)
 
   const repositoryRef = useRef<ShowcaseCloudRepository | null>(null)
@@ -2471,12 +2763,21 @@ export function useShowcaseViewModel(input: UseShowcaseViewModelInput = {}): Sho
   }, [repository])
   useEffect(() => {
     if (!isBrowser()) return
-    if (!isAdminLoggedIn && !merchantSession?.accessToken) return
 
     let refreshInFlight = false
 
+    const canAttemptResumeRefresh = (): boolean => {
+      return Boolean(
+        isAdminLoggedIn ||
+        merchantSessionRef.current?.accessToken ||
+        readMerchantSession(storeId)?.accessToken ||
+        readRememberMe(storeId)
+      )
+    }
+
     const runResumeRefresh = (): void => {
       if (refreshInFlight) return
+      if (!canAttemptResumeRefresh()) return
 
       refreshInFlight = true
 
@@ -2485,35 +2786,33 @@ export function useShowcaseViewModel(input: UseShowcaseViewModelInput = {}): Sho
       })
     }
 
-    const handleFocus = (): void => {
-      runResumeRefresh()
-    }
-
     const handleOnline = (): void => {
       runResumeRefresh()
     }
 
-    const handleVisibilityChange = (): void => {
-      if (document.visibilityState === 'visible') {
-        runResumeRefresh()
-      }
+    const handleLifecycle = (event: Event): void => {
+      const detail = event instanceof CustomEvent
+        ? event.detail as ShowcaseAppLifecycleDetail | null
+        : null
+
+      if (!detail || detail.phase !== 'foreground') return
+
+      runResumeRefresh()
     }
 
-    window.addEventListener('focus', handleFocus)
     window.addEventListener('online', handleOnline)
-    document.addEventListener('visibilitychange', handleVisibilityChange)
+    window.addEventListener(NDJC_SHOWCASE_APP_LIFECYCLE_EVENT, handleLifecycle)
+
+    runResumeRefresh()
 
     return () => {
-      window.removeEventListener('focus', handleFocus)
       window.removeEventListener('online', handleOnline)
-      document.removeEventListener('visibilitychange', handleVisibilityChange)
+      window.removeEventListener(NDJC_SHOWCASE_APP_LIFECYCLE_EVENT, handleLifecycle)
     }
   }, [
     isAdminLoggedIn,
     merchantSession?.accessToken,
     merchantSession?.authUserId,
-    repository,
-    screen,
     storeId
   ])
 
@@ -2598,10 +2897,16 @@ export function useShowcaseViewModel(input: UseShowcaseViewModelInput = {}): Sho
   const [syncOverviewState, setSyncOverviewState] = useState<ShowcaseSyncOverviewState>(defaultUiState.syncOverviewState)
   const [lastSyncAt, setLastSyncAt] = useState<number | null>(defaultUiState.lastSyncAt)
   const [pendingSyncOperations, setPendingSyncOperations] = useState<PendingSyncOperation[]>(() => {
-    return buildPendingDishSyncOperations(loadDishesFromStorage(storeId))
+    const legacyOperations = loadLegacyPendingSyncOperationsFromStorage(storeId)
+    const dishOperations = buildPendingDishSyncOperations(loadDishesFromStorage(storeId))
+
+    return mergePendingSyncOperations(legacyOperations, dishOperations)
   })
+  const pendingSyncIndexedDbHydratedRef = useRef(false)
   const pendingSyncRetryInFlightRef = useRef(false)
   const pendingSyncOperationsRef = useRef<PendingSyncOperation[]>(pendingSyncOperations)
+  const lifecycleRecoveryInFlightRef = useRef(false)
+  const lastLifecycleRecoveryAtRef = useRef(0)
   const [syncErrorMessage, setSyncErrorMessage] = useState<string | null>(defaultUiState.syncErrorMessage)
   const [lastRetryOp, setLastRetryOp] = useState<ShowcaseRetryOp | null>(defaultUiState.lastRetryOp)
 
@@ -2654,6 +2959,7 @@ export function useShowcaseViewModel(input: UseShowcaseViewModelInput = {}): Sho
 
   const [storeUnavailable, setStoreUnavailable] = useState(false)
   const [storeProfileCloud, setStoreProfileCloud] = useState<CloudStoreProfile | null>(null)
+  const [storePwaProfileCloud, setStorePwaProfileCloud] = useState<CloudStorePwaProfile | null>(null)
   const [storeProfile, setStoreProfile] = useState<ShowcaseStoreProfile | null>(() => {
     const cachedProfile = loadStoreProfileFromStorage(storeId)
 
@@ -3816,6 +4122,100 @@ export function useShowcaseViewModel(input: UseShowcaseViewModelInput = {}): Sho
     })
   }
 
+  useEffect(() => {
+    if (input.previewMode === false) return
+
+    let cancelled = false
+
+    async function hydrateBusinessCacheFromIndexedDb(): Promise<void> {
+      await cleanupShowcaseBusinessCache(storeId)
+
+      const [
+        cachedDishes,
+        cachedProfile,
+        cachedAnnouncements,
+        cachedAppointments
+      ] = await Promise.all([
+        loadDishesFromIndexedDb(storeId),
+        loadStoreProfileFromIndexedDb(storeId),
+        loadPublishedAnnouncementsFromIndexedDb(storeId),
+        loadAppointmentsFromIndexedDb(storeId)
+      ])
+
+      if (cancelled) return
+
+      if (cachedDishes.length) {
+        const effectiveDishes = cachedDishes.filter(item => isAdminLoggedIn || !item.isHidden)
+        const manualCategories = loadManualCategoriesFromStorage(storeId)
+        const categoryNames = deriveCategoriesFromModels(effectiveDishes, manualCategories)
+
+        mergeDishEntities(effectiveDishes)
+        setDishes(effectiveDishes)
+        refreshFavoritesList(effectiveDishes)
+        setHomeDishIds(dishIdsFromItems(effectiveDishes.filter(item => !item.isHidden)))
+        setAdminItemIds(dishIdsFromItems(cachedDishes))
+        setCategories(manualCategoryNamesToCloudCategories(categoryNames))
+      }
+
+      if (cachedProfile) {
+        const profileForUi = storeProfileFromCachedProfile(cachedProfile)
+
+        setStoreProfile(profileForUi)
+        setStoreProfileServices(cachedProfile.services)
+        setStoreProfileExtraContacts(cachedProfile.extraContacts.map((item, index) => ({
+          id: `indexed_extra_contact_${index + 1}`,
+          name: item.name,
+          value: item.value
+        })))
+        setStoreProfileCoverUrl(cachedProfile.coverUrl || '')
+        setStoreProfileLogoUrl(cachedProfile.logoUrl || '')
+
+        if (!isEditingStoreProfile) {
+          setStoreProfileDraft(storeProfileDraftFromProfile(profileForUi))
+          setDraftStoreProfileServices(cachedProfile.services)
+          setDraftStoreProfileExtraContacts(cachedProfile.extraContacts.map((item, index) => ({
+            id: `indexed_draft_extra_contact_${index + 1}`,
+            name: item.name,
+            value: item.value
+          })))
+          setDraftStoreProfileCoverUrl(cachedProfile.coverUrl || '')
+          setDraftStoreProfileLogoUrl(cachedProfile.logoUrl || '')
+          setDraftStoreProfileDescription(cachedProfile.description || '')
+          setDraftBusinessStatus(cachedProfile.businessStatus || '')
+        }
+      }
+
+      if (cachedAnnouncements.length) {
+        const published = cachedAnnouncements
+          .filter(item => item.status === 'published')
+          .sort((left, right) => {
+            return (right.updatedAt || right.createdAt || 0) - (left.updatedAt || left.createdAt || 0)
+          })
+
+        setAnnouncements(published)
+        setAnnouncementsEntryDotVisible(computeAnnouncementsEntryDot(published))
+      }
+
+      if (cachedAppointments.length) {
+        const sortedAppointments = sortedAppointmentsForStorage(cachedAppointments)
+
+        setAppointmentRequests(sortedAppointments)
+        void hydrateAppointmentLinkedDishesFromRequests(sortedAppointments)
+      }
+    }
+
+    void hydrateBusinessCacheFromIndexedDb()
+
+    return () => {
+      cancelled = true
+    }
+  }, [
+    input.previewMode,
+    isAdminLoggedIn,
+    isEditingStoreProfile,
+    storeId
+  ])
+
   function isDishInAdminManagementContext(dishIdInput: string | null | undefined): boolean {
     const dishId = String(dishIdInput || '').trim()
 
@@ -4023,7 +4423,7 @@ export function useShowcaseViewModel(input: UseShowcaseViewModelInput = {}): Sho
       setHomeDishIds(dishIdsFromItems(merged))
       setDishes(merged)
       refreshFavoritesList(merged)
-      setPendingSyncOperations(buildPendingDishSyncOperations(merged))
+    replaceDishPendingSyncOperations(merged)
       resetHomePaginationForFirstPage(sourceItems.length)
       setStatusMessage(
         shouldUseLocalDishCache
@@ -4045,7 +4445,7 @@ export function useShowcaseViewModel(input: UseShowcaseViewModelInput = {}): Sho
         setHomeDishIds(dishIdsFromItems(merged))
         setDishes(merged)
         refreshFavoritesList(merged)
-        setPendingSyncOperations(buildPendingDishSyncOperations(merged))
+        replaceDishPendingSyncOperations(merged)
         resetHomePaginationForFirstPage(localVisibleDishes.length)
         setStatusMessage('Cloud unavailable, loaded from local cache.')
         return
@@ -4077,7 +4477,7 @@ export function useShowcaseViewModel(input: UseShowcaseViewModelInput = {}): Sho
           setAdminItemIds(dishIdsFromItems(merged))
           setDishes(merged)
           refreshFavoritesList(merged)
-          setPendingSyncOperations(buildPendingDishSyncOperations(merged))
+          replaceDishPendingSyncOperations(merged)
           resetAdminItemsPaginationForFirstPage(localDishes.length)
           setStatusMessage('Cloud unavailable, loaded from local cache.')
           return
@@ -4104,7 +4504,7 @@ export function useShowcaseViewModel(input: UseShowcaseViewModelInput = {}): Sho
       setAdminItemIds(dishIdsFromItems(merged))
       setDishes(merged)
       refreshFavoritesList(merged)
-      setPendingSyncOperations(buildPendingDishSyncOperations(merged))
+      replaceDishPendingSyncOperations(merged)
       resetAdminItemsPaginationForFirstPage(sourceItems.length)
       setStatusMessage(
         shouldUseLocalDishCache
@@ -4124,7 +4524,7 @@ export function useShowcaseViewModel(input: UseShowcaseViewModelInput = {}): Sho
         setAdminItemIds(dishIdsFromItems(merged))
         setDishes(merged)
         refreshFavoritesList(merged)
-        setPendingSyncOperations(buildPendingDishSyncOperations(merged))
+        replaceDishPendingSyncOperations(merged)
         resetAdminItemsPaginationForFirstPage(localDishes.length)
         setStatusMessage('Cloud unavailable, loaded from local cache.')
         return
@@ -4139,28 +4539,171 @@ export function useShowcaseViewModel(input: UseShowcaseViewModelInput = {}): Sho
     }
   }
 
+  function applySyncOverviewFromPendingOperations(operations: PendingSyncOperation[]): void {
+    if (!operations.length) {
+      setSyncOverviewState(SyncOverviewStates.Idle)
+      setSyncErrorMessage(null)
+      return
+    }
+
+    if (operations.some(operation => operation.status === 'syncing')) {
+      setSyncOverviewState(SyncOverviewStates.Syncing)
+      return
+    }
+
+    if (operations.some(operation => operation.status === 'failed')) {
+      setSyncOverviewState(SyncOverviewStates.Failed)
+      return
+    }
+
+    setSyncOverviewState(SyncOverviewStates.HasPending)
+  }
+
   function pushPendingSync(op: PendingSyncOperation): void {
     setPendingSyncOperations(current => {
-      if (current.some(item => item.id === op.id)) return current
-      return [...current, op]
+      const normalized = normalizePendingSyncOperation({
+        ...op,
+        status: 'pending',
+        retryCount: 0,
+        lastError: null,
+        nextRetryAt: null,
+        updatedAt: nowMillis()
+      } as PendingSyncOperation)
+
+      const next = current.some(item => item.id === normalized.id)
+        ? current.map(item => item.id === normalized.id ? normalized : item)
+        : [...current, normalized]
+
+      savePendingSyncOperationsToIndexedDb(storeId, next)
+      applySyncOverviewFromPendingOperations(next)
+
+      return next
     })
-    setSyncOverviewState(SyncOverviewStates.HasPending)
+
     setLastRetryOp(ShowcaseRetryOps.RetryPendingSync)
+  }
+
+  function markPendingSyncing(id: string): void {
+    setPendingSyncOperations(current => {
+      const next = current.map(item => {
+        if (item.id !== id) return item
+
+        return normalizePendingSyncOperation({
+          ...item,
+          status: 'syncing',
+          lastError: null,
+          updatedAt: nowMillis()
+        } as PendingSyncOperation)
+      })
+
+      savePendingSyncOperationsToIndexedDb(storeId, next)
+      applySyncOverviewFromPendingOperations(next)
+
+      return next
+    })
+  }
+
+  function markPendingSyncFailed(id: string, errorMessage: string): void {
+    setPendingSyncOperations(current => {
+      const now = nowMillis()
+      const next = current.map(item => {
+        if (item.id !== id) return item
+
+        const retryCount = Math.max(0, Number(item.retryCount || 0)) + 1
+
+        return normalizePendingSyncOperation({
+          ...item,
+          status: 'failed',
+          retryCount,
+          lastError: errorMessage,
+          nextRetryAt: now + nextPendingSyncRetryDelayMs(retryCount),
+          updatedAt: now
+        } as PendingSyncOperation)
+      })
+
+      savePendingSyncOperationsToIndexedDb(storeId, next)
+      applySyncOverviewFromPendingOperations(next)
+
+      return next
+    })
   }
 
   function removePendingSync(id: string): void {
     setPendingSyncOperations(current => {
       const next = current.filter(item => item.id !== id)
-      if (!next.length) {
-        setSyncOverviewState(SyncOverviewStates.Idle)
-      }
+
+      savePendingSyncOperationsToIndexedDb(storeId, next)
+      applySyncOverviewFromPendingOperations(next)
+
+      return next
+    })
+  }
+
+  function replaceDishPendingSyncOperations(dishesInput: DemoDish[]): void {
+    setPendingSyncOperations(current => {
+      const next = replaceDishPendingSyncOperationsInQueue(current, dishesInput)
+
+      savePendingSyncOperationsToIndexedDb(storeId, next)
+      applySyncOverviewFromPendingOperations(next)
+
       return next
     })
   }
 
   useEffect(() => {
-    pendingSyncOperationsRef.current = pendingSyncOperations
-  }, [pendingSyncOperations])
+    let cancelled = false
+
+    async function hydratePendingSyncQueueFromIndexedDb(): Promise<void> {
+      const [
+        indexedDbOperationsRaw,
+        legacyOperations
+      ] = await Promise.all([
+        loadShowcasePendingSyncQueue(storeId),
+        Promise.resolve(loadLegacyPendingSyncOperationsFromStorage(storeId))
+      ])
+
+      if (cancelled) return
+
+      const indexedDbOperations = parsePendingSyncOperationsFromUnknownList(indexedDbOperationsRaw)
+      const dishOperations = buildPendingDishSyncOperations(loadDishesFromStorage(storeId))
+      const mergedOperations = mergePendingSyncOperations(
+        mergePendingSyncOperations(indexedDbOperations, legacyOperations),
+        dishOperations
+      )
+
+      pendingSyncIndexedDbHydratedRef.current = true
+      pendingSyncOperationsRef.current = mergedOperations
+      savePendingSyncOperationsToIndexedDb(storeId, mergedOperations)
+      applySyncOverviewFromPendingOperations(mergedOperations)
+      setPendingSyncOperations(mergedOperations)
+    }
+
+    void hydratePendingSyncQueueFromIndexedDb()
+
+    return () => {
+      cancelled = true
+    }
+  }, [storeId])
+
+  useEffect(() => {
+    const normalized = pendingSyncOperations.map(operation => {
+      if (operation.status === 'syncing') {
+        return normalizePendingSyncOperation({
+          ...operation,
+          status: 'pending',
+          updatedAt: nowMillis()
+        } as PendingSyncOperation)
+      }
+
+      return normalizePendingSyncOperation(operation)
+    })
+
+    pendingSyncOperationsRef.current = normalized
+
+    if (pendingSyncIndexedDbHydratedRef.current) {
+      savePendingSyncOperationsToIndexedDb(storeId, normalized)
+    }
+  }, [pendingSyncOperations, storeId])
 
   function setMerchantSessionAndPersist(session: MerchantAuthSession | null, remember = loginRememberMeDraft): void {
     const scopedSession = session
@@ -4181,6 +4724,21 @@ export function useShowcaseViewModel(input: UseShowcaseViewModelInput = {}): Sho
     setMerchantSessionAndPersist(session, readRememberMe(storeId))
     setSyncErrorMessage(null)
     setLoginError(null)
+  }
+
+  function buildMerchantSessionFromAuthSession(
+    authSession: ShowcaseAuthSessionSnapshot,
+    fallbackLoginName: string,
+    fallbackExpiresAt = 0
+  ): MerchantAuthSession {
+    return {
+      accessToken: authSession.accessToken,
+      refreshToken: null,
+      authUserId: authSession.authUserId,
+      loginName: authSession.email || fallbackLoginName,
+      expiresAt: authSession.expiresAt || fallbackExpiresAt,
+      storeId
+    }
   }
 
   function getPreferredLoginNameForLoginScreen(): string {
@@ -5383,7 +5941,7 @@ function backFromAppointments(): void {
       setAdminItemIds(dishIdsFromItems(input.localDishes))
       setDishes(effectiveLocalDishes)
       refreshFavoritesList(effectiveLocalDishes)
-      setPendingSyncOperations(buildPendingDishSyncOperations(input.localDishes))
+      replaceDishPendingSyncOperations(input.localDishes)
     }
 
     if (effectiveCategoryNames.length) {
@@ -5507,6 +6065,7 @@ function backFromAppointments(): void {
         cloudCategories,
         cloudDishes,
         cloudStoreProfile,
+        cloudStorePwaProfile,
         cloudAppointmentSettings,
         appointmentRequests,
         publishedAnnouncements
@@ -5519,6 +6078,7 @@ function backFromAppointments(): void {
           offset: 0
         }),
         repository.fetchStoreProfile(storeId),
+        repository.fetchStorePwaProfile(storeId),
         repository.fetchAppointmentSettings(storeId),
         isAdminLoggedIn
           ? repository.fetchAppointmentRequestsForMerchant(storeId)
@@ -5581,6 +6141,7 @@ function backFromAppointments(): void {
         .map(toPublishedAnnouncementEntity)
 
       setCloudStatus(serviceStatus)
+      setStorePwaProfileCloud(cloudStorePwaProfile)
       setIsWriteAllowed(serviceStatus ? serviceStatus.isWriteAllowed : await repository.isStoreWriteAllowed(storeId))
       setCategories(cloudCategories.length ? cloudCategories : manualCategoryNamesToCloudCategories(effectiveManualCategories))
       mergeDishEntities(effectiveDishes)
@@ -5588,7 +6149,7 @@ function backFromAppointments(): void {
       setAdminItemIds(dishIdsFromItems(effectiveDishes))
       setDishes(effectiveDishes)
       refreshFavoritesList(effectiveDishes)
-      setPendingSyncOperations(buildPendingDishSyncOperations(effectiveDishes))
+      replaceDishPendingSyncOperations(effectiveDishes)
 
       if (selectedDishId && screen === 'Detail') {
         const reboundSelectedDish = getDishEntityById(selectedDishId)
@@ -5613,7 +6174,7 @@ function backFromAppointments(): void {
 
       if (cloudStoreProfile) {
         applyCloudStoreProfile(cloudStoreProfile)
-        saveStoreProfileToStorage(storeId, {
+        persistStoreProfileLocally(storeId, {
           title: cloudStoreProfile.title || 'Showcase Store',
           subtitle: cloudStoreProfile.subtitle || 'Browse items, book services, and contact the store.',
           description: cloudStoreProfile.description || '',
@@ -5642,7 +6203,7 @@ function backFromAppointments(): void {
       setAnnouncements(effectiveAnnouncements)
 
       if (!cloudUnavailable || effectiveDishes.length) {
-        saveDishesToStorage(storeId, effectiveDishes)
+        persistDishesLocally(storeId, effectiveDishes)
       }
 
       if (effectiveManualCategories.length) {
@@ -5767,7 +6328,7 @@ function backFromAppointments(): void {
       setDishes(effectiveLocalDishes)
       refreshFavoritesList(effectiveLocalDishes)
       setCategories(manualCategoryNamesToCloudCategories(localManualCategories))
-      setPendingSyncOperations(buildPendingDishSyncOperations(effectiveLocalDishes))
+      replaceDishPendingSyncOperations(effectiveLocalDishes)
 
       const effectiveLocalCategoryNames = Array.from(
         new Set([
@@ -5877,6 +6438,7 @@ function backFromAppointments(): void {
         cloudCategories,
         cloudDishes,
         cloudStoreProfile,
+        cloudStorePwaProfile,
         cloudAppointmentSettings,
         publishedAnnouncements
       ] = await Promise.all([
@@ -5888,6 +6450,7 @@ function backFromAppointments(): void {
           offset: 0
         }),
         repository.fetchStoreProfile(storeId),
+        repository.fetchStorePwaProfile(storeId),
         repository.fetchAppointmentSettings(storeId),
         repository.fetchAnnouncements({
           storeId,
@@ -5945,6 +6508,7 @@ function backFromAppointments(): void {
         .map(toPublishedAnnouncementEntity)
 
       setCloudStatus(serviceStatus)
+      setStorePwaProfileCloud(cloudStorePwaProfile)
       setIsWriteAllowed(serviceStatus ? serviceStatus.isWriteAllowed : await repository.isStoreWriteAllowed(storeId))
       setCategories(cloudCategories.length ? cloudCategories : manualCategoryNamesToCloudCategories(effectiveManualCategories))
       mergeDishEntities(effectiveDishes)
@@ -5954,7 +6518,7 @@ function backFromAppointments(): void {
       }
       setDishes(effectiveDishes)
       refreshFavoritesList(effectiveDishes)
-      setPendingSyncOperations(buildPendingDishSyncOperations(effectiveDishes))
+      replaceDishPendingSyncOperations(effectiveDishes)
 
       if (selectedDishId && screen === 'Detail') {
         const reboundSelectedDish = getDishEntityById(selectedDishId)
@@ -5979,7 +6543,7 @@ function backFromAppointments(): void {
 
       if (cloudStoreProfile) {
         applyCloudStoreProfile(cloudStoreProfile)
-        saveStoreProfileToStorage(storeId, {
+        persistStoreProfileLocally(storeId, {
           title: cloudStoreProfile.title || 'Showcase Store',
           subtitle: cloudStoreProfile.subtitle || 'Browse items, book services, and contact the store.',
           description: cloudStoreProfile.description || '',
@@ -6007,7 +6571,7 @@ function backFromAppointments(): void {
       setAnnouncements(effectiveAnnouncements)
 
       if (!cloudUnavailable || effectiveDishes.length) {
-        saveDishesToStorage(storeId, effectiveDishes)
+        persistDishesLocally(storeId, effectiveDishes)
       }
 
       if (effectiveManualCategories.length) {
@@ -6064,7 +6628,7 @@ function backFromAppointments(): void {
       setDishes(effectiveLocalDishes)
       refreshFavoritesList(effectiveLocalDishes)
       setCategories(manualCategoryNamesToCloudCategories(localManualCategories))
-      setPendingSyncOperations(buildPendingDishSyncOperations(effectiveLocalDishes))
+      replaceDishPendingSyncOperations(effectiveLocalDishes)
 
       const effectiveLocalCategoryNames = Array.from(
         new Set([
@@ -6202,7 +6766,7 @@ function backFromAppointments(): void {
       setAdminItemIds(dishIdsFromItems(filteredItems))
       setDishes(effectiveDishes)
       refreshFavoritesList(effectiveDishes)
-      setPendingSyncOperations(buildPendingDishSyncOperations(effectiveDishes))
+      replaceDishPendingSyncOperations(effectiveDishes)
       resetAdminItemsPaginationForFirstPage(filteredItems.length)
 
       const effectiveCategoryNames = cloudCategories.length
@@ -6213,7 +6777,7 @@ function backFromAppointments(): void {
         setAdminItemsSelectedCategory(null)
       }
 
-      saveDishesToStorage(storeId, effectiveDishes)
+      persistDishesLocally(storeId, effectiveDishes)
 
       if (effectiveManualCategories.length) {
         saveManualCategoriesToStorage(storeId, effectiveManualCategories)
@@ -6246,7 +6810,7 @@ function backFromAppointments(): void {
         mergeDishEntities(localDishes)
         setDishes(localDishes)
         refreshFavoritesList(localDishes)
-        setPendingSyncOperations(buildPendingDishSyncOperations(localDishes))
+        replaceDishPendingSyncOperations(localDishes)
       }
 
       if (localManualCategories.length) {
@@ -6377,9 +6941,78 @@ function backFromAppointments(): void {
     await tryLoadFromCloud(ShowcaseRetryOps.LoadFromCloud)
   }, [tryLoadFromCloud])
 
+  const recoverShowcaseAfterLifecycleResume = useCallback(async (
+    source: 'app-start' | 'foreground' | 'online' | 'manual'
+  ): Promise<void> => {
+    if (!isBrowser()) return
+    if (lifecycleRecoveryInFlightRef.current) return
+
+    const now = nowMillis()
+    const minIntervalMs = source === 'manual' ? 0 : 5000
+
+    if (minIntervalMs > 0 && now - lastLifecycleRecoveryAtRef.current < minIntervalMs) {
+      return
+    }
+
+    lifecycleRecoveryInFlightRef.current = true
+    lastLifecycleRecoveryAtRef.current = now
+
+    try {
+      await cleanupShowcaseBusinessCache(storeId)
+
+      if (window.navigator.onLine === false) {
+        if (pendingSyncOperationsRef.current.length) {
+          setSyncOverviewState(SyncOverviewStates.HasPending)
+          setSyncErrorMessage('You are offline. Pending changes will sync when the network is available.')
+        }
+
+        return
+      }
+
+      if (pendingSyncOperationsRef.current.length) {
+        setLastRetryOp(ShowcaseRetryOps.RetryPendingSync)
+      }
+
+      await tryLoadFromCloud(ShowcaseRetryOps.LoadFromCloud)
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error || 'Recovery failed.')
+
+      if (window.navigator.onLine === false) {
+        setSyncOverviewState(SyncOverviewStates.HasPending)
+        setSyncErrorMessage('You are offline. Cached data is available and changes will sync later.')
+        return
+      }
+
+      setSyncOverviewState(SyncOverviewStates.Failed)
+      setSyncErrorMessage(message)
+      setLastRetryOp(ShowcaseRetryOps.LoadFromCloud)
+    } finally {
+      lifecycleRecoveryInFlightRef.current = false
+    }
+  }, [
+    storeId,
+    tryLoadFromCloud
+  ])
+
   const retryPendingSync = useCallback(async (): Promise<void> => {
+    const now = nowMillis()
+    const retryableOperations = pendingSyncOperations
+      .map(normalizePendingSyncOperation)
+      .filter(operation => shouldAttemptPendingSyncOperation(operation, now))
+
     if (!pendingSyncOperations.length) {
       await loadFromCloud(ShowcaseRetryOps.RetryPendingSync)
+      return
+    }
+
+    if (!retryableOperations.length) {
+      applySyncOverviewFromPendingOperations(pendingSyncOperations)
+      return
+    }
+
+    if (isBrowser() && window.navigator.onLine === false) {
+      setSyncOverviewState(SyncOverviewStates.HasPending)
+      setSyncErrorMessage('You are offline. Pending changes will sync when the network is available.')
       return
     }
 
@@ -6398,7 +7031,9 @@ function backFromAppointments(): void {
     setSyncErrorMessage(null)
     setLastRetryOp(ShowcaseRetryOps.RetryPendingSync)
 
-    for (const op of pendingSyncOperations) {
+    for (const op of retryableOperations) {
+      markPendingSyncing(op.id)
+
       try {
         if (op.type === 'dish-upsert') {
           const dish = getDishEntityById(op.dishId)
@@ -6471,7 +7106,7 @@ function backFromAppointments(): void {
               ...loadDishesFromStorage(storeId).filter(item => item.id !== syncedDish.id)
             ])
 
-            saveDishesToStorage(storeId, nextDishes)
+            persistDishesLocally(storeId, nextDishes)
             mergeDishEntities(nextDishes)
             setDishes(nextDishes)
             refreshFavoritesList(nextDishes)
@@ -6534,7 +7169,7 @@ function backFromAppointments(): void {
             setAdminItemIds(current => removeDishIdFromList(current, dishId))
             setHomeDishIds(current => removeDishIdFromList(current, dishId))
             setDishes(nextDishes)
-            saveDishesToStorage(storeId, nextDishes)
+            persistDishesLocally(storeId, nextDishes)
             refreshFavoritesList(nextDishes)
 
             setAdminSelectedDishIds(current => current.filter(id => id !== dishId))
@@ -6648,6 +7283,7 @@ function backFromAppointments(): void {
             })
 
             if (retry.status === 'handled_without_retry') {
+              markPendingSyncFailed(op.id, merchantSessionEnsureFailureMessage())
               setSyncOverviewState(SyncOverviewStates.Failed)
               setSyncErrorMessage(merchantSessionEnsureFailureMessage())
               return
@@ -6662,8 +7298,16 @@ function backFromAppointments(): void {
             removePendingSync(op.id)
           }
         }
+
+        const stillPending = pendingSyncOperationsRef.current.some(item => item.id === op.id)
+
+        if (stillPending) {
+          throw new Error('Pending sync operation did not complete.')
+        }
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error || 'Retry sync failed.')
+
+        markPendingSyncFailed(op.id, message)
         setSyncErrorMessage(message)
         setSyncOverviewState(SyncOverviewStates.Failed)
         return
@@ -6671,6 +7315,14 @@ function backFromAppointments(): void {
     }
 
     setLastSyncAt(nowMillis())
+
+    const remainingOperations = pendingSyncOperationsRef.current
+
+    if (remainingOperations.length) {
+      applySyncOverviewFromPendingOperations(remainingOperations)
+      return
+    }
+
     setSyncOverviewState(SyncOverviewStates.Idle)
     await loadFromCloud(ShowcaseRetryOps.RetryPendingSync)
   }, [
@@ -6690,18 +7342,8 @@ function backFromAppointments(): void {
   ])
 
   useEffect(() => {
-    if (!pendingSyncOperations.length) {
-      return
-    }
-
-    setSyncOverviewState(current => {
-      if (current === SyncOverviewStates.Syncing) {
-        return current
-      }
-
-      return SyncOverviewStates.HasPending
-    })
-  }, [pendingSyncOperations.length])
+    applySyncOverviewFromPendingOperations(pendingSyncOperations)
+  }, [pendingSyncOperations])
 
   useEffect(() => {
     if (!isBrowser()) return
@@ -6711,12 +7353,23 @@ function backFromAppointments(): void {
       if (!pendingSyncOperationsRef.current.length) return
       if (window.navigator.onLine === false) return
 
+      const now = nowMillis()
+      const hasRetryableOperation = pendingSyncOperationsRef.current.some(operation => {
+        return shouldAttemptPendingSyncOperation(operation, now)
+      })
+
+      if (!hasRetryableOperation) {
+        applySyncOverviewFromPendingOperations(pendingSyncOperationsRef.current)
+        return
+      }
+
       pendingSyncRetryInFlightRef.current = true
 
       window.setTimeout(() => {
         void retryPendingSync()
           .catch(error => {
             const message = error instanceof Error ? error.message : String(error || 'Auto sync failed.')
+
             setSyncErrorMessage(message)
             setSyncOverviewState(SyncOverviewStates.Failed)
           })
@@ -6727,6 +7380,7 @@ function backFromAppointments(): void {
     }
 
     const handleOnline = (): void => {
+      void recoverShowcaseAfterLifecycleResume('online')
       runPendingSyncIfPossible()
     }
 
@@ -6740,18 +7394,42 @@ function backFromAppointments(): void {
       }
     }
 
+    const handleLifecycle = (event: Event): void => {
+      const detail = event instanceof CustomEvent
+        ? event.detail as ShowcaseAppLifecycleDetail | null
+        : null
+
+      if (!detail || detail.phase !== 'foreground') return
+
+      void cleanupShowcaseBusinessCache(storeId)
+      void recoverShowcaseAfterLifecycleResume('foreground')
+      runPendingSyncIfPossible()
+    }
+
     window.addEventListener('online', handleOnline)
     window.addEventListener('focus', handleFocus)
+    window.addEventListener(NDJC_SHOWCASE_APP_LIFECYCLE_EVENT, handleLifecycle)
     document.addEventListener('visibilitychange', handleVisibilityChange)
+
+    const snapshot = readShowcaseAppLifecycleSnapshot()
+
+    if (snapshot.lastPhase === 'app-start' || snapshot.lastPhase === 'background') {
+      void recoverShowcaseAfterLifecycleResume('app-start')
+    }
 
     runPendingSyncIfPossible()
 
     return () => {
       window.removeEventListener('online', handleOnline)
       window.removeEventListener('focus', handleFocus)
+      window.removeEventListener(NDJC_SHOWCASE_APP_LIFECYCLE_EVENT, handleLifecycle)
       document.removeEventListener('visibilitychange', handleVisibilityChange)
     }
-  }, [retryPendingSync])
+  }, [
+    recoverShowcaseAfterLifecycleResume,
+    retryPendingSync,
+    storeId
+  ])
 
   async function signInMerchant(loginNameInput?: string, passwordInput?: string): Promise<void> {
     const loginName = (typeof loginNameInput === 'string' ? loginNameInput : loginUsernameDraft).trim()
@@ -7014,8 +7692,7 @@ function backFromAppointments(): void {
   async function loadAdminCredentials(): Promise<void> {
     const cachedLoginName = readLastMerchantLoginName(storeId)
     const shouldRestoreMerchantForStore = readRememberMe(storeId)
-
-    restoreMerchantSessionFromStorage(storeId)
+    const storedSession = restoreMerchantSessionFromStorage(storeId)
 
     if (cachedLoginName) {
       setAdminUsernameDraft(cachedLoginName)
@@ -7032,11 +7709,25 @@ function backFromAppointments(): void {
       return
     }
 
-    let authSession: Awaited<ReturnType<typeof getFreshShowcaseAuthSession>> | null = null
+    let authSession: Awaited<ReturnType<typeof restoreShowcaseAuthSession>> | null = null
 
     try {
-      authSession = await getFreshShowcaseAuthSession()
-    } catch {
+      authSession = await restoreShowcaseAuthSession()
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error || '')
+      const status = typeof error === 'object' && error && 'status' in error
+        ? Number((error as { status?: number | null }).status || 0)
+        : 0
+
+      if (
+        storedSession?.accessToken &&
+        storedSession.authUserId &&
+        isTemporaryMerchantRefreshFailure(status, message)
+      ) {
+        handleTemporaryMerchantRefreshFailure(storedSession)
+        return
+      }
+
       setStoreMerchantSessionFromAuthSession(null)
       bindMerchantSessionToRepository(repository)
       setMerchantSession(null)
@@ -7054,14 +7745,24 @@ function backFromAppointments(): void {
       return
     }
 
-    const sourceSession: MerchantAuthSession = {
-      accessToken: authSession.accessToken,
-      refreshToken: null,
-      authUserId: authSession.authUserId,
-      loginName: authSession.email || cachedLoginName,
-      expiresAt: authSession.expiresAt || 0,
-      storeId
+    if (
+      storedSession?.authUserId &&
+      storedSession.authUserId.toLowerCase() !== authSession.authUserId.toLowerCase()
+    ) {
+      setStoreMerchantSessionFromAuthSession(null)
+      bindMerchantSessionToRepository(repository)
+      setMerchantSession(null)
+      setMerchantBindings([])
+      setIsAdminLoggedIn(false)
+      clearPersistedMerchantSession(storeId, false)
+      return
     }
+
+    const sourceSession = buildMerchantSessionFromAuthSession(
+      authSession,
+      storedSession?.loginName || cachedLoginName,
+      storedSession?.expiresAt || 0
+    )
 
     setStoreMerchantSessionFromAuthSession(sourceSession)
     bindMerchantSessionToRepository(repository)
@@ -7186,7 +7887,7 @@ function backFromAppointments(): void {
     let authSession: Awaited<ReturnType<typeof getFreshShowcaseAuthSession>> | null = null
 
     try {
-      authSession = await getFreshShowcaseAuthSession()
+      authSession = await restoreShowcaseAuthSession()
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error || '')
       const status = typeof error === 'object' && error && 'status' in error
@@ -7534,7 +8235,7 @@ function backFromAppointments(): void {
       : readMerchantSession(storeId)
 
     try {
-      const authSession = await refreshShowcaseAuthSession()
+      const authSession = await restoreShowcaseAuthSession()
 
       if (!authSession?.accessToken || !authSession.authUserId) {
         return 'expired'
@@ -7575,13 +8276,17 @@ function backFromAppointments(): void {
     if (!isBrowser()) return
 
     const currentSession = merchantSessionRef.current
+    const storedSession = readMerchantSession(storeId)
+    const sourceSession = currentSession?.accessToken
+      ? currentSession
+      : storedSession
 
-    if (!currentSession?.accessToken && !isMerchantLoggedInInStoreSession()) {
+    if (!sourceSession?.accessToken && !readRememberMe(storeId) && !isMerchantLoggedInInStoreSession()) {
       return
     }
 
     try {
-      const authSession = await getFreshShowcaseAuthSession()
+      const authSession = await restoreShowcaseAuthSession()
 
       if (!authSession?.accessToken || !authSession.authUserId) {
         await handleMerchantSessionExpired()
@@ -7589,20 +8294,18 @@ function backFromAppointments(): void {
       }
 
       if (
-        currentSession?.authUserId &&
-        currentSession.authUserId.toLowerCase() !== authSession.authUserId.toLowerCase()
+        sourceSession?.authUserId &&
+        sourceSession.authUserId.toLowerCase() !== authSession.authUserId.toLowerCase()
       ) {
         await handleMerchantSessionExpired()
         return
       }
 
-      const nextSession: MerchantAuthSession = {
-        accessToken: authSession.accessToken,
-        refreshToken: null,
-        authUserId: authSession.authUserId,
-        loginName: authSession.email || currentSession?.loginName || loginUsernameDraft || adminUsernameDraft || '',
-        expiresAt: authSession.expiresAt || currentSession?.expiresAt || 0
-      }
+      const nextSession = buildMerchantSessionFromAuthSession(
+        authSession,
+        sourceSession?.loginName || loginUsernameDraft || adminUsernameDraft || '',
+        sourceSession?.expiresAt || 0
+      )
 
       applyRefreshedMerchantSession(nextSession)
     } catch (error) {
@@ -7616,13 +8319,16 @@ function backFromAppointments(): void {
         return
       }
 
-      if (isTemporaryMerchantRefreshFailure(status, message)) {
+      if (sourceSession?.accessToken && isTemporaryMerchantRefreshFailure(status, message)) {
+        handleTemporaryMerchantRefreshFailure(sourceSession)
+
         ndjcTrace('refreshMerchantSessionForPwaResume temporary failure', {
           screen,
           isAdminLoggedIn,
           status,
           message
         })
+
         return
       }
 
@@ -7975,7 +8681,7 @@ function backFromAppointments(): void {
 
       setDishes(effectiveLocalDishes)
       refreshFavoritesList(effectiveLocalDishes)
-      setPendingSyncOperations(buildPendingDishSyncOperations(effectiveLocalDishes))
+      replaceDishPendingSyncOperations(effectiveLocalDishes)
     }
 
     if (localManualCategories.length) {
@@ -9007,13 +9713,13 @@ function backFromAppointments(): void {
       setHomeDishIds(dishIdsFromItems(finalDishes.filter(item => !item.isHidden)))
       setDishes(finalDishes)
       setCategories(cloudCategories)
-      setPendingSyncOperations(buildPendingDishSyncOperations(finalDishes))
+      replaceDishPendingSyncOperations(finalDishes)
       setSelectedCategory(current => String(current || '').trim() === name ? null : current)
       setEditDishCategory(current => String(current || '').trim() === name ? null : current)
       setAdminPendingDeleteCategory(null)
       setStatusMessage(null)
 
-      saveDishesToStorage(storeId, finalDishes)
+      persistDishesLocally(storeId, finalDishes)
       saveManualCategoriesToStorage(storeId, allCategoryNames)
       setLastSyncAt(nowMillis())
     } catch {
@@ -9302,7 +10008,7 @@ function backFromAppointments(): void {
 
       applyCloudStoreProfile(mergedProfile)
 
-      saveStoreProfileToStorage(storeId, {
+      persistStoreProfileLocally(storeId, {
         title: mergedProfile.title || 'Showcase Store',
         subtitle: mergedProfile.subtitle || 'Browse items, book services, and contact the store.',
         description: mergedProfile.description || '',
@@ -9549,7 +10255,7 @@ function backFromAppointments(): void {
       setStoreProfileSaveSuccess(true)
       setStatusMessage('Store profile saved.')
       writePersistedStoreProfileDraft(storeId, null)
-      saveStoreProfileToStorage(storeId, {
+      persistStoreProfileLocally(storeId, {
         title,
         subtitle: normalizedSubtitle,
         description: normalizedDescription,
@@ -9655,10 +10361,10 @@ function backFromAppointments(): void {
       setHomeDishIds(dishIdsFromItems(finalDishes.filter(item => !item.isHidden)))
       setDishes(finalDishes)
       setCategories(cloudCategories)
-      setPendingSyncOperations(buildPendingDishSyncOperations(finalDishes))
+      replaceDishPendingSyncOperations(finalDishes)
       setStatusMessage(null)
 
-      saveDishesToStorage(storeId, finalDishes)
+      persistDishesLocally(storeId, finalDishes)
       saveManualCategoriesToStorage(storeId, allCategoryNames)
       setLastSyncAt(nowMillis())
     } catch (error) {
@@ -9786,12 +10492,12 @@ function backFromAppointments(): void {
       setHomeDishIds(dishIdsFromItems(finalDishes.filter(item => !item.isHidden)))
       setDishes(finalDishes)
       setCategories(cloudCategories)
-      setPendingSyncOperations(buildPendingDishSyncOperations(finalDishes))
+      replaceDishPendingSyncOperations(finalDishes)
       setSelectedCategory(current => String(current || '').trim() === from ? to : current)
       setEditDishCategory(current => String(current || '').trim() === from ? to : current)
       setStatusMessage(null)
 
-      saveDishesToStorage(storeId, finalDishes)
+      persistDishesLocally(storeId, finalDishes)
       saveManualCategoriesToStorage(storeId, allCategoryNames)
       setLastSyncAt(nowMillis())
     } catch {
@@ -9958,7 +10664,7 @@ function backFromAppointments(): void {
         ...dishes.filter(item => item.id !== selected.id)
       ])
 
-      saveDishesToStorage(storeId, finalDishes)
+      persistDishesLocally(storeId, finalDishes)
       mergeDishEntities(finalDishes)
       setDishes(finalDishes)
 
@@ -10040,7 +10746,7 @@ function backFromAppointments(): void {
         ...loadDishesFromStorage(storeId).filter(item => item.id !== queuedDish.id)
       ])
 
-      saveDishesToStorage(storeId, finalDishes)
+      persistDishesLocally(storeId, finalDishes)
       mergeDishEntities(finalDishes)
       setDishes(finalDishes)
       refreshFavoritesList(finalDishes)
@@ -10182,7 +10888,7 @@ function backFromAppointments(): void {
       setAdminItemIds(current => removeDishIdFromList(current, dish.id))
       setHomeDishIds(current => removeDishIdFromList(current, dish.id))
       setDishes(finalDishes)
-      saveDishesToStorage(storeId, finalDishes)
+      persistDishesLocally(storeId, finalDishes)
       refreshFavoritesList(finalDishes)
       removePendingSync(`dish-delete:${dish.id}`)
       removePendingSync(`dish-upsert:${dish.id}`)
@@ -10354,7 +11060,7 @@ function backFromAppointments(): void {
       setAdminItemIds(current => current.filter(id => !deletingIds.has(id)))
       setHomeDishIds(current => current.filter(id => !deletingIds.has(id)))
       setDishes(finalDishes)
-      saveDishesToStorage(storeId, finalDishes)
+      persistDishesLocally(storeId, finalDishes)
       refreshFavoritesList(finalDishes)
 
       toDelete.forEach(dish => {
@@ -12048,7 +12754,7 @@ async function uploadChatDraftImageForSend(input: {
       const next = [created, ...appointmentRequests.filter(item => item.id !== created.id)]
 
       setAppointmentRequests(next)
-      saveAppointmentsToStorage(storeId, next)
+      persistAppointmentsLocally(storeId, next)
       setScreen(ShowcaseScreens.CustomerBookings)
       setAppointmentNameDraft('')
       setAppointmentContactDraft('')
@@ -12149,7 +12855,7 @@ async function updateAppointmentStatus(appointmentIdInput: string, statusInput: 
   const nextTarget = next.find(item => item.id === appointmentId) || null
 
   setAppointmentRequests(next)
-  saveAppointmentsToStorage(storeId, next)
+  persistAppointmentsLocally(storeId, next)
   setStatusMessage(null)
 
   try {
@@ -12157,7 +12863,7 @@ async function updateAppointmentStatus(appointmentIdInput: string, statusInput: 
 
     if (!validSession) {
       setAppointmentRequests(previous)
-      saveAppointmentsToStorage(storeId, previous)
+      persistAppointmentsLocally(storeId, previous)
       setStatusMessage(merchantSessionEnsureFailureMessage())
       showSnackbar(merchantSessionEnsureSnackbarMessage())
       return
@@ -12204,7 +12910,7 @@ async function updateAppointmentStatus(appointmentIdInput: string, statusInput: 
     await refreshAdminAppointmentsFromCloud('Appointment status updated.')
   } catch {
     setAppointmentRequests(previous)
-    saveAppointmentsToStorage(storeId, previous)
+    persistAppointmentsLocally(storeId, previous)
     setStatusMessage('Appointment status update failed.')
     showSnackbar('Booking status update failed.')
   } finally {
@@ -12252,7 +12958,7 @@ async function cancelCustomerBooking(appointmentIdInput: string): Promise<void> 
   })
 
   setAppointmentRequests(next)
-  saveAppointmentsToStorage(storeId, next)
+  persistAppointmentsLocally(storeId, next)
   setStatusMessage(null)
 
   try {
@@ -12315,7 +13021,7 @@ async function cancelCustomerBooking(appointmentIdInput: string): Promise<void> 
     })
 
     setAppointmentRequests(previous)
-    saveAppointmentsToStorage(storeId, previous)
+    persistAppointmentsLocally(storeId, previous)
     setStatusMessage('Booking cancellation failed.')
     showSnackbar('Booking cancellation failed.')
   } finally {
@@ -13058,7 +13764,7 @@ async function loadMoreHomeDishes(): Promise<void> {
     setHomeDishIds(mergeDishIds(homeDishIds, nextItems))
     setDishes(merged)
     refreshFavoritesList(merged)
-    setPendingSyncOperations(buildPendingDishSyncOperations(merged))
+    replaceDishPendingSyncOperations(merged)
 
     setHomePagination({
       nextOffset: homePagination.nextOffset + nextItems.length,
@@ -13110,7 +13816,7 @@ async function loadMoreAdminItems(): Promise<void> {
     setAdminItemIds(mergeDishIds(adminItemIds, nextItems))
     setDishes(merged)
     refreshFavoritesList(merged)
-    setPendingSyncOperations(buildPendingDishSyncOperations(merged))
+    replaceDishPendingSyncOperations(merged)
 
     setAdminItemsPagination({
       nextOffset: adminItemsPagination.nextOffset + nextItems.length,
@@ -13175,7 +13881,7 @@ async function refreshAdminAppointmentsFromCloud(
     })
 
     setAppointmentRequests(sortedItems)
-    saveAppointmentsToStorage(storeId, sortedItems)
+    persistAppointmentsLocally(storeId, sortedItems)
     void hydrateAppointmentLinkedDishesFromRequests(sortedItems)
     resetAdminAppointmentsPaginationForFirstPage(sortedItems.length)
     setStatusMessage(statusMessageOverride || 'Appointments refreshed.')
@@ -13237,7 +13943,7 @@ async function refreshCustomerAppointmentsFromCloud(
     })
 
     setAppointmentRequests(sortedItems)
-    saveAppointmentsToStorage(storeId, sortedItems)
+    persistAppointmentsLocally(storeId, sortedItems)
     void hydrateAppointmentLinkedDishesFromRequests(sortedItems)
     resetCustomerAppointmentsPaginationForFirstPage(sortedItems.length)
     setStatusMessage(statusMessageOverride || 'Bookings refreshed.')
@@ -14018,7 +14724,7 @@ async function refreshCustomerAppointmentsFromCloud(
 
       setAppointmentRequests(merged)
       if (nextItems.length) {
-        saveAppointmentsToStorage(storeId, merged)
+        persistAppointmentsLocally(storeId, merged)
         pruneBookingSeenWhenCompletePageLoaded(
           storeId,
           clientId,
@@ -14085,7 +14791,7 @@ async function refreshCustomerAppointmentsFromCloud(
       const merged = sortedAppointmentsForStorage(mergeUniqueById(appointmentRequests, nextItems))
 
       setAppointmentRequests(merged)
-      if (nextItems.length) saveAppointmentsToStorage(storeId, merged)
+      if (nextItems.length) persistAppointmentsLocally(storeId, merged)
       void hydrateAppointmentLinkedDishesFromRequests(merged)
 
       setAdminAppointmentsPagination({
@@ -14342,7 +15048,7 @@ async function refreshCustomerAppointmentsFromCloud(
 
       if (canUpdateCustomerAppointmentList) {
         setAppointmentRequests(sortedItems)
-        saveAppointmentsToStorage(storeId, sortedItems)
+        persistAppointmentsLocally(storeId, sortedItems)
       } else {
         console.log('[NDJC_APPOINTMENTS] Skip customer booking list overwrite from entry polling.', {
           storeId,
@@ -20130,10 +20836,11 @@ function onChatImageLimitReached(): void {
     mapUrl: storeProfileForUi.mapUrl,
     businessStatus: storeProfileCloud?.businessStatus || draftBusinessStatus || '',
 
-    appName: storeProfileForUi.displayName || 'App',
+    appName: storePwaProfileCloud?.appName || assemblyAppName || 'App',
     versionName: SHOWCASE_APP_VERSION,
-    merchantEmail: 'Not provided',
-    privacyUrl: `/privacy/${encodeURIComponent(storeId)}`,
+    merchantEmail: storePwaProfileCloud?.merchantEmail || assemblyMerchantEmail || 'Not provided',
+    privacyUrl: assemblyPrivacyUrl || `/privacy/${encodeURIComponent(storeId)}`,
+    poweredByUrl: SHOWCASE_OFFICIAL_WEBSITE_URL,
 
     draftBusinessStatus,
 
@@ -20874,6 +21581,8 @@ const editDishState: ShowcaseEditDishUiState = {
     onExtraContactValueChange: onStoreProfileExtraContactValueChange,
 
     onOpenMap: openMap,
+
+    onOpenWebsite: openWebsite,
 
     onCopy: copyText,
 
@@ -21941,7 +22650,7 @@ const editDishState: ShowcaseEditDishUiState = {
   const storeUnavailableState: ShowcaseStoreUnavailableUiState = {
     visible: storeUnavailable,
     title: 'App not available',
-    message: 'This store app is not active or has not been set up yet.\nPlease check the link, or register your store at www.xxxxxx.com.'
+    message: 'This store app is not active or has not been set up yet.\nPlease check the link, or register your store at www.thinkitdoneapp.com'
   }
 
   return {

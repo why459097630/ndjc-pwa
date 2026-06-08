@@ -78,6 +78,7 @@ export type ShowcaseUiRenderer = {
     installBusy: boolean
     onRegister: () => void
     onInstall: () => void
+    onClose: () => void
   }) => ReactNode
   NotificationOptInFloatingButton: (input: {
     open: boolean

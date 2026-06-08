@@ -61,7 +61,8 @@ export const GreenpinkShowcaseUiRenderer: ShowcaseUiRenderer = {
     installState,
     installBusy,
     onRegister,
-    onInstall
+    onInstall,
+    onClose
   }) => (
     <NdjcNotificationOptInPanel
       open={open}
@@ -74,6 +75,7 @@ export const GreenpinkShowcaseUiRenderer: ShowcaseUiRenderer = {
       installBusy={installBusy}
       onRegister={onRegister}
       onInstall={onInstall}
+      onClose={onClose}
     />
   ),
 

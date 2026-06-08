@@ -98,6 +98,7 @@ export type CloudStoreProfile = {
 export type CloudStorePwaProfile = {
   storeId: string
   appName: string
+  merchantEmail: string
   shortName: string
   description: string
   notificationIconUrl: string
@@ -1535,6 +1536,7 @@ private parseStorePwaProfile(raw: Record<string, unknown>, storeIdFallback: stri
   return {
     storeId: jsonString(raw, 'store_id', storeIdFallback),
     appName,
+    merchantEmail: jsonString(raw, 'merchant_email'),
     shortName,
     description: jsonString(raw, 'description', `${appName} official PWA app.`),
     notificationIconUrl: jsonString(raw, 'notification_icon_url'),
@@ -2514,7 +2516,7 @@ async renameCategoryById(input: {
   async fetchStorePwaProfile(storeIdInput?: string | null): Promise<CloudStorePwaProfile | null> {
     const storeId = this.requireStoreId(storeIdInput)
     const query = [
-      'select=store_id,app_name,short_name,description,notification_icon_url,icon_192_url,icon_512_url,maskable_192_url,maskable_512_url,apple_touch_icon_url,theme_color,background_color,updated_at',
+      'select=store_id,app_name,merchant_email,short_name,description,notification_icon_url,icon_192_url,icon_512_url,maskable_192_url,maskable_512_url,apple_touch_icon_url,theme_color,background_color,updated_at',
       `store_id=${this.encodeEq(storeId)}`,
       'limit=1'
     ].join('&')

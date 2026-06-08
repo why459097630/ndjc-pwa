@@ -44,6 +44,8 @@ export const SHOWCASE_PAGE_SIZE = {
 
 export const SHOWCASE_APP_VERSION = '1.0.3'
 
+export const SHOWCASE_OFFICIAL_WEBSITE_URL = 'https://www.thinkitdoneapp.com'
+
 export const SHOWCASE_SUPABASE_SCHEMA = 'public'
 
 export const SHOWCASE_TABLES = {

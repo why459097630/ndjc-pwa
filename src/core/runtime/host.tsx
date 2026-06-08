@@ -28,15 +28,67 @@ export function NDJCAppHost({
   )
 
   useEffect(() => {
-    void normalizedHooks.onAppStart()
+    let foreground = typeof document === 'undefined' || document.visibilityState !== 'hidden'
 
-    const onVisibilityChange = () => {
-      if (document.visibilityState === 'visible') void normalizedHooks.onForeground()
-      else void normalizedHooks.onBackground()
+    const runForeground = (force = false) => {
+      if (foreground && !force) return
+
+      foreground = true
+      void normalizedHooks.onForeground()
     }
 
+    const runBackground = () => {
+      if (!foreground) return
+
+      foreground = false
+      void normalizedHooks.onBackground()
+    }
+
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        runForeground()
+      } else {
+        runBackground()
+      }
+    }
+
+    const onFocus = () => {
+      if (typeof document !== 'undefined' && document.visibilityState === 'visible') {
+        runForeground()
+      }
+    }
+
+    const onPageShow = (event: PageTransitionEvent) => {
+      if (typeof document !== 'undefined' && document.visibilityState === 'visible') {
+        runForeground(Boolean(event.persisted))
+      }
+    }
+
+    const onPageHide = () => {
+      runBackground()
+    }
+
+    const onOnline = () => {
+      if (typeof document !== 'undefined' && document.visibilityState === 'visible') {
+        runForeground(true)
+      }
+    }
+
+    void normalizedHooks.onAppStart()
+
     document.addEventListener('visibilitychange', onVisibilityChange)
-    return () => document.removeEventListener('visibilitychange', onVisibilityChange)
+    window.addEventListener('focus', onFocus)
+    window.addEventListener('pageshow', onPageShow)
+    window.addEventListener('pagehide', onPageHide)
+    window.addEventListener('online', onOnline)
+
+    return () => {
+      document.removeEventListener('visibilitychange', onVisibilityChange)
+      window.removeEventListener('focus', onFocus)
+      window.removeEventListener('pageshow', onPageShow)
+      window.removeEventListener('pagehide', onPageHide)
+      window.removeEventListener('online', onOnline)
+    }
   }, [normalizedHooks])
 
   return (

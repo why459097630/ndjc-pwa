@@ -49,6 +49,7 @@ export type Assembly = {
   density?: string | null
   slots?: AssemblySlots
   storeId?: string | null
+  appName?: string | null
   privacyUrl?: string | null
   merchantEmail?: string | null
 }
@@ -57,6 +58,9 @@ export type ActiveAssembly = {
   moduleId: string
   uiPackId: string
   storeId?: string | null
+  appName?: string | null
+  privacyUrl?: string | null
+  merchantEmail?: string | null
 }
 
 export function getAssemblyEntryRoute(assembly: Assembly): string {
@@ -85,6 +89,7 @@ export function normalizeAssembly(raw: unknown): Assembly {
     density: data.density ?? null,
     slots: data.slots ?? {},
     storeId: data.storeId ?? null,
+    appName: data.appName ?? null,
     privacyUrl: data.privacyUrl ?? null,
     merchantEmail: data.merchantEmail ?? null
   }

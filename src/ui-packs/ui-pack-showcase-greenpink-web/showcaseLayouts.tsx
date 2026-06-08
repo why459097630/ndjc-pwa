@@ -2701,7 +2701,7 @@ const APK_HOME_NAV_UI = {
   bottomTabLabelSize: 12,
   bottomTabActiveColor: NDJC_GLOBAL_UI_TOKENS.colors.controlEmphasis,
   bottomTabInactiveColor: NDJC_GLOBAL_UI_TOKENS.colors.textMuted,
-  bottomTabDotColor: NDJC_GLOBAL_UI_TOKENS.colors.success
+  bottomTabDotColor: NDJC_GLOBAL_UI_TOKENS.colors.danger
 } as const
 const APK_CORE_UI = {
   white: '#ffffff',
@@ -6998,6 +6998,7 @@ export function NdjcPillBadge({
 
 export function NdjcControlPillButton({
   children,
+  className,
   selected,
   active,
   onClick,
@@ -7006,6 +7007,7 @@ export function NdjcControlPillButton({
   fullWidth = false
 }: {
   children: React.ReactNode
+  className?: string
   selected?: boolean
   active?: boolean
   onClick?: () => void
@@ -7019,7 +7021,7 @@ export function NdjcControlPillButton({
   return (
     <button
       type="button"
-      className={cx('ndjc-control-pill-button', isActive && 'is-selected')}
+      className={cx('ndjc-control-pill-button', isActive && 'is-selected', className)}
       style={apkControlPillButtonStyle(isActive, disabled, tone, fullWidth, pressed)}
       disabled={disabled}
       onClick={onClick}
@@ -8116,8 +8118,8 @@ export function NdjcPwaUpdateBanner({
       aria-live="polite"
       style={{
         position: 'fixed',
-        left: 16,
-        right: 16,
+        left: 14,
+        right: 14,
         top: 'calc(8px + env(safe-area-inset-top))',
         zIndex: 1000002,
         display: 'flex',
@@ -8129,8 +8131,8 @@ export function NdjcPwaUpdateBanner({
       <style>
         {`
           .ndjc-pwa-update-banner {
-            border: 1px solid rgba(17, 24, 39, 0.08) !important;
-            background: rgba(255, 255, 255, 0.96) !important;
+            border: 1px solid rgba(17, 24, 39, 0.07) !important;
+            background: rgba(255, 255, 255, 0.98) !important;
           }
 
           .ndjc-pwa-update-banner::before,
@@ -8143,8 +8145,8 @@ export function NdjcPwaUpdateBanner({
             width: 72px !important;
             min-width: 72px !important;
             max-width: 72px !important;
-            min-height: 34px !important;
-            height: 34px !important;
+            min-height: 32px !important;
+            height: 32px !important;
             padding: 0 10px !important;
             border-radius: 999px !important;
             background: #f3f4f6 !important;
@@ -8153,7 +8155,7 @@ export function NdjcPwaUpdateBanner({
             box-shadow: none !important;
             font-size: 12px !important;
             line-height: 1 !important;
-            font-weight: 900 !important;
+            font-weight: 850 !important;
             white-space: nowrap !important;
             overflow: visible !important;
             text-overflow: clip !important;
@@ -8163,8 +8165,8 @@ export function NdjcPwaUpdateBanner({
             width: 72px !important;
             min-width: 72px !important;
             max-width: 72px !important;
-            min-height: 34px !important;
-            height: 34px !important;
+            min-height: 32px !important;
+            height: 32px !important;
             padding: 0 10px !important;
             border-radius: 999px !important;
             font-size: 12px !important;
@@ -8186,11 +8188,11 @@ export function NdjcPwaUpdateBanner({
         className="ndjc-pwa-update-banner"
         style={{
           width: '100%',
-          maxWidth: 404,
-          borderRadius: 20,
-          padding: '10px 12px',
+          maxWidth: 425,
+          borderRadius: 18,
+          padding: '9px 10px',
           pointerEvents: 'auto',
-          boxShadow: '0 12px 34px rgba(15, 23, 42, 0.16)',
+          boxShadow: '0 8px 24px rgba(15, 23, 42, 0.10)',
           backdropFilter: 'blur(14px)',
           WebkitBackdropFilter: 'blur(14px)'
         }}
@@ -8198,7 +8200,7 @@ export function NdjcPwaUpdateBanner({
         <div
           style={{
             display: 'grid',
-            gridTemplateColumns: '28px 1fr auto',
+            gridTemplateColumns: '28px minmax(0, 1fr) auto',
             gap: 9,
             alignItems: 'center'
           }}
@@ -8212,49 +8214,50 @@ export function NdjcPwaUpdateBanner({
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              background: 'linear-gradient(135deg, rgba(251, 139, 139, 0.16), rgba(45, 212, 191, 0.16))',
-              color: '#fb7185',
-              boxShadow: 'inset 0 0 0 1px rgba(251, 139, 139, 0.18)',
+              background: '#F3F4F6',
+              color: '#2A2F35',
+              boxShadow: 'inset 0 0 0 1px rgba(17, 24, 39, 0.08)',
               lineHeight: 1,
               flexShrink: 0
             }}
           >
             <svg
-              width="15"
-              height="15"
-              viewBox="0 0 24 24"
+              width="16"
+              height="16"
+              viewBox="0 0 16 16"
               fill="none"
               aria-hidden="true"
               focusable="false"
               style={{
-                display: 'block'
+                display: 'block',
+                transform: 'translateY(0.25px)'
               }}
             >
               <path
-                d="M20 6.5V11h-4.5"
-                stroke="#fb7185"
-                strokeWidth="2.4"
+                d="M12.85 6.85A4.9 4.9 0 0 0 4.15 4.2L3.35 5"
+                stroke="#2A2F35"
+                strokeWidth="1.55"
                 strokeLinecap="round"
                 strokeLinejoin="round"
               />
               <path
-                d="M19.1 11A7.25 7.25 0 0 0 6.6 6.2L5.3 7.5"
-                stroke="#fb7185"
-                strokeWidth="2.4"
+                d="M3.25 2.9V5h2.1"
+                stroke="#2A2F35"
+                strokeWidth="1.55"
                 strokeLinecap="round"
                 strokeLinejoin="round"
               />
               <path
-                d="M4 17.5V13h4.5"
-                stroke="#14b8a6"
-                strokeWidth="2.4"
+                d="M3.15 9.15a4.9 4.9 0 0 0 8.7 2.65l.8-.8"
+                stroke="#2A2F35"
+                strokeWidth="1.55"
                 strokeLinecap="round"
                 strokeLinejoin="round"
               />
               <path
-                d="M4.9 13A7.25 7.25 0 0 0 17.4 17.8l1.3-1.3"
-                stroke="#14b8a6"
-                strokeWidth="2.4"
+                d="M12.75 13.1V11h-2.1"
+                stroke="#2A2F35"
+                strokeWidth="1.55"
                 strokeLinecap="round"
                 strokeLinejoin="round"
               />
@@ -8267,7 +8270,7 @@ export function NdjcPwaUpdateBanner({
                 margin: 0,
                 color: '#111827',
                 fontSize: 13,
-                lineHeight: 1.2,
+                lineHeight: 1.18,
                 fontWeight: 900,
                 letterSpacing: '-0.01em',
                 whiteSpace: 'nowrap',
@@ -8275,22 +8278,22 @@ export function NdjcPwaUpdateBanner({
                 textOverflow: 'ellipsis'
               }}
             >
-              New version available
+              Update available
             </h2>
 
             <p
               style={{
                 margin: '3px 0 0',
-                color: 'rgba(17, 24, 39, 0.62)',
+                color: 'rgba(17, 24, 39, 0.58)',
                 fontSize: 11,
-                lineHeight: 1.25,
-                fontWeight: 700,
+                lineHeight: 1.22,
+                fontWeight: 650,
                 whiteSpace: 'nowrap',
                 overflow: 'hidden',
                 textOverflow: 'ellipsis'
               }}
             >
-              Refresh to use the latest app files.
+              Refresh to use the latest version.
             </p>
           </div>
 
@@ -8306,6 +8309,7 @@ export function NdjcPwaUpdateBanner({
             }}
           >
             <NdjcControlPillButton
+              className="ndjc-pwa-update-secondary-button"
               active
               tone="adminAction"
               onClick={onDismiss}
@@ -8315,12 +8319,13 @@ export function NdjcPwaUpdateBanner({
             </NdjcControlPillButton>
 
             <NdjcControlPillButton
+              className="ndjc-pwa-update-primary-button"
               active
               tone="adminAction"
               onClick={onRefresh}
               disabled={refreshing}
             >
-              {refreshing ? 'Refreshing...' : 'Refresh'}
+              {refreshing ? 'Updating...' : 'Refresh'}
             </NdjcControlPillButton>
           </div>
         </div>
@@ -8339,7 +8344,8 @@ export function NdjcNotificationOptInPanel({
   installState,
   installBusy,
   onRegister,
-  onInstall
+  onInstall,
+  onClose
 }: {
   open: boolean
   busy: boolean
@@ -8351,6 +8357,7 @@ export function NdjcNotificationOptInPanel({
   installBusy: boolean
   onRegister: () => void
   onInstall: () => void
+  onClose: () => void
 }) {
   const blocked = permissionState === 'denied'
   const failed = registrationState === 'failed'
@@ -8395,20 +8402,33 @@ export function NdjcNotificationOptInPanel({
   return (
     <div
       aria-hidden={!open}
+      onClick={open ? onClose : undefined}
       style={{
         position: 'fixed',
-        left: 'calc(50vw + min(50vw, 240px) - min(280px, calc(100vw - 32px)) - 16px)',
-        bottom: open ? 'calc(121px + env(safe-area-inset-bottom))' : -1000,
-        zIndex: 999999,
-        width: 'min(280px, calc(100vw - 32px))',
+        inset: 0,
+        zIndex: 999998,
         pointerEvents: open ? 'auto' : 'none',
-        transition: 'bottom 180ms ease, opacity 160ms ease, transform 160ms ease',
-        opacity: open ? 1 : 0,
-        transform: open ? 'translateY(0)' : 'translateY(8px)'
+        background: 'transparent'
       }}
     >
-      <NdjcWhiteCard
-        className="ndjc-notification-opt-in-panel"
+      <div
+        onClick={(event) => {
+          event.stopPropagation()
+        }}
+        style={{
+          position: 'absolute',
+          left: 'calc(50vw + min(50vw, 240px) - min(280px, calc(100vw - 32px)) - 16px)',
+          bottom: open ? 'calc(121px + env(safe-area-inset-bottom))' : -1000,
+          zIndex: 999999,
+          width: 'min(280px, calc(100vw - 32px))',
+          pointerEvents: open ? 'auto' : 'none',
+          transition: 'bottom 180ms ease, opacity 160ms ease, transform 160ms ease',
+          opacity: open ? 1 : 0,
+          transform: open ? 'translateY(0)' : 'translateY(8px)'
+        }}
+      >
+        <NdjcWhiteCard
+          className="ndjc-notification-opt-in-panel"
         style={{
           borderRadius: 20,
           padding: '10px 10px 9px',
@@ -8505,21 +8525,9 @@ export function NdjcNotificationOptInPanel({
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  background: registered
-                    ? 'linear-gradient(135deg, rgba(236, 253, 245, 0.98), rgba(209, 250, 229, 0.92))'
-                    : blocked || failed
-                      ? 'linear-gradient(135deg, rgba(255, 241, 242, 0.98), rgba(255, 228, 230, 0.92))'
-                      : 'linear-gradient(135deg, rgba(248, 250, 252, 0.98), rgba(241, 245, 249, 0.92))',
-                  color: registered
-                    ? '#047857'
-                    : blocked || failed
-                      ? '#be123c'
-                      : '#111827',
-                  boxShadow: registered
-                    ? 'inset 0 0 0 1px rgba(4, 120, 87, 0.14), 0 6px 14px rgba(4, 120, 87, 0.10)'
-                    : blocked || failed
-                      ? 'inset 0 0 0 1px rgba(190, 18, 60, 0.14), 0 6px 14px rgba(190, 18, 60, 0.08)'
-                      : 'inset 0 0 0 1px rgba(17, 24, 39, 0.08), 0 6px 14px rgba(15, 23, 42, 0.08)',
+                  background: 'linear-gradient(135deg, rgba(248, 250, 252, 0.98), rgba(241, 245, 249, 0.92))',
+                  color: '#2A2F35',
+                  boxShadow: 'inset 0 0 0 1px rgba(17, 24, 39, 0.08), 0 6px 14px rgba(15, 23, 42, 0.08)',
                   flexShrink: 0,
                   position: 'relative',
                   marginTop: 1
@@ -8558,38 +8566,6 @@ export function NdjcNotificationOptInPanel({
                     opacity="0.55"
                   />
                 </svg>
-
-                {registered ? (
-                  <span
-                    aria-hidden="true"
-                    style={{
-                      position: 'absolute',
-                      right: 4,
-                      top: 4,
-                      width: 6,
-                      height: 6,
-                      borderRadius: 999,
-                      background: '#10b981',
-                      boxShadow: '0 0 0 2px rgba(236, 253, 245, 0.98)'
-                    }}
-                  />
-                ) : null}
-
-                {blocked || failed ? (
-                  <span
-                    aria-hidden="true"
-                    style={{
-                      position: 'absolute',
-                      right: 4,
-                      top: 4,
-                      width: 6,
-                      height: 6,
-                      borderRadius: 999,
-                      background: '#fb7185',
-                      boxShadow: '0 0 0 2px rgba(255, 241, 242, 0.98)'
-                    }}
-                  />
-                ) : null}
               </div>
 
               <div
@@ -8624,8 +8600,8 @@ export function NdjcNotificationOptInPanel({
 
                   <span
                     style={{
-                      height: 20,
-                      padding: '0 8px',
+                      height: 21,
+                      padding: '1px 8px 0',
                       borderRadius: 999,
                       display: 'inline-flex',
                       alignItems: 'center',
@@ -8647,10 +8623,11 @@ export function NdjcNotificationOptInPanel({
                           ? '1px solid rgba(190, 18, 60, 0.14)'
                           : '1px solid rgba(71, 85, 105, 0.14)',
                       fontSize: 11,
-                      lineHeight: 1,
+                      lineHeight: '12px',
                       fontWeight: 900,
                       whiteSpace: 'nowrap',
-                      flexShrink: 0
+                      flexShrink: 0,
+                      boxSizing: 'border-box'
                     }}
                   >
                     <span
@@ -8731,15 +8708,9 @@ export function NdjcNotificationOptInPanel({
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  background: installInstallable
-                    ? 'linear-gradient(135deg, rgba(239, 246, 255, 0.98), rgba(219, 234, 254, 0.92))'
-                    : 'linear-gradient(135deg, rgba(248, 250, 252, 0.98), rgba(241, 245, 249, 0.92))',
-                  color: installInstallable
-                    ? '#1d4ed8'
-                    : '#475569',
-                  boxShadow: installInstallable
-                    ? 'inset 0 0 0 1px rgba(29, 78, 216, 0.14), 0 6px 14px rgba(29, 78, 216, 0.08)'
-                    : 'inset 0 0 0 1px rgba(17, 24, 39, 0.08), 0 6px 14px rgba(15, 23, 42, 0.08)',
+                  background: 'linear-gradient(135deg, rgba(248, 250, 252, 0.98), rgba(241, 245, 249, 0.92))',
+                  color: '#2A2F35',
+                  boxShadow: 'inset 0 0 0 1px rgba(17, 24, 39, 0.08), 0 6px 14px rgba(15, 23, 42, 0.08)',
                   flexShrink: 0,
                   position: 'relative',
                   marginTop: 1
@@ -8815,27 +8786,22 @@ export function NdjcNotificationOptInPanel({
 
                   <span
                     style={{
-                      height: 20,
-                      padding: '0 8px',
+                      height: 21,
+                      padding: '1px 8px 0',
                       borderRadius: 999,
                       display: 'inline-flex',
                       alignItems: 'center',
                       justifyContent: 'center',
                       gap: 5,
-                      background: installInstallable
-                        ? 'rgba(239, 246, 255, 0.92)'
-                        : '#ffffff',
-                      color: installInstallable
-                        ? '#1d4ed8'
-                        : '#475569',
-                      border: installInstallable
-                        ? '1px solid rgba(29, 78, 216, 0.14)'
-                        : '1px solid rgba(71, 85, 105, 0.14)',
+                      background: '#ffffff',
+                      color: '#374151',
+                      border: '1px solid rgba(71, 85, 105, 0.14)',
                       fontSize: 11,
-                      lineHeight: 1,
+                      lineHeight: '12px',
                       fontWeight: 900,
                       whiteSpace: 'nowrap',
-                      flexShrink: 0
+                      flexShrink: 0,
+                      boxSizing: 'border-box'
                     }}
                   >
                     <span
@@ -8844,9 +8810,7 @@ export function NdjcNotificationOptInPanel({
                         width: 5,
                         height: 5,
                         borderRadius: 999,
-                        background: installInstallable
-                          ? '#3b82f6'
-                          : '#94a3b8',
+                        background: '#374151',
                         flexShrink: 0
                       }}
                     />
@@ -8890,7 +8854,8 @@ export function NdjcNotificationOptInPanel({
             </div>
           </section>
         </div>
-      </NdjcWhiteCard>
+        </NdjcWhiteCard>
+      </div>
     </div>
   )
 }
@@ -14298,18 +14263,23 @@ function UniversalStoreAppAboutSection({
   versionName = '1.0.0',
   merchantEmail = 'Not provided',
   privacyUrl,
-  onOpenPrivacy
+  poweredByUrl,
+  onOpenPrivacy,
+  onOpenPoweredBy
 }: {
   appName?: string | null
   versionName?: string | null
   merchantEmail?: string | null
   privacyUrl?: string | null
+  poweredByUrl?: string | null
   onOpenPrivacy?: (url: string) => void
+  onOpenPoweredBy?: (url: string) => void
 }) {
   const cleanAppName = appName?.trim() || 'App'
   const cleanVersion = versionName?.trim() || '1.0.0'
   const cleanEmail = merchantEmail?.trim() || 'Not provided'
   const cleanPrivacyUrl = privacyUrl?.trim() || ''
+  const cleanPoweredByUrl = poweredByUrl?.trim() || ''
 
   return (
     <section
@@ -14400,6 +14370,43 @@ function UniversalStoreAppAboutSection({
             {cleanPrivacyUrl ? 'Open Privacy Policy' : 'Not available'}
           </button>
         </section>
+
+        <button
+          type="button"
+          aria-label="Open Think It Done official website"
+          style={{
+            width: 'fit-content',
+            justifySelf: 'center',
+            border: 0,
+            borderRadius: 0,
+            padding: '6px 0 38px',
+            color: NDJC_GLOBAL_UI_TOKENS.colors.textMuted,
+            background: 'transparent',
+            boxShadow: 'none',
+            fontSize: 12,
+            lineHeight: '16px',
+            fontWeight: 500,
+            textAlign: 'center',
+            textDecoration: 'none',
+            cursor: cleanPoweredByUrl ? 'pointer' : 'default',
+            WebkitTapHighlightColor: 'transparent',
+            touchAction: 'manipulation'
+          }}
+          disabled={!cleanPoweredByUrl}
+          onClick={() => {
+            if (cleanPoweredByUrl) onOpenPoweredBy?.(cleanPoweredByUrl)
+          }}
+        >
+          Powered by{' '}
+          <span
+            style={{
+              color: NDJC_GLOBAL_UI_TOKENS.colors.controlEmphasis,
+              fontWeight: 650
+            }}
+          >
+            Think It Done
+          </span>
+        </button>
       </div>
     </section>
   )
@@ -17762,7 +17769,9 @@ export function ShowcaseStoreProfileView({
                   versionName={state.versionName}
                   merchantEmail={state.merchantEmail}
                   privacyUrl={state.privacyUrl}
+                  poweredByUrl={state.poweredByUrl}
                   onOpenPrivacy={actions.onOpenMap}
+                  onOpenPoweredBy={actions.onOpenWebsite}
                 />
               </section>
             </section>

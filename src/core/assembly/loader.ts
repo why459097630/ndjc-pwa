@@ -15,7 +15,7 @@ export function loadAssemblyFromInline(raw: unknown): Assembly {
 
 export function mergeAssemblyRuntimeValues(
   assembly: Assembly,
-  values: Partial<Pick<Assembly, 'storeId' | 'privacyUrl' | 'merchantEmail' | 'locale' | 'theme' | 'density'>>
+  values: Partial<Pick<Assembly, 'storeId' | 'appName' | 'privacyUrl' | 'merchantEmail' | 'locale' | 'theme' | 'density'>>
 ): Assembly {
   return normalizeAssembly({ ...assembly, ...values })
 }
@@ -54,6 +54,7 @@ function normalizeAssembly(raw: unknown): Assembly {
     density: data.density ?? null,
     slots: data.slots ?? {},
     storeId: data.storeId ?? null,
+    appName: data.appName ?? null,
     privacyUrl: data.privacyUrl ?? null,
     merchantEmail: data.merchantEmail ?? null
   }

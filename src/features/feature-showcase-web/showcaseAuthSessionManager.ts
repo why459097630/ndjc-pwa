@@ -13,7 +13,7 @@ import {
 } from './showcaseCloudConfig'
 
 const SHOWCASE_SUPABASE_AUTH_STORAGE_KEY = 'ndjc_showcase_supabase_auth'
-const SHOWCASE_AUTH_REFRESH_EARLY_SECONDS = 60
+const SHOWCASE_AUTH_REFRESH_EARLY_SECONDS = 300
 
 let showcaseSupabaseClient: SupabaseClient | null = null
 let showcaseAuthRefreshPromise: Promise<ShowcaseAuthSessionSnapshot | null> | null = null
@@ -349,7 +349,7 @@ export async function getShowcaseAuthUser(): Promise<ShowcaseAuthUserSnapshot | 
 }
 
 export async function restoreShowcaseAuthSession(): Promise<ShowcaseAuthSessionSnapshot | null> {
-  return getShowcaseAuthSession()
+  return getFreshShowcaseAuthSession()
 }
 
 export function onShowcaseAuthStateChange(

@@ -1,10 +1,20 @@
 'use client'
 
-import React, { useEffect, useMemo, useState } from 'react'
+import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { Assembly } from '@/core/assembly/types'
 import { NDJCAppHost } from './host'
+import type { Hooks } from './hooks'
 import { ResolveCoreScreen } from './moduleScreenRegistry'
-import { activateWaitingServiceWorker, registerServiceWorker } from '@/pwa/registerServiceWorker'
+import {
+  activateWaitingServiceWorker,
+  checkServiceWorkerForUpdate,
+  registerServiceWorker
+} from '@/pwa/registerServiceWorker'
+import { requestShowcasePersistentStorage } from '@/pwa/persistentStorage'
+import {
+  dispatchShowcaseAppLifecycleEvent,
+  recordShowcaseOnlineState
+} from '@/pwa/showcaseAppLifecycle'
 import { GreenpinkShowcaseUiRenderer } from '@/ui-packs/ui-pack-showcase-greenpink-web/GreenpinkShowcaseUiRenderer'
 import {
   inspectShowcaseNotificationPermission,
@@ -144,6 +154,8 @@ export function AppRoot({ assembly }: { assembly: Assembly }) {
   const [pwaUpdateRegistration, setPwaUpdateRegistration] = useState<ServiceWorkerRegistration | null>(null)
   const [pwaUpdateRefreshing, setPwaUpdateRefreshing] = useState(false)
   const [pwaUpdateDismissed, setPwaUpdateDismissed] = useState(false)
+  const pwaUpdateCheckInFlightRef = useRef(false)
+  const lastPwaUpdateCheckAtRef = useRef(0)
   const [notificationOptInVisible, setNotificationOptInVisible] = useState(false)
   const [notificationOptInPanelOpen, setNotificationOptInPanelOpen] = useState(false)
   const [notificationOptInBusy, setNotificationOptInBusy] = useState(false)
@@ -240,8 +252,18 @@ useEffect(() => {
   const activeAssembly = useMemo(() => ({
     moduleId: assembly.modules[0] || '__default__',
     uiPackId: assembly.uiPack || '__default__',
-    storeId: runtimeStoreId
-  }), [assembly.modules, assembly.uiPack, runtimeStoreId])
+    storeId: runtimeStoreId,
+    appName: assembly.appName ?? null,
+    privacyUrl: assembly.privacyUrl ?? null,
+    merchantEmail: assembly.merchantEmail ?? null
+  }), [
+    assembly.modules,
+    assembly.uiPack,
+    assembly.appName,
+    assembly.privacyUrl,
+    assembly.merchantEmail,
+    runtimeStoreId
+  ])
 
   useEffect(() => {
     if (typeof window === 'undefined') return
@@ -338,14 +360,102 @@ async function promptInstallCurrentPwa(): Promise<void> {
   }
 }
 
+  function activatePwaUpdate(registration: ServiceWorkerRegistration): void {
+    setPwaUpdateRegistration(registration)
+    setPwaUpdateRefreshing(true)
+    setPwaUpdateDismissed(false)
+    activateWaitingServiceWorker(registration)
+  }
+
+  function handlePwaUpdateAvailable(registration: ServiceWorkerRegistration): void {
+    setPwaUpdateRegistration(registration)
+    setPwaUpdateRefreshing(false)
+    setPwaUpdateDismissed(false)
+  }
+
+  function checkForPwaUpdateNow(force = false): void {
+    if (typeof window === 'undefined') return
+    if (!('serviceWorker' in navigator)) return
+    if (pwaUpdateCheckInFlightRef.current) return
+
+    const now = Date.now()
+    const minIntervalMs = 60 * 1000
+
+    if (!force && now - lastPwaUpdateCheckAtRef.current < minIntervalMs) {
+      return
+    }
+
+    pwaUpdateCheckInFlightRef.current = true
+    lastPwaUpdateCheckAtRef.current = now
+
+    void checkServiceWorkerForUpdate({
+      onUpdateAvailable: handlePwaUpdateAvailable
+    }).finally(() => {
+      pwaUpdateCheckInFlightRef.current = false
+    })
+  }
+
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+
+    const recordCurrentOnlineState = () => {
+      recordShowcaseOnlineState(typeof navigator === 'undefined' ? true : navigator.onLine)
+    }
+
+    const handleOnline = () => {
+      recordShowcaseOnlineState(true)
+    }
+
+    const handleOffline = () => {
+      recordShowcaseOnlineState(false)
+    }
+
+    recordCurrentOnlineState()
+
+    window.addEventListener('online', handleOnline)
+    window.addEventListener('offline', handleOffline)
+
+    return () => {
+      window.removeEventListener('online', handleOnline)
+      window.removeEventListener('offline', handleOffline)
+    }
+  }, [])
+
+  const runtimeHooks = useMemo<Hooks>(() => ({
+    onAppStart: () => {
+      recordShowcaseOnlineState(typeof navigator === 'undefined' ? true : navigator.onLine)
+      dispatchShowcaseAppLifecycleEvent('app-start')
+
+      void registerServiceWorker({
+        onUpdateAvailable: handlePwaUpdateAvailable
+      }).finally(() => {
+        checkForPwaUpdateNow(true)
+      })
+
+      void requestShowcasePersistentStorage()
+    },
+    onForeground: () => {
+      recordShowcaseOnlineState(typeof navigator === 'undefined' ? true : navigator.onLine)
+      dispatchShowcaseAppLifecycleEvent('foreground')
+
+      setPwaInstallState(inspectShowcasePwaInstallState(Boolean(pwaInstallPromptEvent)))
+      checkForPwaUpdateNow(false)
+      void requestShowcasePersistentStorage()
+    },
+    onBackground: () => {
+      recordShowcaseOnlineState(typeof navigator === 'undefined' ? true : navigator.onLine)
+      dispatchShowcaseAppLifecycleEvent('background')
+    }
+  }), [pwaInstallPromptEvent])
+
   return (
     <>
       {pwaUpdateRegistration && !pwaUpdateDismissed
         ? GreenpinkShowcaseUiRenderer.PwaUpdateBanner({
             refreshing: pwaUpdateRefreshing,
             onRefresh: () => {
-              setPwaUpdateRefreshing(true)
-              activateWaitingServiceWorker(pwaUpdateRegistration)
+              activatePwaUpdate(pwaUpdateRegistration)
             },
             onDismiss: () => {
               setPwaUpdateDismissed(true)
@@ -368,6 +478,9 @@ async function promptInstallCurrentPwa(): Promise<void> {
       },
       onInstall: () => {
         void promptInstallCurrentPwa()
+      },
+      onClose: () => {
+        setNotificationOptInPanelOpen(false)
       }
     })
   : null}
@@ -386,17 +499,7 @@ async function promptInstallCurrentPwa(): Promise<void> {
           ...assembly,
           storeId: runtimeStoreId
         }}
-        hooks={{
-          onAppStart: () => {
-            void registerServiceWorker({
-              onUpdateAvailable: registration => {
-                setPwaUpdateRegistration(registration)
-                setPwaUpdateRefreshing(false)
-                setPwaUpdateDismissed(false)
-              }
-            })
-          }
-        }}
+        hooks={runtimeHooks}
         resolveScreen={(routeId, navigator) => (
           <ResolveCoreScreen routeId={routeId} navigator={navigator} assembly={activeAssembly} />
         )}

@@ -61,7 +61,10 @@ import {
   createDefaultShowcaseUiState
 } from './showcaseUiState'
 import { pickDisplayText } from './showcaseI18n'
-import { SHOWCASE_APP_VERSION } from './showcaseCloudConfig'
+import {
+  SHOWCASE_APP_VERSION,
+  SHOWCASE_OFFICIAL_WEBSITE_URL
+} from './showcaseCloudConfig'
 
 export type ShowcaseUiWiringState = ShowcaseUiState
 
@@ -861,6 +864,7 @@ export function buildStoreProfileWiringState(uiState: ShowcaseUiState): Showcase
     versionName: SHOWCASE_APP_VERSION,
     merchantEmail: 'Not provided',
     privacyUrl: '',
+    poweredByUrl: SHOWCASE_OFFICIAL_WEBSITE_URL,
 
     draftBusinessStatus: uiState.draftBusinessStatus,
     logoUrl: uiState.storeProfileLogoUrl,
@@ -2215,6 +2219,7 @@ export function createNoopStoreProfileActions(
     onExtraContactNameChange: noopStringString,
     onExtraContactValueChange: noopStringString,
     onOpenMap: noopString,
+    onOpenWebsite: noopString,
     onCopy: noopStringString,
     onSavePreviewImage: noopString,
     ...overrides

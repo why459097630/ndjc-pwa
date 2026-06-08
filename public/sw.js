@@ -1,5 +1,5 @@
 ﻿const NDJC_DEV_KILL_SERVICE_WORKER = false
-const NDJC_SW_VERSION = 'ndjc-pwa-v5'
+const NDJC_SW_VERSION = 'ndjc-pwa-1.0.0-20260607073432'
 const NDJC_STATIC_CACHE = `${NDJC_SW_VERSION}-static`
 const NDJC_NAVIGATION_CACHE = `${NDJC_SW_VERSION}-navigation`
 const NDJC_CACHE_PREFIX = 'ndjc-pwa-'
@@ -673,12 +673,75 @@ function ndjcPushTypeForRoute(payload) {
   return ndjcNormalizeText(payload && (payload.push_type || payload.pushType || payload.type)).toLowerCase()
 }
 
+function ndjcPayloadStoreId(payload) {
+  return ndjcNormalizeText(payload && (payload.store_id || payload.storeId))
+}
+
+function ndjcPwaBaseRouteForPushPayload(payload) {
+  const storeId = ndjcPayloadStoreId(payload)
+
+  if (!storeId) {
+    return '/'
+  }
+
+  return `/pwa/${encodeURIComponent(storeId)}`
+}
+
+function ndjcContextRouteForPushPayload(payload) {
+  const pushType = ndjcPushTypeForRoute(payload)
+
+  if (pushType === 'chat' || pushType === 'message' || pushType === 'chat_message') {
+    return 'chat'
+  }
+
+  if (pushType === 'announcement' || pushType === 'announcements') {
+    return 'announcements'
+  }
+
+  if (
+    pushType === 'appointment' ||
+    pushType === 'booking' ||
+    pushType === 'bookings' ||
+    pushType === 'appointment_created' ||
+    pushType === 'appointment_status' ||
+    pushType === 'appointment_cancelled'
+  ) {
+    return 'appointments'
+  }
+
+  return pushType || 'home'
+}
+
+function ndjcIsPwaRoute(value) {
+  const text = ndjcNormalizeText(value)
+
+  if (!text) return false
+
+  try {
+    const url = new URL(text, self.location.origin)
+    return url.origin === self.location.origin && url.pathname.startsWith('/pwa/')
+  } catch (error) {
+    return text.startsWith('/pwa/')
+  }
+}
+
 function ndjcRouteForPushPayload(payloadInput) {
   const payload = payloadInput && typeof payloadInput === 'object' ? payloadInput : {}
   const explicitUrl = ndjcNormalizeText(payload.url)
   const explicitRoute = ndjcNormalizeText(payload.route)
-  const pushType = ndjcPushTypeForRoute(payload)
-  const openAs = ndjcNormalizeText(payload.open_as || payload.openAs).toLowerCase()
+  const baseRoute = ndjcPwaBaseRouteForPushPayload(payload)
+
+  if (explicitUrl && ndjcIsPwaRoute(explicitUrl)) {
+    return explicitUrl
+  }
+
+  if (explicitRoute && ndjcIsPwaRoute(explicitRoute)) {
+    return explicitRoute
+  }
+
+  if (baseRoute !== '/') {
+    return baseRoute
+  }
 
   if (explicitUrl) {
     return explicitUrl
@@ -688,26 +751,13 @@ function ndjcRouteForPushPayload(payloadInput) {
     return explicitRoute
   }
 
-  if (
-    openAs === 'merchant' &&
-    (
-      pushType === 'appointment' ||
-      pushType === 'booking' ||
-      pushType === 'bookings' ||
-      pushType === 'appointment_created' ||
-      pushType === 'appointment_status' ||
-      pushType === 'appointment_cancelled'
-    )
-  ) {
-    return '/appointments'
-  }
-
   return '/'
 }
 
 function appendPushPayloadToRoute(routeInput, payloadInput) {
   const payload = payloadInput && typeof payloadInput === 'object' ? payloadInput : {}
   const route = routeInput || ndjcRouteForPushPayload(payload)
+  const contextRoute = ndjcContextRouteForPushPayload(payload)
 
   let url
   try {
@@ -745,7 +795,9 @@ function appendPushPayloadToRoute(routeInput, payloadInput) {
     ['senderClientId', senderClientId],
     ['target_audience', audience],
     ['targetAudience', audience],
-    ['route', route || '/']
+    ['context_route', contextRoute],
+    ['contextRoute', contextRoute],
+    ['route', contextRoute]
   ]
 
   mappings.forEach(([key, value]) => {
@@ -757,7 +809,92 @@ function appendPushPayloadToRoute(routeInput, payloadInput) {
 
   return `${url.pathname}${url.search}${url.hash}`
 }
+function ndjcStoreIdFromClientUrl(clientUrlInput) {
+  try {
+    const url = new URL(clientUrlInput)
+    const match = url.pathname.match(/^\/pwa\/([^/?#]+)/)
 
+    if (!match) {
+      return ''
+    }
+
+    return decodeURIComponent(match[1] || '').trim()
+  } catch (error) {
+    return ''
+  }
+}
+
+function ndjcSameOriginWindowClient(client) {
+  try {
+    const url = new URL(client.url)
+    return url.origin === self.location.origin
+  } catch (error) {
+    return false
+  }
+}
+
+function ndjcFindBestWindowClientForPush(clientsInput, payloadInput) {
+  const payload = payloadInput && typeof payloadInput === 'object' ? payloadInput : {}
+  const storeId = ndjcPayloadStoreId(payload)
+
+  const sameOriginClients = clientsInput.filter(client => {
+    return client && 'focus' in client && ndjcSameOriginWindowClient(client)
+  })
+
+  if (!sameOriginClients.length) {
+    return null
+  }
+
+  if (!storeId) {
+    return sameOriginClients[0]
+  }
+
+  const sameStoreClient = sameOriginClients.find(client => {
+    return ndjcStoreIdFromClientUrl(client.url) === storeId
+  })
+
+  return sameStoreClient || sameOriginClients[0]
+}
+
+function ndjcBuildPushRouteMessage(routeWithPayload, payloadInput) {
+  const payload = payloadInput && typeof payloadInput === 'object' ? payloadInput : {}
+
+  return {
+    type: 'NDJC_PUSH_ROUTE',
+    route: routeWithPayload,
+    payload: {
+      ...payload,
+      route: routeWithPayload,
+      push_type: payload.push_type || payload.pushType || payload.type,
+      type: payload.type || payload.push_type || payload.pushType,
+      context_route: ndjcContextRouteForPushPayload(payload),
+      contextRoute: ndjcContextRouteForPushPayload(payload)
+    }
+  }
+}
+
+function ndjcFocusOrNavigatePushClient(client, routeWithPayload, payloadInput) {
+  const message = ndjcBuildPushRouteMessage(routeWithPayload, payloadInput)
+
+  try {
+    client.postMessage(message)
+  } catch (error) {
+  }
+
+  if ('navigate' in client && typeof client.navigate === 'function') {
+    return client.navigate(routeWithPayload).then(navigatedClient => {
+      const targetClient = navigatedClient || client
+
+      if (targetClient && 'focus' in targetClient) {
+        return targetClient.focus()
+      }
+
+      return targetClient
+    })
+  }
+
+  return client.focus()
+}
 self.addEventListener('notificationclick', event => {
   event.notification.close()
 
@@ -771,31 +908,10 @@ self.addEventListener('notificationclick', event => {
 
   event.waitUntil(
     self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(clients => {
-      const existing = clients.find(client => {
-        if (!('focus' in client)) {
-          return false
-        }
-
-        try {
-          const clientUrl = new URL(client.url)
-          return clientUrl.origin === self.location.origin
-        } catch (error) {
-          return true
-        }
-      })
+      const existing = ndjcFindBestWindowClientForPush(clients, payload)
 
       if (existing) {
-        existing.postMessage({
-          type: 'NDJC_PUSH_ROUTE',
-          route: routeWithPayload,
-          payload: {
-            ...payload,
-            route: routeWithPayload,
-            push_type: payload.push_type || payload.pushType || payload.type,
-            type: payload.type || payload.push_type || payload.pushType
-          }
-        })
-        return existing.focus()
+        return ndjcFocusOrNavigatePushClient(existing, routeWithPayload, payload)
       }
 
       return self.clients.openWindow(routeWithPayload)

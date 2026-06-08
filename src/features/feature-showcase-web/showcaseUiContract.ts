@@ -675,6 +675,7 @@ export type ShowcaseStoreProfileUiState = {
   versionName: string
   merchantEmail: string
   privacyUrl: string
+  poweredByUrl: string
 
   draftBusinessStatus: string
 
@@ -749,6 +750,7 @@ export type ShowcaseStoreProfileActions = ShowcaseBottomNavigationActions & {
   onExtraContactValueChange: (id: string, value: string) => void
 
   onOpenMap: (url: string) => void
+  onOpenWebsite: (url: string) => void
   onCopy: (label: string, text: string) => void
   onSavePreviewImage: (url: string) => void
 }
