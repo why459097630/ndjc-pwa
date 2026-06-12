@@ -1239,7 +1239,8 @@ export function useShowcaseViewModel(input: UseShowcaseViewModelInput = {}): Sho
   const pushRegistrationThrottleAtRef = useRef<Record<string, number>>({})
   const activeConversationIdRef = useRef(activeConversationId)
   const chatIsOpeningRef = useRef(false)
-  const chatSyncInFlightRef = useRef(false)
+  const chatRestoreSeqRef = useRef(0)
+  const chatSyncScopeRef = useRef<string | null>(null)
   const chatMessageLoadSeqRef = useRef(0)
   const chatSearchLoadSeqRef = useRef(0)
   const chatMediaLoadSeqRef = useRef(0)
@@ -1249,6 +1250,42 @@ export function useShowcaseViewModel(input: UseShowcaseViewModelInput = {}): Sho
     isAdmin: boolean
     focusedMessageId: string | null
   } | null>(null)
+  function beginChatRestoreTask(): number {
+    chatRestoreSeqRef.current += 1
+    return chatRestoreSeqRef.current
+  }
+
+  function invalidateChatRestoreTasks(): void {
+    chatRestoreSeqRef.current += 1
+  }
+
+  function isCurrentChatRestoreTask(restoreSeq: number): boolean {
+    return chatRestoreSeqRef.current === restoreSeq
+  }
+
+  function isStillActiveChatTarget(role: 'merchant' | 'user', conversationId: string): boolean {
+    const activeId = activeConversationIdRef.current.trim()
+
+    return currentChatRole() === role && activeId === conversationId
+  }
+
+  function resolveMerchantClientIdForConversation(conversationIdInput: string): string | null {
+    const conversationId = conversationIdInput.trim()
+    if (!conversationId) return null
+
+    if (activeConversation?.id === conversationId && activeConversation.clientId) {
+      return activeConversation.clientId
+    }
+
+    const thread = merchantChatThreads.find(item => item.conversationId === conversationId)
+
+    if (thread?.clientId) {
+      return thread.clientId
+    }
+
+    return extractClientIdFromConversationId(conversationId)
+  }
+
 
   function setChatOpeningState(nextValue: boolean): void {
     chatIsOpeningRef.current = nextValue
@@ -9299,11 +9336,7 @@ function backFromAppointments(): void {
       : activeConversation?.id || repository.buildConversationId(storeId, clientId)
 
     const effectiveClientId = role === 'merchant'
-      ? (
-          activeConversation?.id === effectiveConversationId
-            ? activeConversation.clientId
-            : null
-        ) || activeThread?.clientId || extractClientIdFromConversationId(effectiveConversationId)
+      ? resolveMerchantClientIdForConversation(effectiveConversationId)
       : activeConversation?.clientId || clientId
 
     if (!effectiveConversationId || !effectiveClientId) {
@@ -9314,9 +9347,18 @@ function backFromAppointments(): void {
       return null
     }
 
+    if (role === 'merchant' && !isStillActiveChatTarget('merchant', effectiveConversationId)) {
+      setChatStatusMessage('Conversation changed. Please reopen this customer chat.')
+      return null
+    }
+
     const ok = await repository.upsertChatConversation(effectiveConversationId, storeId, effectiveClientId)
 
     if (!ok) {
+      return null
+    }
+
+    if (role === 'merchant' && !isStillActiveChatTarget('merchant', effectiveConversationId)) {
       return null
     }
 
@@ -9324,10 +9366,14 @@ function backFromAppointments(): void {
       storeId,
       clientId: effectiveClientId,
       customerName: activeThread?.title || activeConversation?.customerName || DEFAULT_CUSTOMER_NAME,
-      customerContact: activeConversation?.customerContact || ''
+      customerContact: activeConversation?.customerContact || effectiveClientId
     })
 
     if (!conversation) return null
+
+    if (role === 'merchant' && !isStillActiveChatTarget('merchant', effectiveConversationId)) {
+      return null
+    }
 
     const resolvedConversation: ChatConversation = role === 'merchant'
       ? {
@@ -9372,8 +9418,20 @@ function backFromAppointments(): void {
     const role = currentChatRole()
     const traceId = `VM${Date.now()}_${conversationId.slice(-4)}`
     const effectiveClientId = role === 'merchant'
-      ? activeConversation?.clientId || merchantChatThreads.find(thread => thread.conversationId === conversationId)?.clientId || clientId
+      ? resolveMerchantClientIdForConversation(conversationId)
       : clientId
+
+    if (!effectiveClientId) {
+      setChatStatusMessage(role === 'merchant'
+        ? 'Conversation unavailable. Please reopen this customer chat.'
+        : 'Conversation unavailable.'
+      )
+      return
+    }
+
+    if (role === 'merchant' && !isStillActiveChatTarget('merchant', conversationId)) {
+      return
+    }
 
     await chatRepository.syncConversationFromCloud({
       storeId,
@@ -9499,6 +9557,13 @@ function backFromAppointments(): void {
         traceId
       )
 
+      if (
+        chatMessageLoadSeqRef.current !== loadSeq ||
+        !isStillActiveChatTarget('merchant', conversationId)
+      ) {
+        return
+      }
+
       setMerchantChatThreads(current => current.map(thread => {
         if (thread.conversationId !== conversationId) return thread
 
@@ -9589,8 +9654,17 @@ function backFromAppointments(): void {
       const role = currentChatRole()
       const traceId = `VM${Date.now()}_${conversationId.slice(-4)}`
       const effectiveClientId = role === 'merchant'
-        ? activeConversation?.clientId || merchantChatThreads.find(thread => thread.conversationId === conversationId)?.clientId || clientId
+        ? resolveMerchantClientIdForConversation(conversationId)
         : clientId
+
+      if (!effectiveClientId) {
+        setChatStatusMessage('Conversation unavailable. Please reopen this customer chat.')
+        return
+      }
+
+      if (role === 'merchant' && !isStillActiveChatTarget('merchant', conversationId)) {
+        return
+      }
 
       const nextLocalMessages = await chatRepository.listOlderMessagesBeforeTime({
         storeId,
@@ -9696,8 +9770,17 @@ function backFromAppointments(): void {
       const role = currentChatRole()
       const traceId = `VM${Date.now()}_${conversationId.slice(-4)}`
       const effectiveClientId = role === 'merchant'
-        ? activeConversation?.clientId || merchantChatThreads.find(thread => thread.conversationId === conversationId)?.clientId || clientId
+        ? resolveMerchantClientIdForConversation(conversationId)
         : clientId
+
+      if (!effectiveClientId) {
+        setChatStatusMessage('Conversation unavailable. Please reopen this customer chat.')
+        return
+      }
+
+      if (role === 'merchant' && !isStillActiveChatTarget('merchant', conversationId)) {
+        return
+      }
 
       const nextLocalMessages = await chatRepository.listNewerMessagesAfterTime({
         storeId,
@@ -9969,12 +10052,18 @@ function backFromAppointments(): void {
     pendingProduct: ShowcaseChatProductShare | null = null,
     pendingAppointment: ShowcaseChatAppointmentShare | null = null
   ): Promise<void> {
+    const restoreSeq = beginChatRestoreTask()
+
     setChatMode('Client')
 
     const existingConversation = await repository.findChatConversation({
       storeId,
       clientId
     })
+
+    if (!isCurrentChatRestoreTask(restoreSeq) || currentChatRole() !== 'user') {
+      return
+    }
 
     const conversationId = existingConversation?.id || repository.buildConversationId(storeId, clientId)
 
@@ -9992,6 +10081,10 @@ function backFromAppointments(): void {
       updatedAt: null
     }
 
+    if (!isCurrentChatRestoreTask(restoreSeq) || currentChatRole() !== 'user') {
+      return
+    }
+
     resetChatTransientStateForConversation(conversation.id, pendingProduct, pendingAppointment)
 
     activeConversationIdRef.current = conversation.id
@@ -10005,6 +10098,10 @@ function backFromAppointments(): void {
 
     const showedLocalMessages = await applyLocalChatMessagesFirst(conversation.id)
 
+    if (!isCurrentChatRestoreTask(restoreSeq) || !isStillActiveChatTarget('user', conversation.id)) {
+      return
+    }
+
     if (showedLocalMessages) {
       if (existingConversation) {
         void refreshChatMessages(conversation.id, true, true)
@@ -10015,24 +10112,31 @@ function backFromAppointments(): void {
 
     if (existingConversation) {
       await refreshChatMessages(conversation.id, true, true)
+
+      if (!isCurrentChatRestoreTask(restoreSeq) || !isStillActiveChatTarget('user', conversation.id)) {
+        return
+      }
+
       await acknowledgeVisibleClientConversation(conversation.id)
     }
   }
 
   async function restoreMerchantChatContext(conversationIdInput?: string | null): Promise<void> {
+    const restoreSeq = beginChatRestoreTask()
+
     setChatMode('Merchant')
 
     const conversationId = String(conversationIdInput || activeConversationId || '').trim()
     if (!conversationId) return
 
     const thread = merchantChatThreads.find(item => item.conversationId === conversationId) || null
+    const restoredClientId = thread?.clientId || extractClientIdFromConversationId(conversationId)
 
     resetChatTransientStateForConversation(conversationId)
 
     activeConversationIdRef.current = conversationId
     setActiveConversationId(conversationId)
     setRuntimeActiveConversationId(conversationId)
-    const restoredClientId = thread?.clientId || extractClientIdFromConversationId(conversationId)
 
     setActiveConversation(restoredClientId
       ? {
@@ -10049,7 +10153,16 @@ function backFromAppointments(): void {
       : null
     )
 
+    if (!restoredClientId) {
+      setChatStatusMessage('Conversation unavailable. Please reopen this customer chat.')
+      return
+    }
+
     const showedLocalMessages = await applyLocalChatMessagesFirst(conversationId)
+
+    if (!isCurrentChatRestoreTask(restoreSeq) || !isStillActiveChatTarget('merchant', conversationId)) {
+      return
+    }
 
     if (showedLocalMessages) {
       void refreshChatMessages(conversationId, true, true)
@@ -10087,13 +10200,18 @@ function backFromAppointments(): void {
   }
 
   async function syncChat(): Promise<void> {
-    if (chatSyncInFlightRef.current) return
+    const role = currentChatRole()
+    const conversationId = role === 'merchant'
+      ? String(activeConversationIdRef.current || activeConversationId || '').trim()
+      : String(activeConversationIdRef.current || activeConversationId || '').trim()
+    const syncScope = `${role}:${conversationId}`
 
-    chatSyncInFlightRef.current = true
+    if (chatSyncScopeRef.current === syncScope) return
+
+    chatSyncScopeRef.current = syncScope
     setChatStatusMessage(null)
 
     try {
-      const role = currentChatRole()
       const canLoadFullMessages =
         screen === ShowcaseScreens.Chat ||
         screen === ShowcaseScreens.ChatMedia ||
@@ -10101,7 +10219,6 @@ function backFromAppointments(): void {
 
       if (role === 'merchant') {
         const traceId = `VM${Date.now()}_${storeId.slice(-4)}`
-        const conversationId = String(activeConversationIdRef.current || activeConversationId || '').trim()
 
         await chatRepository.syncMerchantThreadMetaFromCloud(
           storeId,
@@ -10112,12 +10229,17 @@ function backFromAppointments(): void {
           await refreshChatMessages(conversationId, true, true)
         }
 
+        if (
+          currentChatRole() !== 'merchant' ||
+          String(activeConversationIdRef.current || activeConversationId || '').trim() !== conversationId
+        ) {
+          return
+        }
+
         await mergeLatestMerchantThreadsIntoState(traceId)
 
         return
       }
-
-      const conversationId = activeConversationIdRef.current || activeConversationId || ''
 
       if (!conversationId) return
 
@@ -10127,7 +10249,9 @@ function backFromAppointments(): void {
     } catch {
       setChatStatusMessage('Chat sync failed.')
     } finally {
-      chatSyncInFlightRef.current = false
+      if (chatSyncScopeRef.current === syncScope) {
+        chatSyncScopeRef.current = null
+      }
     }
   }
 
@@ -10834,45 +10958,49 @@ function backFromAppointments(): void {
     }
 
     if (routeInput.type === 'chat') {
+      const pushedConversationId = String(routeInput.conversationId || '').trim()
+      const shouldOpenAsMerchant = openAs === 'merchant' || Boolean(pushedConversationId && isAdminLoggedInRef.current)
+
+      invalidateChatRestoreTasks()
+
       if (openAs === 'customer' || openAs === 'client') {
         chatBackTargetRef.current = ShowcaseScreens.Home
         setPreviousScreen(ShowcaseScreens.Home)
         stopMerchantChatListPolling()
         stopMerchantChatListDbObserve()
         await restoreClientChatContext()
-      } else if (openAs === 'merchant' && routeInput.conversationId) {
+      } else if (shouldOpenAsMerchant && pushedConversationId) {
         chatBackTargetRef.current = ShowcaseScreens.MerchantChatList
         setPreviousScreen(ShowcaseScreens.MerchantChatList)
         stopChatPolling()
         stopChatDbObserve()
+        stopMerchantChatListPolling()
+        stopMerchantChatListDbObserve()
         setChatMode('Merchant')
-        setActiveConversationId(routeInput.conversationId)
-        setRuntimeActiveConversationId(routeInput.conversationId)
-        await restoreMerchantChatContext(routeInput.conversationId)
-      } else if (routeInput.conversationId) {
-        chatBackTargetRef.current = isAdminLoggedInRef.current
-          ? ShowcaseScreens.MerchantChatList
-          : ShowcaseScreens.Home
-        setPreviousScreen(chatBackTargetRef.current)
-
-        if (isAdminLoggedInRef.current) {
-          stopChatPolling()
-          stopChatDbObserve()
-          setChatMode('Merchant')
-          setActiveConversationId(routeInput.conversationId)
-          setRuntimeActiveConversationId(routeInput.conversationId)
-          await restoreMerchantChatContext(routeInput.conversationId)
-        } else {
-          stopMerchantChatListPolling()
-          stopMerchantChatListDbObserve()
-          await restoreClientChatContext()
-        }
+        activeConversationIdRef.current = pushedConversationId
+        setActiveConversationId(pushedConversationId)
+        setRuntimeActiveConversationId(pushedConversationId)
+        await restoreMerchantChatContext(pushedConversationId)
+      } else if (pushedConversationId) {
+        chatBackTargetRef.current = ShowcaseScreens.Home
+        setPreviousScreen(ShowcaseScreens.Home)
+        stopMerchantChatListPolling()
+        stopMerchantChatListDbObserve()
+        await restoreClientChatContext()
       } else {
         chatBackTargetRef.current = ShowcaseScreens.Home
         setPreviousScreen(ShowcaseScreens.Home)
         stopMerchantChatListPolling()
         stopMerchantChatListDbObserve()
         await restoreClientChatContext()
+      }
+
+      if (
+        shouldOpenAsMerchant &&
+        pushedConversationId &&
+        !isStillActiveChatTarget('merchant', pushedConversationId)
+      ) {
+        return
       }
 
       setChatStatusMessage(null)
@@ -11366,8 +11494,15 @@ function backFromAppointments(): void {
     const conversationId = conversationIdInput.trim()
     if (!conversationId) return
 
+    const restoreSeq = beginChatRestoreTask()
     const thread = merchantChatThreads.find(item => item.conversationId === conversationId) || null
     const threadTitle = titleInput?.trim() || thread?.title || 'Chat'
+    const resolvedClientId = thread?.clientId || extractClientIdFromConversationId(conversationId)
+
+    if (!resolvedClientId) {
+      setChatStatusMessage('Conversation unavailable. Please reopen this customer chat.')
+      return
+    }
 
     let validSession: MerchantAuthSession | null = null
 
@@ -11382,6 +11517,10 @@ function backFromAppointments(): void {
 
       setStoreMerchantSessionFromAuthSession(validSession)
       bindMerchantSessionToRepository(repository)
+    }
+
+    if (!isCurrentChatRestoreTask(restoreSeq)) {
+      return
     }
 
     chatBackTargetRef.current = ShowcaseScreens.MerchantChatList
@@ -11399,30 +11538,17 @@ function backFromAppointments(): void {
     setActiveConversationId(conversationId)
     setRuntimeActiveConversationId(conversationId)
     setRuntimeChatVisible(true)
-    setActiveConversation(thread
-      ? {
-          id: conversationId,
-          storeId,
-          clientId: thread.clientId,
-          merchantAuthUserId: validSession?.authUserId || null,
-          customerName: threadTitle,
-          customerContact: thread.clientId,
-          customerSeq: Number(thread.customerSeq || 0) > 0 ? Math.trunc(Number(thread.customerSeq)) : null,
-          createdAt: null,
-          updatedAt: thread.lastMessageAt
-        }
-      : {
-          id: conversationId,
-          storeId,
-          clientId: conversationId,
-          merchantAuthUserId: validSession?.authUserId || null,
-          customerName: threadTitle,
-          customerContact: conversationId,
-          customerSeq: null,
-          createdAt: null,
-          updatedAt: null
-        }
-    )
+    setActiveConversation({
+      id: conversationId,
+      storeId,
+      clientId: resolvedClientId,
+      merchantAuthUserId: validSession?.authUserId || null,
+      customerName: threadTitle,
+      customerContact: thread?.clientId || resolvedClientId,
+      customerSeq: Number(thread?.customerSeq || 0) > 0 ? Math.trunc(Number(thread?.customerSeq)) : null,
+      createdAt: null,
+      updatedAt: thread?.lastMessageAt || null
+    })
 
     setPreviousScreen(ShowcaseScreens.MerchantChatList)
     setChatStatusMessage(
@@ -11433,6 +11559,10 @@ function backFromAppointments(): void {
     setScreen(ShowcaseScreens.Chat)
 
     const showedLocalMessages = await applyLocalChatMessagesFirst(conversationId)
+
+    if (!isCurrentChatRestoreTask(restoreSeq) || !isStillActiveChatTarget('merchant', conversationId)) {
+      return
+    }
 
     if (!isOffline) {
       if (showedLocalMessages) {
