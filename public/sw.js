@@ -1,5 +1,5 @@
-﻿const NDJC_DEV_KILL_SERVICE_WORKER = false
-const NDJC_SW_VERSION = 'ndjc-pwa-1.0.0-20260607073432'
+const NDJC_DEV_KILL_SERVICE_WORKER = false
+const NDJC_SW_VERSION = 'ndjc-pwa-1.0.0-20260611130942'
 const NDJC_STATIC_CACHE = `${NDJC_SW_VERSION}-static`
 const NDJC_NAVIGATION_CACHE = `${NDJC_SW_VERSION}-navigation`
 const NDJC_CACHE_PREFIX = 'ndjc-pwa-'
@@ -419,11 +419,9 @@ function ndjcShouldSuppressVisibleChatNotification(payload) {
   ndjcPruneChatVisibility()
 
   const now = ndjcNowMs()
-  const pushOpenAsRole = ndjcPushOpenAsRole(payload)
 
   for (const value of ndjcVisibleChatClients.values()) {
     const visibleConversationId = ndjcNormalizeText(value && value.conversation_id)
-    const visibleRole = ndjcVisibleChatRole(value)
     const updatedAt = Number(value && value.updated_at ? value.updated_at : 0)
 
     if (!updatedAt || now - updatedAt > NDJC_CHAT_VISIBILITY_GRACE_MS) {
@@ -431,10 +429,6 @@ function ndjcShouldSuppressVisibleChatNotification(payload) {
     }
 
     if (visibleConversationId !== conversationId) {
-      continue
-    }
-
-    if (pushOpenAsRole && visibleRole && pushOpenAsRole !== visibleRole) {
       continue
     }
 
@@ -881,19 +875,11 @@ function ndjcFocusOrNavigatePushClient(client, routeWithPayload, payloadInput) {
   } catch (error) {
   }
 
-  if ('navigate' in client && typeof client.navigate === 'function') {
-    return client.navigate(routeWithPayload).then(navigatedClient => {
-      const targetClient = navigatedClient || client
-
-      if (targetClient && 'focus' in targetClient) {
-        return targetClient.focus()
-      }
-
-      return targetClient
-    })
+  if (client && 'focus' in client && typeof client.focus === 'function') {
+    return client.focus()
   }
 
-  return client.focus()
+  return Promise.resolve(client)
 }
 self.addEventListener('notificationclick', event => {
   event.notification.close()
