@@ -15,7 +15,7 @@ import {
   dispatchShowcaseAppLifecycleEvent,
   recordShowcaseOnlineState
 } from '@/pwa/showcaseAppLifecycle'
-import { GreenpinkShowcaseUiRenderer } from '@/ui-packs/ui-pack-showcase-greenpink-web/GreenpinkShowcaseUiRenderer'
+import { CleanNeutralShowcaseUiRenderer } from '@/ui-packs/ui-pack-clean-neutral-web/CleanNeutralShowcaseUiRenderer'
 import {
   inspectShowcaseNotificationPermission,
   registerShowcasePushDeviceForCurrentStore,
@@ -23,7 +23,7 @@ import {
   type ShowcaseNotificationPermissionState,
   type ShowcaseNotificationRegistrationState
 } from '@/features/feature-showcase-web/showcasePushRegistrationService'
-import type { ShowcasePwaInstallState } from '@/ui-packs/ui-pack-showcase-greenpink-web/ShowcaseUiRenderer'
+import type { ShowcasePwaInstallState } from '@/ui-packs/ui-pack-clean-neutral-web/ShowcaseUiRenderer'
 
 type NdjcBeforeInstallPromptChoice = {
   outcome: 'accepted' | 'dismissed'
@@ -490,7 +490,7 @@ async function promptInstallCurrentPwa(): Promise<void> {
   return (
     <>
       {pwaUpdateRegistration && !pwaUpdateDismissed
-        ? GreenpinkShowcaseUiRenderer.PwaUpdateBanner({
+        ? CleanNeutralShowcaseUiRenderer.PwaUpdateBanner({
             refreshing: pwaUpdateRefreshing,
             onRefresh: () => {
               activatePwaUpdate(pwaUpdateRegistration)
@@ -502,7 +502,7 @@ async function promptInstallCurrentPwa(): Promise<void> {
         : null}
 
 {notificationOptInVisible && notificationOptInAllowedOnCurrentScreen
-  ? GreenpinkShowcaseUiRenderer.NotificationOptInPanel({
+  ? CleanNeutralShowcaseUiRenderer.NotificationOptInPanel({
       open: notificationOptInPanelOpen,
       busy: notificationOptInBusy,
       registered: notificationRegistered,
@@ -524,7 +524,7 @@ async function promptInstallCurrentPwa(): Promise<void> {
   : null}
 
       {notificationOptInVisible && notificationOptInAllowedOnCurrentScreen
-        ? GreenpinkShowcaseUiRenderer.NotificationOptInFloatingButton({
+        ? CleanNeutralShowcaseUiRenderer.NotificationOptInFloatingButton({
             open: notificationOptInPanelOpen,
             permissionState: notificationPermissionState,
             registrationState: notificationRegistrationState,
