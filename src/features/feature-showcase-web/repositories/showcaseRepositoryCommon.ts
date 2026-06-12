@@ -668,6 +668,7 @@ export function pushBadgeUrlForPushType(value: unknown): string {
     type === 'appointment' ||
     type === 'booking' ||
     type === 'appointment_created' ||
+    type === 'appointment_cancelled' ||
     type === 'appointment_status'
   ) {
     return '/icons/push/appointment-badge.svg'
