@@ -156,6 +156,8 @@ export function AppRoot({ assembly }: { assembly: Assembly }) {
   const [pwaUpdateDismissed, setPwaUpdateDismissed] = useState(false)
   const pwaUpdateCheckInFlightRef = useRef(false)
   const lastPwaUpdateCheckAtRef = useRef(0)
+  const pwaUpdateReloadTimerRef = useRef<number | null>(null)
+  const pwaUpdateReloadStartedRef = useRef(false)
   const [notificationOptInVisible, setNotificationOptInVisible] = useState(false)
   const [notificationOptInPanelOpen, setNotificationOptInPanelOpen] = useState(false)
   const [notificationOptInBusy, setNotificationOptInBusy] = useState(false)
@@ -228,18 +230,30 @@ useEffect(() => {
     if (typeof window === 'undefined') return
     if (!('serviceWorker' in navigator)) return
 
-    let hasReloadedForControllerChange = false
+    const reloadForPwaUpdate = () => {
+      if (pwaUpdateReloadStartedRef.current) return
+
+      pwaUpdateReloadStartedRef.current = true
+      window.location.reload()
+    }
 
     const handleControllerChange = () => {
-      if (hasReloadedForControllerChange) return
+      if (pwaUpdateReloadTimerRef.current !== null) {
+        window.clearTimeout(pwaUpdateReloadTimerRef.current)
+        pwaUpdateReloadTimerRef.current = null
+      }
 
-      hasReloadedForControllerChange = true
-      window.location.reload()
+      reloadForPwaUpdate()
     }
 
     navigator.serviceWorker.addEventListener('controllerchange', handleControllerChange)
 
     return () => {
+      if (pwaUpdateReloadTimerRef.current !== null) {
+        window.clearTimeout(pwaUpdateReloadTimerRef.current)
+        pwaUpdateReloadTimerRef.current = null
+      }
+
       navigator.serviceWorker.removeEventListener('controllerchange', handleControllerChange)
     }
   }, [])
@@ -363,8 +377,32 @@ async function promptInstallCurrentPwa(): Promise<void> {
   function activatePwaUpdate(registration: ServiceWorkerRegistration): void {
     setPwaUpdateRegistration(registration)
     setPwaUpdateRefreshing(true)
-    setPwaUpdateDismissed(false)
-    activateWaitingServiceWorker(registration)
+    setPwaUpdateDismissed(true)
+
+    const didRequestActivation = activateWaitingServiceWorker(registration)
+
+    if (typeof window === 'undefined') return
+
+    if (pwaUpdateReloadTimerRef.current !== null) {
+      window.clearTimeout(pwaUpdateReloadTimerRef.current)
+      pwaUpdateReloadTimerRef.current = null
+    }
+
+    if (!didRequestActivation) {
+      if (!pwaUpdateReloadStartedRef.current) {
+        pwaUpdateReloadStartedRef.current = true
+        window.location.reload()
+      }
+
+      return
+    }
+
+    pwaUpdateReloadTimerRef.current = window.setTimeout(() => {
+      if (pwaUpdateReloadStartedRef.current) return
+
+      pwaUpdateReloadStartedRef.current = true
+      window.location.reload()
+    }, 1200)
   }
 
   function handlePwaUpdateAvailable(registration: ServiceWorkerRegistration): void {

@@ -9,12 +9,13 @@ const inter = Inter({
 })
 
 export const metadata: Metadata = {
-  title: 'NDJC PWA',
-  description: 'NDJC generated PWA shell',
-  applicationName: 'NDJC PWA',
+  title: 'Customer Hub',
+  description: 'A branded customer hub for services, appointments, messages, and updates.',
+  applicationName: 'Customer Hub',
+  manifest: '/manifest.webmanifest',
   appleWebApp: {
     capable: true,
-    title: 'NDJC PWA',
+    title: 'Customer Hub',
     statusBarStyle: 'default'
   },
   formatDetection: {
@@ -27,7 +28,7 @@ export const metadata: Metadata = {
   other: {
     'mobile-web-app-capable': 'yes',
     'apple-mobile-web-app-capable': 'yes',
-    'apple-mobile-web-app-title': 'NDJC PWA',
+    'apple-mobile-web-app-title': 'Customer Hub',
     'apple-mobile-web-app-status-bar-style': 'default',
     'msapplication-TileColor': '#ffffff',
     'msapplication-tap-highlight': 'no'

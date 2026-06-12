@@ -80,10 +80,12 @@ export async function checkServiceWorkerForUpdate(
   }
 }
 
-export function activateWaitingServiceWorker(registration: ServiceWorkerRegistration | null): void {
-  if (!registration || !registration.waiting) return
+export function activateWaitingServiceWorker(registration: ServiceWorkerRegistration | null): boolean {
+  if (!registration || !registration.waiting) return false
 
   registration.waiting.postMessage({
     type: 'NDJC_SKIP_WAITING'
   })
+
+  return true
 }

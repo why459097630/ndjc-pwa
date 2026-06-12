@@ -420,5 +420,5 @@ function routeToShowcaseScreen(routeId: string): ShowcaseScreenName {
 }
 
 function LocalAboutScreen() {
-  return <div>NDJC PWA about (placeholder)</div>
+  return <div>Customer Hub</div>
 }

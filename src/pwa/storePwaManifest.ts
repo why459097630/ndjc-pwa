@@ -36,9 +36,9 @@ type StorePwaProfileRow = {
   background_color?: unknown
 }
 
-const DEFAULT_APP_NAME = 'NDJC PWA'
-const DEFAULT_SHORT_NAME = 'NDJC'
-const DEFAULT_DESCRIPTION = 'Generated NDJC customer PWA'
+const DEFAULT_APP_NAME = 'Customer Hub'
+const DEFAULT_SHORT_NAME = 'Hub'
+const DEFAULT_DESCRIPTION = 'A branded customer hub for services, appointments, messages, and updates.'
 const DEFAULT_THEME_COLOR = '#ffffff'
 const DEFAULT_BACKGROUND_COLOR = '#ffffff'
 const DEFAULT_ICON_192 = '/icons/icon-192.png'
@@ -97,16 +97,59 @@ function normalizeText(value: unknown): string {
     .trim()
 }
 
-function normalizeManifestText(value: unknown, fallback: string): string {
-  const text = normalizeText(value)
-  return text || fallback
+function isLegacyInternalAppName(value: unknown): boolean {
+  const text = normalizeText(value).toLowerCase()
+
+  return text === 'ndjc' ||
+    text === 'ndjc pwa' ||
+    text === 'generated ndjc customer pwa'
 }
 
-function normalizeShortName(value: unknown): string {
+function normalizeManifestText(value: unknown, fallback: string): string {
   const text = normalizeText(value)
-  if (!text) return DEFAULT_SHORT_NAME
+
+  if (!text || isLegacyInternalAppName(text)) {
+    return fallback
+  }
+
+  return text
+}
+
+function normalizeAppName(value: unknown): string {
+  return normalizeManifestText(value, DEFAULT_APP_NAME)
+}
+
+function normalizeShortName(value: unknown, fallbackName: string = DEFAULT_APP_NAME): string {
+  const text = normalizeText(value)
+
+  if (!text || isLegacyInternalAppName(text)) {
+    const fallbackText = normalizeManifestText(fallbackName, DEFAULT_SHORT_NAME)
+
+    if (fallbackText.length <= 24) {
+      return fallbackText
+    }
+
+    return fallbackText.slice(0, 24).trim()
+  }
+
   if (text.length <= 24) return text
   return text.slice(0, 24).trim()
+}
+
+function normalizeManifestDescription(value: unknown, appName: string): string {
+  const text = normalizeText(value)
+  const lowerText = text.toLowerCase()
+
+  if (
+    !text ||
+    lowerText === 'generated ndjc customer pwa' ||
+    lowerText === 'ndjc official pwa app.' ||
+    lowerText === 'ndjc pwa official pwa app.'
+  ) {
+    return `${appName} customer hub.`
+  }
+
+  return text
 }
 
 function normalizeAbsoluteOrRootUrl(value: unknown, fallback: string): string {
@@ -180,9 +223,9 @@ function buildProfileFromRow(storeIdInput: unknown, row: StorePwaProfileRow | nu
 
   if (!row) return fallback
 
-  const appName = normalizeManifestText(row.app_name, DEFAULT_APP_NAME)
-  const shortName = normalizeShortName(row.short_name || appName)
-  const description = normalizeManifestText(row.description, DEFAULT_DESCRIPTION)
+  const appName = normalizeAppName(row.app_name)
+  const shortName = normalizeShortName(row.short_name, appName)
+  const description = normalizeManifestDescription(row.description, appName)
   const icon192 = normalizeAbsoluteOrRootUrl(row.icon_192_url, DEFAULT_ICON_192)
   const icon512 = normalizeAbsoluteOrRootUrl(row.icon_512_url, DEFAULT_ICON_512)
   const maskable192 = normalizeAbsoluteOrRootUrl(row.maskable_192_url, DEFAULT_MASKABLE_192)

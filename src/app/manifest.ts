@@ -2,9 +2,9 @@ import type { MetadataRoute } from 'next'
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: 'NDJC PWA',
-    short_name: 'NDJC',
-    description: 'Generated NDJC customer PWA',
+    name: 'Customer Hub',
+    short_name: 'Hub',
+    description: 'A branded customer hub for services, appointments, messages, and updates.',
     start_url: '/',
     scope: '/',
     display: 'standalone',
@@ -43,7 +43,7 @@ export default function manifest(): MetadataRoute.Manifest {
         sizes: '512x512',
         type: 'image/png',
         form_factor: 'narrow',
-        label: 'NDJC PWA'
+        label: 'Customer Hub'
       }
     ]
   }
