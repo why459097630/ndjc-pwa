@@ -10960,6 +10960,22 @@ function backFromAppointments(): void {
     if (routeInput.type === 'chat') {
       const pushedConversationId = String(routeInput.conversationId || '').trim()
       const shouldOpenAsMerchant = openAs === 'merchant' || Boolean(pushedConversationId && isAdminLoggedInRef.current)
+      const isClientChatPush = openAs === 'customer' || openAs === 'client'
+      const currentVisibleScreen = currentScreenRef.current
+      const currentVisibleConversationId = String(activeConversationIdRef.current || activeConversationId || '').trim()
+      const isViewingMerchantChat =
+        currentChatRole() === 'merchant' &&
+        Boolean(currentVisibleConversationId) &&
+        (
+          currentVisibleScreen === ShowcaseScreens.Chat ||
+          currentVisibleScreen === ShowcaseScreens.ChatMedia ||
+          currentVisibleScreen === ShowcaseScreens.ChatSearchResults
+        )
+
+      if (isClientChatPush && isViewingMerchantChat) {
+        setPendingShowcasePushRoute(null)
+        return
+      }
 
       invalidateChatRestoreTasks()
 
