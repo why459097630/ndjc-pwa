@@ -132,17 +132,20 @@ function validatePackageJson() {
   }
 
   const requiredScripts = {
-    build: 'next build',
-    start: 'next start',
-    typecheck: 'tsc --noEmit',
-    validate: 'node scripts/validate-template.mjs'
+    build: [
+      'next build',
+      'node scripts/write-pwa-build-version.mjs && next build'
+    ],
+    start: ['next start'],
+    typecheck: ['tsc --noEmit'],
+    validate: ['node scripts/validate-template.mjs']
   }
 
   const scripts = packageJson.scripts || {}
 
-  Object.entries(requiredScripts).forEach(([name, expectedValue]) => {
-    if (scripts[name] !== expectedValue) {
-      addError(`package.json scripts.${name}: expected "${expectedValue}", got ${JSON.stringify(scripts[name])}`)
+  Object.entries(requiredScripts).forEach(([name, allowedValues]) => {
+    if (!allowedValues.includes(scripts[name])) {
+      addError(`package.json scripts.${name}: expected one of ${JSON.stringify(allowedValues)}, got ${JSON.stringify(scripts[name])}`)
     }
   })
 
@@ -228,14 +231,14 @@ function printResult() {
   })
 
   if (errors.length > 0) {
-    console.error('\nNDJC PWA template validation failed:')
+    console.error('\nCustomer Hub PWA template validation failed:')
     errors.forEach(message => {
       console.error(`✖ ${message}`)
     })
     process.exit(1)
   }
 
-  console.log('NDJC PWA template validation passed.')
+  console.log('Customer Hub PWA template validation passed.')
 
   if (warnings.length > 0) {
     console.log(`${warnings.length} warning(s) found. These are not blocking, but should be reviewed before commercial freeze.`)

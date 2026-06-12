@@ -809,6 +809,7 @@ function appendPushPayloadToRoute(routeInput, payloadInput) {
   const conversationId = payload.conversation_id || payload.conversationId
   const announcementId = payload.announcement_id || payload.announcementId
   const appointmentId = payload.appointment_id || payload.appointmentId
+  const appointmentStatus = payload.appointment_status || payload.appointmentStatus || payload.status
   const openAs = payload.open_as || payload.openAs
   const storeId = payload.store_id || payload.storeId
   const targetClientId = payload.target_client_id || payload.targetClientId
@@ -827,6 +828,9 @@ function appendPushPayloadToRoute(routeInput, payloadInput) {
     ['announcementId', announcementId],
     ['appointment_id', appointmentId],
     ['appointmentId', appointmentId],
+    ['appointment_status', appointmentStatus],
+    ['appointmentStatus', appointmentStatus],
+    ['status', appointmentStatus],
     ['open_as', openAs],
     ['openAs', openAs],
     ['target_client_id', targetClientId],
