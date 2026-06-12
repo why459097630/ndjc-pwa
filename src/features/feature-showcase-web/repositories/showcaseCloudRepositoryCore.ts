@@ -92,7 +92,37 @@ import {
   decodeJwtPayload,
   tokenExpiresAt
 } from './showcaseRepositoryCommon'
+function resolveCurrentPushAppOrigin(): string {
+  if (typeof window === 'undefined') return ''
 
+  return String(window.location.origin || '').trim()
+}
+
+function resolvePushEnvironmentFromOrigin(originInput: string): string {
+  const origin = String(originInput || '').trim()
+
+  if (!origin) return ''
+
+  try {
+    const hostname = new URL(origin).hostname.toLowerCase()
+
+    if (
+      hostname === 'localhost' ||
+      hostname === '127.0.0.1' ||
+      hostname === '0.0.0.0'
+    ) {
+      return 'development'
+    }
+
+    if (hostname.endsWith('.vercel.app')) {
+      return 'preview'
+    }
+
+    return 'production'
+  } catch {
+    return ''
+  }
+}
 export class ShowcaseCloudRepository {
   private readonly supabaseUrl: string
   private readonly supabaseAnonKey: string
@@ -3051,6 +3081,10 @@ const legacyQuery = [
     const merchantId = String(input.merchantId || '').trim()
     const rawConversationId = String(input.conversationId || '').trim()
     const deviceInstallId = String(input.deviceInstallId || '').trim()
+    const appOrigin = String(input.appOrigin || resolveCurrentPushAppOrigin()).trim()
+    const appEnvironment = String(
+      input.appEnvironment || resolvePushEnvironmentFromOrigin(appOrigin)
+    ).trim()
 
     if (!token || !isSupportedPushAudience(audience)) return false
     if (!deviceInstallId) return false
@@ -3087,6 +3121,8 @@ const legacyQuery = [
       merchant_id: merchantId || null,
       platform: input.platform || 'web',
       app_version: input.appVersion || null,
+      app_origin: appOrigin || null,
+      app_environment: appEnvironment || null,
       device_install_id: deviceInstallId,
       updated_at: nowIso,
       last_seen_at: nowIso
@@ -3101,6 +3137,8 @@ const legacyQuery = [
       merchant_id: merchantId || null,
       platform: input.platform || 'web',
       app_version: input.appVersion || null,
+      app_origin: appOrigin || null,
+      app_environment: appEnvironment || null,
       device_install_id: deviceInstallId,
       updated_at: nowIso,
       last_seen_at: nowIso
@@ -3201,7 +3239,27 @@ private async dispatchPush(
     const storeId = this.requireStoreId(options.storeId)
     const scopeClientId = String(options.scopeClientId || '').trim() || null
     const url = this.functionUrl(this.edgeFunctions.sendPush)
-    const nextPayload = await this.buildPushPayloadWithNotificationImages(payload, storeId)
+    const pushAppOrigin = resolveCurrentPushAppOrigin()
+    const pushAppEnvironment = resolvePushEnvironmentFromOrigin(pushAppOrigin)
+    const preparedPayload = await this.buildPushPayloadWithNotificationImages(payload, storeId)
+    const preparedData = preparedPayload.data
+
+    const nextPayload: Record<string, ShowcaseRepositoryJson> = {
+      ...preparedPayload,
+      target_app_origin: pushAppOrigin || null,
+      targetAppOrigin: pushAppOrigin || null,
+      target_environment: pushAppEnvironment || null,
+      targetEnvironment: pushAppEnvironment || null,
+      data: preparedData && typeof preparedData === 'object' && !Array.isArray(preparedData)
+        ? {
+            ...(preparedData as Record<string, ShowcaseRepositoryJson>),
+            target_app_origin: pushAppOrigin || '',
+            targetAppOrigin: pushAppOrigin || '',
+            target_environment: pushAppEnvironment || '',
+            targetEnvironment: pushAppEnvironment || ''
+          }
+        : preparedData
+    }
 
     console.log('[NDJC_PUSH] dispatchPush request prepared.', {
       storeId,
@@ -3214,7 +3272,9 @@ private async dispatchPush(
       target_audience: nextPayload.target_audience,
       appointment_id: nextPayload.appointment_id,
       open_as: nextPayload.open_as,
-      target_client_id: nextPayload.target_client_id
+      target_client_id: nextPayload.target_client_id,
+      target_app_origin: nextPayload.target_app_origin,
+      target_environment: nextPayload.target_environment
     })
 
     const [code, body] = options.actor === 'merchant'

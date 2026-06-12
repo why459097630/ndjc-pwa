@@ -238,6 +238,8 @@ export type PushDeviceUpsert = {
   merchantId?: string | null
   platform?: string
   appVersion?: string | null
+  appOrigin?: string | null
+  appEnvironment?: string | null
   deviceInstallId?: string | null
 }
 

@@ -7,7 +7,6 @@ const NDJC_NOTIFICATION_OPT_IN_ENABLED_STORAGE_KEY = 'ndjc_notification_opt_in_e
 const NDJC_NOTIFICATION_OPT_IN_DISMISSED_STORAGE_KEY = 'ndjc_notification_opt_in_dismissed'
 const NDJC_PUSH_TOKEN_FINGERPRINT_STORAGE_KEY = 'ndjc_pwa_push_token_fingerprint'
 const NDJC_PUSH_TOKEN_LAST_REFRESH_STORAGE_KEY = 'ndjc_pwa_push_token_last_refresh_at'
-const NDJC_PUSH_TOKEN_REFRESH_INTERVAL_MS = 24 * 60 * 60 * 1000
 
 export type ShowcaseNotificationPermissionState =
   | 'default'
@@ -194,22 +193,6 @@ export async function registerShowcasePushDeviceForCurrentStore({
         messageCode: null
       }
     }
-
-    const lastRefreshAt = Number.parseInt(
-      window.localStorage.getItem(NDJC_PUSH_TOKEN_LAST_REFRESH_STORAGE_KEY) || '0',
-      10
-    )
-    const elapsedMs = lastRefreshAt > 0 ? Date.now() - lastRefreshAt : Number.POSITIVE_INFINITY
-
-    if (elapsedMs < NDJC_PUSH_TOKEN_REFRESH_INTERVAL_MS) {
-      return {
-        success: true,
-        permissionState: 'granted',
-        registrationState: 'registered',
-        registered: true,
-        messageCode: null
-      }
-    }
   }
 
   try {
@@ -245,26 +228,6 @@ export async function registerShowcasePushDeviceForCurrentStore({
     }
 
     const tokenFingerprint = createPushTokenFingerprint(token)
-    const previousFingerprint = window.localStorage.getItem(NDJC_PUSH_TOKEN_FINGERPRINT_STORAGE_KEY) || ''
-    const lastRefreshAt = Number.parseInt(
-      window.localStorage.getItem(NDJC_PUSH_TOKEN_LAST_REFRESH_STORAGE_KEY) || '0',
-      10
-    )
-    const elapsedMs = lastRefreshAt > 0 ? Date.now() - lastRefreshAt : Number.POSITIVE_INFINITY
-
-    if (
-      source === 'startup' &&
-      previousFingerprint === tokenFingerprint &&
-      elapsedMs < NDJC_PUSH_TOKEN_REFRESH_INTERVAL_MS
-    ) {
-      return {
-        success: true,
-        permissionState: 'granted',
-        registrationState: 'registered',
-        registered: true,
-        messageCode: null
-      }
-    }
 
     const deviceInstallId = getOrCreatePwaDeviceInstallId()
     const showcaseClientId = getOrCreateShowcaseClientId()
@@ -272,7 +235,7 @@ export async function registerShowcasePushDeviceForCurrentStore({
       createShowcaseCloudRepositoryConfig(runtimeStoreId)
     )
 
-    const registered = await repository.upsertPushDevice({
+    const registeredAnnouncements = await repository.upsertPushDevice({
       storeId: runtimeStoreId,
       audience: 'announcement_subscriber',
       token,
@@ -282,6 +245,19 @@ export async function registerShowcasePushDeviceForCurrentStore({
       appVersion: 'pwa',
       deviceInstallId
     })
+
+    const registeredAppointments = await repository.upsertPushDevice({
+      storeId: runtimeStoreId,
+      audience: 'appointment_client',
+      token,
+      conversationId: '__appointment_client__',
+      clientId: showcaseClientId,
+      platform: 'web',
+      appVersion: 'pwa',
+      deviceInstallId
+    })
+
+    const registered = registeredAnnouncements && registeredAppointments
 
     if (!registered) {
       return {
