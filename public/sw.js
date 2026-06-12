@@ -1,4 +1,4 @@
-const NDJC_DEV_KILL_SERVICE_WORKER = false
+﻿const NDJC_DEV_KILL_SERVICE_WORKER = false
 const NDJC_SW_VERSION = 'ndjc-pwa-1.0.0-20260611130942'
 const NDJC_STATIC_CACHE = `${NDJC_SW_VERSION}-static`
 const NDJC_NAVIGATION_CACHE = `${NDJC_SW_VERSION}-navigation`
@@ -406,6 +406,51 @@ function ndjcPushOpenAsRole(payload) {
   return ''
 }
 
+function ndjcChatVisibilityForWindowClient(client) {
+  if (!client || !client.id) {
+    return null
+  }
+
+  return ndjcVisibleChatClients.get(client.id) || null
+}
+
+function ndjcWindowClientMatchesVisibleConversation(client, payload) {
+  if (!ndjcIsChatPushPayload(payload)) {
+    return false
+  }
+
+  const conversationId = ndjcPayloadConversationId(payload)
+  if (!conversationId) {
+    return false
+  }
+
+  const visibleState = ndjcChatVisibilityForWindowClient(client)
+  if (!visibleState) {
+    return false
+  }
+
+  const updatedAt = Number(visibleState && visibleState.updated_at ? visibleState.updated_at : 0)
+  if (!updatedAt || ndjcNowMs() - updatedAt > NDJC_CHAT_VISIBILITY_GRACE_MS) {
+    return false
+  }
+
+  return ndjcNormalizeText(visibleState.conversation_id) === conversationId
+}
+
+function ndjcWindowClientMatchesVisibleRole(client, payload) {
+  const pushRole = ndjcPushOpenAsRole(payload)
+  if (!pushRole) {
+    return false
+  }
+
+  const visibleState = ndjcChatVisibilityForWindowClient(client)
+  if (!visibleState) {
+    return false
+  }
+
+  return ndjcVisibleChatRole(visibleState) === pushRole
+}
+
 function ndjcShouldSuppressVisibleChatNotification(payload) {
   if (!ndjcIsChatPushPayload(payload)) {
     return false
@@ -769,6 +814,7 @@ function appendPushPayloadToRoute(routeInput, payloadInput) {
   const targetClientId = payload.target_client_id || payload.targetClientId
   const senderClientId = payload.sender_client_id || payload.senderClientId
   const audience = payload.target_audience || payload.targetAudience || payload.audience
+  const pushRouteSource = payload.push_route_source || payload.pushRouteSource || payload.source || 'notification_click'
 
   const mappings = [
     ['push_type', pushType],
@@ -789,6 +835,9 @@ function appendPushPayloadToRoute(routeInput, payloadInput) {
     ['senderClientId', senderClientId],
     ['target_audience', audience],
     ['targetAudience', audience],
+    ['push_route_source', pushRouteSource],
+    ['pushRouteSource', pushRouteSource],
+    ['source', pushRouteSource],
     ['context_route', contextRoute],
     ['contextRoute', contextRoute],
     ['route', contextRoute]
@@ -830,6 +879,7 @@ function ndjcSameOriginWindowClient(client) {
 function ndjcFindBestWindowClientForPush(clientsInput, payloadInput) {
   const payload = payloadInput && typeof payloadInput === 'object' ? payloadInput : {}
   const storeId = ndjcPayloadStoreId(payload)
+  const isChatPush = ndjcIsChatPushPayload(payload)
 
   const sameOriginClients = clientsInput.filter(client => {
     return client && 'focus' in client && ndjcSameOriginWindowClient(client)
@@ -839,15 +889,34 @@ function ndjcFindBestWindowClientForPush(clientsInput, payloadInput) {
     return null
   }
 
-  if (!storeId) {
+  const sameStoreClients = storeId
+    ? sameOriginClients.filter(client => ndjcStoreIdFromClientUrl(client.url) === storeId)
+    : sameOriginClients
+
+  if (!sameStoreClients.length) {
     return sameOriginClients[0]
   }
 
-  const sameStoreClient = sameOriginClients.find(client => {
-    return ndjcStoreIdFromClientUrl(client.url) === storeId
-  })
+  if (isChatPush) {
+    const sameConversationAndRoleClient = sameStoreClients.find(client => {
+      return ndjcWindowClientMatchesVisibleConversation(client, payload) &&
+        ndjcWindowClientMatchesVisibleRole(client, payload)
+    })
 
-  return sameStoreClient || sameOriginClients[0]
+    if (sameConversationAndRoleClient) {
+      return sameConversationAndRoleClient
+    }
+
+    const sameConversationClient = sameStoreClients.find(client => {
+      return ndjcWindowClientMatchesVisibleConversation(client, payload)
+    })
+
+    if (sameConversationClient) {
+      return sameConversationClient
+    }
+  }
+
+  return sameStoreClients[0]
 }
 
 function ndjcBuildPushRouteMessage(routeWithPayload, payloadInput) {
@@ -861,6 +930,9 @@ function ndjcBuildPushRouteMessage(routeWithPayload, payloadInput) {
       route: routeWithPayload,
       push_type: payload.push_type || payload.pushType || payload.type,
       type: payload.type || payload.push_type || payload.pushType,
+      push_route_source: 'notification_click',
+      pushRouteSource: 'notification_click',
+      source: 'notification_click',
       context_route: ndjcContextRouteForPushPayload(payload),
       contextRoute: ndjcContextRouteForPushPayload(payload)
     }
