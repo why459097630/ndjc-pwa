@@ -1,7 +1,7 @@
 'use client'
 
 import type { ReactNode } from 'react'
-import type { ShowcaseUiRenderer } from '@/ui-packs/ui-pack-showcase-greenpink-web'
+import type { ShowcaseUiRenderer } from '@/ui-packs/ui-pack-clean-neutral-web'
 import { useShowcaseViewModel } from './useShowcaseViewModel'
 import type {
   ShowcaseScreenName,

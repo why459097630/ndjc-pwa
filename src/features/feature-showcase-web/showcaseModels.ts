@@ -145,6 +145,7 @@ export type DemoDish = {
   imageVariants?: ShowcaseImageVariants | null
   tags: string[]
   externalLink?: string | null
+  createdAt?: number | null
   updatedAt: number
   syncState: SyncState
   dirty?: boolean
@@ -297,17 +298,32 @@ export function deriveCategories(
   dishes: DemoDish[],
   manualCategories: string[] = []
 ): string[] {
-  const fromDishes = new Set(
-    dishes
-      .map(item => String(item.category || '').trim())
-      .filter(Boolean)
-  )
+  const seen = new Set<string>()
+  const result: string[] = []
 
-  const extra = manualCategories
-    .map(item => String(item || '').trim())
-    .filter(item => item && !fromDishes.has(item))
+  manualCategories.forEach(item => {
+    const name = String(item || '').trim()
+    if (!name) return
 
-  return Array.from(new Set([...fromDishes, ...extra])).sort()
+    const key = name.toLowerCase()
+    if (seen.has(key)) return
+
+    seen.add(key)
+    result.push(name)
+  })
+
+  dishes.forEach(item => {
+    const name = String(item.category || '').trim()
+    if (!name) return
+
+    const key = name.toLowerCase()
+    if (seen.has(key)) return
+
+    seen.add(key)
+    result.push(name)
+  })
+
+  return result
 }
 
 export function deriveAllTags(dishes: DemoDish[]): string[] {

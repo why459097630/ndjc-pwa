@@ -152,6 +152,13 @@ export function selectStoreLogoUrl(store: ShowcaseStoreImageSource | null | unde
     normalizeShowcaseImageUrl(store.logoUrl)
 }
 
+export function selectStoreLogoPreviewUrl(store: ShowcaseStoreImageSource | null | undefined): string | null {
+  if (!store) return null
+
+  return selectImageVariantUrl(store.logoImageVariants, 'fullscreen') ||
+    normalizeShowcaseImageUrl(store.logoUrl)
+}
+
 export function selectChatImageUrls(
   urls: ReadonlyArray<string | null | undefined> | null | undefined,
   usage: Extract<ShowcaseImageUsage, 'chatThumb' | 'chatPreview'> = 'chatThumb'

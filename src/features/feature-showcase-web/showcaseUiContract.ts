@@ -347,6 +347,7 @@ export type ShowcaseChatUiState = {
 }
 
 export type ShowcaseChatActions = ShowcaseBottomNavigationActions & {
+  onCopy: (label: string, text: string) => void
   onUseProductCardAsPending: (product: ShowcaseChatProductShare) => void
   onUseAppointmentCardAsPending: (appointment: ShowcaseChatAppointmentShare) => void
   onJumpToMessage: (messageId: string) => void
@@ -437,6 +438,7 @@ export type ShowcaseAdminUiState = {
 
   selectedCategory: string | null
   manualCategories: string[]
+  adminCategories: string[]
   dishes: DemoDish[]
   pendingDeleteDishId: string | null
   selectedDishIds: string[]
@@ -797,6 +799,7 @@ export type ShowcaseFavoritesUiState = {
 
   selectedCategory: string | null
   categories: string[]
+  manualCategories: string[]
 
   statusMessage: string | null
 }
@@ -960,6 +963,7 @@ export type ShowcaseAdminAppointmentsActions = {
   onBackToHome: () => void
   onBack: () => void
   onRefresh: () => void
+  onCopy: (label: string, text: string) => void
   onEnabledChange: (value: boolean) => void
 
   onBookingWindowDaysChange: (value: number) => void
@@ -990,6 +994,7 @@ export type ShowcaseCustomerBookingsActions = ShowcaseBottomNavigationActions & 
   onBackToHome: () => void
   onBack: () => void
   onRefresh: () => void
+  onCopy: (label: string, text: string) => void
   onDateFilterChange: (value: string) => void
   onStatusFilterChange: (value: string) => void
   onServiceFilterChange: (value: string) => void
@@ -1096,6 +1101,7 @@ export type ShowcaseStoreUnavailableUiState = {
 export type ShowcaseUiState = {
   dishes: DemoDish[]
   manualCategories: string[]
+  adminCategories: string[]
   selectedCategory: string | null
 
   loginUsernameDraft: string

@@ -142,6 +142,7 @@ export function createDefaultShowcaseUiState(
   return {
     dishes: [],
     manualCategories: [],
+    adminCategories: [],
     selectedCategory: null,
 
     loginUsernameDraft: '',

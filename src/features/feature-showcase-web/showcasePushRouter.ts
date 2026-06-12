@@ -116,11 +116,75 @@ export function dispatchShowcasePushRoute(payload: PushRoutePayload | null | und
   handlers.forEach(handler => handler(route))
 }
 
+function hasPushRouteParams(params: URLSearchParams): boolean {
+  const pushParamKeys = [
+    'push_type',
+    'pushType',
+    'type',
+    'ndjcPushType',
+    'conversation_id',
+    'conversationId',
+    'announcement_id',
+    'announcementId',
+    'appointment_id',
+    'appointmentId',
+    'open_as',
+    'openAs',
+    'open',
+    'context_route',
+    'contextRoute'
+  ]
+
+  return pushParamKeys.some(key => params.has(key))
+}
+
+function clearPushRouteParamsFromLocation(): void {
+  if (typeof window === 'undefined') return
+
+  const url = new URL(window.location.href)
+  const pushParamKeys = [
+    'push_type',
+    'pushType',
+    'type',
+    'ndjcPushType',
+    'conversation_id',
+    'conversationId',
+    'announcement_id',
+    'announcementId',
+    'appointment_id',
+    'appointmentId',
+    'open_as',
+    'openAs',
+    'open',
+    'context_route',
+    'contextRoute',
+    'route',
+    'url'
+  ]
+
+  let changed = false
+
+  pushParamKeys.forEach(key => {
+    if (url.searchParams.has(key)) {
+      url.searchParams.delete(key)
+      changed = true
+    }
+  })
+
+  if (!changed) return
+
+  const nextUrl = `${url.pathname}${url.search}${url.hash}`
+  window.history.replaceState(window.history.state, '', nextUrl)
+}
+
 export function dispatchShowcasePushRouteFromLocationSearch(searchInput?: string | null): void {
   if (typeof window === 'undefined' && searchInput == null) return
 
   const search = searchInput ?? window.location.search
   const params = new URLSearchParams(String(search || ''))
+
+  if (!hasPushRouteParams(params)) return
+
   const payload: PushRoutePayload = {}
 
   params.forEach((value, key) => {
@@ -132,6 +196,10 @@ export function dispatchShowcasePushRouteFromLocationSearch(searchInput?: string
   }
 
   dispatchShowcasePushRoute(payload)
+
+  if (searchInput == null) {
+    clearPushRouteParamsFromLocation()
+  }
 }
 
 export function pendingShowcasePushRoute(): ShowcasePushRoute | null {

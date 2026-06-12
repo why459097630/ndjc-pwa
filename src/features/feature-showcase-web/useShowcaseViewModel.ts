@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import { getNdjcFirebaseMessagingToken } from '@/pwa/firebaseMessaging'
 import {
@@ -267,2348 +267,299 @@ import type {
   SyncOverviewState
 } from './showcaseUiContract'
 
+import {
+  type UseShowcaseViewModelInput,
+  type PendingSyncStatus,
+  type PendingSyncMetadata,
+  type PendingSyncOperation,
+  type PendingDeleteCategoryDialog,
+  type ChatSearchResult,
+  type ChatMediaItem,
+  type ChatMode,
+  type ChatMessageWindowRuntimeState,
+  type ShowcasePaginationRuntimeState,
+  type AppointmentCloudQueryFilters,
+  type DishCloudQueryFilters,
+  type DraftExtraContact,
+  type DraftAnnouncement,
+  type LocalTempImageRecord,
+  type LocalFavoriteStore,
+  type LocalChatDraftStore,
+  type ShowcaseImageVariantName,
+  type ShowcaseImageVariantSpec,
+  type UploadedShowcaseImage,
+  type ShowcaseDishPriceTextSnapshot,
+  CHAT_LATEST_WINDOW_MAX_MESSAGES,
+  CHAT_AROUND_MESSAGE_WINDOW_MAX_MESSAGES,
+  SHOWCASE_CLIENT_ID_KEY,
+  SHOWCASE_FAVORITES_KEY,
+  SHOWCASE_CHAT_DRAFT_KEY,
+  SHOWCASE_STORE_PROFILE_DRAFT_KEY,
+  SHOWCASE_VIEWED_ANNOUNCEMENT_IDS_KEY,
+  SHOWCASE_COUNTED_ANNOUNCEMENT_CLICK_IDS_KEY,
+  SHOWCASE_PUBLISHED_ANNOUNCEMENTS_KEY,
+  SHOWCASE_ITEM_EDITOR_DRAFT_KEY,
+  SHOWCASE_ADMIN_ANNOUNCEMENT_EDITOR_DRAFT_KEY,
+  SHOWCASE_LOCAL_TEMP_IMAGES_KEY,
+  SHOWCASE_PENDING_CHAT_CAMERA_KEY,
+  NDJC_PWA_DEVICE_INSTALL_ID_STORAGE_KEY,
+  DEFAULT_CUSTOMER_NAME,
+  DEFAULT_CHAT_INPUT_PLACEHOLDER,
+  DEFAULT_APPOINTMENT_STATUS,
+  LOCAL_TEMP_IMAGE_MAX_AGE_MS,
+  NDJC_CHAT_VISIBILITY_HEARTBEAT_MS,
+  isBrowser,
+  canUseLocalStorage,
+  postChatVisibilityToServiceWorker,
+  nowMillis,
+  createUuidLikeId,
+  createId,
+  createPwaDeviceInstallId,
+  getOrCreatePwaDeviceInstallId,
+  normalizeStoreId,
+  normalizeText,
+  normalizeNullableText,
+  normalizeNumber,
+  normalizeBoolean,
+  readJson,
+  writeJson,
+  appointmentsStorageKey,
+  loadAppointmentsFromStorage,
+  saveAppointmentsToStorage,
+  appointmentStatusAlertSeenStorageKey,
+  appointmentStatusAlertKey,
+  isCustomerBookingAlertStatus,
+  loadSeenAppointmentStatusAlertKeys,
+  saveSeenAppointmentStatusAlertKeys,
+  removeStoredValue,
+  readClientId,
+  readRememberMe,
+  writeRememberMe,
+  readMerchantSession,
+  writeMerchantSession,
+  readFavoriteIds,
+  writeFavoriteIds,
+  readChatDraft,
+  writeChatDraft,
+  clearChatDraft,
+  loadViewedAnnouncementIdsLocally,
+  saveViewedAnnouncementIdsLocally,
+  loadCountedAnnouncementClickIdsLocally,
+  saveCountedAnnouncementClickIdsLocally,
+  toCachedPublishedAnnouncement,
+  fromCachedPublishedAnnouncement,
+  loadPublishedAnnouncementsLocally,
+  loadDishesFromIndexedDb,
+  loadStoreProfileFromIndexedDb,
+  loadPublishedAnnouncementsFromIndexedDb,
+  loadAppointmentsFromIndexedDb,
+  persistDishesLocally,
+  persistStoreProfileLocally,
+  persistAppointmentsLocally,
+  persistPublishedAnnouncementsLocally,
+  pruneAnnouncementMarksWhenCompletePageLoaded,
+  pruneBookingSeenWhenCompletePageLoaded,
+  loadItemEditorDraftLocally,
+  persistItemEditorDraftLocally,
+  clearItemEditorDraftLocally,
+  loadAdminAnnouncementEditorDraftLocally,
+  persistAdminAnnouncementEditorDraftLocally,
+  clearAdminAnnouncementEditorDraftLocally,
+  loadLocalTempImages,
+  saveLocalTempImages,
+  rememberLocalTempImage,
+  revokeLocalObjectUrl,
+  isLocalImageUri,
+  isAppOwnedLocalFileUri,
+  clearLocalTempImagesByScope,
+  clearEditDraftLocalImages,
+  clearAdminAnnouncementDraftLocalImages,
+  clearStoreProfileDraftLocalImages,
+  deleteLocalFileUri,
+  deleteAppOwnedLocalFileUri,
+  clearExpiredLocalTempFiles,
+  createTempCameraUri,
+  deletePendingChatCameraFile,
+  prepareChatCameraCapture,
+  PRODUCT_IMAGE_LONG_EDGE,
+  PRODUCT_IMAGE_JPEG_QUALITY,
+  PRODUCT_IMAGE_MEDIUM_LONG_EDGE,
+  PRODUCT_IMAGE_THUMB_LONG_EDGE,
+  PRODUCT_IMAGE_BLUR_LONG_EDGE,
+  CHAT_IMAGE_LONG_EDGE,
+  CHAT_IMAGE_JPEG_QUALITY,
+  CHAT_IMAGE_MEDIUM_LONG_EDGE,
+  CHAT_IMAGE_THUMB_LONG_EDGE,
+  CHAT_IMAGE_BLUR_LONG_EDGE,
+  ANNOUNCEMENT_IMAGE_LONG_EDGE,
+  ANNOUNCEMENT_IMAGE_JPEG_QUALITY,
+  ANNOUNCEMENT_IMAGE_MEDIUM_LONG_EDGE,
+  ANNOUNCEMENT_IMAGE_THUMB_LONG_EDGE,
+  ANNOUNCEMENT_IMAGE_BLUR_LONG_EDGE,
+  STORE_COVER_IMAGE_LONG_EDGE,
+  STORE_COVER_IMAGE_JPEG_QUALITY,
+  STORE_COVER_IMAGE_MEDIUM_LONG_EDGE,
+  STORE_COVER_IMAGE_THUMB_LONG_EDGE,
+  STORE_COVER_IMAGE_BLUR_LONG_EDGE,
+  STORE_LOGO_IMAGE_LONG_EDGE,
+  STORE_LOGO_IMAGE_JPEG_QUALITY,
+  STORE_LOGO_IMAGE_MEDIUM_LONG_EDGE,
+  STORE_LOGO_IMAGE_THUMB_LONG_EDGE,
+  STORE_LOGO_IMAGE_BLUR_LONG_EDGE,
+  normalizeImageContentType,
+  imageExtensionFromContentType,
+  uploadImageProfileForBucket,
+  buildImageUploadFileName,
+  compressImage,
+  createRemoteOnlyImageVariants,
+  buildImageVariantSpecs,
+  buildImageVariantFileName,
+  blobToDataImageUrl,
+  clearStoredMerchantSession,
+  persistMerchantSession,
+  persistFavoritesToStorage,
+  readPersistedStoreProfileDraft,
+  writePersistedStoreProfileDraft,
+  formatUsd,
+  buildDishPriceTextSnapshot,
+  buildChatProductShareFromDish,
+  encodeAppointmentPriceSnapshotFromDish,
+  decodeAppointmentPriceSnapshot,
+  formatPlainNumber,
+  formatDateTimeText,
+  formatChatCreatedAtText,
+  getChatMessageWindowBounds,
+  formatDateLabel,
+  normalizeSortMode,
+  resolveDishImages,
+  resolveDishImage,
+  clampIndex,
+  sortDishes,
+  hasDiscount,
+  parseHomePriceDraft,
+  syncStateForCloudItem,
+  manualCategoryNamesToCloudCategories,
+  cloudCategoriesToManualCategoryNames,
+  mergeCloudAndDishCategoryNames,
+  normalizePendingSyncStatus,
+  normalizePendingSyncOperation,
+  nextPendingSyncRetryDelayMs,
+  shouldAttemptPendingSyncOperation,
+  buildPendingDishSyncOperations,
+  legacyPendingSyncStorageKey,
+  parsePendingSyncOperation,
+  loadLegacyPendingSyncOperationsFromStorage,
+  clearLegacyPendingSyncOperationsFromStorage,
+  parsePendingSyncOperationsFromUnknownList,
+  savePendingSyncOperationsToIndexedDb,
+  mergePendingSyncOperations,
+  replaceDishPendingSyncOperationsInQueue,
+  cloudAnnouncementToCard,
+  appointmentsStatusFromCloud,
+  appointmentsStatusToCloud,
+  canCustomerCancelAppointmentStatus,
+  appointmentCloudStatusFilterFromUi,
+  appointmentCloudCancelledByFilterFromUi,
+  appointmentCloudCancelledByNotFilterFromUi,
+  appointmentCloudServiceFilterFromUi,
+  appointmentCloudDateFiltersFromUi,
+  appointmentStatusPushTitle,
+  cloudAppointmentToUi,
+  appointmentToCard,
+  chatMessageToUiMessage,
+  chatThreadSummaryToUi,
+  storeProfileFromCloud,
+  storeProfileFromCachedProfile,
+  storeProfileDraftFromProfile,
+  mapCloudPlanType,
+  buildCloudStatusLabel,
+  parseCloudIsoMillis,
+  formatCloudDateTimeLabel,
+  buildCloudDaysRemainingLabel,
+  cloudStatusToUi,
+  categoryOptionsFromDishes,
+  allTagsFromDishes,
+  dishFilterRowsToTags,
+  mapFavoriteCard,
+  defaultAppointmentSettings,
+  appointmentTimeToMinutes,
+  appointmentMinutesToTime,
+  appointmentMinimumNoticeToMillis,
+  appointmentClosedDayKey,
+  appointmentLocalDateKey,
+  customerAppointmentDateOptions,
+  customerAppointmentTimeOptionsForDate,
+  buildAppointmentDateOptions,
+  buildAppointmentTimeOptions,
+  buildDefaultConversationId,
+  decorateCloudHomeResults,
+  toShowcaseHomeDish,
+  NDJC_VM_TRACE_ENABLED,
+  ndjcTrace,
+  ndjcTraceError
+} from './view-model/showcaseViewModelUtils'
+import { createShowcaseStoreProfileActions } from './view-model/useShowcaseStoreProfileActions'
+import { createShowcaseCatalogActions } from './view-model/useShowcaseCatalogActions'
+import { createShowcaseBookingActions } from './view-model/useShowcaseBookingActions'
+import { createShowcaseAnnouncementActions } from './view-model/useShowcaseAnnouncementActions'
+import { createShowcaseChatActionObjects } from './view-model/useShowcaseChatActions'
+import { useShowcaseBootstrapModule } from './view-model/useShowcaseBootstrapModule'
+
 export type { ShowcaseScreenName } from './showcaseUiContract'
+export type { UseShowcaseViewModelInput } from './view-model/showcaseViewModelUtils'
 
-export type UseShowcaseViewModelInput = {
-  storeId?: string | null
-  appName?: string | null
-  privacyUrl?: string | null
-  merchantEmail?: string | null
-  initialScreen?: ShowcaseScreenName
-  previewMode?: boolean
-  repository?: ShowcaseCloudRepository | null
+function bookingsEntryDotVisibleStorageKey(storeId: string, clientId: string): string {
+  return `ndjc_showcase_bookings_entry_dot_${normalizeStoreId(storeId)}_${clientId.trim()}`
 }
 
-type PendingSyncStatus = 'pending' | 'syncing' | 'failed'
+function loadBookingsEntryDotVisibleLocally(storeId: string, clientId: string): boolean {
+  const normalizedClientId = clientId.trim()
 
-type PendingSyncMetadata = {
-  status?: PendingSyncStatus
-  retryCount?: number
-  lastError?: string | null
-  nextRetryAt?: number | null
-  updatedAt?: number
-}
-
-type PendingSyncOperation =
-  | ({
-      id: string
-      type: 'dish-upsert'
-      dishId: string
-      createdAt: number
-    } & PendingSyncMetadata)
-  | ({
-      id: string
-      type: 'dish-delete'
-      dishId: string
-      createdAt: number
-    } & PendingSyncMetadata)
-  | ({
-      id: string
-      type: 'store-profile-upsert'
-      createdAt: number
-    } & PendingSyncMetadata)
-  | ({
-      id: string
-      type: 'announcement-upsert'
-      announcementId: string
-      createdAt: number
-    } & PendingSyncMetadata)
-  | ({
-      id: string
-      type: 'appointment-settings-upsert'
-      createdAt: number
-    } & PendingSyncMetadata)
-
-type PendingDeleteCategoryDialog = {
-  name: string
-  id: string | null
-} | null
-
-type ChatSearchResult = {
-  conversationId: string
-  messageId: string | null
-  senderLabel: string
-  snippet: string
-  createdAtText: string
-  createdAtMs: number
-  matchedInName: boolean
-}
-
-type ChatMediaItem = {
-  conversationId: string
-  messageId: string
-  url: string
-  createdAtText: string
-  createdAtMs: number
-}
-
-type ChatMode = 'Client' | 'Merchant'
-
-const CHAT_LATEST_WINDOW_MAX_MESSAGES = 180
-const CHAT_AROUND_MESSAGE_WINDOW_MAX_MESSAGES = 240
-
-type ChatMessageWindowRuntimeState = {
-  mode: ShowcaseChatWindowMode
-  anchorMessageId: string | null
-  hasOlder: boolean
-  hasNewer: boolean
-  isLoadingOlder: boolean
-  isLoadingNewer: boolean
-  oldestTimeMs: number | null
-  newestTimeMs: number | null
-}
-
-type ShowcasePaginationRuntimeState = {
-  nextOffset: number
-  hasMore: boolean
-  isLoadingMore: boolean
-}
-
-type AppointmentCloudQueryFilters = {
-  preferredDate?: string | null
-  preferredDateGte?: string | null
-  preferredDateLt?: string | null
-  status?: string | null
-  cancelledBy?: string | null
-  serviceTitle?: string | null
-}
-
-type DishCloudQueryFilters = {
-  categoryName?: string | null
-  searchQuery?: string | null
-  selectedTags?: string[]
-  recommendedOnly?: boolean
-  onSaleOnly?: boolean
-  minPrice?: number | null
-  maxPrice?: number | null
-  hiddenOnly?: boolean
-  includeHidden?: boolean
-  sortMode?: ShowcaseHomeSortMode
-}
-
-type DraftExtraContact = {
-  id: string
-  name: string
-  value: string
-}
-
-type DraftAnnouncement = {
-  id: string
-  coverUrl: string | null
-  coverImageVariants: ShowcaseImageVariants | null
-  body: string
-  status: 'draft' | 'published'
-  createdAt: number
-  updatedAt: number
-  viewCount: number
-}
-
-type LocalTempImageRecord = {
-  storeId: string
-  scope: 'edit-dish' | 'admin-announcement' | 'store-profile' | 'chat-camera' | 'chat-draft'
-  url: string
-  createdAt: number
-}
-
-type LocalFavoriteStore = {
-  storeId: string
-  ids: string[]
-}
-
-type LocalChatDraftStore = {
-  storeId: string
-  conversationId: string
-  draft: string
-  draftImageUrls: string[]
-  pendingProduct: ShowcaseChatProductShare | null
-  pendingAppointment: ShowcaseChatAppointmentShare | null
-  quotedMessageId: string | null
-}
-
-const SHOWCASE_CLIENT_ID_KEY = 'ndjc_showcase_client_id'
-const SHOWCASE_FAVORITES_KEY = 'ndjc_showcase_favorites'
-const SHOWCASE_CHAT_DRAFT_KEY = 'ndjc_showcase_chat_draft'
-const SHOWCASE_STORE_PROFILE_DRAFT_KEY = 'ndjc_showcase_store_profile_draft'
-const SHOWCASE_VIEWED_ANNOUNCEMENT_IDS_KEY = 'ndjc_showcase_viewed_announcement_ids'
-const SHOWCASE_COUNTED_ANNOUNCEMENT_CLICK_IDS_KEY = 'ndjc_showcase_counted_announcement_click_ids'
-const SHOWCASE_PUBLISHED_ANNOUNCEMENTS_KEY = 'ndjc_showcase_published_announcements'
-const SHOWCASE_ITEM_EDITOR_DRAFT_KEY = 'ndjc_showcase_item_editor_draft'
-const SHOWCASE_ADMIN_ANNOUNCEMENT_EDITOR_DRAFT_KEY = 'ndjc_showcase_admin_announcement_editor_draft'
-const SHOWCASE_LOCAL_TEMP_IMAGES_KEY = 'ndjc_showcase_local_temp_images'
-const SHOWCASE_PENDING_CHAT_CAMERA_KEY = 'ndjc_showcase_pending_chat_camera'
-const NDJC_PWA_DEVICE_INSTALL_ID_STORAGE_KEY = 'ndjc_pwa_device_install_id'
-
-const DEFAULT_CUSTOMER_NAME = 'Customer'
-const DEFAULT_CHAT_INPUT_PLACEHOLDER = 'Message'
-const DEFAULT_APPOINTMENT_STATUS = 'Pending'
-const LOCAL_TEMP_IMAGE_MAX_AGE_MS = 24 * 60 * 60 * 1000
-const NDJC_CHAT_VISIBILITY_HEARTBEAT_MS = 1000
-
-function isBrowser(): boolean {
-  return typeof window !== 'undefined'
-}
-
-function canUseLocalStorage(): boolean {
-  if (!isBrowser()) return false
-
-  try {
-    return typeof window.localStorage !== 'undefined'
-  } catch {
-    return false
-  }
-}
-
-function postChatVisibilityToServiceWorker(input: {
-  visible: boolean
-  conversationId: string | null | undefined
-  screen: ShowcaseScreenName | string
-  clientId?: string | null
-  chatRole?: string | null
-}): void {
-  if (!isBrowser()) return
-
-  const controller = window.navigator.serviceWorker?.controller
-  if (!controller) return
-
-  controller.postMessage({
-    type: 'NDJC_CHAT_VISIBILITY',
-    visible: input.visible,
-    conversation_id: String(input.conversationId || '').trim(),
-    conversationId: String(input.conversationId || '').trim(),
-    screen: String(input.screen || ''),
-    client_id: String(input.clientId || '').trim(),
-    clientId: String(input.clientId || '').trim(),
-    chat_role: String(input.chatRole || '').trim(),
-    chatRole: String(input.chatRole || '').trim()
-  })
-}
-
-function nowMillis(): number {
-  return Date.now()
-}
-
-function createUuidLikeId(): string {
-  const fallback = 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, value => {
-    const random = Math.floor(Math.random() * 16)
-    const next = value === 'x' ? random : (random & 0x3) | 0x8
-    return next.toString(16)
-  })
-
-  try {
-    const randomUUID = globalThis.crypto?.randomUUID
-
-    if (typeof randomUUID === 'function') {
-      return randomUUID.call(globalThis.crypto)
-    }
-  } catch {
-    return fallback
-  }
-
-  return fallback
-}
-
-function createId(prefix: string): string {
-  return `${prefix}_${createUuidLikeId()}`
-}
-
-function createPwaDeviceInstallId(): string {
-  return createId('web')
-}
-
-function getOrCreatePwaDeviceInstallId(): string {
-  if (!canUseLocalStorage()) {
-    return createPwaDeviceInstallId()
-  }
-
-  const existing = window.localStorage.getItem(NDJC_PWA_DEVICE_INSTALL_ID_STORAGE_KEY)
-  if (existing && existing.trim()) {
-    return existing.trim()
-  }
-
-  const created = createPwaDeviceInstallId()
-  window.localStorage.setItem(NDJC_PWA_DEVICE_INSTALL_ID_STORAGE_KEY, created)
-  return created
-}
-
-function normalizeStoreId(storeId: string | null | undefined): string {
-  const value = String(storeId || '').trim()
-
-  if (!value) {
-    throw new Error('storeId is required for showcase view model.')
-  }
-
-  return value
-}
-
-function normalizeText(value: unknown, fallback = ''): string {
-  if (typeof value === 'string') return value
-  if (typeof value === 'number') return String(value)
-  if (typeof value === 'boolean') return value ? 'true' : 'false'
-  return fallback
-}
-
-function normalizeNullableText(value: unknown): string | null {
-  const text = normalizeText(value).trim()
-  return text || null
-}
-
-function normalizeNumber(value: unknown, fallback = 0): number {
-  if (typeof value === 'number' && Number.isFinite(value)) return value
-  if (typeof value === 'string') {
-    const parsed = Number(value)
-    if (Number.isFinite(parsed)) return parsed
-  }
-  return fallback
-}
-
-function normalizeBoolean(value: unknown, fallback = false): boolean {
-  if (typeof value === 'boolean') return value
-  if (typeof value === 'number') return value !== 0
-  if (typeof value === 'string') {
-    const text = value.trim().toLowerCase()
-    if (text === 'true' || text === '1' || text === 'yes') return true
-    if (text === 'false' || text === '0' || text === 'no') return false
-  }
-  return fallback
-}
-
-function readJson<T>(key: string, fallback: T): T {
-  if (!canUseLocalStorage()) return fallback
-
-  try {
-    const raw = window.localStorage.getItem(key)
-    if (!raw) return fallback
-    return JSON.parse(raw) as T
-  } catch {
-    return fallback
-  }
-}
-
-function writeJson<T>(key: string, value: T): void {
-  if (!canUseLocalStorage()) return
-
-  try {
-    window.localStorage.setItem(key, JSON.stringify(value))
-  } catch {
-    // local persistence is best effort in PWA runtime
-  }
-}
-
-function appointmentsStorageKey(storeId: string): string {
-  return `ndjc_showcase_appointments_${normalizeStoreId(storeId)}`
-}
-
-function loadAppointmentsFromStorage(storeId: string): CloudAppointmentRequest[] {
-  return readJson<CloudAppointmentRequest[]>(appointmentsStorageKey(storeId), [])
-    .map(item => {
-      return {
-        id: String(item.id || ''),
-        storeId: String(item.storeId || normalizeStoreId(storeId)),
-        clientId: String(item.clientId || ''),
-        customerName: String(item.customerName || ''),
-        customerContact: String(item.customerContact || ''),
-        serviceTitle: String(item.serviceTitle || ''),
-        preferredDate: String(item.preferredDate || ''),
-        preferredTime: String(item.preferredTime || ''),
-        note: String(item.note || ''),
-        sourceDishId: item.sourceDishId ? String(item.sourceDishId) : null,
-        sourcePriceSnapshot: item.sourcePriceSnapshot ? String(item.sourcePriceSnapshot) : null,
-        sourceImageUrlSnapshot: item.sourceImageUrlSnapshot ? String(item.sourceImageUrlSnapshot) : null,
-        sourceCategorySnapshot: item.sourceCategorySnapshot ? String(item.sourceCategorySnapshot) : null,
-        sourceRecommendedSnapshot: Boolean(item.sourceRecommendedSnapshot),
-        status: String(item.status || 'pending'),
-        cancelledBy: item.cancelledBy ? String(item.cancelledBy) : null,
-        cancelledAt: typeof item.cancelledAt === 'number' ? item.cancelledAt : null,
-        createdAt: typeof item.createdAt === 'number' ? item.createdAt : null
-      }
-    })
-    .filter(item => item.id.trim())
-}
-
-function saveAppointmentsToStorage(storeId: string, items: CloudAppointmentRequest[]): void {
-  writeJson(appointmentsStorageKey(storeId), items)
-}
-
-function appointmentStatusAlertSeenStorageKey(storeId: string, clientId: string): string {
-  return `ndjc_showcase_booking_status_alerts_seen_${normalizeStoreId(storeId)}_${String(clientId || '').trim()}`
-}
-
-function appointmentStatusAlertKey(appointmentIdInput: string, statusInput: string): string {
-  const appointmentId = String(appointmentIdInput || '').trim()
-  const status = String(statusInput || '').trim()
-
-  return `${appointmentId}:${status}`
-}
-
-function isCustomerBookingAlertStatus(statusInput: string): boolean {
-  const status = String(statusInput || '').trim()
-
-  return status === 'Confirmed' || status === 'Cancelled'
-}
-
-function loadSeenAppointmentStatusAlertKeys(storeId: string, clientId: string): string[] {
-  return readJson<string[]>(appointmentStatusAlertSeenStorageKey(storeId, clientId), [])
-    .map(item => String(item || '').trim())
-    .filter(Boolean)
-}
-
-function saveSeenAppointmentStatusAlertKeys(storeId: string, clientId: string, keys: string[]): void {
-  writeJson(
-    appointmentStatusAlertSeenStorageKey(storeId, clientId),
-    Array.from(new Set(keys.map(item => String(item || '').trim()).filter(Boolean)))
-  )
-}
-
-function removeStoredValue(key: string): void {
-  if (!canUseLocalStorage()) return
-
-  try {
-    window.localStorage.removeItem(key)
-  } catch {
-    // local persistence is best effort in PWA runtime
-  }
-}
-
-function readClientId(): string {
-  if (!canUseLocalStorage()) return `client_${createId('memory')}`
-
-  try {
-    const existing = window.localStorage.getItem(SHOWCASE_CLIENT_ID_KEY)
-    if (existing) return existing
-
-    const next = createId('client')
-    window.localStorage.setItem(SHOWCASE_CLIENT_ID_KEY, next)
-    return next
-  } catch {
-    return `client_${createId('memory')}`
-  }
-}
-
-function readRememberMe(storeId: string): boolean {
-  return readRememberMeFromPreferences(storeId)
-}
-
-function writeRememberMe(storeId: string, value: boolean): void {
-  writeRememberMeToPreferences(storeId, value)
-}
-
-function readMerchantSession(storeId: string): MerchantAuthSession | null {
-  return readMerchantSessionFromPreferences(storeId)
-}
-
-function writeMerchantSession(storeId: string, session: MerchantAuthSession | null): void {
-  writeMerchantSessionToPreferences(storeId, session)
-}
-
-function readFavoriteIds(storeId: string): string[] {
-  return loadFavoriteIdsFromStorage(storeId)
-}
-
-function writeFavoriteIds(storeId: string, ids: string[]): void {
-  saveFavoriteIdsToStorage(storeId, ids)
-}
-
-function readChatDraft(storeId: string, conversationId: string): LocalChatDraftStore | null {
-  const all = readJson<LocalChatDraftStore[]>(SHOWCASE_CHAT_DRAFT_KEY, [])
-  return all.find(item => item.storeId === storeId && item.conversationId === conversationId) || null
-}
-
-function writeChatDraft(value: LocalChatDraftStore): void {
-  const all = readJson<LocalChatDraftStore[]>(SHOWCASE_CHAT_DRAFT_KEY, [])
-  const next = [
-    ...all.filter(item => item.storeId !== value.storeId || item.conversationId !== value.conversationId),
-    value
-  ]
-
-  writeJson(SHOWCASE_CHAT_DRAFT_KEY, next)
-}
-
-function clearChatDraft(storeId: string, conversationId: string): void {
-  const cleanStoreId = storeId.trim()
-  const cleanConversationId = conversationId.trim()
-
-  if (!cleanStoreId || !cleanConversationId) return
-
-  const all = readJson<LocalChatDraftStore[]>(SHOWCASE_CHAT_DRAFT_KEY, [])
-  const deleting = all.find(item => item.storeId === cleanStoreId && item.conversationId === cleanConversationId) || null
-
-  deleting?.draftImageUrls
-    ?.map(item => item.trim())
-    .filter(Boolean)
-    .forEach(url => {
-      deleteAppOwnedLocalFileUri(cleanStoreId, url)
-    })
-
-  writeJson(
-    SHOWCASE_CHAT_DRAFT_KEY,
-    all.filter(item => item.storeId !== cleanStoreId || item.conversationId !== cleanConversationId)
-  )
-}
-
-function loadViewedAnnouncementIdsLocally(storeId: string): string[] {
-  return loadViewedAnnouncementIdsFromStorage(storeId)
-}
-
-function saveViewedAnnouncementIdsLocally(storeId: string, ids: string[]): void {
-  saveViewedAnnouncementIdsToStorage(storeId, ids)
-}
-
-function loadCountedAnnouncementClickIdsLocally(storeId: string): string[] {
-  return loadCountedAnnouncementClickIdsFromStorage(storeId)
-}
-
-function saveCountedAnnouncementClickIdsLocally(storeId: string, ids: string[]): void {
-  saveCountedAnnouncementClickIdsToStorage(storeId, ids)
-}
-
-function toCachedPublishedAnnouncement(item: CloudAnnouncement): CachedPublishedAnnouncement {
-  return {
-    id: item.id,
-    coverUrl: item.coverUrl,
-    body: item.body,
-    updatedAt: item.updatedAt ?? item.createdAt ?? Date.now(),
-    viewCount: item.viewCount
-  }
-}
-
-function fromCachedPublishedAnnouncement(storeId: string, item: CachedPublishedAnnouncement): CloudAnnouncement {
-  return {
-    id: item.id,
-    storeId,
-    coverUrl: item.coverUrl,
-    body: item.body,
-    status: 'published',
-    updatedAt: item.updatedAt,
-    createdAt: item.updatedAt,
-    viewCount: item.viewCount
-  }
-}
-
-function loadPublishedAnnouncementsLocally(storeId: string): CloudAnnouncement[] {
-  return loadPublishedAnnouncementsFromStorage(storeId)
-    .map(item => fromCachedPublishedAnnouncement(storeId, item))
-}
-
-async function loadDishesFromIndexedDb(storeId: string): Promise<DemoDish[]> {
-  const items = await loadShowcaseBusinessCache<DemoDish[]>(storeId, 'dishes', [])
-
-  return Array.isArray(items)
-    ? items.filter(item => Boolean(item && typeof item === 'object' && String(item.id || '').trim()))
-    : []
-}
-
-async function loadStoreProfileFromIndexedDb(storeId: string): Promise<StoreProfile | null> {
-  const profile = await loadShowcaseBusinessCache<StoreProfile | null>(storeId, 'store-profile', null)
-
-  if (!profile || typeof profile !== 'object') return null
-
-  return profile
-}
-
-async function loadPublishedAnnouncementsFromIndexedDb(storeId: string): Promise<CloudAnnouncement[]> {
-  const items = await loadShowcaseBusinessCache<CloudAnnouncement[]>(storeId, 'announcements', [])
-
-  return Array.isArray(items)
-    ? items.filter(item => Boolean(item && typeof item === 'object' && String(item.id || '').trim()))
-    : []
-}
-
-async function loadAppointmentsFromIndexedDb(storeId: string): Promise<CloudAppointmentRequest[]> {
-  const items = await loadShowcaseBusinessCache<CloudAppointmentRequest[]>(storeId, 'appointments', [])
-
-  return Array.isArray(items)
-    ? items.filter(item => Boolean(item && typeof item === 'object' && String(item.id || '').trim()))
-    : []
-}
-
-function persistDishesLocally(storeId: string, items: DemoDish[]): void {
-  persistDishesLocally(storeId, items)
-  void saveShowcaseBusinessCache(storeId, 'dishes', items)
-}
-
-function persistStoreProfileLocally(storeId: string, profile: StoreProfile): void {
-  persistStoreProfileLocally(storeId, profile)
-  void saveShowcaseBusinessCache(storeId, 'store-profile', profile)
-}
-
-function persistAppointmentsLocally(storeId: string, items: CloudAppointmentRequest[]): void {
-  persistAppointmentsLocally(storeId, items)
-  void saveShowcaseBusinessCache(storeId, 'appointments', items)
-}
-
-function persistPublishedAnnouncementsLocally(storeId: string, items: CloudAnnouncement[]): void {
-  savePublishedAnnouncementsToStorage(storeId, items.map(toCachedPublishedAnnouncement))
-  void saveShowcaseBusinessCache(storeId, 'announcements', items)
-}
-
-function pruneAnnouncementMarksWhenCompletePageLoaded(
-  storeId: string,
-  items: CloudAnnouncement[],
-  latestLength: number,
-  pageSize: number
-): void {
-  if (latestLength >= pageSize) return
-
-  pruneAnnouncementLocalMarksByValidIds(
-    storeId,
-    items
-      .filter(item => item.status === 'published')
-      .map(item => item.id)
-  )
-}
-
-function pruneBookingSeenWhenCompletePageLoaded(
-  storeId: string,
-  clientId: string,
-  items: CloudAppointmentRequest[],
-  latestLength: number,
-  pageSize: number
-): void {
-  if (latestLength >= pageSize) return
-
-  pruneBookingStatusSeenByValidIds(
-    storeId,
-    clientId,
-    items.map(item => item.id)
-  )
-}
-
-function loadItemEditorDraftLocally(
-  storeId: string,
-  mode: 'new' | 'edit' | 'any' = 'any'
-): CachedItemEditorDraft | null {
-  const draft = loadItemEditorDraftFromStorage(storeId)
-  if (!draft) return null
-
-  if (mode === 'new' && draft.isNew !== true) return null
-  if (mode === 'edit' && draft.isNew !== false) return null
-
-  return draft
-}
-
-function persistItemEditorDraftLocally(
-  storeId: string,
-  draft: CachedItemEditorDraft
-): void {
-  const editingId = draft.editingId?.trim() || null
-  const name = draft.name.trim()
-  const price = draft.price.trim()
-  const discountPrice = draft.discountPrice.trim()
-  const description = draft.description.trim()
-  const category = draft.category?.trim() || null
-
-  if (
-    !editingId &&
-    !name &&
-    !price &&
-    !discountPrice &&
-    !description &&
-    !category
-  ) {
-    clearItemEditorDraftFromStorage(storeId)
-    return
-  }
-
-  saveItemEditorDraftToStorage(storeId, {
-    editingId,
-    isNew: draft.isNew,
-    name,
-    price,
-    discountPrice,
-    description,
-    category
-  })
-}
-
-function clearItemEditorDraftLocally(storeId: string): void {
-  clearItemEditorDraftFromStorage(storeId)
-}
-
-function loadAdminAnnouncementEditorDraftLocally(storeId: string): DraftAnnouncement | null {
-  const draft = loadAdminAnnouncementEditorDraftFromStorage(storeId)
-  if (!draft) return null
-
-  return {
-    id: draft.editingId || '',
-    coverUrl: draft.coverUrl ?? null,
-    coverImageVariants: null,
-    body: draft.body,
-    status: 'draft',
-    createdAt: draft.updatedAt ?? Date.now(),
-    updatedAt: draft.updatedAt ?? Date.now(),
-    viewCount: 0
-  }
-}
-
-function persistAdminAnnouncementEditorDraftLocally(storeId: string, draft: DraftAnnouncement): void {
-  const nextDraft: CachedAdminAnnouncementEditorDraft = {
-    editingId: draft.id || null,
-    body: draft.body,
-    coverUrl: draft.coverUrl,
-    updatedAt: draft.updatedAt || Date.now()
-  }
-
-  saveAdminAnnouncementEditorDraftToStorage(storeId, nextDraft)
-}
-
-function clearAdminAnnouncementEditorDraftLocally(storeId: string): void {
-  clearAdminAnnouncementEditorDraftFromStorage(storeId)
-}
-
-function loadLocalTempImages(storeId: string): LocalTempImageRecord[] {
-  const all = readJson<LocalTempImageRecord[]>(SHOWCASE_LOCAL_TEMP_IMAGES_KEY, [])
-  return all.filter(item => item.storeId === storeId)
-}
-
-function saveLocalTempImages(storeId: string, items: LocalTempImageRecord[]): void {
-  const all = readJson<LocalTempImageRecord[]>(SHOWCASE_LOCAL_TEMP_IMAGES_KEY, [])
-  writeJson(SHOWCASE_LOCAL_TEMP_IMAGES_KEY, [
-    ...all.filter(item => item.storeId !== storeId),
-    ...items
-  ])
-}
-
-function rememberLocalTempImage(storeId: string, scope: LocalTempImageRecord['scope'], url: string): void {
-  const cleanUrl = url.trim()
-  if (!cleanUrl) return
-
-  const current = loadLocalTempImages(storeId)
-  if (current.some(item => item.url === cleanUrl)) return
-
-  saveLocalTempImages(storeId, [
-    ...current,
-    {
-      storeId,
-      scope,
-      url: cleanUrl,
-      createdAt: nowMillis()
-    }
-  ])
-}
-
-function revokeLocalObjectUrl(url: string): void {
-  if (!isBrowser()) return
-  if (!url.startsWith('blob:')) return
-
-  try {
-    window.URL.revokeObjectURL(url)
-  } catch {
-    // best effort cleanup
-  }
-}
-
-function isLocalImageUri(url: string): boolean {
-  const clean = url.trim()
-  return clean.startsWith('blob:') || clean.startsWith('data:image/')
-}
-
-function isAppOwnedLocalFileUri(storeId: string, url: string): boolean {
-  const clean = url.trim()
-  if (!isLocalImageUri(clean)) return false
-  return loadLocalTempImages(storeId).some(item => item.url === clean)
-}
-
-function clearLocalTempImagesByScope(storeId: string, scope: LocalTempImageRecord['scope']): void {
-  const current = loadLocalTempImages(storeId)
-  const deleting = current.filter(item => item.scope === scope)
-  const keeping = current.filter(item => item.scope !== scope)
-
-  deleting.forEach(item => revokeLocalObjectUrl(item.url))
-  saveLocalTempImages(storeId, keeping)
-}
-
-function clearEditDraftLocalImages(storeId: string): void {
-  clearLocalTempImagesByScope(storeId, 'edit-dish')
-}
-
-function clearAdminAnnouncementDraftLocalImages(storeId: string): void {
-  clearLocalTempImagesByScope(storeId, 'admin-announcement')
-}
-
-function clearStoreProfileDraftLocalImages(storeId: string): void {
-  clearLocalTempImagesByScope(storeId, 'store-profile')
-}
-
-function deleteLocalFileUri(storeId: string, url: string): void {
-  const clean = url.trim()
-  if (!clean) return
-
-  revokeLocalObjectUrl(clean)
-  saveLocalTempImages(
-    storeId,
-    loadLocalTempImages(storeId).filter(item => item.url !== clean)
-  )
-}
-
-function deleteAppOwnedLocalFileUri(storeId: string, url: string): void {
-  const clean = url.trim()
-  if (!clean) return
-
-  const owned = loadLocalTempImages(storeId).some(item => item.url === clean)
-  if (!owned) return
-
-  deleteLocalFileUri(storeId, clean)
-}
-
-function clearExpiredLocalTempFiles(storeId: string): void {
-  const cutoff = nowMillis() - LOCAL_TEMP_IMAGE_MAX_AGE_MS
-  const current = loadLocalTempImages(storeId)
-  const expired = current.filter(item => item.createdAt < cutoff)
-  const active = current.filter(item => item.createdAt >= cutoff)
-
-  expired.forEach(item => revokeLocalObjectUrl(item.url))
-  saveLocalTempImages(storeId, active)
-}
-
-function createTempCameraUri(storeId: string, file?: Blob): string {
-  if (!isBrowser()) return ''
-
-  const blob = file || new Blob([], { type: 'image/jpeg' })
-  const url = window.URL.createObjectURL(blob)
-  rememberLocalTempImage(storeId, 'chat-camera', url)
-  writeJson(SHOWCASE_PENDING_CHAT_CAMERA_KEY, {
-    storeId,
-    url,
-    createdAt: nowMillis()
-  })
-  return url
-}
-
-function deletePendingChatCameraFile(storeId: string): void {
-  const pending = readJson<{ storeId: string; url: string; createdAt: number } | null>(SHOWCASE_PENDING_CHAT_CAMERA_KEY, null)
-  if (!pending || pending.storeId !== storeId) return
-
-  deleteAppOwnedLocalFileUri(storeId, pending.url)
-  removeStoredValue(SHOWCASE_PENDING_CHAT_CAMERA_KEY)
-}
-
-function prepareChatCameraCapture(storeId: string): string {
-  deletePendingChatCameraFile(storeId)
-  return createTempCameraUri(storeId)
-}
-
-const PRODUCT_IMAGE_LONG_EDGE = 1600
-const PRODUCT_IMAGE_JPEG_QUALITY = 0.88
-
-const PRODUCT_IMAGE_MEDIUM_LONG_EDGE = 800
-const PRODUCT_IMAGE_THUMB_LONG_EDGE = 400
-const PRODUCT_IMAGE_BLUR_LONG_EDGE = 32
-
-const CHAT_IMAGE_LONG_EDGE = 1080
-const CHAT_IMAGE_JPEG_QUALITY = 0.84
-
-const CHAT_IMAGE_MEDIUM_LONG_EDGE = 800
-const CHAT_IMAGE_THUMB_LONG_EDGE = 400
-const CHAT_IMAGE_BLUR_LONG_EDGE = 32
-
-const ANNOUNCEMENT_IMAGE_LONG_EDGE = 1280
-const ANNOUNCEMENT_IMAGE_JPEG_QUALITY = 0.86
-
-const ANNOUNCEMENT_IMAGE_MEDIUM_LONG_EDGE = 800
-const ANNOUNCEMENT_IMAGE_THUMB_LONG_EDGE = 400
-const ANNOUNCEMENT_IMAGE_BLUR_LONG_EDGE = 32
-
-const STORE_COVER_IMAGE_LONG_EDGE = 1280
-const STORE_COVER_IMAGE_JPEG_QUALITY = 0.86
-
-const STORE_COVER_IMAGE_MEDIUM_LONG_EDGE = 900
-const STORE_COVER_IMAGE_THUMB_LONG_EDGE = 480
-const STORE_COVER_IMAGE_BLUR_LONG_EDGE = 32
-
-const STORE_LOGO_IMAGE_LONG_EDGE = 512
-const STORE_LOGO_IMAGE_JPEG_QUALITY = 0.9
-
-const STORE_LOGO_IMAGE_MEDIUM_LONG_EDGE = 512
-const STORE_LOGO_IMAGE_THUMB_LONG_EDGE = 256
-const STORE_LOGO_IMAGE_BLUR_LONG_EDGE = 32
-
-function normalizeImageContentType(value: string | null | undefined): string {
-  const clean = String(value || '').trim().toLowerCase()
-
-  if (clean === 'image/jpg') return 'image/jpeg'
-  if (clean === 'image/jpeg') return 'image/jpeg'
-  if (clean === 'image/png') return 'image/png'
-  if (clean === 'image/webp') return 'image/webp'
-
-  return 'image/jpeg'
-}
-
-function imageExtensionFromContentType(value: string | null | undefined): string {
-  const contentType = normalizeImageContentType(value)
-
-  if (contentType === 'image/png') return 'png'
-  if (contentType === 'image/webp') return 'webp'
-
-  return 'jpg'
-}
-
-function uploadImageProfileForBucket(bucket: 'dish' | 'store' | 'announcement', pathPrefix: string): {
-  maxLongEdge: number
-  jpegQuality: number
-} {
-  const scope = pathPrefix.trim().toLowerCase()
-
-  if (bucket === 'dish') {
-    return {
-      maxLongEdge: PRODUCT_IMAGE_LONG_EDGE,
-      jpegQuality: PRODUCT_IMAGE_JPEG_QUALITY
-    }
-  }
-
-  if (bucket === 'announcement') {
-    return {
-      maxLongEdge: ANNOUNCEMENT_IMAGE_LONG_EDGE,
-      jpegQuality: ANNOUNCEMENT_IMAGE_JPEG_QUALITY
-    }
-  }
-
-  if (bucket === 'store' && scope === 'logo') {
-    return {
-      maxLongEdge: STORE_LOGO_IMAGE_LONG_EDGE,
-      jpegQuality: STORE_LOGO_IMAGE_JPEG_QUALITY
-    }
-  }
-
-  return {
-    maxLongEdge: STORE_COVER_IMAGE_LONG_EDGE,
-    jpegQuality: STORE_COVER_IMAGE_JPEG_QUALITY
-  }
-}
-
-function buildImageUploadFileName(inputFileName: string | null | undefined, contentType: string): string {
-  const extension = imageExtensionFromContentType(contentType)
-  const cleanFileName = String(inputFileName || '').trim()
-
-  if (!cleanFileName) {
-    return `${createId('image')}.${extension}`
-  }
-
-  const withoutExtension = cleanFileName.replace(/\.[a-zA-Z0-9]+$/, '')
-  return `${withoutExtension}.${extension}`
-}
-
-async function compressImage(file: File | Blob, maxLongEdge = PRODUCT_IMAGE_LONG_EDGE, jpegQuality = PRODUCT_IMAGE_JPEG_QUALITY): Promise<Blob> {
-  if (!isBrowser()) return file
-
-  const sourceType = normalizeImageContentType(file.type || 'image/jpeg')
-
-  if (!sourceType.startsWith('image/')) return file
-
-  const sourceUrl = window.URL.createObjectURL(file)
-
-  try {
-    const image = await new Promise<HTMLImageElement>((resolve, reject) => {
-      const img = new Image()
-      img.onload = () => resolve(img)
-      img.onerror = () => reject(new Error('Image decode failed.'))
-      img.src = sourceUrl
-    })
-
-    const sourceWidth = image.naturalWidth || image.width
-    const sourceHeight = image.naturalHeight || image.height
-
-    if (!sourceWidth || !sourceHeight) return file
-
-    const longEdge = Math.max(sourceWidth, sourceHeight)
-    const scale = longEdge <= maxLongEdge ? 1 : maxLongEdge / longEdge
-    const targetWidth = Math.max(1, Math.round(sourceWidth * scale))
-    const targetHeight = Math.max(1, Math.round(sourceHeight * scale))
-
-    const canvas = document.createElement('canvas')
-    canvas.width = targetWidth
-    canvas.height = targetHeight
-
-    const context = canvas.getContext('2d')
-    if (!context) return file
-
-    context.drawImage(image, 0, 0, targetWidth, targetHeight)
-
-    return await new Promise<Blob>((resolve) => {
-      canvas.toBlob(blob => {
-        resolve(blob || file)
-      }, 'image/jpeg', jpegQuality)
-    })
-  } catch {
-    return file
-  } finally {
-    revokeLocalObjectUrl(sourceUrl)
-  }
-}
-
-type ShowcaseImageVariantName = 'original' | 'large' | 'medium' | 'thumb' | 'blur'
-
-type ShowcaseImageVariantSpec = {
-  name: ShowcaseImageVariantName
-  maxLongEdge: number
-  jpegQuality: number
-}
-
-type UploadedShowcaseImage = {
-  url: string
-  variants: ShowcaseImageVariants | null
-}
-
-function createRemoteOnlyImageVariants(urlInput: string | null | undefined): ShowcaseImageVariants | null {
-  const url = String(urlInput || '').trim()
-
-  if (!url) return null
-
-  return {
-    originalUrl: url,
-    largeUrl: url,
-    mediumUrl: url,
-    thumbUrl: url,
-    blurDataUrl: null
-  }
-}
-
-function buildImageVariantSpecs(bucket: 'dish' | 'store' | 'announcement' | 'chat', pathPrefix: string): ShowcaseImageVariantSpec[] {
-  const scope = pathPrefix.trim().toLowerCase()
-
-  if (bucket === 'dish') {
-    return [
-      {
-        name: 'original',
-        maxLongEdge: PRODUCT_IMAGE_LONG_EDGE,
-        jpegQuality: PRODUCT_IMAGE_JPEG_QUALITY
-      },
-      {
-        name: 'large',
-        maxLongEdge: PRODUCT_IMAGE_LONG_EDGE,
-        jpegQuality: PRODUCT_IMAGE_JPEG_QUALITY
-      },
-      {
-        name: 'medium',
-        maxLongEdge: PRODUCT_IMAGE_MEDIUM_LONG_EDGE,
-        jpegQuality: 0.84
-      },
-      {
-        name: 'thumb',
-        maxLongEdge: PRODUCT_IMAGE_THUMB_LONG_EDGE,
-        jpegQuality: 0.78
-      },
-      {
-        name: 'blur',
-        maxLongEdge: PRODUCT_IMAGE_BLUR_LONG_EDGE,
-        jpegQuality: 0.48
-      }
-    ]
-  }
-
-  if (bucket === 'chat') {
-    return [
-      {
-        name: 'original',
-        maxLongEdge: CHAT_IMAGE_LONG_EDGE,
-        jpegQuality: CHAT_IMAGE_JPEG_QUALITY
-      },
-      {
-        name: 'large',
-        maxLongEdge: CHAT_IMAGE_LONG_EDGE,
-        jpegQuality: CHAT_IMAGE_JPEG_QUALITY
-      },
-      {
-        name: 'medium',
-        maxLongEdge: CHAT_IMAGE_MEDIUM_LONG_EDGE,
-        jpegQuality: 0.82
-      },
-      {
-        name: 'thumb',
-        maxLongEdge: CHAT_IMAGE_THUMB_LONG_EDGE,
-        jpegQuality: 0.76
-      },
-      {
-        name: 'blur',
-        maxLongEdge: CHAT_IMAGE_BLUR_LONG_EDGE,
-        jpegQuality: 0.48
-      }
-    ]
-  }
-
-  if (bucket === 'announcement') {
-    return [
-      {
-        name: 'original',
-        maxLongEdge: ANNOUNCEMENT_IMAGE_LONG_EDGE,
-        jpegQuality: ANNOUNCEMENT_IMAGE_JPEG_QUALITY
-      },
-      {
-        name: 'large',
-        maxLongEdge: ANNOUNCEMENT_IMAGE_LONG_EDGE,
-        jpegQuality: ANNOUNCEMENT_IMAGE_JPEG_QUALITY
-      },
-      {
-        name: 'medium',
-        maxLongEdge: ANNOUNCEMENT_IMAGE_MEDIUM_LONG_EDGE,
-        jpegQuality: 0.82
-      },
-      {
-        name: 'thumb',
-        maxLongEdge: ANNOUNCEMENT_IMAGE_THUMB_LONG_EDGE,
-        jpegQuality: 0.76
-      },
-      {
-        name: 'blur',
-        maxLongEdge: ANNOUNCEMENT_IMAGE_BLUR_LONG_EDGE,
-        jpegQuality: 0.48
-      }
-    ]
-  }
-
-  if (bucket === 'store' && scope === 'logo') {
-    return [
-      {
-        name: 'original',
-        maxLongEdge: STORE_LOGO_IMAGE_LONG_EDGE,
-        jpegQuality: STORE_LOGO_IMAGE_JPEG_QUALITY
-      },
-      {
-        name: 'large',
-        maxLongEdge: STORE_LOGO_IMAGE_LONG_EDGE,
-        jpegQuality: STORE_LOGO_IMAGE_JPEG_QUALITY
-      },
-      {
-        name: 'medium',
-        maxLongEdge: STORE_LOGO_IMAGE_MEDIUM_LONG_EDGE,
-        jpegQuality: 0.88
-      },
-      {
-        name: 'thumb',
-        maxLongEdge: STORE_LOGO_IMAGE_THUMB_LONG_EDGE,
-        jpegQuality: 0.82
-      },
-      {
-        name: 'blur',
-        maxLongEdge: STORE_LOGO_IMAGE_BLUR_LONG_EDGE,
-        jpegQuality: 0.48
-      }
-    ]
-  }
-
-  return [
-    {
-      name: 'original',
-      maxLongEdge: STORE_COVER_IMAGE_LONG_EDGE,
-      jpegQuality: STORE_COVER_IMAGE_JPEG_QUALITY
-    },
-    {
-      name: 'large',
-      maxLongEdge: STORE_COVER_IMAGE_LONG_EDGE,
-      jpegQuality: STORE_COVER_IMAGE_JPEG_QUALITY
-    },
-    {
-      name: 'medium',
-      maxLongEdge: STORE_COVER_IMAGE_MEDIUM_LONG_EDGE,
-      jpegQuality: 0.82
-    },
-    {
-      name: 'thumb',
-      maxLongEdge: STORE_COVER_IMAGE_THUMB_LONG_EDGE,
-      jpegQuality: 0.76
-    },
-    {
-      name: 'blur',
-      maxLongEdge: STORE_COVER_IMAGE_BLUR_LONG_EDGE,
-      jpegQuality: 0.48
-    }
-  ]
-}
-
-function buildImageVariantFileName(inputFileName: string | null | undefined, variantName: ShowcaseImageVariantName): string {
-  const cleanFileName = String(inputFileName || '').trim()
-  const baseName = cleanFileName
-    ? cleanFileName.replace(/\.[a-zA-Z0-9]+$/, '')
-    : createId('image')
-
-  return `${baseName}-${variantName}.jpg`
-}
-
-async function blobToDataImageUrl(blob: Blob): Promise<string | null> {
-  if (!isBrowser()) return null
-
-  return await new Promise<string | null>(resolve => {
-    const reader = new FileReader()
-
-    reader.onload = () => {
-      const value = typeof reader.result === 'string' ? reader.result : ''
-      resolve(value.startsWith('data:image/') ? value : null)
-    }
-
-    reader.onerror = () => {
-      resolve(null)
-    }
-
-    reader.readAsDataURL(blob)
-  })
-}
-
-function clearStoredMerchantSession(storeId: string): void {
-  clearPersistedMerchantSession(storeId, true)
-}
-
-function persistMerchantSession(storeId: string, session: MerchantAuthSession | null, remember: boolean): void {
-  persistCurrentMerchantSession(storeId, session, remember)
-}
-function persistFavoritesToStorage(storeId: string, ids: string[]): void {
-  writeFavoriteIds(storeId, ids)
-}
-
-function readPersistedStoreProfileDraft(storeId: string): ShowcaseStoreProfileDraft | null {
-  const all = readJson<Array<{ storeId: string; draft: ShowcaseStoreProfileDraft }>>(SHOWCASE_STORE_PROFILE_DRAFT_KEY, [])
-  return all.find(item => item.storeId === storeId)?.draft || null
-}
-
-function writePersistedStoreProfileDraft(storeId: string, draft: ShowcaseStoreProfileDraft | null): void {
-  const all = readJson<Array<{ storeId: string; draft: ShowcaseStoreProfileDraft }>>(SHOWCASE_STORE_PROFILE_DRAFT_KEY, [])
-
-  if (!draft) {
-    writeJson(SHOWCASE_STORE_PROFILE_DRAFT_KEY, all.filter(item => item.storeId !== storeId))
-    return
-  }
-
-  writeJson(SHOWCASE_STORE_PROFILE_DRAFT_KEY, [
-    ...all.filter(item => item.storeId !== storeId),
-    {
-      storeId,
-      draft
-    }
-  ])
-}
+  if (!normalizedClientId) return false
 
-function formatUsd(value: number | null | undefined): string {
-  const price = Number(value || 0)
-  if (!Number.isFinite(price) || price <= 0) return '$0'
-  return `$${Number.isInteger(price) ? String(price) : price.toFixed(2).replace(/\.?0+$/, '')}`
+  return readJson<boolean>(bookingsEntryDotVisibleStorageKey(storeId, normalizedClientId), false) === true
 }
-type ShowcaseDishPriceTextSnapshot = {
-  priceText: string
-  originalPriceText: string | null
-  discountPriceText: string | null
-}
-
-function buildDishPriceTextSnapshot(dish: DemoDish): ShowcaseDishPriceTextSnapshot {
-  const originalPrice = Number(dish.originalPrice)
-  const discountPrice = Number(dish.discountPrice)
-  const hasValidOriginal = Number.isFinite(originalPrice) && originalPrice > 0
-  const hasValidDiscount = Number.isFinite(discountPrice) && discountPrice > 0 && hasValidOriginal && discountPrice < originalPrice
-
-  const originalPriceText = hasValidOriginal ? formatUsd(originalPrice) : formatUsd(getDishPrice(dish))
-  const discountPriceText = hasValidDiscount ? formatUsd(discountPrice) : null
-
-  return {
-    priceText: discountPriceText || originalPriceText,
-    originalPriceText,
-    discountPriceText
-  }
-}
-
-function buildChatProductShareFromDish(dish: DemoDish): ShowcaseChatProductShare {
-  const priceSnapshot = buildDishPriceTextSnapshot(dish)
-
-  return {
-    dishId: dish.id,
-    title: getDishTitle(dish),
-    price: priceSnapshot.priceText,
-    originalPriceText: priceSnapshot.originalPriceText,
-    discountPriceText: priceSnapshot.discountPriceText,
-    imageUrl: selectDishImageUrl(dish, 'list'),
-    imageVariants: dish.imageVariants ?? null,
-    isRecommended: Boolean(dish.isRecommended)
-  }
-}
-
-function encodeAppointmentPriceSnapshotFromDish(dish: DemoDish): string {
-  const priceSnapshot = buildDishPriceTextSnapshot(dish)
-
-  return JSON.stringify({
-    priceText: priceSnapshot.priceText,
-    originalPriceText: priceSnapshot.originalPriceText,
-    discountPriceText: priceSnapshot.discountPriceText
-  })
-}
-
-function decodeAppointmentPriceSnapshot(value: string | null | undefined): ShowcaseDishPriceTextSnapshot {
-  const raw = String(value || '').trim()
-
-  if (!raw) {
-    return {
-      priceText: '',
-      originalPriceText: null,
-      discountPriceText: null
-    }
-  }
-
-  if (raw.startsWith('{')) {
-    try {
-      const parsed = JSON.parse(raw) as Partial<ShowcaseDishPriceTextSnapshot>
-      const priceText = String(parsed.priceText || '').trim()
-      const originalPriceText = String(parsed.originalPriceText || '').trim() || priceText || null
-      const discountPriceText = String(parsed.discountPriceText || '').trim() || null
-
-      return {
-        priceText,
-        originalPriceText,
-        discountPriceText
-      }
-    } catch {
-      return {
-        priceText: raw,
-        originalPriceText: raw,
-        discountPriceText: null
-      }
-    }
-  }
-
-  return {
-    priceText: raw,
-    originalPriceText: raw,
-    discountPriceText: null
-  }
-}
-function formatPlainNumber(value: number | null | undefined): string {
-  const price = Number(value || 0)
-  if (!Number.isFinite(price) || price <= 0) return ''
-  return Number.isInteger(price) ? String(price) : price.toFixed(2).replace(/\.?0+$/, '')
-}
-
-function formatDateTimeText(value: number | null | undefined): string {
-  return formatShowcaseDateTime(value)
-}
-
-function formatChatCreatedAtText(value: number | null | undefined): string {
-  return formatShowcaseDateTime(value)
-}
-
-function getChatMessageWindowBounds(messages: ChatMessage[]): {
-  oldestTimeMs: number | null
-  newestTimeMs: number | null
-} {
-  const times = messages
-    .map(message => Number(message.createdAt || 0))
-    .filter(value => Number.isFinite(value) && value > 0)
-    .sort((left, right) => left - right)
-
-  if (times.length === 0) {
-    return {
-      oldestTimeMs: null,
-      newestTimeMs: null
-    }
-  }
-
-  return {
-    oldestTimeMs: times[0],
-    newestTimeMs: times[times.length - 1]
-  }
-}
-
-function formatDateLabel(value: string | number | null | undefined): string {
-  if (typeof value === 'string' && value.trim()) return value.trim()
-  if (typeof value === 'number' && Number.isFinite(value)) return formatDateTimeText(value)
-  return ''
-}
-
-function normalizeSortMode(value: string | null | undefined): ShowcaseHomeSortMode {
-  if (value === 'PriceAsc') return 'PriceAsc'
-  if (value === 'PriceDesc') return 'PriceDesc'
-  return 'Default'
-}
-
-function resolveDishImages(dish: DemoDish | null | undefined): string[] {
-  if (!dish) return []
-  return (dish.imageUrls || [])
-    .map(url => String(url || '').trim())
-    .filter(Boolean)
-}
-
-function resolveDishImage(dish: DemoDish | null | undefined): string | null {
-  return resolveDishImages(dish)[0] || null
-}
-
-function clampIndex(index: number, total: number): number {
-  if (!total) return 0
-  if (!Number.isFinite(index)) return 0
-  return Math.min(Math.max(Math.round(index), 0), total - 1)
-}
-
-function sortDishes(items: DemoDish[], sortMode: ShowcaseHomeSortMode): DemoDish[] {
-  const next = [...items]
-
-  if (sortMode === 'Default') {
-    return next
-  }
-
-  if (sortMode === 'PriceAsc') {
-    next.sort((a, b) => getDishPrice(a) - getDishPrice(b))
-  }
-
-  if (sortMode === 'PriceDesc') {
-    next.sort((a, b) => getDishPrice(b) - getDishPrice(a))
-  }
-
-  return next
-}
-
-function hasDiscount(dish: DemoDish): boolean {
-  const originalPrice = Number(dish.originalPrice)
-  const discountPrice = Number(dish.discountPrice)
-
-  return Number.isFinite(originalPrice) &&
-    Number.isFinite(discountPrice) &&
-    originalPrice > 0 &&
-    discountPrice > 0 &&
-    discountPrice < originalPrice
-}
-
-function parseHomePriceDraft(valueInput: string): number | null {
-  const value = Number.parseInt(valueInput.trim(), 10)
-
-  return Number.isFinite(value) ? value : null
-}
-
-function syncStateForCloudItem(): SyncState {
-  return 'Synced'
-}
-
-function manualCategoryNamesToCloudCategories(categories: string[]): CloudCategory[] {
-  return Array.from(
-    new Set(
-      categories
-        .map(item => item.trim())
-        .filter(Boolean)
-    )
-  ).map((name, index) => ({
-    id: `local-category-${index}-${name.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`,
-    name,
-    sortOrder: index
-  }))
-}
-
-function cloudCategoriesToManualCategoryNames(categories: CloudCategory[]): string[] {
-  const seen = new Set<string>()
-  const result: string[] = []
-
-  categories.forEach(category => {
-    const name = String(category.name || '').trim()
-    if (!name) return
-
-    const key = name.toLowerCase()
-    if (seen.has(key)) return
-
-    seen.add(key)
-    result.push(name)
-  })
-
-  return result
-}
-
-function mergeCloudAndDishCategoryNames(categories: CloudCategory[], items: DemoDish[]): string[] {
-  const seen = new Set<string>()
-  const result: string[] = []
-
-  cloudCategoriesToManualCategoryNames(categories).forEach(name => {
-    const cleanName = String(name || '').trim()
-    if (!cleanName) return
-
-    const key = cleanName.toLowerCase()
-    if (seen.has(key)) return
-
-    seen.add(key)
-    result.push(cleanName)
-  })
-
-  items.forEach(item => {
-    const cleanName = String(item.category || '').trim()
-    if (!cleanName) return
-
-    const key = cleanName.toLowerCase()
-    if (seen.has(key)) return
-
-    seen.add(key)
-    result.push(cleanName)
-  })
-
-  return result
-}
-
-function normalizePendingSyncStatus(value: unknown): PendingSyncStatus {
-  const text = String(value || '').trim().toLowerCase()
-
-  if (text === 'syncing') return 'syncing'
-  if (text === 'failed') return 'failed'
-
-  return 'pending'
-}
-
-function normalizePendingSyncOperation<T extends PendingSyncOperation>(operation: T): T {
-  const now = nowMillis()
-
-  return {
-    ...operation,
-    status: normalizePendingSyncStatus(operation.status),
-    retryCount: Math.max(0, Number(operation.retryCount || 0)),
-    lastError: operation.lastError ? String(operation.lastError) : null,
-    nextRetryAt: operation.nextRetryAt && Number.isFinite(operation.nextRetryAt)
-      ? Number(operation.nextRetryAt)
-      : null,
-    updatedAt: operation.updatedAt && Number.isFinite(operation.updatedAt)
-      ? Number(operation.updatedAt)
-      : now
-  }
-}
-
-function nextPendingSyncRetryDelayMs(retryCountInput: number): number {
-  const retryCount = Math.max(0, retryCountInput)
-  const baseDelay = 1500
-  const maxDelay = 60 * 1000
-  const delay = baseDelay * Math.pow(2, Math.min(retryCount, 5))
-
-  return Math.min(maxDelay, delay)
-}
-
-function shouldAttemptPendingSyncOperation(operation: PendingSyncOperation, now: number): boolean {
-  const status = normalizePendingSyncStatus(operation.status)
-
-  if (status === 'syncing') return false
-  if (status === 'pending') return true
-
-  const nextRetryAt = Number(operation.nextRetryAt || 0)
-
-  return !nextRetryAt || nextRetryAt <= now
-}
-
-function buildPendingDishSyncOperations(items: DemoDish[]): PendingSyncOperation[] {
-  const operations = new Map<string, PendingSyncOperation>()
-
-  items.forEach(item => {
-    if (!item.id) return
-
-    const shouldSync =
-      item.dirty === true ||
-      item.syncState === 'Pending' ||
-      item.syncState === 'Failed'
-
-    if (!shouldSync) return
-
-    operations.set(`dish-upsert:${item.id}`, normalizePendingSyncOperation({
-      id: `dish-upsert:${item.id}`,
-      type: 'dish-upsert',
-      dishId: item.id,
-      createdAt: item.updatedAt || nowMillis()
-    }))
-  })
-
-  return Array.from(operations.values())
-}
-
-function legacyPendingSyncStorageKey(storeId: string): string {
-  return `ndjc:pending-sync:${storeId}`
-}
-
-function parsePendingSyncOperation(raw: unknown): PendingSyncOperation | null {
-  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null
-
-  const record = raw as Record<string, unknown>
-  const id = String(record.id || '').trim()
-  const type = String(record.type || '').trim()
-  const createdAt = Number(record.createdAt || nowMillis())
-
-  if (!id || !type) return null
-
-  const metadata: PendingSyncMetadata = {
-    status: normalizePendingSyncStatus(record.status),
-    retryCount: Math.max(0, Number(record.retryCount || 0)),
-    lastError: record.lastError ? String(record.lastError) : null,
-    nextRetryAt: record.nextRetryAt && Number.isFinite(Number(record.nextRetryAt))
-      ? Number(record.nextRetryAt)
-      : null,
-    updatedAt: record.updatedAt && Number.isFinite(Number(record.updatedAt))
-      ? Number(record.updatedAt)
-      : nowMillis()
-  }
-
-  if (type === 'dish-upsert') {
-    const dishId = String(record.dishId || '').trim()
-    if (!dishId) return null
-
-    return normalizePendingSyncOperation({
-      id,
-      type,
-      dishId,
-      createdAt,
-      ...metadata
-    })
-  }
-
-  if (type === 'dish-delete') {
-    const dishId = String(record.dishId || '').trim()
-    if (!dishId) return null
-
-    return normalizePendingSyncOperation({
-      id,
-      type,
-      dishId,
-      createdAt,
-      ...metadata
-    })
-  }
-
-  if (type === 'store-profile-upsert') {
-    return normalizePendingSyncOperation({
-      id,
-      type,
-      createdAt,
-      ...metadata
-    })
-  }
-
-  if (type === 'announcement-upsert') {
-    const announcementId = String(record.announcementId || '').trim()
-    if (!announcementId) return null
-
-    return normalizePendingSyncOperation({
-      id,
-      type,
-      announcementId,
-      createdAt,
-      ...metadata
-    })
-  }
-
-  if (type === 'appointment-settings-upsert') {
-    return normalizePendingSyncOperation({
-      id,
-      type,
-      createdAt,
-      ...metadata
-    })
-  }
-
-  return null
-}
-
-function loadLegacyPendingSyncOperationsFromStorage(storeId: string): PendingSyncOperation[] {
-  if (!isBrowser()) return []
-
-  try {
-    const raw = window.localStorage.getItem(legacyPendingSyncStorageKey(storeId))
-    if (!raw) return []
-
-    const parsed = JSON.parse(raw)
-    if (!Array.isArray(parsed)) return []
-
-    return parsed
-      .map(parsePendingSyncOperation)
-      .filter((item): item is PendingSyncOperation => Boolean(item))
-  } catch {
-    return []
-  }
-}
-
-function clearLegacyPendingSyncOperationsFromStorage(storeId: string): void {
-  if (!isBrowser()) return
-
-  try {
-    window.localStorage.removeItem(legacyPendingSyncStorageKey(storeId))
-  } catch {
-  }
-}
-
-function parsePendingSyncOperationsFromUnknownList(items: unknown[]): PendingSyncOperation[] {
-  return items
-    .map(parsePendingSyncOperation)
-    .filter((item): item is PendingSyncOperation => Boolean(item))
-}
-
-function savePendingSyncOperationsToIndexedDb(storeId: string, operations: PendingSyncOperation[]): void {
-  const normalized = operations.map(normalizePendingSyncOperation)
-
-  void saveShowcasePendingSyncQueue(storeId, normalized)
-  clearLegacyPendingSyncOperationsFromStorage(storeId)
-}
-
-function mergePendingSyncOperations(
-  current: PendingSyncOperation[],
-  incoming: PendingSyncOperation[]
-): PendingSyncOperation[] {
-  const byId = new Map<string, PendingSyncOperation>()
-
-  current.forEach(operation => {
-    byId.set(operation.id, normalizePendingSyncOperation(operation))
-  })
-
-  incoming.forEach(operation => {
-    const existing = byId.get(operation.id)
-
-    byId.set(operation.id, normalizePendingSyncOperation({
-      ...operation,
-      status: existing?.status === 'syncing' ? 'pending' : existing?.status || operation.status || 'pending',
-      retryCount: existing?.retryCount || operation.retryCount || 0,
-      lastError: existing?.lastError || operation.lastError || null,
-      nextRetryAt: existing?.nextRetryAt || operation.nextRetryAt || null,
-      updatedAt: existing?.updatedAt || operation.updatedAt || nowMillis()
-    } as PendingSyncOperation))
-  })
-
-  return Array.from(byId.values())
-}
-
-function replaceDishPendingSyncOperationsInQueue(
-  current: PendingSyncOperation[],
-  dishesInput: DemoDish[]
-): PendingSyncOperation[] {
-  const nextDishOperations = buildPendingDishSyncOperations(dishesInput)
-  const nonDishOperations = current.filter(operation => {
-    return operation.type !== 'dish-upsert'
-  })
-
-  return mergePendingSyncOperations(nonDishOperations, nextDishOperations)
-}
-
-function cloudAnnouncementToCard(item: CloudAnnouncement): ShowcaseAnnouncementCard {
-  return {
-    id: item.id,
-    coverUrl: item.coverUrl,
-    bodyPreview: item.body,
-    bodyText: item.body,
-    timeText: formatDateTimeText(item.updatedAt || item.createdAt) || 'Just now',
-    viewCount: item.viewCount
-  }
-}
-
-function appointmentsStatusFromCloud(valueInput: string | null | undefined): string {
-  const value = String(valueInput || '').trim().toLowerCase()
-
-  if (value === 'confirmed') return 'Confirmed'
-  if (value === 'completed') return 'Completed'
-  if (value === 'cancelled' || value === 'canceled') return 'Cancelled'
-  if (value === 'no_show' || value === 'no show' || value === 'no-show') return 'No-show'
-  if (value === 'pending') return 'Pending'
-
-  return valueInput ? String(valueInput) : DEFAULT_APPOINTMENT_STATUS
-}
-
-function appointmentsStatusToCloud(valueInput: string): string {
-  const value = valueInput.trim().toLowerCase()
-
-  if (value === 'confirmed') return 'confirmed'
-  if (value === 'completed') return 'completed'
-  if (value === 'cancelled' || value === 'canceled') return 'cancelled'
-  if (value === 'no show' || value === 'no_show' || value === 'no-show') return 'no_show'
-
-  return 'pending'
-}
-
-function canCustomerCancelAppointmentStatus(statusInput: string | null | undefined): boolean {
-  const status = appointmentsStatusFromCloud(statusInput)
-
-  return status === 'Pending' || status === 'Confirmed'
-}
-
-function appointmentCloudStatusFilterFromUi(valueInput: string): string | null {
-  const value = String(valueInput || '').trim()
-
-  if (!value || value === 'All') return null
-  if (value === 'Cancelled by customer') return 'cancelled'
-
-  return appointmentsStatusToCloud(value)
-}
-
-function appointmentCloudCancelledByFilterFromUi(valueInput: string): string | null {
-  const value = String(valueInput || '').trim()
-
-  if (value === 'Cancelled by customer') return 'customer'
-
-  return null
-}
-
-function appointmentCloudServiceFilterFromUi(valueInput: string): string | null {
-  const value = String(valueInput || '').trim()
-
-  if (!value || value === 'All') return null
-
-  return value
-}
-
-function appointmentCloudDateFiltersFromUi(
-  dateFilterInput: string,
-  historyDateInput: string | null | undefined = null
-): Pick<AppointmentCloudQueryFilters, 'preferredDate' | 'preferredDateGte' | 'preferredDateLt'> {
-  const historyDate = String(historyDateInput || '').trim()
-  const dateFilter = historyDate || String(dateFilterInput || '').trim() || 'All'
-  const today = appointmentLocalDateKey(new Date())
-
-  if (dateFilter === 'History') {
-    return {
-      preferredDate: null,
-      preferredDateGte: null,
-      preferredDateLt: today
-    }
-  }
-
-  if (dateFilter === 'All') {
-    return {
-      preferredDate: null,
-      preferredDateGte: today,
-      preferredDateLt: null
-    }
-  }
-
-  if (/^\d{4}-\d{2}-\d{2}$/.test(dateFilter)) {
-    return {
-      preferredDate: dateFilter,
-      preferredDateGte: null,
-      preferredDateLt: null
-    }
-  }
-
-  return {
-    preferredDate: null,
-    preferredDateGte: today,
-    preferredDateLt: null
-  }
-}
-
-function appointmentStatusPushTitle(valueInput: string): string {
-  const status = appointmentsStatusFromCloud(valueInput)
-
-  if (status === 'Confirmed') return 'Booking confirmed'
-  if (status === 'Completed') return 'Booking completed'
-  if (status === 'Cancelled') return 'Booking cancelled'
-  if (status === 'No-show') return 'Booking marked no-show'
-
-  return 'Booking updated'
-}
-
-function cloudAppointmentToUi(item: CloudAppointmentRequest, dish: DemoDish | null = null): ShowcaseAppointmentCard {
-  const sourceDishId = String(item.sourceDishId || '').trim()
-  const hasLinkedDish = Boolean(sourceDishId)
-  const itemAvailable = hasLinkedDish
-    ? Boolean(dish && !dish.isSoldOut && !dish.isHidden)
-    : true
-
-  const dishPriceSnapshot = dish ? buildDishPriceTextSnapshot(dish) : null
-  const storedPriceSnapshot = decodeAppointmentPriceSnapshot(item.sourcePriceSnapshot)
-  const snapshotImageUrl = String(item.sourceImageUrlSnapshot || '').trim()
-  const snapshotCategory = String(item.sourceCategorySnapshot || '').trim()
-
-  return {
-    id: item.id,
-    customerName: item.customerName,
-    customerContact: item.customerContact,
-    serviceTitle: item.serviceTitle,
-    preferredDate: item.preferredDate,
-    preferredTime: item.preferredTime,
-    note: item.note,
-    statusLabel: appointmentsStatusFromCloud(item.status),
-    cancelledBy: item.cancelledBy,
-    cancelledAt: item.cancelledAt,
-    canCancelByCustomer: canCustomerCancelAppointmentStatus(item.status) && item.cancelledBy !== 'customer',
-    createdAtText: formatDateTimeText(item.createdAt) || 'Just now',
-    imageUrl: dish ? selectDishImageUrl(dish, 'list') || snapshotImageUrl || null : snapshotImageUrl || null,
-    imageVariants: dish?.imageVariants ?? createRemoteOnlyShowcaseImageVariants(snapshotImageUrl),
-    sourceDishId: item.sourceDishId,
-    priceText: dishPriceSnapshot?.priceText || storedPriceSnapshot.priceText || null,
-    originalPriceText: dishPriceSnapshot?.originalPriceText || storedPriceSnapshot.originalPriceText,
-    discountPriceText: dishPriceSnapshot?.discountPriceText || storedPriceSnapshot.discountPriceText,
-    categoryText: dish?.category || snapshotCategory || null,
-    isRecommended: dish ? Boolean(dish.isRecommended) : Boolean(item.sourceRecommendedSnapshot),
-    itemAvailable
-  }
-}
-
-function appointmentToCard(item: CloudAppointmentRequest, dish: DemoDish | null = null): ShowcaseAppointmentCard {
-  return cloudAppointmentToUi(item, dish)
-}
-
-function chatMessageToUiMessage(message: ChatMessage, currentRole: 'merchant' | 'user', product: ShowcaseChatProductShare | null): ShowcaseChatMessage {
-  const outgoing = message.senderRole === currentRole
-  const parsedPayload = parseNdjcChatPayload(message.body)
-  const localStatus = String(message.localStatus || 'sent').trim().toLowerCase()
-  const isSending = localStatus === 'sending'
-  const isFailed = localStatus === 'failed'
-  const statusText = outgoing
-    ? isFailed
-      ? 'Failed to send'
-      : isSending
-        ? 'Sending...'
-        : message.readAt
-          ? 'Sent · Read'
-          : 'Sent · Unread'
-    : null
-  const payloadProduct = parsedPayload.product
-    ? {
-        dishId: parsedPayload.product.dishId,
-        title: parsedPayload.product.title,
-        price: parsedPayload.product.price,
-        originalPriceText: parsedPayload.product.originalPriceText,
-        discountPriceText: parsedPayload.product.discountPriceText,
-        imageUrl: parsedPayload.product.imageUrl,
-        imageVariants: parsedPayload.product.imageVariants ?? createRemoteOnlyShowcaseImageVariants(parsedPayload.product.imageUrl),
-        isRecommended: parsedPayload.product.isRecommended
-      }
-    : null
-  const payloadAppointment = parsedPayload.appointment
-    ? {
-        appointmentId: parsedPayload.appointment.appointmentId,
-        title: parsedPayload.appointment.title,
-        preferredDate: parsedPayload.appointment.preferredDate,
-        preferredTime: parsedPayload.appointment.preferredTime,
-        statusLabel: parsedPayload.appointment.statusLabel,
-        cancelledBy: parsedPayload.appointment.cancelledBy,
-        cancelledAt: parsedPayload.appointment.cancelledAt,
-        imageUrl: parsedPayload.appointment.imageUrl,
-        imageVariants: parsedPayload.appointment.imageVariants ?? createRemoteOnlyShowcaseImageVariants(parsedPayload.appointment.imageUrl),
-        customerName: parsedPayload.appointment.customerName,
-        customerContact: parsedPayload.appointment.customerContact,
-        note: parsedPayload.appointment.note,
-        sourceDishId: parsedPayload.appointment.sourceDishId,
-        priceText: parsedPayload.appointment.priceText,
-        originalPriceText: parsedPayload.appointment.originalPriceText,
-        discountPriceText: parsedPayload.appointment.discountPriceText,
-        categoryText: parsedPayload.appointment.categoryText,
-        itemAvailable: parsedPayload.appointment.itemAvailable,
-        createdAtText: parsedPayload.appointment.createdAtText
-      }
-    : null
-
-  return {
-    id: message.id,
-    body: parsedPayload.body,
-    createdAtText: formatChatCreatedAtText(message.createdAt) || '',
-    outgoing,
-    statusText,
-    imageUrls: Array.from(new Set([
-      ...message.imageUrls,
-      ...parsedPayload.imageUris
-    ].map(url => String(url || '').trim()).filter(Boolean))),
-    imageVariants: parsedPayload.imageVariants,
-    product: product || payloadProduct,
-    appointment: payloadAppointment,
-    quotedMessageId: message.quotedMessageId || parsedPayload.quoteMessageId,
-    quotePreviewText: parsedPayload.quotePreview,
-    failed: isFailed,
-    selected: false
-  }
-}
-
-function chatThreadSummaryToUi(item: ChatThreadSummary): ShowcaseChatThreadSummaryUi {
-  return chatThreadSummaryToUiFromDomain(item)
-}
-
-function storeProfileFromCloud(profile: CloudStoreProfile | null): ShowcaseStoreProfile {
-  return {
-    displayName: profile?.title || 'Showcase Store',
-    tagline: profile?.subtitle || 'Browse items, book services, and contact the store.',
-    phone: '',
-    address: profile?.address || '',
-    businessHours: profile?.hours || '',
-    websiteUrl: '',
-    mapUrl: profile?.mapUrl || ''
-  }
-}
-
-function storeProfileFromCachedProfile(
-  profile: NonNullable<ReturnType<typeof loadStoreProfileFromStorage>>
-): ShowcaseStoreProfile {
-  return {
-    displayName: profile.title || 'Showcase Store',
-    tagline: profile.subtitle || 'Browse items, book services, and contact the store.',
-    phone: '',
-    address: profile.address || '',
-    businessHours: profile.hours || '',
-    websiteUrl: '',
-    mapUrl: profile.mapUrl || ''
-  }
-}
-
-function storeProfileDraftFromProfile(profile: ShowcaseStoreProfile): ShowcaseStoreProfileDraft {
-  return {
-    displayName: profile.displayName,
-    tagline: profile.tagline,
-    phone: profile.phone,
-    address: profile.address,
-    businessHours: profile.businessHours,
-    websiteUrl: profile.websiteUrl,
-    mapUrl: profile.mapUrl,
-    isDirty: false
-  }
-}
-
-function mapCloudPlanType(valueInput: string | null | undefined): string {
-  const value = String(valueInput || '').trim().toLowerCase()
-
-  if (value === 'paid') return 'Paid'
-  if (value === 'trial') return 'Trial'
-  if (value === 'free') return 'Free'
-
-  return valueInput ? String(valueInput) : 'Trial'
-}
-
-function buildCloudStatusLabel(valueInput: string | null | undefined, canWrite: boolean): string {
-  const value = String(valueInput || '').trim().toLowerCase()
-
-  if (value === 'active') {
-    return canWrite ? 'Running · Writable' : 'Running · Not writable'
-  }
-
-  if (value === 'read_only' || value === 'readonly') {
-    return 'Read-only · Not writable'
-  }
-
-  if (value === 'deleted') {
-    return 'Deleted · Not writable'
-  }
-
-  if (value === 'expired') {
-    return 'Expired · Not writable'
-  }
-
-  return canWrite ? 'Unknown · Writable' : 'Unknown · Not writable'
-}
-function parseCloudIsoMillis(valueInput: string | null | undefined): number | null {
-  const value = String(valueInput || '').trim()
-  if (!value) return null
-
-  const parsed = Date.parse(value)
-  if (!Number.isFinite(parsed)) return null
-
-  return parsed
-}
-
-function formatCloudDateTimeLabel(valueInput: string | null | undefined): string {
-  const millis = parseCloudIsoMillis(valueInput)
-
-  if (millis == null) {
-    return String(valueInput || '').trim()
-  }
-
-  const date = new Date(millis)
-  const monthDayYear = date.toLocaleDateString('en-US', {
-    month: 'short',
-    day: '2-digit',
-    year: 'numeric'
-  })
-  const timeText = date.toLocaleTimeString('en-US', {
-    hour: 'numeric',
-    minute: '2-digit',
-    hour12: true
-  })
-
-  return `${monthDayYear}, ${timeText}`
-}
-
-function buildCloudDaysRemainingLabel(serviceEndAtInput: string | null | undefined): string {
-  const endAtMs = parseCloudIsoMillis(serviceEndAtInput)
-  if (endAtMs == null) return ''
-
-  const now = new Date()
-  const end = new Date(endAtMs)
-
-  const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime()
-  const endDayStart = new Date(end.getFullYear(), end.getMonth(), end.getDate()).getTime()
-  const oneDayMs = 24 * 60 * 60 * 1000
-  const days = Math.floor((endDayStart - todayStart) / oneDayMs)
-
-  if (endAtMs - Date.now() <= 0) {
-    return 'Expired'
-  }
-
-  if (days <= 0) {
-    return 'Expires today'
-  }
-
-  if (days === 1) {
-    return '1 day left'
-  }
-
-  return `${days} days left`
-}
-function cloudStatusToUi(status: CloudStoreServiceStatus | null, storeId: string): ShowcaseCloudStatusUi | null {
-  if (!status) return null
-
-  const serviceEndAtRaw = String(status.serviceEndAt || '').trim()
-  const deleteAtRaw = String(status.deleteAt || '').trim()
-
-  return {
-    storeId: status.storeId || storeId,
-    planLabel: mapCloudPlanType(status.planType),
-    statusLabel: buildCloudStatusLabel(status.serviceStatus, status.isWriteAllowed),
-    daysRemainingLabel: buildCloudDaysRemainingLabel(serviceEndAtRaw),
-    serviceEndAtLabel: serviceEndAtRaw ? formatCloudDateTimeLabel(serviceEndAtRaw) : '',
-    deleteAtLabel: deleteAtRaw ? formatCloudDateTimeLabel(deleteAtRaw) : '',
-    canWrite: status.isWriteAllowed
-  }
-}
-
-function categoryOptionsFromDishes(dishes: DemoDish[]): string[] {
-  return deriveCategoriesFromModels(dishes)
-}
-
-function allTagsFromDishes(dishes: DemoDish[]): string[] {
-  return deriveAllTags(dishes)
-}
-
-function dishFilterRowsToTags(rows: CloudDishFilterRow[]): string[] {
-  return Array.from(
-    new Set(
-      rows
-        .flatMap(item => item.tags || [])
-        .map(item => String(item || '').trim())
-        .filter(Boolean)
-    )
-  ).sort()
-}
-
-function mapFavoriteCard(dish: DemoDish): ShowcaseFavoriteCard {
-  const discount = Number(dish.discountPrice)
-  const hasValidDiscount = Number.isFinite(discount) && discount > 0
-  const originalPriceText = formatUsd(dish.originalPrice)
-  const discountPriceText = hasValidDiscount ? formatUsd(discount) : null
-
-  return {
-    dishId: dish.id,
-    title: getDishTitle(dish) || 'Untitled item',
-    category: dish.category || null,
-    originalPriceText,
-    discountPriceText,
-    priceText: discountPriceText || originalPriceText,
-    imageUrl: resolveDishImage(dish),
-    isRecommended: Boolean(dish.isRecommended),
-    isHidden: Boolean(dish.isHidden),
-    itemAvailable: !dish.isSoldOut && !dish.isHidden
-  }
-}
-
-function defaultAppointmentSettings(storeId: string): CloudAppointmentSettings {
-  return {
-    storeId,
-    enabled: true,
-    bookingWindowDays: 7,
-    availableStartTime: '09:00',
-    availableEndTime: '17:00',
-    slotIntervalMinutes: 30,
-    closedDays: [],
-    minimumNotice: '2 hours',
-    updatedAt: null
-  }
-}
-
-function appointmentTimeToMinutes(valueInput: string): number | null {
-  const value = valueInput.trim()
-  if (!value) return null
-
-  const parts = value.split(':')
-  if (parts.length < 2) return null
-
-  const hour = Number(parts[0])
-  const minute = Number(parts[1])
-
-  if (!Number.isFinite(hour) || !Number.isFinite(minute)) return null
-  if (hour < 0 || hour > 23 || minute < 0 || minute > 59) return null
 
-  return hour * 60 + minute
-}
-
-function appointmentMinutesToTime(valueInput: number): string {
-  const value = Math.max(0, Math.min(23 * 60 + 59, Math.round(valueInput)))
-  const hour = Math.floor(value / 60)
-  const minute = value % 60
-
-  return `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`
-}
-
-function appointmentMinimumNoticeToMillis(valueInput: string): number {
-  const value = valueInput.trim().toLowerCase()
-  if (!value) return 0
-
-  const amount = Number(value.match(/\d+/)?.[0] || 0)
-  if (!Number.isFinite(amount) || amount <= 0) return 0
-
-  if (value.includes('day')) return amount * 24 * 60 * 60 * 1000
-  if (value.includes('hour')) return amount * 60 * 60 * 1000
-  if (value.includes('min')) return amount * 60 * 1000
-
-  return amount * 60 * 60 * 1000
-}
-
-function appointmentClosedDayKey(date: Date): string {
-  const day = date.getDay()
-
-  if (day === 1) return 'Mon'
-  if (day === 2) return 'Tue'
-  if (day === 3) return 'Wed'
-  if (day === 4) return 'Thu'
-  if (day === 5) return 'Fri'
-  if (day === 6) return 'Sat'
-  if (day === 0) return 'Sun'
-
-  return ''
-}
+function saveBookingsEntryDotVisibleLocally(storeId: string, clientId: string, visible: boolean): void {
+  const normalizedClientId = clientId.trim()
 
-function appointmentLocalDateKey(date: Date): string {
-  const year = String(date.getFullYear()).padStart(4, '0')
-  const month = String(date.getMonth() + 1).padStart(2, '0')
-  const day = String(date.getDate()).padStart(2, '0')
+  if (!normalizedClientId) return
 
-  return `${year}-${month}-${day}`
+  writeJson(bookingsEntryDotVisibleStorageKey(storeId, normalizedClientId), visible)
 }
-
-function customerAppointmentDateOptions(settings: CloudAppointmentSettings): ShowcaseAppointmentDateOption[] {
-  const today = new Date()
-  const options: ShowcaseAppointmentDateOption[] = []
-  const bookingWindowDays = Math.max(1, Number(settings.bookingWindowDays || 7))
-
-  for (let index = 0; index < 7; index += 1) {
-    const date = new Date(today)
-    date.setDate(today.getDate() + index)
-
-    const value = appointmentLocalDateKey(date)
-    const dayKey = appointmentClosedDayKey(date)
-    const withinBookingWindow = index < bookingWindowDays
-    const closed = settings.closedDays.includes(dayKey)
-    const hasTimes = customerAppointmentTimeOptionsForDate(settings, value).length > 0
 
-    const title = index === 0
-      ? 'Today'
-      : index === 1
-        ? 'Tomorrow'
-        : date.toLocaleDateString('en-US', { weekday: 'short' })
-
-    const subtitle = date.toLocaleDateString('en-US', {
-      month: 'short',
-      day: 'numeric'
-    })
-
-    const reason = !withinBookingWindow
-      ? 'Unavailable'
-      : closed
-        ? 'Closed'
-        : !hasTimes
-          ? 'No times'
-          : ''
-
-    options.push({
-      value,
-      title,
-      subtitle,
-      available: withinBookingWindow && !closed && hasTimes,
-      reason
-    })
-  }
-
-  return options
+function adminUnreadMessageCountStorageKey(storeId: string): string {
+  return `ndjc_showcase_admin_unread_message_count_${normalizeStoreId(storeId)}`
 }
-
-function customerAppointmentTimeOptionsForDate(settings: CloudAppointmentSettings, dateValueInput: string): string[] {
-  const start = appointmentTimeToMinutes(settings.availableStartTime)
-  const end = appointmentTimeToMinutes(settings.availableEndTime)
-
-  if (start == null || end == null) {
-    return []
-  }
-
-  if (start >= end) {
-    return []
-  }
-
-  const interval = settings.slotIntervalMinutes === 30 || settings.slotIntervalMinutes === 60
-    ? settings.slotIntervalMinutes
-    : 30
 
-  const noticeMillis = appointmentMinimumNoticeToMillis(settings.minimumNotice)
-  const selectedDate = dateValueInput.trim()
-  const result: string[] = []
-
-  for (let cursor = start; cursor < end; cursor += interval) {
-    const time = appointmentMinutesToTime(cursor)
-
-    if (selectedDate) {
-      const slotAt = new Date(`${selectedDate}T${time}:00`)
-      if (Number.isFinite(slotAt.getTime()) && slotAt.getTime() - nowMillis() < noticeMillis) {
-        continue
-      }
-    }
-
-    result.push(time)
-  }
-
-  return result
+function adminPendingAppointmentCountStorageKey(storeId: string): string {
+  return `ndjc_showcase_admin_pending_appointment_count_${normalizeStoreId(storeId)}`
 }
 
-function buildAppointmentDateOptions(settings: CloudAppointmentSettings): ShowcaseAppointmentDateOption[] {
-  return customerAppointmentDateOptions(settings)
-}
+function loadAdminUnreadMessageCountLocally(storeId: string): number {
+  const value = readJson<number>(adminUnreadMessageCountStorageKey(storeId), 0)
 
-function buildAppointmentTimeOptions(settings: CloudAppointmentSettings): string[] {
-  return customerAppointmentTimeOptionsForDate(settings, '')
+  return Number.isFinite(value) && value > 0 ? Math.floor(value) : 0
 }
 
-function buildDefaultConversationId(storeId: string, clientId: string): string {
-  return `cloud:${storeId}:${clientId}`
-}
+function saveAdminUnreadMessageCountLocally(storeId: string, count: number): void {
+  const safeCount = Number.isFinite(count) && count > 0 ? Math.floor(count) : 0
 
-function decorateCloudHomeResults(input: {
-  dishes: DemoDish[]
-  favoriteIds: string[]
-  sortMode: ShowcaseHomeSortMode
-}): DemoDish[] {
-  return sortDishes(
-    input.dishes.map(item => ({
-      ...item,
-      isFavorite: input.favoriteIds.includes(item.id)
-    })),
-    input.sortMode
-  )
+  writeJson(adminUnreadMessageCountStorageKey(storeId), safeCount)
 }
 
-function toShowcaseHomeDish(dish: DemoDish): ShowcaseHomeDish {
-  const originalPrice = Number(dish.originalPrice)
-  const discountPrice = Number(dish.discountPrice)
-  const normalizedOriginalPrice = Number.isFinite(originalPrice) && originalPrice > 0 ? originalPrice : 0
-  const normalizedDiscountPrice = Number.isFinite(discountPrice) && discountPrice > 0 ? discountPrice : null
-  const title = getDishTitle(dish).trim()
+function loadAdminPendingAppointmentCountLocally(storeId: string): number {
+  const value = readJson<number>(adminPendingAppointmentCountStorageKey(storeId), 0)
 
-  return {
-    clickCount: Number.isFinite(Number(dish.clickCount)) ? Number(dish.clickCount) : 0,
-    id: dish.id,
-    title: title || 'Untitled item',
-    subtitle: String(dish.description || '').trim() || null,
-    category: String(dish.category || '').trim() || null,
-    price: getDishPrice(dish),
-    originalPrice: normalizedOriginalPrice,
-    discountPrice: normalizedDiscountPrice,
-    isRecommended: Boolean(dish.isRecommended),
-    isSoldOut: Boolean(dish.isSoldOut),
-    isFavorite: Boolean(dish.isFavorite),
-    isHidden: Boolean(dish.isHidden),
-    imagePreviewUrl: selectDishImageUrl(dish, 'home'),
-    imageVariants: dish.imageVariants ?? null
-  }
+  return Number.isFinite(value) && value > 0 ? Math.floor(value) : 0
 }
 
-const NDJC_VM_TRACE_ENABLED = false
+function saveAdminPendingAppointmentCountLocally(storeId: string, count: number): void {
+  const safeCount = Number.isFinite(count) && count > 0 ? Math.floor(count) : 0
 
-function ndjcTrace(label: string, payload?: Record<string, unknown>): void {
-  if (!NDJC_VM_TRACE_ENABLED) return
-  if (typeof console === 'undefined') return
-
-  console.warn(`[NDJC_TRACE] ${label}`, {
-    at: new Date().toISOString(),
-    ...payload
-  })
+  writeJson(adminPendingAppointmentCountStorageKey(storeId), safeCount)
 }
 
-function ndjcTraceError(label: string, errorInput: unknown, payload?: Record<string, unknown>): void {
-  if (!NDJC_VM_TRACE_ENABLED) return
-  if (typeof console === 'undefined') return
-
-  console.error(`[NDJC_TRACE_ERROR] ${label}`, {
-    at: new Date().toISOString(),
-    message: errorInput instanceof Error ? errorInput.message : String(errorInput || ''),
-    error: errorInput,
-    ...payload
-  })
-}
 
 export function useShowcaseViewModel(input: UseShowcaseViewModelInput = {}): ShowcaseUiModel {
   const storeId = normalizeStoreId(input.storeId)
@@ -2851,8 +802,7 @@ export function useShowcaseViewModel(input: UseShowcaseViewModelInput = {}): Sho
       : loadDishesFromStorage(storeId)
     const sourceItems = localDishes.length ? localDishes : initialDishes
 
-    return sourceItems
-      .filter(item => !item.isHidden)
+    return sortedHomeDishesForDisplay(sourceItems.filter(item => !item.isHidden))
       .map(item => String(item.id || '').trim())
       .filter(Boolean)
   })
@@ -3017,6 +967,8 @@ export function useShowcaseViewModel(input: UseShowcaseViewModelInput = {}): Sho
     return loadStoreProfileFromStorage(storeId)?.businessStatus || defaultUiState.draftBusinessStatus
   })
   const [isEditingStoreProfile, setIsEditingStoreProfile] = useState(defaultUiState.isEditingStoreProfile)
+  const isEditingStoreProfileRef = useRef(defaultUiState.isEditingStoreProfile)
+  const storeProfileDraftDirtyRef = useRef(false)
   const [isSavingStoreProfile, setIsSavingStoreProfile] = useState(defaultUiState.isSavingStoreProfile)
   const [isRefreshingStoreProfile, setIsRefreshingStoreProfile] = useState(false)
   const [storeProfileSaveError, setStoreProfileSaveError] = useState<string | null>(defaultUiState.storeProfileSaveError)
@@ -3031,9 +983,14 @@ export function useShowcaseViewModel(input: UseShowcaseViewModelInput = {}): Sho
   const [editDishRecommended, setEditDishRecommended] = useState(false)
   const [editDishHidden, setEditDishHidden] = useState(false)
   const [editDishImageUrls, setEditDishImageUrls] = useState<string[]>([])
+  const itemEditorImageDraftDirtyRef = useRef(false)
   const [isSavingEditDish, setIsSavingEditDish] = useState(defaultUiState.isSavingEditDish)
   const [isBlockingEditDish, setIsBlockingEditDish] = useState(defaultUiState.isBlockingEditDish)
   const [editValidationError, setEditValidationError] = useState<string | null>(defaultUiState.editValidationError)
+
+  useEffect(() => {
+    isEditingStoreProfileRef.current = isEditingStoreProfile
+  }, [isEditingStoreProfile])
 
   const [favoritesQuery, setFavoritesQuery] = useState(defaultUiState.favoritesQuery)
   const [favoritesSelectedIds, setFavoritesSelectedIds] = useState<string[]>(defaultUiState.favoritesSelectedIds)
@@ -3052,6 +1009,9 @@ export function useShowcaseViewModel(input: UseShowcaseViewModelInput = {}): Sho
   const [appointmentSettings, setAppointmentSettings] = useState<CloudAppointmentSettings>(() => defaultAppointmentSettings(storeId))
   const [appointmentsEnabled, setAppointmentsEnabled] = useState(defaultUiState.appointmentsEnabled)
   const [appointmentRequests, setAppointmentRequests] = useState<CloudAppointmentRequest[]>(() => loadAppointmentsFromStorage(storeId))
+  const [adminPendingAppointmentCountSnapshot, setAdminPendingAppointmentCountSnapshot] = useState(() => {
+    return loadAdminPendingAppointmentCountLocally(storeId)
+  })
   const [adminAppointmentFilterRows, setAdminAppointmentFilterRows] = useState<CloudAppointmentFilterRow[]>([])
   const [customerAppointmentFilterRows, setCustomerAppointmentFilterRows] = useState<CloudAppointmentFilterRow[]>([])
   const [appointmentLinkedDishesById, setAppointmentLinkedDishesById] = useState<Record<string, DemoDish>>({})
@@ -3088,7 +1048,9 @@ export function useShowcaseViewModel(input: UseShowcaseViewModelInput = {}): Sho
       })
   })
   const [announcementsEntryDotVisible, setAnnouncementsEntryDotVisible] = useState(false)
-  const [bookingsEntryDotVisible, setBookingsEntryDotVisible] = useState(false)
+  const [bookingsEntryDotVisible, setBookingsEntryDotVisible] = useState(() => {
+    return loadBookingsEntryDotVisibleLocally(storeId, clientId)
+  })
   const [adminAnnouncementDraftItems, setAdminAnnouncementDraftItems] = useState<DraftAnnouncement[]>([])
   const [adminAnnouncementComposerExpanded, setAdminAnnouncementComposerExpanded] = useState(defaultUiState.adminAnnouncementComposerExpanded)
   const [adminAnnouncementCoverDraftUrl, setAdminAnnouncementCoverDraftUrl] = useState<string | null>(defaultUiState.adminAnnouncementCoverDraftUrl)
@@ -3104,19 +1066,30 @@ export function useShowcaseViewModel(input: UseShowcaseViewModelInput = {}): Sho
   const [pushTargetAnnouncementId, setPushTargetAnnouncementId] = useState<string | null>(defaultUiState.pushTargetAnnouncementId)
   const [seenAnnouncementIds, setSeenAnnouncementIds] = useState<string[]>(() => loadViewedAnnouncementIdsLocally(storeId))
   const [pushToken, setPushToken] = useState<string | null>(null)
-  const [pendingPushRoute, setPendingPushRoute] = useState<{
+
+  type PendingShowcasePushRoute = {
     type: 'chat' | 'announcement' | 'appointment'
     conversationId?: string | null
     announcementId?: string | null
     appointmentId?: string | null
     openAs?: string | null
-  } | null>(null)
+  }
+
+  const [pendingPushRoute, setPendingPushRoute] = useState<PendingShowcasePushRoute | null>(null)
+  const pendingPushRouteRef = useRef<PendingShowcasePushRoute | null>(null)
+  const merchantAuthRestoredRef = useRef(false)
+  const pushRouteConsumingRef = useRef(false)
+  const handlePushRouteRef = useRef<((route: PendingShowcasePushRoute) => Promise<void>) | null>(null)
   const [focusedAnnouncementId, setFocusedAnnouncementId] = useState<string | null>(null)
 
   const [activeConversation, setActiveConversation] = useState<ChatConversation | null>(null)
   const [activeConversationId, setActiveConversationId] = useState<string>(() => buildDefaultConversationId(storeId, initialClientIdRef.current))
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([])
   const [merchantChatThreads, setMerchantChatThreads] = useState<ChatThreadSummary[]>([])
+  const [adminUnreadMessageCountSnapshot, setAdminUnreadMessageCountSnapshot] = useState(() => {
+    return loadAdminUnreadMessageCountLocally(storeId)
+  })
+  const adminUnreadMessageCountHydrationReadyRef = useRef(false)
   const [merchantChatListRefreshing, setMerchantChatListRefreshing] = useState(defaultUiState.merchantChatListRefreshing)
   const [chatDraft, setChatDraft] = useState(() => readChatDraft(storeId, buildDefaultConversationId(storeId, initialClientIdRef.current))?.draft || defaultChatUiState.draft)
   const [chatDraftImageUrls, setChatDraftImageUrls] = useState<string[]>(() => readChatDraft(storeId, buildDefaultConversationId(storeId, initialClientIdRef.current))?.draftImageUrls || defaultChatUiState.draftImageUrls)
@@ -3232,15 +1205,15 @@ export function useShowcaseViewModel(input: UseShowcaseViewModelInput = {}): Sho
   const lastMerchantSessionEnsureResultRef = useRef<'valid' | 'temporary_failed' | 'permission_failed' | 'expired' | null>(null)
   const detailBackTargetRef = useRef<ShowcaseScreenName>(ShowcaseScreens.Home)
   const appointmentDetailBackTargetRef = useRef<ShowcaseScreenName>(ShowcaseScreens.Home)
-  const merchantChatListBackTargetRef = useRef<ShowcaseScreenName>(ShowcaseScreens.Admin)
+  const merchantChatListBackTargetRef = useRef<ShowcaseScreenName>(ShowcaseScreens.Home)
   const changePasswordBackTargetRef = useRef<ShowcaseScreenName>(ShowcaseScreens.Admin)
   const storeProfileBackTargetRef = useRef<ShowcaseScreenName>(ShowcaseScreens.Home)
   const announcementsBackTargetRef = useRef<ShowcaseScreenName>(ShowcaseScreens.Home)
   const chatBackTargetRef = useRef<ShowcaseScreenName>(ShowcaseScreens.Home)
   const chatSearchBackTargetRef = useRef<ShowcaseScreenName>(ShowcaseScreens.Chat)
   const chatBackTargetBeforeSearchRef = useRef<ShowcaseScreenName>(ShowcaseScreens.Chat)
-  const chatSearchScopeRef = useRef<'InConversation' | 'InExistingThreads'>('InConversation')
   const chatMediaBackTargetRef = useRef<ShowcaseScreenName>(ShowcaseScreens.Chat)
+  const chatSearchScopeRef = useRef<'InConversation' | 'InExistingThreads'>('InConversation')
   const chatModeRef = useRef<ChatMode>('Client')
   const hasLoadedInitialCloudRef = useRef(false)
   const isMountedRef = useRef(false)
@@ -3312,6 +1285,10 @@ export function useShowcaseViewModel(input: UseShowcaseViewModelInput = {}): Sho
     return mergeCloudAndDishCategoryNames(categories, dishes)
   }, [categories, dishes])
 
+  const adminCategories = useMemo(() => {
+    return cloudCategoriesToManualCategoryNames(categories)
+  }, [categories])
+
   const homeListDishes = useMemo(() => {
     return dishesFromIds(homeDishIds)
   }, [dishEntitiesById, homeDishIds])
@@ -3363,8 +1340,9 @@ export function useShowcaseViewModel(input: UseShowcaseViewModelInput = {}): Sho
       return []
     }
 
-    const cachedDishes = loadDishesFromStorage(storeId)
-      .filter(item => !item.isHidden)
+    const cachedDishes = sortedHomeDishesForDisplay(
+      loadDishesFromStorage(storeId).filter(item => !item.isHidden)
+    )
 
     if (!cachedDishes.length) {
       return []
@@ -3610,6 +1588,30 @@ export function useShowcaseViewModel(input: UseShowcaseViewModelInput = {}): Sho
     })
   }, [appointmentCards, currentClientAppointmentIdSet])
 
+  function setBookingsEntryDotVisibleAndPersist(
+    value: boolean | ((current: boolean) => boolean)
+  ): void {
+    setBookingsEntryDotVisible(current => {
+      const next = typeof value === 'function'
+        ? Boolean(value(current))
+        : Boolean(value)
+
+      saveBookingsEntryDotVisibleLocally(storeId, clientId, next)
+
+      return next
+    })
+  }
+
+  function updateAdminPendingAppointmentCountSnapshotFromItems(items: CloudAppointmentRequest[]): void {
+    const todayDateKey = appointmentLocalDateKey(new Date())
+    const nextCount = items.filter(item => {
+      return item.preferredDate >= todayDateKey && appointmentsStatusFromCloud(item.status) === 'Pending'
+    }).length
+
+    setAdminPendingAppointmentCountSnapshot(nextCount)
+    saveAdminPendingAppointmentCountLocally(storeId, nextCount)
+  }
+
   useEffect(() => {
     mergeDishEntities(dishes)
   }, [dishes])
@@ -3635,16 +1637,12 @@ export function useShowcaseViewModel(input: UseShowcaseViewModelInput = {}): Sho
 
     const seenKeys = loadSeenAppointmentStatusAlertKeys(storeId, clientId)
     saveSeenAppointmentStatusAlertKeys(storeId, clientId, [...seenKeys, ...alertKeys])
-    setBookingsEntryDotVisible(false)
+    setBookingsEntryDotVisibleAndPersist(false)
   }, [screen, customerAppointmentCards, storeId, clientId])
 
   const announcementCards = useMemo<ShowcaseAnnouncementCard[]>(() => {
     return announcements.map(cloudAnnouncementToCard)
   }, [announcements])
-
-  const adminAnnouncementCards = useMemo<ShowcaseAnnouncementCard[]>(() => {
-    return getAdminDraftCardsForUi()
-  }, [adminAnnouncementDraftItems])
 
   const activeChatProductMap = useMemo(() => {
     const map = new Map<string, ShowcaseChatProductShare>()
@@ -3718,6 +1716,20 @@ export function useShowcaseViewModel(input: UseShowcaseViewModelInput = {}): Sho
 
     return sourceThreads.map(chatThreadSummaryToUi)
   }, [merchantChatListSearchActive, merchantChatListSearchThreads, merchantChatThreads])
+
+  useEffect(() => {
+    if (!adminUnreadMessageCountHydrationReadyRef.current) {
+      adminUnreadMessageCountHydrationReadyRef.current = true
+      return
+    }
+
+    const nextCount = merchantChatThreads.reduce((sum, item) => {
+      return sum + Math.max(0, Number(item.unreadCount || 0))
+    }, 0)
+
+    setAdminUnreadMessageCountSnapshot(nextCount)
+    saveAdminUnreadMessageCountLocally(storeId, nextCount)
+  }, [merchantChatThreads, storeId])
 
   useEffect(() => {
     const normalizedQuery = merchantChatListSearchQuery.trim()
@@ -4006,6 +2018,18 @@ export function useShowcaseViewModel(input: UseShowcaseViewModelInput = {}): Sho
   function sortedDishesForStorage(items: DemoDish[]): DemoDish[] {
     return items.slice().sort((left, right) => {
       return (right.updatedAt || 0) - (left.updatedAt || 0) || getDishTitle(left).localeCompare(getDishTitle(right))
+    })
+  }
+
+  function sortedHomeDishesForDisplay(items: DemoDish[]): DemoDish[] {
+    return items.slice().sort((left, right) => {
+      const leftCreatedAt = Number(left.createdAt ?? left.updatedAt ?? 0)
+      const rightCreatedAt = Number(right.createdAt ?? right.updatedAt ?? 0)
+      const createdDiff = leftCreatedAt - rightCreatedAt
+
+      if (createdDiff !== 0) return createdDiff
+
+      return String(left.id || '').localeCompare(String(right.id || ''))
     })
   }
 
@@ -4417,13 +2441,16 @@ export function useShowcaseViewModel(input: UseShowcaseViewModelInput = {}): Sho
       const cloudUnavailable = browserOffline || cloudReadFailed
       const shouldUseLocalDishCache = cloudUnavailable && !items.length && localVisibleDishes.length > 0
       const sourceItems = shouldUseLocalDishCache ? localVisibleDishes : items
+      const orderedHomeItems = filtersInput.sortMode === 'Default'
+        ? sortedHomeDishesForDisplay(sourceItems)
+        : sourceItems
       const merged = sortedDishesForStorage(sourceItems)
 
       mergeDishEntities(merged)
-      setHomeDishIds(dishIdsFromItems(merged))
+      setHomeDishIds(dishIdsFromItems(orderedHomeItems))
       setDishes(merged)
       refreshFavoritesList(merged)
-    replaceDishPendingSyncOperations(merged)
+      replaceDishPendingSyncOperations(merged)
       resetHomePaginationForFirstPage(sourceItems.length)
       setStatusMessage(
         shouldUseLocalDishCache
@@ -4439,10 +2466,13 @@ export function useShowcaseViewModel(input: UseShowcaseViewModelInput = {}): Sho
       const localVisibleDishes = localDishes.filter(item => !item.isHidden)
 
       if (localVisibleDishes.length) {
+        const orderedHomeItems = sortMode === 'Default'
+          ? sortedHomeDishesForDisplay(localVisibleDishes)
+          : localVisibleDishes
         const merged = sortedDishesForStorage(localVisibleDishes)
 
         mergeDishEntities(merged)
-        setHomeDishIds(dishIdsFromItems(merged))
+        setHomeDishIds(dishIdsFromItems(orderedHomeItems))
         setDishes(merged)
         refreshFavoritesList(merged)
         replaceDishPendingSyncOperations(merged)
@@ -4768,13 +2798,77 @@ export function useShowcaseViewModel(input: UseShowcaseViewModelInput = {}): Sho
     setIsLoginLoading(false)
   }
 
+  function setPendingShowcasePushRoute(route: PendingShowcasePushRoute | null): void {
+    pendingPushRouteRef.current = route
+    setPendingPushRoute(route)
+  }
+
+  async function consumePendingPushRouteAfterAuthRestore(): Promise<void> {
+    if (pushRouteConsumingRef.current) return
+    if (!merchantAuthRestoredRef.current) return
+
+    const route = pendingPushRouteRef.current
+    if (!route) return
+
+    const openAs = String(route.openAs || '').trim().toLowerCase()
+    if (openAs !== 'merchant') return
+
+    const merchantRuntimeLoggedIn = isAdminLoggedInRef.current || isMerchantLoggedInInStoreSession()
+
+    if (!merchantRuntimeLoggedIn) {
+      setPreviousScreen(currentScreenRef.current)
+      prepareLoginScreen(null)
+      setScreen('Login')
+      return
+    }
+
+    pushRouteConsumingRef.current = true
+
+    try {
+      setPendingShowcasePushRoute(null)
+      await handlePushRoute(route)
+    } finally {
+      pushRouteConsumingRef.current = false
+    }
+  }
+
   function resetLoginDrafts(): void {
     prepareLoginScreen(null)
+  }
+
+  function markStoreProfileDraftDirty(): void {
+    storeProfileDraftDirtyRef.current = true
+  }
+
+  function resetStoreProfileDraftDirty(): void {
+    storeProfileDraftDirtyRef.current = false
+  }
+
+  function shouldProtectStoreProfileDraftFromExternalHydration(): boolean {
+    return currentScreenRef.current === ShowcaseScreens.StoreProfile &&
+      isEditingStoreProfileRef.current &&
+      storeProfileDraftDirtyRef.current
+  }
+
+  function shouldProtectEditDishImagesFromExternalHydration(dishId: string | null | undefined): boolean {
+    return currentScreenRef.current === 'Edit' &&
+      itemEditorImageDraftDirtyRef.current &&
+      Boolean(editDishId) &&
+      Boolean(dishId) &&
+      editDishId === dishId
+  }
+
+  function setEditDishImageUrlsFromEditor(
+    value: string[] | ((current: string[]) => string[])
+  ): void {
+    itemEditorImageDraftDirtyRef.current = true
+    setEditDishImageUrls(value)
   }
 
   function resetEditDishForm(): void {
     const draft = loadItemEditorDraftLocally(storeId, 'new')
 
+    itemEditorImageDraftDirtyRef.current = false
     setEditDishId(null)
     setEditDishName(normalizeText(draft?.name))
     setEditDishDescription(normalizeText(draft?.description))
@@ -4792,6 +2886,7 @@ export function useShowcaseViewModel(input: UseShowcaseViewModelInput = {}): Sho
   function fillEditDishForm(dish: DemoDish): void {
     const cached = loadItemEditorDraftLocally(storeId, 'edit')
     const useCachedForEdit = Boolean(cached && cached.editingId === dish.id)
+    const shouldKeepCurrentImages = shouldProtectEditDishImagesFromExternalHydration(dish.id)
 
     setEditDishId(dish.id)
     setEditDishName(useCachedForEdit ? cached?.name || '' : dish.name || dish.title || '')
@@ -4801,7 +2896,12 @@ export function useShowcaseViewModel(input: UseShowcaseViewModelInput = {}): Sho
     setEditDishDiscountPrice(useCachedForEdit ? cached?.discountPrice || '' : dish.discountPrice ? formatPlainNumber(dish.discountPrice) : '')
     setEditDishRecommended(Boolean(dish.isRecommended))
     setEditDishHidden(Boolean(dish.isHidden))
-    setEditDishImageUrls(resolveDishImages(dish))
+
+    if (!shouldKeepCurrentImages) {
+      itemEditorImageDraftDirtyRef.current = false
+      setEditDishImageUrls(resolveDishImages(dish))
+    }
+
     setEditValidationError(null)
     setIsSavingEditDish(false)
     setIsBlockingEditDish(false)
@@ -5011,6 +3111,7 @@ function backFromAppointments(): void {
 
   function backFromStoreProfile(): void {
     clearStoreProfileDraftLocalImages(storeId)
+    resetStoreProfileDraftDirty()
     setStoreProfileDraft(null)
     setIsEditingStoreProfile(false)
     setIsSavingStoreProfile(false)
@@ -5060,6 +3161,7 @@ function backFromAppointments(): void {
   function backToAdminFromEdit(): void {
     clearEditDraftLocalImages(storeId)
 
+    itemEditorImageDraftDirtyRef.current = false
     setEditDishId(null)
     setEditDishImageUrls([])
     setSelectedDishId(null)
@@ -5160,18 +3262,9 @@ function backFromAppointments(): void {
     discardAdminAnnouncementDraftAndBack()
   }
 
-  const handleShowcaseBack = useCallback((): boolean => {
-    if (screen === ShowcaseScreens.Home) {
-      return false
-    }
-
+  function handleShowcaseBack(): boolean {
     if (screen === ShowcaseScreens.Detail) {
       backFromDetail()
-      return true
-    }
-
-    if (screen === ShowcaseScreens.Login) {
-      closeToHome()
       return true
     }
 
@@ -5184,12 +3277,12 @@ function backFromAppointments(): void {
       return true
     }
 
-    if (screen === ShowcaseScreens.Edit) {
-      requestEditDishExit('back')
+    if (screen === ShowcaseScreens.AdminAnnouncementEdit) {
+      requestAdminAnnouncementExit('back')
       return true
     }
 
-    if (screen === ShowcaseScreens.StoreProfileView || screen === ShowcaseScreens.StoreProfile) {
+    if (screen === ShowcaseScreens.StoreProfile) {
       requestStoreProfileExit('back')
       return true
     }
@@ -5201,11 +3294,6 @@ function backFromAppointments(): void {
 
     if (screen === ShowcaseScreens.Favorites) {
       closeFavoritesPage()
-      return true
-    }
-
-    if (screen === ShowcaseScreens.Appointments) {
-      backFromAppointments()
       return true
     }
 
@@ -5224,18 +3312,8 @@ function backFromAppointments(): void {
       return true
     }
 
-    if (screen === ShowcaseScreens.AdminAnnouncementEdit) {
-      requestAdminAnnouncementExit('back')
-      return true
-    }
-
     if (screen === ShowcaseScreens.MerchantChatList) {
       backFromMerchantChatList()
-      return true
-    }
-
-    if (screen === ShowcaseScreens.Chat) {
-      backFromChat()
       return true
     }
 
@@ -5249,25 +3327,19 @@ function backFromAppointments(): void {
       return true
     }
 
-    return false
-  }, [
-    screen,
-    backFromDetail,
-    backFromAdmin,
-    requestEditDishExit,
-    requestStoreProfileExit,
-    backFromChangePassword,
-    closeFavoritesPage,
-    backFromAppointments,
-    backFromCustomerBookings,
-    backFromAnnouncements,
-    backFromAdminAppointmentManager,
-    requestAdminAnnouncementExit,
-    backFromMerchantChatList,
-    backFromChat,
-    chatCloseSearchResults,
-    chatCloseMediaGallery
-  ])
+    if (screen === ShowcaseScreens.Chat) {
+      backFromChat()
+      return true
+    }
+
+    if (screen === 'Edit') {
+      requestEditDishExit('back')
+      return true
+    }
+
+    closeToHome()
+    return true
+  }
 
   function persistFavoritesState(
     nextIds: string[],
@@ -5402,12 +3474,6 @@ function backFromAppointments(): void {
   }
 
   async function openAdminCategoriesScreen(): Promise<void> {
-    const localManualCategories = loadManualCategoriesFromStorage(storeId)
-
-    if (localManualCategories.length) {
-      setCategories(manualCategoryNamesToCloudCategories(localManualCategories))
-    }
-
     setLastRetryOp(ShowcaseRetryOps.LoadFromCloud)
     setPreviousScreen(screen)
     setScreen('AdminCategories')
@@ -5523,7 +3589,7 @@ function backFromAppointments(): void {
       saveSeenAppointmentStatusAlertKeys(storeId, clientId, [...seenKeys, ...alertKeys])
     }
 
-    setBookingsEntryDotVisible(false)
+    setBookingsEntryDotVisibleAndPersist(false)
 
     if (!isAdminLoggedIn && currentChatRole() !== 'merchant') {
       void registerAppointmentClientPushDevice('customer-bookings-opened', true)
@@ -5758,6 +3824,7 @@ function backFromAppointments(): void {
     const nextStoreProfile = storeProfileFromCloud(profile)
     const services = parseJsonStringArray(profile?.servicesJson)
     const extraContacts = parseExtraContacts(profile?.extraContactsJson)
+    const shouldProtectDraft = shouldProtectStoreProfileDraftFromExternalHydration()
 
     setStoreProfileCloud(profile)
     setStoreProfile(nextStoreProfile)
@@ -5765,23 +3832,28 @@ function backFromAppointments(): void {
     setStoreProfileExtraContacts(extraContacts)
     setStoreProfileCoverUrl(profile?.coverUrl || '')
     setStoreProfileLogoUrl(profile?.logoUrl || '')
-    setDraftStoreProfileCoverUrl(profile?.coverUrl || '')
-    setDraftStoreProfileLogoUrl(profile?.logoUrl || '')
-    setDraftStoreProfileDescription(profile?.description || '')
-    setDraftBusinessStatus(profile?.businessStatus || '')
-    setDraftStoreProfileServices(services)
-    setDraftStoreProfileExtraContacts(
-      extraContacts.map((item, index) => ({
-        id: item.id || `extra_contact_${index + 1}`,
-        name: item.name,
-        value: item.value
-      }))
-    )
+
+    if (!shouldProtectDraft) {
+      setDraftStoreProfileCoverUrl(profile?.coverUrl || '')
+      setDraftStoreProfileLogoUrl(profile?.logoUrl || '')
+      setDraftStoreProfileDescription(profile?.description || '')
+      setDraftBusinessStatus(profile?.businessStatus || '')
+      setDraftStoreProfileServices(services)
+      setDraftStoreProfileExtraContacts(
+        extraContacts.map((item, index) => ({
+          id: item.id || `extra_contact_${index + 1}`,
+          name: item.name,
+          value: item.value
+        }))
+      )
+    }
 
     if (screen === ShowcaseScreens.StoreProfileView) {
       setStoreProfileDraft(null)
       return
     }
+
+    if (shouldProtectDraft) return
 
     const persistedDraft = readPersistedStoreProfileDraft(storeId)
     if (screen === ShowcaseScreens.StoreProfile && persistedDraft) {
@@ -5950,24 +4022,29 @@ function backFromAppointments(): void {
 
     if (input.localStoreProfile) {
       const localProfileForUi = storeProfileFromCachedProfile(input.localStoreProfile)
+      const shouldProtectDraft = shouldProtectStoreProfileDraftFromExternalHydration()
+
       setStoreProfile(localProfileForUi)
-      setStoreProfileDraft(current => current || storeProfileDraftFromProfile(localProfileForUi))
       setStoreProfileServices(input.localStoreProfile.services)
       setStoreProfileExtraContacts(input.localStoreProfile.extraContacts)
       setStoreProfileCoverUrl(input.localStoreProfile.coverUrl)
       setStoreProfileLogoUrl(input.localStoreProfile.logoUrl)
-      setDraftStoreProfileCoverUrl(input.localStoreProfile.coverUrl)
-      setDraftStoreProfileLogoUrl(input.localStoreProfile.logoUrl)
-      setDraftStoreProfileDescription(input.localStoreProfile.description)
-      setDraftBusinessStatus(input.localStoreProfile.businessStatus)
-      setDraftStoreProfileServices(input.localStoreProfile.services)
-      setDraftStoreProfileExtraContacts(
-        input.localStoreProfile.extraContacts.map((item, index) => ({
-          id: `cached_extra_contact_${index + 1}`,
-          name: item.name,
-          value: item.value
-        }))
-      )
+
+      if (!shouldProtectDraft) {
+        setStoreProfileDraft(current => current || storeProfileDraftFromProfile(localProfileForUi))
+        setDraftStoreProfileCoverUrl(input.localStoreProfile.coverUrl)
+        setDraftStoreProfileLogoUrl(input.localStoreProfile.logoUrl)
+        setDraftStoreProfileDescription(input.localStoreProfile.description)
+        setDraftBusinessStatus(input.localStoreProfile.businessStatus)
+        setDraftStoreProfileServices(input.localStoreProfile.services)
+        setDraftStoreProfileExtraContacts(
+          input.localStoreProfile.extraContacts.map((item, index) => ({
+            id: `cached_extra_contact_${index + 1}`,
+            name: item.name,
+            value: item.value
+          }))
+        )
+      }
     }
 
     if (input.localAnnouncements.length) {
@@ -6105,7 +4182,7 @@ function backFromAppointments(): void {
       const cloudReadFailed = repository.lastReadFailureAt >= cloudLoadStartedAt
       const cloudUnavailable = browserOffline || cloudReadFailed
       const cloudServiceStatus = String(serviceStatus?.serviceStatus || '').trim().toLowerCase()
-      const storeMissingInCloud = !serviceStatus && !cloudUnavailable
+      const storeMissingInCloud = !cloudStorePwaProfile && !cloudUnavailable
       const storeDeletedInCloud = cloudServiceStatus === 'deleted'
 
       setStoreUnavailable(storeMissingInCloud || storeDeletedInCloud)
@@ -6472,7 +4549,7 @@ function backFromAppointments(): void {
       const cloudReadFailed = repository.lastReadFailureAt >= cloudLoadStartedAt
       const cloudUnavailable = browserOffline || cloudReadFailed
       const cloudServiceStatus = String(serviceStatus?.serviceStatus || '').trim().toLowerCase()
-      const storeMissingInCloud = !serviceStatus && !cloudUnavailable
+      const storeMissingInCloud = !cloudStorePwaProfile && !cloudUnavailable
       const storeDeletedInCloud = cloudServiceStatus === 'deleted'
 
       setStoreUnavailable(storeMissingInCloud || storeDeletedInCloud)
@@ -6936,6 +5013,68 @@ function backFromAppointments(): void {
     selectedCategory,
     storeId
   ])
+
+  const {
+    refreshCloudServiceStatus,
+    refreshAdminHomeCloudState,
+    tryLoadFromCloud,
+    loadFromSources,
+    retryLast,
+    clearSyncError
+  } = useShowcaseBootstrapModule({
+    adminHomeRefreshInFlightRef,
+    bindMerchantSessionToRepository,
+    chatRepository,
+    dishIdsFromItems,
+    fetchLatestMerchantThreadsForMerge,
+    handleMerchantAuthExpiredIfNeeded,
+    ensureValidMerchantSessionLoadedForCloud,
+    isAdminLoggedIn,
+    isMerchantLoggedInInStoreSession,
+    lastRetryOp,
+    loadAdminCredentials,
+    loadDishesFromStorage,
+    loadFromCloud,
+    loadManualCategoriesFromStorage,
+    loadPublishedAnnouncementsLocally,
+    manualCategoryNamesToCloudCategories,
+    merchantChatThreads,
+    merchantSession,
+    merchantSessionEnsureFailureMessage,
+    mergeDishEntities,
+    mergeMerchantThreadSummariesByConversationId,
+    ndjcTrace,
+    ndjcTraceError,
+    nowMillis,
+    pendingSyncOperations,
+    refreshFavoritesList,
+    refreshHomeMainData,
+    refreshStoreProfile: () => refreshStoreProfile(),
+    replaceDishPendingSyncOperations,
+    repository,
+    retryPendingSync: () => retryPendingSync(),
+    screen,
+    selectedCategory,
+    setAdminItemIds,
+    setAnnouncements,
+    setAppointmentRequests,
+    setCategories,
+    setCloudStatus,
+    setDishes,
+    setHomeDishIds,
+    setIsWriteAllowed,
+    setLastRetryOp,
+    setLastSyncAt,
+    setMerchantChatThreads,
+    setSelectedCategory,
+    setStatusMessage,
+    setStoreMerchantSessionFromAuthSession,
+    setSyncErrorMessage,
+    setSyncOverviewState,
+    ShowcaseRetryOps,
+    storeId,
+    SyncOverviewStates
+  })
 
   const refreshCloud = useCallback(async (): Promise<void> => {
     await tryLoadFromCloud(ShowcaseRetryOps.LoadFromCloud)
@@ -7490,7 +5629,7 @@ function backFromAppointments(): void {
         loginName: effectiveLoginName,
         storeId
       }
-      const routeAfterLogin = pendingPushRoute
+      const routeAfterLogin = pendingPushRouteRef.current
 
       writeMerchantSession(storeId, effectiveSession)
       setMerchantSessionAndPersist(effectiveSession, loginRememberMeDraft)
@@ -7510,7 +5649,7 @@ function backFromAppointments(): void {
       void registerMerchantPushDevice('merchant-sign-in-success', true)
 
       if (routeAfterLogin && String(routeAfterLogin.openAs || '').trim().toLowerCase() === 'merchant') {
-        setPendingPushRoute(null)
+        setPendingShowcasePushRoute(null)
         await handlePushRoute(routeAfterLogin)
       }
     } catch (error) {
@@ -7625,20 +5764,43 @@ function backFromAppointments(): void {
         return
       }
 
-      if (loginRememberMeDraft) {
-        persistMerchantSession(storeId, {
-          ...reAuth,
-          storeId
-        }, true)
+      try {
+        await unregisterMerchantPushDevice('merchant-password-updated')
+      } catch {
       }
+
+      try {
+        await repository.signOutMerchant()
+      } catch {
+      }
+
+      setStoreMerchantSessionFromAuthSession(null)
+      bindMerchantSessionToRepository(repository)
+      setMerchantSession(null)
+      setMerchantBindings([])
+      setIsAdminLoggedIn(false)
+
+      clearPersistedMerchantSession(storeId, true)
+      writeRememberMe(storeId, false)
+
+      setAdminUsernameDraft(loginName)
+      setAdminPasswordDraft('')
+      setLoginUsernameDraft(loginName)
+      setLoginPasswordDraft('')
+      setLoginRememberMeDraft(false)
+      setLoginError('Password updated. Please sign in again.')
+      setIsLoginLoading(false)
 
       setChangePasswordCurrentDraft('')
       setChangePasswordNewDraft('')
       setChangePasswordConfirmDraft('')
       setChangePasswordError(null)
-      setChangePasswordSuccess('Password updated.')
-      showSnackbar('Password updated.')
-      backFromChangePassword()
+      setChangePasswordSuccess(null)
+
+      setStatusMessage(null)
+      setPreviousScreen(ShowcaseScreens.ChangePassword)
+      setScreen(ShowcaseScreens.Login)
+      showSnackbar('Password updated. Please sign in again.')
     } catch {
       setChangePasswordError('Password update failed.')
     } finally {
@@ -7690,115 +5852,127 @@ function backFromAppointments(): void {
   }
 
   async function loadAdminCredentials(): Promise<void> {
-    const cachedLoginName = readLastMerchantLoginName(storeId)
-    const shouldRestoreMerchantForStore = readRememberMe(storeId)
-    const storedSession = restoreMerchantSessionFromStorage(storeId)
-
-    if (cachedLoginName) {
-      setAdminUsernameDraft(cachedLoginName)
-      setLoginUsernameDraft(cachedLoginName)
-    }
-
-    if (!shouldRestoreMerchantForStore) {
-      setStoreMerchantSessionFromAuthSession(null)
-      bindMerchantSessionToRepository(repository)
-      setMerchantSession(null)
-      setMerchantBindings([])
-      setIsAdminLoggedIn(false)
-      setLoginRememberMeDraft(false)
-      return
-    }
-
-    let authSession: Awaited<ReturnType<typeof restoreShowcaseAuthSession>> | null = null
+    merchantAuthRestoredRef.current = false
 
     try {
-      authSession = await restoreShowcaseAuthSession()
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error || '')
-      const status = typeof error === 'object' && error && 'status' in error
-        ? Number((error as { status?: number | null }).status || 0)
-        : 0
+      const cachedLoginName = readLastMerchantLoginName(storeId)
+      const shouldRestoreMerchantForStore = readRememberMe(storeId)
+      const storedSession = restoreMerchantSessionFromStorage(storeId)
 
-      if (
-        storedSession?.accessToken &&
-        storedSession.authUserId &&
-        isTemporaryMerchantRefreshFailure(status, message)
-      ) {
-        handleTemporaryMerchantRefreshFailure(storedSession)
+      if (cachedLoginName) {
+        setAdminUsernameDraft(cachedLoginName)
+        setLoginUsernameDraft(cachedLoginName)
+      }
+
+      if (!shouldRestoreMerchantForStore) {
+        setStoreMerchantSessionFromAuthSession(null)
+        bindMerchantSessionToRepository(repository)
+        setMerchantSession(null)
+        setMerchantBindings([])
+        setIsAdminLoggedIn(false)
+        setLoginRememberMeDraft(false)
         return
       }
 
-      setStoreMerchantSessionFromAuthSession(null)
+      let authSession: Awaited<ReturnType<typeof restoreShowcaseAuthSession>> | null = null
+
+      try {
+        authSession = await restoreShowcaseAuthSession()
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error || '')
+        const status = typeof error === 'object' && error && 'status' in error
+          ? Number((error as { status?: number | null }).status || 0)
+          : 0
+
+        if (
+          storedSession?.accessToken &&
+          storedSession.authUserId &&
+          isTemporaryMerchantRefreshFailure(status, message)
+        ) {
+          handleTemporaryMerchantRefreshFailure(storedSession)
+          return
+        }
+
+        setStoreMerchantSessionFromAuthSession(null)
+        bindMerchantSessionToRepository(repository)
+        setMerchantSession(null)
+        setMerchantBindings([])
+        setIsAdminLoggedIn(false)
+        return
+      }
+
+      if (!authSession?.accessToken || !authSession.authUserId) {
+        setStoreMerchantSessionFromAuthSession(null)
+        bindMerchantSessionToRepository(repository)
+        setMerchantSession(null)
+        setMerchantBindings([])
+        setIsAdminLoggedIn(false)
+        return
+      }
+
+      if (
+        storedSession?.authUserId &&
+        storedSession.authUserId.toLowerCase() !== authSession.authUserId.toLowerCase()
+      ) {
+        setStoreMerchantSessionFromAuthSession(null)
+        bindMerchantSessionToRepository(repository)
+        setMerchantSession(null)
+        setMerchantBindings([])
+        setIsAdminLoggedIn(false)
+        clearPersistedMerchantSession(storeId, false)
+        return
+      }
+
+      const sourceSession = buildMerchantSessionFromAuthSession(
+        authSession,
+        storedSession?.loginName || cachedLoginName,
+        storedSession?.expiresAt || 0
+      )
+
+      setStoreMerchantSessionFromAuthSession(sourceSession)
       bindMerchantSessionToRepository(repository)
-      setMerchantSession(null)
-      setMerchantBindings([])
-      setIsAdminLoggedIn(false)
-      return
-    }
 
-    if (!authSession?.accessToken || !authSession.authUserId) {
-      setStoreMerchantSessionFromAuthSession(null)
+      const binding = await repository.fetchMerchantBindingForStoreAndAuthUser(storeId, sourceSession.authUserId)
+
+      if (!binding || !binding.authUserId || binding.authUserId.toLowerCase() !== sourceSession.authUserId.toLowerCase()) {
+        setStoreMerchantSessionFromAuthSession(null)
+        bindMerchantSessionToRepository(repository)
+        setMerchantSession(null)
+        setMerchantBindings([])
+        setIsAdminLoggedIn(false)
+        clearPersistedMerchantSession(storeId, false)
+        return
+      }
+
+      const effectiveLoginName = binding.loginName?.trim() || sourceSession.loginName
+      const effectiveSession: MerchantAuthSession = {
+        ...sourceSession,
+        loginName: effectiveLoginName,
+        storeId
+      }
+
+      writeMerchantSession(storeId, effectiveSession)
+      setStoreMerchantSessionFromAuthSession(effectiveSession)
       bindMerchantSessionToRepository(repository)
-      setMerchantSession(null)
-      setMerchantBindings([])
-      setIsAdminLoggedIn(false)
-      return
+      setMerchantSession(effectiveSession)
+      setMerchantBindings([binding])
+      setIsAdminLoggedIn(true)
+      setAdminUsernameDraft(effectiveLoginName)
+      setLoginUsernameDraft(effectiveLoginName)
+      setLoginRememberMeDraft(true)
+
+      window.setTimeout(() => {
+        void registerMerchantPushDevice('merchant-session-restored', true)
+      }, 0)
+    } finally {
+      merchantAuthRestoredRef.current = true
+
+      if (typeof window !== 'undefined') {
+        window.setTimeout(() => {
+          void consumePendingPushRouteAfterAuthRestore()
+        }, 0)
+      }
     }
-
-    if (
-      storedSession?.authUserId &&
-      storedSession.authUserId.toLowerCase() !== authSession.authUserId.toLowerCase()
-    ) {
-      setStoreMerchantSessionFromAuthSession(null)
-      bindMerchantSessionToRepository(repository)
-      setMerchantSession(null)
-      setMerchantBindings([])
-      setIsAdminLoggedIn(false)
-      clearPersistedMerchantSession(storeId, false)
-      return
-    }
-
-    const sourceSession = buildMerchantSessionFromAuthSession(
-      authSession,
-      storedSession?.loginName || cachedLoginName,
-      storedSession?.expiresAt || 0
-    )
-
-    setStoreMerchantSessionFromAuthSession(sourceSession)
-    bindMerchantSessionToRepository(repository)
-
-    const binding = await repository.fetchMerchantBindingForStoreAndAuthUser(storeId, sourceSession.authUserId)
-
-    if (!binding || !binding.authUserId || binding.authUserId.toLowerCase() !== sourceSession.authUserId.toLowerCase()) {
-      setStoreMerchantSessionFromAuthSession(null)
-      bindMerchantSessionToRepository(repository)
-      setMerchantSession(null)
-      setMerchantBindings([])
-      setIsAdminLoggedIn(false)
-      clearPersistedMerchantSession(storeId, false)
-      return
-    }
-
-    const effectiveLoginName = binding.loginName?.trim() || sourceSession.loginName
-    const effectiveSession: MerchantAuthSession = {
-      ...sourceSession,
-      loginName: effectiveLoginName,
-      storeId
-    }
-
-    writeMerchantSession(storeId, effectiveSession)
-    setStoreMerchantSessionFromAuthSession(effectiveSession)
-    bindMerchantSessionToRepository(repository)
-    setMerchantSession(effectiveSession)
-    setMerchantBindings([binding])
-    setIsAdminLoggedIn(true)
-    setAdminUsernameDraft(effectiveLoginName)
-    setLoginUsernameDraft(effectiveLoginName)
-    setLoginRememberMeDraft(true)
-
-    window.setTimeout(() => {
-      void registerMerchantPushDevice('merchant-session-restored', true)
-    }, 0)
   }
 
   async function saveAdminCredentialsFromDraft(): Promise<void> {
@@ -8521,227 +6695,6 @@ function backFromAppointments(): void {
     return handleMerchantAuthExpiredIfNeeded(errorInput)
   }
 
-  async function refreshCloudServiceStatus(): Promise<CloudStoreServiceStatus | null> {
-    const status = await repository.fetchStoreServiceStatus(storeId)
-    setCloudStatus(status)
-    setIsWriteAllowed(status ? status.isWriteAllowed : await repository.isStoreWriteAllowed(storeId))
-    return status
-  }
-
-  async function refreshAdminHomeCloudState(showStatusMessage = false): Promise<void> {
-    if (!isAdminLoggedIn && !isMerchantLoggedInInStoreSession()) return
-    if (adminHomeRefreshInFlightRef.current) return
-
-    adminHomeRefreshInFlightRef.current = true
-    setSyncOverviewState(SyncOverviewStates.Syncing)
-    setSyncErrorMessage(null)
-
-    try {
-      const validSession = await ensureValidMerchantSessionLoadedForCloud()
-      if (!validSession) {
-        setSyncOverviewState(SyncOverviewStates.Failed)
-        setSyncErrorMessage(merchantSessionEnsureFailureMessage())
-        return
-      }
-
-      setStoreMerchantSessionFromAuthSession(validSession)
-      bindMerchantSessionToRepository(repository)
-
-      const traceId = `VM${Date.now()}_${storeId.slice(-4)}`
-
-      const [
-        serviceStatus,
-        merchantAppointments,
-        merchantThreads
-      ] = await Promise.all([
-        repository.fetchStoreServiceStatus(storeId),
-        repository.fetchAppointmentRequestsForMerchant(storeId).catch(appointmentError => {
-          console.warn('[AdminHome] appointment refresh failed', appointmentError)
-          return [] as CloudAppointmentRequest[]
-        }),
-        (async () => {
-          try {
-            await chatRepository.syncMerchantThreadMetaFromCloud(storeId, traceId)
-            return fetchLatestMerchantThreadsForMerge(traceId)
-          } catch (chatError) {
-            console.warn('[AdminHome] chat thread refresh failed', chatError)
-            return merchantChatThreads
-          }
-        })()
-      ])
-
-      const writeAllowed = serviceStatus
-        ? serviceStatus.isWriteAllowed
-        : await repository.isStoreWriteAllowed(storeId)
-
-      const sortedAppointments = [...merchantAppointments].sort((left, right) => {
-        return (right.createdAt || 0) - (left.createdAt || 0)
-      })
-
-      setCloudStatus(serviceStatus)
-      setIsWriteAllowed(writeAllowed)
-      setAppointmentRequests(sortedAppointments)
-      setMerchantChatThreads(current => mergeMerchantThreadSummariesByConversationId(
-        current,
-        merchantThreads
-      ))
-      setLastSyncAt(nowMillis())
-      setSyncOverviewState(SyncOverviewStates.Idle)
-      setSyncErrorMessage(null)
-
-      if (showStatusMessage) {
-        setStatusMessage(null)
-      }
-    } catch (error) {
-      const handled = await handleMerchantAuthExpiredIfNeeded(error)
-      if (handled) return
-
-      const message = error instanceof Error ? error.message : 'Admin refresh failed.'
-
-      setSyncOverviewState(SyncOverviewStates.Failed)
-      setSyncErrorMessage(message)
-
-      if (showStatusMessage) {
-        setStatusMessage(message)
-      }
-    } finally {
-      adminHomeRefreshInFlightRef.current = false
-    }
-  }
-
-  async function tryLoadFromCloud(reason: ShowcaseRetryOp = ShowcaseRetryOps.LoadFromCloud): Promise<void> {
-    ndjcTrace('ENTER tryLoadFromCloud', {
-      reason,
-      screen,
-      isAdminLoggedIn,
-      hasMerchantSession: Boolean(merchantSession?.accessToken),
-      storeId
-    })
-
-    try {
-      if (isAdminLoggedIn || isMerchantLoggedInInStoreSession()) {
-        const validSession = await ensureValidMerchantSessionLoadedForCloud()
-
-        if (!validSession) {
-          setSyncOverviewState(SyncOverviewStates.Failed)
-          setSyncErrorMessage(merchantSessionEnsureFailureMessage())
-          return
-        }
-
-        setStoreMerchantSessionFromAuthSession(validSession)
-        bindMerchantSessionToRepository(repository)
-      }
-
-      await loadFromCloud(reason)
-
-      ndjcTrace('EXIT tryLoadFromCloud', {
-        reason,
-        screen,
-        isAdminLoggedIn
-      })
-    } catch (error) {
-      ndjcTraceError('ERROR tryLoadFromCloud', error, {
-        reason,
-        screen,
-        isAdminLoggedIn
-      })
-      const handled = isAdminLoggedIn
-        ? await handleMerchantAuthExpiredIfNeeded(error)
-        : false
-      if (handled) return
-
-      const message = error instanceof Error ? error.message : String(error || 'Cloud load failed.')
-      setSyncErrorMessage(message)
-      setSyncOverviewState(SyncOverviewStates.Failed)
-      setStatusMessage(message)
-    }
-  }
-
-  async function loadFromSources(): Promise<void> {
-    ndjcTrace('ENTER loadFromSources', {
-      screen,
-      isAdminLoggedIn,
-      hasMerchantSession: Boolean(merchantSession?.accessToken),
-      storeId
-    })
-
-    const localDishes = loadDishesFromStorage(storeId)
-    const localManualCategories = loadManualCategoriesFromStorage(storeId)
-    const localAnnouncements = loadPublishedAnnouncementsLocally(storeId)
-
-    const effectiveLocalDishes = localDishes.filter(item => isAdminLoggedIn || !item.isHidden)
-
-    if (effectiveLocalDishes.length) {
-      mergeDishEntities(effectiveLocalDishes)
-      setHomeDishIds(dishIdsFromItems(effectiveLocalDishes))
-
-      if (isAdminLoggedIn) {
-        setAdminItemIds(dishIdsFromItems(effectiveLocalDishes))
-      }
-
-      setDishes(effectiveLocalDishes)
-      refreshFavoritesList(effectiveLocalDishes)
-      replaceDishPendingSyncOperations(effectiveLocalDishes)
-    }
-
-    if (localManualCategories.length) {
-      setCategories(manualCategoryNamesToCloudCategories(localManualCategories))
-    }
-
-    const effectiveLocalCategoryNames = localManualCategories
-      .map(item => item.trim())
-      .filter(Boolean)
-
-    if (selectedCategory && effectiveLocalCategoryNames.length && !effectiveLocalCategoryNames.includes(selectedCategory)) {
-      setSelectedCategory(null)
-    }
-
-    if (localAnnouncements.length) {
-      setAnnouncements(localAnnouncements)
-    }
-
-    await loadAdminCredentials()
-    await refreshHomeMainData()
-
-    ndjcTrace('EXIT loadFromSources', {
-      screen,
-      isAdminLoggedIn,
-      localDishesCount: localDishes.length,
-      localAnnouncementsCount: localAnnouncements.length
-    })
-  }
-
-  async function retryLast(): Promise<void> {
-    if (lastRetryOp === ShowcaseRetryOps.RetryPendingSync) {
-      await retryPendingSync()
-      return
-    }
-
-    if (lastRetryOp === ShowcaseRetryOps.RefreshStoreProfile) {
-      await refreshStoreProfile()
-      return
-    }
-
-    if (lastRetryOp === ShowcaseRetryOps.LoadFromCloud || lastRetryOp == null) {
-      await loadFromSources()
-      return
-    }
-
-    await tryLoadFromCloud(lastRetryOp)
-  }
-
-  function clearSyncError(): void {
-    setSyncErrorMessage(null)
-    setStatusMessage(null)
-
-    if (pendingSyncOperations.length) {
-      setSyncOverviewState(SyncOverviewStates.HasPending)
-      return
-    }
-
-    setSyncOverviewState(SyncOverviewStates.Idle)
-  }
-
   function appointmentStatusToCloud(valueInput: string): string {
     return appointmentsStatusToCloud(valueInput)
   }
@@ -8752,6 +6705,17 @@ function backFromAppointments(): void {
     return buildChatProductShareFromDish(selectedDish)
   }
 
+  function appointmentShareStatusLabelFromCard(item: ShowcaseAppointmentCard): string {
+    const status = String(item.statusLabel || '').trim() || 'Pending'
+    const cancelledBy = String(item.cancelledBy || '').trim().toLowerCase()
+
+    if (status === 'Cancelled' && cancelledBy === 'customer') {
+      return 'Cancelled by customer'
+    }
+
+    return status
+  }
+
   function buildPendingAppointmentFromCard(item: ShowcaseAppointmentCard): ShowcaseChatAppointmentShare {
     const linkedItemAvailable = Boolean(item.itemAvailable && item.sourceDishId)
 
@@ -8760,7 +6724,7 @@ function backFromAppointments(): void {
       title: item.serviceTitle || 'General appointment',
       preferredDate: item.preferredDate,
       preferredTime: item.preferredTime,
-      statusLabel: item.statusLabel,
+      statusLabel: appointmentShareStatusLabelFromCard(item),
       cancelledBy: item.cancelledBy,
       cancelledAt: item.cancelledAt,
       imageUrl: item.imageUrl,
@@ -8791,7 +6755,7 @@ function backFromAppointments(): void {
       title: card.serviceTitle || appointment.title || 'General appointment',
       preferredDate: card.preferredDate || appointment.preferredDate,
       preferredTime: card.preferredTime || appointment.preferredTime,
-      statusLabel: card.statusLabel || appointment.statusLabel || 'Pending',
+      statusLabel: appointmentShareStatusLabelFromCard(card),
       cancelledBy: card.cancelledBy,
       cancelledAt: card.cancelledAt,
       imageUrl: card.imageUrl || appointment.imageUrl,
@@ -8881,7 +6845,7 @@ function backFromAppointments(): void {
 
   function consumePushAnnouncementTarget(): void {
     setPushTargetAnnouncementId(null)
-    setPendingPushRoute(null)
+    setPendingShowcasePushRoute(null)
   }
 
   function setChatMode(nextMode: ChatMode): void {
@@ -8912,6 +6876,7 @@ function backFromAppointments(): void {
   function discardEditDraftAndGoHome(): void {
     clearEditDraftLocalImages(storeId)
 
+    itemEditorImageDraftDirtyRef.current = false
     setEditDishId(null)
     setEditDishImageUrls([])
     setSelectedDishId(null)
@@ -9149,116 +7114,298 @@ function backFromAppointments(): void {
     return value.toFixed(2).replace(/\.00$/, '').replace(/(\.\d)0$/, '$1')
   }
 
-  function onAdminItemsApplyPriceRange(): void {
-    const min = parseHomePriceDraft(adminItemsPriceMinDraft)
-    const max = parseHomePriceDraft(adminItemsPriceMaxDraft)
-    const nextMin = min != null && max != null && min > max ? max : min
-    const nextMax = min != null && max != null && min > max ? min : max
+  const {
+    onAdminItemsApplyPriceRange,
+    onAdminItemsClearPriceRange,
+    onAdminItemsFilterDiscountOnlyChange,
+    onAdminItemsFilterHiddenOnlyChange,
+    onAdminItemsFilterRecommendedChange,
+    onAdminItemsApplyFilters,
+    onAdminItemsPriceMaxDraftChange,
+    onAdminItemsPriceMinDraftChange,
+    onAdminItemsSearchQueryChange,
+    onAdminItemsSortModeChange,
+    removeCategory,
+    addCategory,
+    requestDeleteCategory,
+    confirmDeleteCategory,
+    renameCategory,
+    reorderCategory,
+    saveDishFromEditForm,
+    deleteDish,
+    visibleDishes,
+    visibleAdminItems,
+    clearAdminDishSelection,
+    toggleAdminDishSelected,
+    deleteSelectedDishes,
+    requestDeleteDish,
+    dismissPendingDelete,
+    updateEditDraft,
+    onEditNameChange,
+    onEditPriceChange,
+    onEditDiscountPriceChange,
+    onEditDescriptionChange,
+    onEditCategorySelected,
+    onEditToggleRecommended,
+    onEditToggleHidden,
+    uploadDishImageIfNeeded,
+    onEditImageSelected,
+    onEditImagesSelected,
+    onEditRemoveImage,
+    onEditRemoveSelectedImage,
+    onEditMoveImage,
+    onEditPickImageClick,
+    onEditImageLimitReached,
+    updateDish,
+    onEditSave,
+    deriveEditState,
+    getEditDeleteAction,
+    incrementDishClick,
+    deleteDishImage,
+    toggleFavorite,
+    clearFavoritesSelection,
+    toggleFavoriteSelection,
+    deleteSelectedFavorites,
+    clearHomeSortAndFilters,
+    clearAdminItemsFilters,
+    clearFavoritesFilters,
+    toggleTag,
+    onToggleTag,
+    onSelectedTagsChange,
+    onClearTags,
+    onSearchQueryChange,
+    onCategorySelected,
+    onAdminItemsCategorySelected,
+    onSortModeChange,
+    onFilterRecommendedOnlyChange,
+    onFilterOnSaleOnlyChange,
+    onApplyHomeFilters,
+    onHomeShowSortMenuChange,
+    onHomeShowFilterMenuChange,
+    onHomeShowPriceMenuChange,
+    onHomePriceMinDraftChange,
+    onHomePriceMaxDraftChange,
+    onHomeApplyPriceRange,
+    onHomeClearPriceRange,
+    onClearSortAndFilters,
+    onClearAll,
+    onHomeDishSelected,
+    onHomeProfileClick,
+    onFavoritesQueryChange,
+    onFavoritesOpenDetail,
+    onFavoritesToggleSelect,
+    onFavoritesClearSelection,
+    onFavoritesDeleteSelected,
+    onFavoritesSortModeChange,
+    onFavoritesFilterRecommendedOnlyChange,
+    onFavoritesFilterOnSaleOnlyChange,
+    onFavoritesClearSortAndFilters,
+    onFavoritesShowSortMenuChange,
+    onFavoritesShowFilterMenuChange,
+    onFavoritesShowPriceMenuChange,
+    onFavoritesPriceMinDraftChange,
+    onFavoritesPriceMaxDraftChange,
+    onFavoritesApplyPriceRange,
+    onFavoritesClearPriceRange,
+    onFavoritesCategorySelected
+  } = createShowcaseCatalogActions({
+    ShowcaseRetryOps,
+    ShowcaseScreens,
+    SyncOverviewStates,
+    adminItemsAppliedMaxPrice,
+    adminItemsAppliedMinPrice,
+    adminItemsFilterDiscountOnly,
+    adminItemsFilterHiddenOnly,
+    adminItemsFilterRecommended,
+    adminItemsPriceMaxDraft,
+    adminItemsPriceMinDraft,
+    adminItemsSearchDebounceTimerRef,
+    adminItemsSearchQuery,
+    adminItemsSearchRequestSeqRef,
+    adminItemsSelectedCategory,
+    adminItemsSortAscending,
+    adminItemsSortMode,
+    adminPendingDeleteCategory,
+    adminSelectedDishIds,
+    adminVisibleDishes,
+    applyPriceRangeFromDrafts,
+    bindMerchantSessionToRepository,
+    buildDishFromEditForm,
+    categorySubmittingAction,
+    clearCurrentItemEditorDraftLocally,
+    clearEditDraftLocalImages,
+    cloudCategoriesToManualCategoryNames,
+    createEditDishLocalPreviewUrl,
+    createRemoteOnlyImageVariants,
+    currentAdminItemsCloudFilters,
+    currentHomeDishCloudFilters,
+    decorateCloudHomeResults,
+    deleteAppOwnedLocalFileUri,
+    dishIdsFromItems,
+    dishes,
+    dishesFromIds,
+    editDishCategory,
+    editDishDescription,
+    editDishDiscountPrice,
+    editDishId,
+    editDishImageUrls,
+    editDishName,
+    editDishOriginalPrice,
+    getEditDishState: () => editDishState,
+    ensureValidMerchantSessionLoadedForCloud,
+    favoriteAddedAt,
+    favoriteIds,
+    favoriteSnapshotFromDish,
+    favoriteSnapshots,
+    favoritesAppliedMaxPrice,
+    favoritesAppliedMinPrice,
+    favoritesFilterOnSaleOnly,
+    favoritesFilterRecommendedOnly,
+    favoritesPriceMaxDraft,
+    favoritesPriceMinDraft,
+    favoritesQuery,
+    favoritesSelectedCategory,
+    favoritesSelectedIds,
+    favoritesShowFilterMenu,
+    favoritesShowPriceMenu,
+    favoritesShowSortMenu,
+    favoritesSortMode,
+    filterOnSaleOnly,
+    filterRecommendedOnly,
+    getAdminEditableDishById,
+    getDishEntityById,
+    guardOfflineWriteOperation,
+    homeAppliedMaxPrice,
+    homeAppliedMinPrice,
+    homeDishIds,
+    homePriceMaxDraft,
+    homePriceMinDraft,
+    homeSearchDebounceTimerRef,
+    homeSearchRequestSeqRef,
+    isAdminLoggedIn,
+    isAppOwnedLocalFileUri,
+    isBrowser,
+    isLocalImageUri,
+    isWriteAllowed,
+    loadDishesFromStorage,
+    manualCategories,
+    merchantSessionEnsureFailureMessage,
+    merchantSessionEnsureSnackbarMessage,
+    mergeDishEntities,
+    mergeRemoteAndLocal,
+    normalizeSortMode,
+    nowMillis,
+    openDetail,
+    parseHomePriceDraft,
+    persistCurrentItemEditorDraftLocally,
+    persistDishesLocally,
+    persistFavoritesState,
+    persistItemEditorDraftLocally,
+    pickAndUploadImageWithVariants,
+    prepareLoginScreen,
+    preserveFavoriteSnapshotsBeforeDishDelete,
+    previousScreen,
+    pushPendingSync,
+    refreshAdminHomeCloudState,
+    refreshAdminItemsFilteredFirstPage,
+    refreshFavoritesList,
+    refreshHomeDishesFilteredFirstPage,
+    rememberLocalTempImage,
+    removeDishEntityById,
+    removeDishIdFromList,
+    removePendingSync,
+    replaceDishPendingSyncOperations,
+    repository,
+    resolveDishImages,
+    retryMerchantCloudOperationAfterAuthRefresh,
+    saveManualCategoriesToStorage,
+    searchQuery,
+    selectedCategory,
+    selectedTags,
+    setAdminCannotDeleteCategory,
+    setAdminItemIds,
+    setAdminItemsAppliedMaxPrice,
+    setAdminItemsAppliedMinPrice,
+    setAdminItemsFilterDiscountOnly,
+    setAdminItemsFilterHiddenOnly,
+    setAdminItemsFilterRecommended,
+    setAdminItemsPriceMaxDraft,
+    setAdminItemsPriceMinDraft,
+    setAdminItemsSearchQuery,
+    setAdminItemsSelectedCategory,
+    setAdminItemsSortAscending,
+    setAdminItemsSortMode,
+    setAdminPendingDeleteCategory,
+    setAdminSelectedDishIds,
+    setAppointmentSourceDishId,
+    setCategories,
+    setCategorySubmittingAction,
+    setDishEntitiesById,
+    setDishes,
+    setEditDishCategory,
+    setEditDishDescription,
+    setEditDishDiscountPrice,
+    setEditDishHidden,
+    setEditDishId,
+    setEditDishImageUrls: setEditDishImageUrlsFromEditor,
+    setEditDishName,
+    setEditDishOriginalPrice,
+    setEditDishRecommended,
+    setEditValidationError,
+    setFavoritesAppliedMaxPrice,
+    setFavoritesAppliedMinPrice,
+    setFavoritesFilterOnSaleOnly,
+    setFavoritesFilterRecommendedOnly,
+    setFavoritesPriceMaxDraft,
+    setFavoritesPriceMinDraft,
+    setFavoritesQuery,
+    setFavoritesSelectedCategory,
+    setFavoritesSelectedIds,
+    setFavoritesShowFilterMenu,
+    setFavoritesShowPriceMenu,
+    setFavoritesShowSortMenu,
+    setFavoritesSortMode,
+    setFilterOnSaleOnly,
+    setFilterRecommendedOnly,
+    setHomeAppliedMaxPrice,
+    setHomeAppliedMinPrice,
+    setHomeDishIds,
+    setHomePriceMaxDraft,
+    setHomePriceMinDraft,
+    setHomeShowFilterMenu,
+    setHomeShowPriceMenu,
+    setHomeShowSortMenu,
+    setIsBlockingEditDish,
+    setIsSavingEditDish,
+    setLastRetryOp,
+    setLastSyncAt,
+    setPendingDeleteDishId,
+    setPreviousScreen,
+    setScreen,
+    setSearchQuery,
+    setSelectedCategory,
+    setSelectedDishId,
+    setSelectedTags,
+    setSortMode,
+    setStatusMessage,
+    setStoreMerchantSessionFromAuthSession,
+    setSyncErrorMessage,
+    setSyncOverviewState,
+    showSnackbar,
+    sortMode,
+    sortedDishesForStorage,
+    storeId,
+    validateEditDish,
+    visibleDishesForUi
+  })
 
-    setAdminItemsAppliedMinPrice(nextMin)
-    setAdminItemsAppliedMaxPrice(nextMax)
 
-    void refreshAdminItemsFilteredFirstPage(currentAdminItemsCloudFilters({
-      minPrice: nextMin,
-      maxPrice: nextMax
-    }))
-  }
 
-  function onAdminItemsClearPriceRange(): void {
-    setAdminItemsPriceMinDraft('')
-    setAdminItemsPriceMaxDraft('')
-    setAdminItemsAppliedMinPrice(null)
-    setAdminItemsAppliedMaxPrice(null)
 
-    void refreshAdminItemsFilteredFirstPage(currentAdminItemsCloudFilters({
-      minPrice: null,
-      maxPrice: null
-    }))
-  }
 
-  function onAdminItemsFilterDiscountOnlyChange(_value: boolean): void {
-    return
-  }
 
-  function onAdminItemsFilterHiddenOnlyChange(_value: boolean): void {
-    return
-  }
 
-  function onAdminItemsFilterRecommendedChange(_value: boolean): void {
-    return
-  }
-  function onAdminItemsApplyFilters(value: {
-    recommendedOnly: boolean
-    hiddenOnly: boolean
-    discountOnly: boolean
-    minPriceDraft: string
-    maxPriceDraft: string
-  }): void {
-    const min = parseHomePriceDraft(value.minPriceDraft)
-    const max = parseHomePriceDraft(value.maxPriceDraft)
-    const nextMin = min != null && max != null && min > max ? max : min
-    const nextMax = min != null && max != null && min > max ? min : max
 
-    setAdminItemsFilterRecommended(value.recommendedOnly)
-    setAdminItemsFilterHiddenOnly(value.hiddenOnly)
-    setAdminItemsFilterDiscountOnly(value.discountOnly)
-    setAdminItemsPriceMinDraft(value.minPriceDraft)
-    setAdminItemsPriceMaxDraft(value.maxPriceDraft)
-    setAdminItemsAppliedMinPrice(nextMin)
-    setAdminItemsAppliedMaxPrice(nextMax)
-
-    void refreshAdminItemsFilteredFirstPage(currentAdminItemsCloudFilters({
-      recommendedOnly: value.recommendedOnly,
-      hiddenOnly: value.hiddenOnly,
-      onSaleOnly: value.discountOnly,
-      minPrice: nextMin,
-      maxPrice: nextMax
-    }))
-  }
-  function onAdminItemsPriceMaxDraftChange(value: string): void {
-    setAdminItemsPriceMaxDraft(value)
-  }
-
-  function onAdminItemsPriceMinDraftChange(value: string): void {
-    setAdminItemsPriceMinDraft(value)
-  }
-
-  function onAdminItemsSearchQueryChange(value: string): void {
-    setAdminItemsSearchQuery(value)
-
-    adminItemsSearchRequestSeqRef.current += 1
-    const requestSeq = adminItemsSearchRequestSeqRef.current
-
-    if (adminItemsSearchDebounceTimerRef.current != null && isBrowser()) {
-      window.clearTimeout(adminItemsSearchDebounceTimerRef.current)
-      adminItemsSearchDebounceTimerRef.current = null
-    }
-
-    const nextFilters = currentAdminItemsCloudFilters({
-      searchQuery: value
-    })
-
-    if (!isBrowser()) {
-      void refreshAdminItemsFilteredFirstPage(nextFilters, requestSeq)
-      return
-    }
-
-    adminItemsSearchDebounceTimerRef.current = window.setTimeout(() => {
-      void refreshAdminItemsFilteredFirstPage(nextFilters, requestSeq)
-    }, 350)
-  }
-
-  function onAdminItemsSortModeChange(value: ShowcaseHomeSortMode): void {
-    const nextMode = normalizeSortMode(value)
-    const nextAscending = nextMode !== 'PriceDesc'
-
-    setAdminItemsSortMode(nextMode)
-    setAdminItemsSortAscending(nextAscending)
-
-    void refreshAdminItemsFilteredFirstPage(currentAdminItemsCloudFilters({
-      sortMode: nextMode
-    }))
-  }
 
   function onAdminPasswordDraftChange(value: string): void {
     setAdminPasswordDraft(value)
@@ -9633,101 +7780,6 @@ function backFromAppointments(): void {
     await refreshMerchantChatListInternal(false)
   }
 
-  async function refreshStoreProfileFromCloud(): Promise<void> {
-    await refreshStoreProfile()
-  }
-
-  async function removeCategory(nameInput: string): Promise<void> {
-    if (categorySubmittingAction) return
-
-    const name = nameInput.trim()
-    if (!name) return
-
-    if (guardOfflineWriteOperation()) {
-      return
-    }
-
-    setCategorySubmittingAction('delete')
-
-    try {
-      const validSession = await ensureValidMerchantSessionLoadedForCloud()
-
-      if (!validSession) {
-        setStatusMessage(merchantSessionEnsureFailureMessage())
-        showSnackbar(merchantSessionEnsureSnackbarMessage())
-        return
-      }
-
-      setStoreMerchantSessionFromAuthSession(validSession)
-      bindMerchantSessionToRepository(repository)
-
-      const categoryId = await repository.getCategoryIdByName(storeId, name)
-
-      if (!categoryId) {
-        setStatusMessage('Failed to delete category.')
-        return
-      }
-
-      const hasRef = await repository.hasAnyDishReferencingCategoryId(storeId, categoryId)
-
-      if (hasRef) {
-        setAdminCannotDeleteCategory(name)
-        setAdminPendingDeleteCategory(null)
-        setStatusMessage(null)
-        return
-      }
-
-      let result = await repository.deleteCategoryByName(storeId, name)
-
-      if (!result.ok) {
-        const retry = await retryMerchantCloudOperationAfterAuthRefresh({
-          errorInput: new Error(`${result.errorCode} ${result.errorBody || ''}`),
-          operation: () => repository.deleteCategoryByName(storeId, name),
-          isSuccess: value => value.ok
-        })
-
-        if (retry.status === 'handled_without_retry') return
-
-        if (retry.status === 'retried_success' && retry.value) {
-          result = retry.value
-        } else {
-          setStatusMessage(result.errorMessage || 'Failed to delete category.')
-          return
-        }
-      }
-
-      const [cloudDishes, cloudCategories] = await Promise.all([
-        repository.fetchDishes(storeId),
-        repository.fetchCategories(storeId)
-      ])
-
-      const localDishes = loadDishesFromStorage(storeId)
-      const finalDishes = cloudDishes.length
-        ? mergeRemoteAndLocal(cloudDishes, localDishes)
-        : dishes
-
-      const allCategoryNames = cloudCategoriesToManualCategoryNames(cloudCategories)
-
-      mergeDishEntities(finalDishes)
-      setAdminItemIds(dishIdsFromItems(finalDishes))
-      setHomeDishIds(dishIdsFromItems(finalDishes.filter(item => !item.isHidden)))
-      setDishes(finalDishes)
-      setCategories(cloudCategories)
-      replaceDishPendingSyncOperations(finalDishes)
-      setSelectedCategory(current => String(current || '').trim() === name ? null : current)
-      setEditDishCategory(current => String(current || '').trim() === name ? null : current)
-      setAdminPendingDeleteCategory(null)
-      setStatusMessage(null)
-
-      persistDishesLocally(storeId, finalDishes)
-      saveManualCategoriesToStorage(storeId, allCategoryNames)
-      setLastSyncAt(nowMillis())
-    } catch {
-      setStatusMessage('Failed to delete category.')
-    } finally {
-      setCategorySubmittingAction(null)
-    }
-  }
   function saveImageUrlToGallery(url: string): void {
     savePreviewImage(url)
   }
@@ -9930,1301 +7982,28 @@ function backFromAppointments(): void {
     toggleFavoriteSelection(dishId)
   }
 
-  async function refreshStoreProfile(): Promise<void> {
-    setLastRetryOp(ShowcaseRetryOps.RefreshStoreProfile)
-    setIsRefreshingStoreProfile(true)
 
-    try {
-      const profile = await repository.fetchStoreProfile(storeId)
 
-      if (!profile) {
-        const cached = loadStoreProfileFromStorage(storeId)
 
-        if (cached) {
-          const cachedForUi = storeProfileFromCachedProfile(cached)
 
-          setStoreProfile(cachedForUi)
-          setStoreProfileServices(cached.services)
-          setStoreProfileExtraContacts(cached.extraContacts.map((item, index) => ({
-            id: `extra_contact_${index + 1}`,
-            name: item.name,
-            value: item.value
-          })))
-          setStoreProfileCoverUrl(cached.coverUrl || '')
-          setStoreProfileLogoUrl(cached.logoUrl || '')
-          setDraftStoreProfileCoverUrl(cached.coverUrl || '')
-          setDraftStoreProfileLogoUrl(cached.logoUrl || '')
-          setDraftStoreProfileDescription(cached.description || '')
-          setDraftBusinessStatus(cached.businessStatus || '')
-          setDraftStoreProfileServices(cached.services)
-          setDraftStoreProfileExtraContacts(cached.extraContacts.map((item, index) => ({
-            id: `extra_contact_${index + 1}`,
-            name: item.name,
-            value: item.value
-          })))
-          setStoreProfileDraft(screen === ShowcaseScreens.StoreProfile
-            ? storeProfileDraftFromProfile(cachedForUi)
-            : null)
-        }
 
-        if (cached) {
-          setStatusMessage('Profile refreshed.')
-          setSyncErrorMessage(null)
-        } else {
-          setStatusMessage('Profile refresh failed.')
-          setSyncErrorMessage('Profile refresh failed.')
-        }
 
-        return
-      }
 
-      const local = loadStoreProfileFromStorage(storeId)
-      const localServices = local?.services || storeProfileServices
-      const localExtraContacts = local?.extraContacts || storeProfileExtraContacts.map(item => ({
-        name: item.name,
-        value: item.value
-      }))
 
-      const cloudServices = parseJsonStringArray(profile.servicesJson)
-      const cloudExtraContacts = parseExtraContacts(profile.extraContactsJson)
 
-      const mergedProfile: CloudStoreProfile = {
-        ...profile,
-        coverUrl: profile.coverUrl.trim() || storeProfileCoverUrl || local?.coverUrl || '',
-        logoUrl: profile.logoUrl.trim() || storeProfileLogoUrl || local?.logoUrl || '',
-        servicesJson: cloudServices.length
-          ? profile.servicesJson
-          : serializeServices(localServices),
-        extraContactsJson: cloudExtraContacts.length
-          ? profile.extraContactsJson
-          : serializeExtraContacts(
-              localExtraContacts.map((item, index) => ({
-                id: `extra_contact_${index + 1}`,
-                name: item.name,
-                value: item.value
-              }))
-            )
-      }
 
-      applyCloudStoreProfile(mergedProfile)
 
-      persistStoreProfileLocally(storeId, {
-        title: mergedProfile.title || 'Showcase Store',
-        subtitle: mergedProfile.subtitle || 'Browse items, book services, and contact the store.',
-        description: mergedProfile.description || '',
-        services: parseJsonStringArray(mergedProfile.servicesJson),
-        address: mergedProfile.address || '',
-        hours: mergedProfile.hours || '',
-        mapUrl: mergedProfile.mapUrl || '',
-        extraContacts: parseExtraContacts(mergedProfile.extraContactsJson).map(item => ({
-          name: item.name,
-          value: item.value
-        })),
-        coverUrl: mergedProfile.coverUrl || '',
-        logoUrl: mergedProfile.logoUrl || '',
-        businessStatus: mergedProfile.businessStatus || ''
-      })
 
-      setStatusMessage('Profile refreshed.')
-      setSyncErrorMessage(null)
-    } catch {
-      setStatusMessage('Profile refresh failed.')
-      setSyncErrorMessage('Profile refresh failed.')
-      setLastRetryOp(ShowcaseRetryOps.RefreshStoreProfile)
-    } finally {
-      setIsRefreshingStoreProfile(false)
-    }
-  }
 
-  async function saveStoreProfile(): Promise<void> {
-    const draft = storeProfileDraft
 
-    if (!draft) {
-      setStoreProfileSaveError('Nothing to save.')
-      return
-    }
 
-    const title = draft.displayName.trim()
 
-    if (!title) {
-      setStoreProfileSaveError('Store title is required.')
-      return
-    }
 
-    const cleanedExtraContacts = draftStoreProfileExtraContacts
-      .map(item => ({
-        id: item.id || createId('extra_contact'),
-        name: item.name.trim(),
-        value: item.value.trim()
-      }))
-      .filter(item => item.name || item.value)
 
-    const hasHalfFilledContact = cleanedExtraContacts.some(item => {
-      return (item.name.length === 0 && item.value.length > 0) ||
-        (item.name.length > 0 && item.value.length === 0)
-    })
 
-    if (hasHalfFilledContact) {
-      setStoreProfileSaveError('有联系方式只填了一半（Name/Value），请补全或清空后再保存。')
-      return
-    }
 
-    const address = draft.address.trim()
-    const mapUrl = draft.mapUrl.trim()
 
-    if (mapUrl) {
-      if (!address) {
-        setStoreProfileSaveError('已填写 Map URL，但文本地址（Address）为空：请先填写地址，否则无法保存。')
-        return
-      }
 
-      if (!mapUrl.startsWith('http://') && !mapUrl.startsWith('https://')) {
-        setIsSavingStoreProfile(false)
-        setStoreProfileSaveError('Map URL must start with http:// or https://.')
-        return
-      }
-    }
-
-    const normalizedServices = Array.from(
-      new Set(
-        draftStoreProfileServices
-          .map(item => item.trim())
-          .filter(Boolean)
-      )
-    )
-
-    const normalizedDescription = draftStoreProfileDescription.trim().slice(0, 200)
-    const normalizedSubtitle = draft.tagline.trim()
-    const normalizedHours = draft.businessHours.trim()
-    const normalizedBusinessStatus = draftBusinessStatus.trim()
-    const normalizedWebsiteUrl = draft.websiteUrl.trim()
-
-    if (guardOfflineWriteOperation()) {
-      setStoreProfileSaveError('You are offline. Please reconnect and try again.')
-      return
-    }
-
-    setIsSavingStoreProfile(true)
-    setStoreProfileSaveError(null)
-    setStoreProfileSaveSuccess(false)
-    setStatusMessage(null)
-
-    try {
-      if (!isWriteAllowed) {
-        throw new Error('Store is read-only.')
-      }
-
-      const validSession = await ensureValidMerchantSessionLoadedForCloud()
-
-      if (!validSession) {
-        setStoreProfileSaveError(merchantSessionEnsureFailureMessage())
-        showSnackbar(merchantSessionEnsureSnackbarMessage())
-        return
-      }
-
-      setStoreMerchantSessionFromAuthSession(validSession)
-      bindMerchantSessionToRepository(repository)
-
-      let logoUrl = draftStoreProfileLogoUrl.trim()
-      let logoImageVariants: ShowcaseImageVariants | null = null
-
-      if (logoUrl && isLocalImageUri(logoUrl)) {
-        const uploadedLogo = await uploadStoreImageIfNeeded(logoUrl, 'logo')
-
-        if (!uploadedLogo) {
-          throw new Error('Logo upload failed.')
-        }
-
-        logoUrl = uploadedLogo.url
-        logoImageVariants = uploadedLogo.variants
-      } else if (logoUrl) {
-        logoImageVariants = createRemoteOnlyImageVariants(logoUrl)
-      }
-
-      const coverCandidates = draftStoreProfileCoverUrl
-        .replace(/\\n/g, '\n')
-        .split('\n')
-        .map(item => item.trim())
-        .filter(Boolean)
-        .filter((item, index, all) => all.indexOf(item) === index)
-        .slice(0, 9)
-
-      const uploadedCoverImages: UploadedShowcaseImage[] = []
-
-      for (const rawCoverUrl of coverCandidates) {
-        if (isLocalImageUri(rawCoverUrl)) {
-          const uploadedCover = await uploadStoreImageIfNeeded(rawCoverUrl, 'cover')
-
-          if (!uploadedCover) {
-            throw new Error('Cover upload failed.')
-          }
-
-          uploadedCoverImages.push(uploadedCover)
-        } else {
-          uploadedCoverImages.push({
-            url: rawCoverUrl,
-            variants: createRemoteOnlyImageVariants(rawCoverUrl)
-          })
-        }
-      }
-
-      const uploadedCoverUrls = uploadedCoverImages.map(item => item.url)
-      const coverImageVariants = uploadedCoverImages[0]?.variants ?? null
-
-      const cloudLogoUrl = logoUrl && !isLocalImageUri(logoUrl) ? logoUrl : ''
-      const cloudCoverUrl = uploadedCoverUrls
-        .map(item => item.trim())
-        .filter(item => item && !isLocalImageUri(item))
-        .filter((item, index, all) => all.indexOf(item) === index)
-        .slice(0, 9)
-        .join('\n')
-
-      const payload = {
-        storeId,
-        title,
-        subtitle: normalizedSubtitle,
-        description: normalizedDescription,
-        address,
-        hours: normalizedHours,
-        mapUrl,
-        extraContactsJson: serializeExtraContacts(cleanedExtraContacts),
-        servicesJson: serializeServices(normalizedServices),
-        coverUrl: cloudCoverUrl,
-        logoUrl: cloudLogoUrl,
-        coverImageVariants,
-        logoImageVariants,
-        businessStatus: normalizedBusinessStatus,
-        updatedAt: nowMillis()
-      }
-
-      let ok = await repository.upsertStoreProfile(payload)
-
-      if (!ok) {
-        const detail = [
-          repository.lastUpsertCode != null ? `code=${repository.lastUpsertCode}` : '',
-          repository.lastUpsertBody ? `body=${repository.lastUpsertBody.slice(0, 300)}` : ''
-        ].filter(Boolean).join(' ')
-
-        const retry = await retryMerchantCloudOperationAfterAuthRefresh({
-          errorInput: new Error(detail || 'Cloud save failed.'),
-          operation: () => repository.upsertStoreProfile(payload),
-          isSuccess: value => value
-        })
-
-        if (retry.status === 'handled_without_retry') return
-
-        if (retry.status === 'retried_success') {
-          ok = true
-        } else {
-          throw new Error(detail ? `Cloud save failed. ${detail}` : 'Cloud save failed.')
-        }
-      }
-
-      clearStoreProfileDraftLocalImages(storeId)
-
-      const nextProfile = storeProfileFromCloud(payload)
-
-      setStoreProfile(nextProfile)
-      setStoreProfileCloud(payload)
-      setStoreProfileServices(normalizedServices)
-      setStoreProfileExtraContacts(
-        cleanedExtraContacts.map(item => ({
-          id: item.id,
-          name: item.name,
-          value: item.value
-        }))
-      )
-      setStoreProfileCoverUrl(cloudCoverUrl)
-      setStoreProfileLogoUrl(cloudLogoUrl)
-      setDraftStoreProfileServices(normalizedServices)
-      setDraftStoreProfileExtraContacts(
-        cleanedExtraContacts.map(item => ({
-          id: item.id,
-          name: item.name,
-          value: item.value
-        }))
-      )
-      setDraftStoreProfileCoverUrl(cloudCoverUrl)
-      setDraftStoreProfileLogoUrl(cloudLogoUrl)
-      setDraftStoreProfileDescription(normalizedDescription)
-      setDraftBusinessStatus(normalizedBusinessStatus)
-      setStoreProfileDraft(null)
-      setIsEditingStoreProfile(false)
-      setIsSavingStoreProfile(false)
-      setStoreProfileSaveError(null)
-      setStoreProfileSaveSuccess(true)
-      setStatusMessage('Store profile saved.')
-      writePersistedStoreProfileDraft(storeId, null)
-      persistStoreProfileLocally(storeId, {
-        title,
-        subtitle: normalizedSubtitle,
-        description: normalizedDescription,
-        services: normalizedServices,
-        address,
-        hours: normalizedHours,
-        mapUrl,
-        extraContacts: cleanedExtraContacts.map(item => ({
-          name: item.name,
-          value: item.value
-        })),
-        coverUrl: cloudCoverUrl,
-        logoUrl: cloudLogoUrl,
-        coverImageVariants,
-        logoImageVariants,
-        businessStatus: normalizedBusinessStatus
-      })
-      setLastSyncAt(nowMillis())
-      removePendingSync('store-profile-upsert')
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error || 'Cloud save failed.')
-
-      setIsSavingStoreProfile(false)
-      setStoreProfileSaveError(message.startsWith('Cloud save failed') ? message : 'Cloud save failed.')
-      setStoreProfileSaveSuccess(false)
-      setStatusMessage("Couldn't save store profile. Please try again.")
-
-      pushPendingSync({
-        id: 'store-profile-upsert',
-        type: 'store-profile-upsert',
-        createdAt: nowMillis()
-      })
-    }
-  }
-
-  async function addCategory(nameInput: string): Promise<void> {
-    if (categorySubmittingAction) return
-
-    const name = nameInput.trim()
-    if (!name) return
-
-    const existing = Array.from(
-      new Set(
-        manualCategories
-          .map(item => item.trim())
-          .filter(Boolean)
-      )
-    )
-
-    if (existing.includes(name)) return
-
-    if (guardOfflineWriteOperation()) {
-      return
-    }
-
-    setCategorySubmittingAction('add')
-
-    try {
-      const validSession = await ensureValidMerchantSessionLoadedForCloud()
-
-      if (!validSession) {
-        setStatusMessage(merchantSessionEnsureFailureMessage())
-        showSnackbar(merchantSessionEnsureSnackbarMessage())
-        return
-      }
-
-      setStoreMerchantSessionFromAuthSession(validSession)
-      bindMerchantSessionToRepository(repository)
-
-      let result = await repository.ensureCategoryExists(storeId, name)
-
-      if (!result.ok) {
-        const retry = await retryMerchantCloudOperationAfterAuthRefresh({
-          errorInput: new Error(`${result.errorCode} ${result.errorBody || ''}`),
-          operation: () => repository.ensureCategoryExists(storeId, name),
-          isSuccess: value => value.ok
-        })
-
-        if (retry.status === 'handled_without_retry') return
-
-        if (retry.status === 'retried_success' && retry.value) {
-          result = retry.value
-        } else {
-          setStatusMessage(result.errorMessage || 'Failed to add category.')
-          return
-        }
-      }
-
-      const [cloudDishes, cloudCategories] = await Promise.all([
-        repository.fetchDishes(storeId),
-        repository.fetchCategories(storeId)
-      ])
-
-      const localDishes = loadDishesFromStorage(storeId)
-      const finalDishes = cloudDishes.length
-        ? mergeRemoteAndLocal(cloudDishes, localDishes)
-        : dishes
-
-      const allCategoryNames = cloudCategoriesToManualCategoryNames(cloudCategories)
-
-      mergeDishEntities(finalDishes)
-      setAdminItemIds(dishIdsFromItems(finalDishes))
-      setHomeDishIds(dishIdsFromItems(finalDishes.filter(item => !item.isHidden)))
-      setDishes(finalDishes)
-      setCategories(cloudCategories)
-      replaceDishPendingSyncOperations(finalDishes)
-      setStatusMessage(null)
-
-      persistDishesLocally(storeId, finalDishes)
-      saveManualCategoriesToStorage(storeId, allCategoryNames)
-      setLastSyncAt(nowMillis())
-    } catch (error) {
-      console.error('[CategoryTrace] addCategory failed', error)
-      setStatusMessage(
-        error instanceof Error
-          ? `Failed to add category. ${error.message}`
-          : 'Failed to add category.'
-      )
-    } finally {
-      setCategorySubmittingAction(null)
-    }
-  }
-
-  function requestDeleteCategory(nameInput: string): void {
-    const name = nameInput.trim()
-    if (!name) return
-
-    setAdminPendingDeleteCategory({
-      name,
-      id: null
-    })
-    setAdminCannotDeleteCategory(null)
-  }
-
-  async function confirmDeleteCategory(): Promise<void> {
-    if (categorySubmittingAction) return
-
-    const pending = adminPendingDeleteCategory
-    if (!pending) return
-
-    const name = pending.name.trim()
-    if (!name) {
-      setAdminPendingDeleteCategory(null)
-      return
-    }
-
-    await removeCategory(name)
-  }
-
-  async function renameCategory(oldName: string, newName: string): Promise<void> {
-    if (categorySubmittingAction) return
-
-    const from = oldName.trim()
-    const to = newName.trim()
-
-    if (!from || !to || from === to) return
-
-    if (guardOfflineWriteOperation()) {
-      return
-    }
-
-    setCategorySubmittingAction('rename')
-
-    try {
-      const validSession = await ensureValidMerchantSessionLoadedForCloud()
-
-      if (!validSession) {
-        setStatusMessage(merchantSessionEnsureFailureMessage())
-        showSnackbar(merchantSessionEnsureSnackbarMessage())
-        return
-      }
-
-      setStoreMerchantSessionFromAuthSession(validSession)
-      bindMerchantSessionToRepository(repository)
-
-      const categoryId = await repository.getCategoryIdByName(storeId, from)
-
-      if (!categoryId) {
-        setStatusMessage('Update category failed. Category id was not found in cloud.')
-        return
-      }
-
-      let result = await repository.renameCategoryById({
-        storeId,
-        categoryId,
-        newName: to
-      })
-
-      if (!result.ok) {
-        const retry = await retryMerchantCloudOperationAfterAuthRefresh({
-          errorInput: new Error(`${result.errorCode} ${result.errorBody || ''}`),
-          operation: () => repository.renameCategoryById({
-            storeId,
-            categoryId,
-            newName: to
-          }),
-          isSuccess: value => value.ok
-        })
-
-        if (retry.status === 'handled_without_retry') return
-
-        if (retry.status === 'retried_success' && retry.value) {
-          result = retry.value
-        } else {
-          setStatusMessage(result.errorMessage || 'Failed to update category.')
-          return
-        }
-      }
-
-      const [cloudDishes, cloudCategories] = await Promise.all([
-        repository.fetchDishes(storeId),
-        repository.fetchCategories(storeId)
-      ])
-
-      const localDishes = loadDishesFromStorage(storeId)
-      const mergedDishes = cloudDishes.length
-        ? mergeRemoteAndLocal(cloudDishes, localDishes)
-        : dishes
-
-      const finalDishes = mergedDishes.map(item => {
-        if (String(item.category || '').trim() !== from) return item
-
-        return {
-          ...item,
-          category: to,
-          updatedAt: item.updatedAt || nowMillis()
-        }
-      })
-
-      const allCategoryNames = cloudCategoriesToManualCategoryNames(cloudCategories)
-
-      mergeDishEntities(finalDishes)
-      setAdminItemIds(dishIdsFromItems(finalDishes))
-      setHomeDishIds(dishIdsFromItems(finalDishes.filter(item => !item.isHidden)))
-      setDishes(finalDishes)
-      setCategories(cloudCategories)
-      replaceDishPendingSyncOperations(finalDishes)
-      setSelectedCategory(current => String(current || '').trim() === from ? to : current)
-      setEditDishCategory(current => String(current || '').trim() === from ? to : current)
-      setStatusMessage(null)
-
-      persistDishesLocally(storeId, finalDishes)
-      saveManualCategoriesToStorage(storeId, allCategoryNames)
-      setLastSyncAt(nowMillis())
-    } catch {
-      setStatusMessage('Failed to update category.')
-    } finally {
-      setCategorySubmittingAction(null)
-    }
-  }
-
-  async function reorderCategory(categoryId: string, sortOrder: number): Promise<void> {
-    if (categorySubmittingAction) return
-
-    setCategorySubmittingAction('reorder')
-
-    try {
-      const validSession = await ensureValidMerchantSessionLoadedForCloud()
-
-      if (!validSession) {
-        showSnackbar(merchantSessionEnsureSnackbarMessage())
-        return
-      }
-
-      setStoreMerchantSessionFromAuthSession(validSession)
-      bindMerchantSessionToRepository(repository)
-
-      let result = await repository.setCategorySortOrder({
-        storeId,
-        categoryId,
-        sortOrder
-      })
-
-      if (!result.ok) {
-        const retry = await retryMerchantCloudOperationAfterAuthRefresh({
-          errorInput: new Error(`${result.errorCode} ${result.errorBody || result.errorMessage || ''}`),
-          operation: () => repository.setCategorySortOrder({
-            storeId,
-            categoryId,
-            sortOrder
-          }),
-          isSuccess: value => value.ok
-        })
-
-        if (retry.status === 'handled_without_retry') return
-
-        if (retry.status === 'retried_success' && retry.value) {
-          result = retry.value
-        } else {
-          showSnackbar(result.errorMessage || 'Update category order failed.')
-          return
-        }
-      }
-
-      const cloudCategories = await repository.fetchCategories(storeId)
-      setCategories(cloudCategories)
-    } finally {
-      setCategorySubmittingAction(null)
-    }
-  }
-
-  async function saveDishFromEditForm(): Promise<void> {
-    const validationError = validateEditDish()
-    if (validationError) {
-      setEditValidationError(validationError)
-      return
-    }
-
-    if (guardOfflineWriteOperation()) {
-      setEditValidationError('You are offline. Please reconnect and try again.')
-      return
-    }
-
-    const wasNew = !editDishId
-    const existing = editDishId ? getAdminEditableDishById(editDishId) : null
-    const draftDish = buildDishFromEditForm(existing)
-    const backTarget = previousScreen && previousScreen !== 'Edit'
-      ? previousScreen
-      : 'Admin'
-    let uploadedDraftDish: DemoDish | null = null
-
-    setIsSavingEditDish(true)
-    setIsBlockingEditDish(true)
-    setStatusMessage(null)
-    setSyncOverviewState(SyncOverviewStates.Syncing)
-    setSyncErrorMessage(null)
-    setLastRetryOp(null)
-    setEditValidationError(null)
-
-    try {
-      if (!isWriteAllowed) {
-        throw new Error('Store is read-only.')
-      }
-
-      const validSession = await ensureValidMerchantSessionLoadedForCloud()
-
-      if (!validSession) {
-        setEditValidationError(merchantSessionEnsureFailureMessage())
-        showSnackbar(merchantSessionEnsureSnackbarMessage())
-        return
-      }
-
-      setStoreMerchantSessionFromAuthSession(validSession)
-      bindMerchantSessionToRepository(repository)
-
-      const uploadedImages: UploadedShowcaseImage[] = []
-
-      for (const rawUrl of draftDish.imageUrls) {
-        const uploadedImage = await uploadDishImageIfNeeded(rawUrl)
-
-        if (!uploadedImage) {
-          throw new Error('Image upload failed.')
-        }
-
-        uploadedImages.push(uploadedImage)
-      }
-
-      const finalImageUrls = uploadedImages
-        .map(item => item.url.trim())
-        .filter(Boolean)
-        .filter((item, index, all) => all.indexOf(item) === index)
-        .slice(0, 9)
-
-      if (!finalImageUrls.length) {
-        throw new Error('Image upload failed.')
-      }
-
-      const nextDish: DemoDish = {
-        ...draftDish,
-        imageUri: finalImageUrls[0] || null,
-        imageUrls: finalImageUrls,
-        imageVariants: uploadedImages[0]?.variants ?? draftDish.imageVariants ?? null,
-        updatedAt: nowMillis(),
-        syncState: 'Pending',
-        dirty: true
-      }
-
-      uploadedDraftDish = nextDish
-
-      let ok = await repository.upsertDishFromDemo(storeId, nextDish)
-
-      if (!ok) {
-        const retry = await retryMerchantCloudOperationAfterAuthRefresh({
-          errorInput: new Error('Cloud save failed.'),
-          operation: () => repository.upsertDishFromDemo(storeId, nextDish),
-          isSuccess: value => value
-        })
-
-        if (retry.status === 'handled_without_retry') return
-
-        if (retry.status === 'retried_success') {
-          ok = true
-        } else {
-          throw new Error('Cloud save failed.')
-        }
-      }
-
-      const selected: DemoDish = {
-        ...nextDish,
-        syncState: 'Synced' as SyncState,
-        dirty: false
-      }
-
-      const finalDishes = sortedDishesForStorage([
-        selected,
-        ...dishes.filter(item => item.id !== selected.id)
-      ])
-
-      persistDishesLocally(storeId, finalDishes)
-      mergeDishEntities(finalDishes)
-      setDishes(finalDishes)
-
-      setHomeDishIds(current => {
-        if (selected.isHidden) {
-          return removeDishIdFromList(current, selected.id)
-        }
-
-        if (current.includes(selected.id)) {
-          return current
-        }
-
-        return wasNew ? [selected.id, ...current] : current
-      })
-
-      await refreshAdminItemsFilteredFirstPage(currentAdminItemsCloudFilters())
-
-      setSelectedDishId(selected.id)
-      setEditDishId(selected.id)
-      setLastSyncAt(nowMillis())
-      removePendingSync(`dish-upsert:${selected.id}`)
-      clearCurrentItemEditorDraftLocally()
-
-      setSyncOverviewState(SyncOverviewStates.Idle)
-      setSyncErrorMessage(null)
-      setLastRetryOp(null)
-      setStatusMessage(wasNew ? 'Item published.' : 'Item updated.')
-      setEditValidationError(null)
-      setIsSavingEditDish(false)
-      setIsBlockingEditDish(false)
-
-      const finishNavigation = () => {
-        clearEditDraftLocalImages(storeId)
-
-        if (backTarget === 'Detail') {
-          setSelectedDishId(selected.id)
-          setScreen('Detail')
-        } else {
-          setSelectedDishId(null)
-          setScreen(backTarget)
-        }
-
-        setPreviousScreen('Admin')
-        setStatusMessage(null)
-        setEditValidationError(null)
-      }
-
-      if (isBrowser()) {
-        window.setTimeout(finishNavigation, 800)
-      } else {
-        finishNavigation()
-      }
-    } catch (error) {
-      const rawMessage = error instanceof Error ? error.message : String(error || '')
-      const isImageUploadFailure = rawMessage.includes('Image upload failed')
-      const failureMessage = isImageUploadFailure ? 'Image upload failed. Please try again.' : 'Cloud save failed.'
-
-      if (isImageUploadFailure || !uploadedDraftDish) {
-        setStatusMessage(null)
-        setSyncOverviewState(SyncOverviewStates.Failed)
-        setSyncErrorMessage(failureMessage)
-        setLastRetryOp(null)
-        setEditValidationError(failureMessage)
-        setIsSavingEditDish(false)
-        setIsBlockingEditDish(false)
-        showSnackbar(failureMessage)
-        return
-      }
-
-      const queuedDish: DemoDish = {
-        ...uploadedDraftDish,
-        updatedAt: nowMillis(),
-        syncState: 'Pending',
-        dirty: true
-      }
-
-      const finalDishes = sortedDishesForStorage([
-        queuedDish,
-        ...loadDishesFromStorage(storeId).filter(item => item.id !== queuedDish.id)
-      ])
-
-      persistDishesLocally(storeId, finalDishes)
-      mergeDishEntities(finalDishes)
-      setDishes(finalDishes)
-      refreshFavoritesList(finalDishes)
-
-      setHomeDishIds(current => {
-        if (queuedDish.isHidden) {
-          return removeDishIdFromList(current, queuedDish.id)
-        }
-
-        if (current.includes(queuedDish.id)) {
-          return current
-        }
-
-        return wasNew ? [queuedDish.id, ...current] : current
-      })
-
-      setAdminItemIds(current => {
-        if (current.includes(queuedDish.id)) {
-          return current
-        }
-
-        return [queuedDish.id, ...current]
-      })
-
-      pushPendingSync({
-        id: `dish-upsert:${queuedDish.id}`,
-        type: 'dish-upsert',
-        dishId: queuedDish.id,
-        createdAt: nowMillis()
-      })
-
-      setSelectedDishId(queuedDish.id)
-      setEditDishId(queuedDish.id)
-      setStatusMessage('Item saved locally. It will sync when the network is available.')
-      setSyncOverviewState(SyncOverviewStates.HasPending)
-      setSyncErrorMessage(failureMessage)
-      setLastRetryOp(ShowcaseRetryOps.RetryPendingSync)
-      setEditValidationError(null)
-      setIsSavingEditDish(false)
-      setIsBlockingEditDish(false)
-      showSnackbar('Item queued for sync.')
-
-      const finishNavigation = () => {
-        if (backTarget === 'Detail') {
-          setSelectedDishId(queuedDish.id)
-          setScreen('Detail')
-        } else {
-          setSelectedDishId(null)
-          setScreen(backTarget)
-        }
-
-        setPreviousScreen('Admin')
-        setStatusMessage('Item saved locally. It will sync when the network is available.')
-        setEditValidationError(null)
-      }
-
-      if (isBrowser()) {
-        window.setTimeout(finishNavigation, 500)
-      } else {
-        finishNavigation()
-      }
-    }
-  }
-
-  async function deleteDish(dishIdInput: string): Promise<void> {
-    const dishId = dishIdInput.trim()
-
-    if (!dishId) {
-      setPendingDeleteDishId(null)
-      return
-    }
-
-    const dish = getAdminEditableDishById(dishId)
-
-    if (!dish) {
-      setPendingDeleteDishId(null)
-      return
-    }
-
-    if (guardOfflineWriteOperation()) {
-      setPendingDeleteDishId(null)
-      return
-    }
-
-    setPendingDeleteDishId(null)
-    setStatusMessage('Deleting from cloud...')
-    setSyncOverviewState(SyncOverviewStates.Syncing)
-    setSyncErrorMessage(null)
-    setLastRetryOp(null)
-
-    try {
-      const validSession = await ensureValidMerchantSessionLoadedForCloud()
-
-      if (!validSession) {
-        setSyncOverviewState(SyncOverviewStates.Failed)
-        setSyncErrorMessage(merchantSessionEnsureFailureMessage())
-        setStatusMessage(merchantSessionEnsureFailureMessage())
-        showSnackbar(merchantSessionEnsureSnackbarMessage())
-        return
-      }
-
-      setStoreMerchantSessionFromAuthSession(validSession)
-      bindMerchantSessionToRepository(repository)
-
-      const imageUrls = resolveDishImages(dish)
-        .map(item => item.trim())
-        .filter(Boolean)
-        .filter((item, index, all) => all.indexOf(item) === index)
-
-      for (const url of imageUrls) {
-        if (!isLocalImageUri(url)) {
-          await repository.deleteDishImageByUrl(storeId, url)
-        }
-      }
-
-      let ok = await repository.deleteDishById(storeId, dish.id)
-
-      if (!ok) {
-        const retry = await retryMerchantCloudOperationAfterAuthRefresh({
-          errorInput: new Error('Cloud delete failed.'),
-          operation: () => repository.deleteDishById(storeId, dish.id),
-          isSuccess: value => value
-        })
-
-        if (retry.status === 'handled_without_retry') return
-
-        if (retry.status === 'retried_success') {
-          ok = true
-        } else {
-          throw new Error('Cloud delete failed.')
-        }
-      }
-
-      preserveFavoriteSnapshotsBeforeDishDelete([dish])
-
-      const finalDishes = dishes.filter(item => item.id !== dish.id)
-
-      removeDishEntityById(dish.id)
-      setAdminItemIds(current => removeDishIdFromList(current, dish.id))
-      setHomeDishIds(current => removeDishIdFromList(current, dish.id))
-      setDishes(finalDishes)
-      persistDishesLocally(storeId, finalDishes)
-      refreshFavoritesList(finalDishes)
-      removePendingSync(`dish-delete:${dish.id}`)
-      removePendingSync(`dish-upsert:${dish.id}`)
-
-      setSelectedDishId(current => current === dish.id ? null : current)
-      setEditDishId(current => current === dish.id ? null : current)
-      setAppointmentSourceDishId(current => current === dish.id ? null : current)
-      setAdminSelectedDishIds(current => current.filter(id => id !== dish.id))
-      setLastSyncAt(nowMillis())
-      setSyncOverviewState(SyncOverviewStates.Idle)
-      setSyncErrorMessage(null)
-      setStatusMessage('Dish deleted.')
-    } catch {
-      setStatusMessage('Cloud delete failed.')
-      setSyncOverviewState(SyncOverviewStates.Failed)
-      setSyncErrorMessage('Cloud delete failed.')
-      setLastRetryOp(ShowcaseRetryOps.RetryPendingSync)
-
-      pushPendingSync({
-        id: `dish-delete:${dish.id}`,
-        type: 'dish-delete',
-        dishId: dish.id,
-        createdAt: nowMillis()
-      })
-    }
-  }
-
-  function visibleDishes(includeHidden = false): DemoDish[] {
-    if (includeHidden) {
-      return decorateCloudHomeResults({
-        dishes: dishesFromIds(homeDishIds),
-        favoriteIds,
-        sortMode
-      })
-    }
-
-    return visibleDishesForUi
-  }
-
-  function visibleAdminItems(): DemoDish[] {
-    return adminVisibleDishes
-  }
-
-  function clearAdminDishSelection(): void {
-    setAdminSelectedDishIds(current => {
-      if (!current.length) return current
-      return []
-    })
-  }
-
-  function toggleAdminDishSelected(dishIdInput: string): void {
-    const dishId = dishIdInput.trim()
-    if (!dishId) return
-
-    setAdminSelectedDishIds(current => {
-      const normalized = Array.from(
-        new Set(
-          current
-            .map(id => id.trim())
-            .filter(Boolean)
-        )
-      )
-
-      if (normalized.includes(dishId)) {
-        return normalized.filter(id => id !== dishId)
-      }
-
-      return [...normalized, dishId]
-    })
-  }
-
-  async function deleteSelectedDishes(): Promise<void> {
-    const ids = Array.from(
-      new Set(
-        adminSelectedDishIds
-          .map(id => id.trim())
-          .filter(Boolean)
-      )
-    )
-
-    if (!ids.length) return
-
-    const toDelete = ids
-      .map(id => getAdminEditableDishById(id))
-      .filter((item): item is DemoDish => Boolean(item))
-
-    if (!toDelete.length) {
-      setAdminSelectedDishIds([])
-      return
-    }
-
-    if (guardOfflineWriteOperation()) {
-      return
-    }
-
-    setAdminSelectedDishIds([])
-    setPendingDeleteDishId(null)
-    setStatusMessage(`Deleting ${toDelete.length} item(s) from cloud...`)
-    setSyncOverviewState(SyncOverviewStates.Syncing)
-    setSyncErrorMessage(null)
-    setLastRetryOp(null)
-
-    try {
-      const validSession = await ensureValidMerchantSessionLoadedForCloud()
-
-      if (!validSession) {
-        setSyncOverviewState(SyncOverviewStates.Failed)
-        setSyncErrorMessage(merchantSessionEnsureFailureMessage())
-        setStatusMessage(merchantSessionEnsureFailureMessage())
-        showSnackbar(merchantSessionEnsureSnackbarMessage())
-        return
-      }
-
-      setStoreMerchantSessionFromAuthSession(validSession)
-      bindMerchantSessionToRepository(repository)
-
-      let allOk = true
-
-      for (const dish of toDelete) {
-        const imageUrls = resolveDishImages(dish)
-          .map(item => item.trim())
-          .filter(Boolean)
-          .filter((item, index, all) => all.indexOf(item) === index)
-
-        for (const url of imageUrls) {
-          if (!isLocalImageUri(url)) {
-            await repository.deleteDishImageByUrl(storeId, url)
-          }
-        }
-
-        let ok = await repository.deleteDishById(storeId, dish.id)
-
-        if (!ok) {
-          const retry = await retryMerchantCloudOperationAfterAuthRefresh({
-            errorInput: new Error('Cloud delete failed.'),
-            operation: () => repository.deleteDishById(storeId, dish.id),
-            isSuccess: value => value
-          })
-
-          if (retry.status === 'handled_without_retry') {
-            allOk = false
-          } else if (retry.status === 'retried_success') {
-            ok = true
-          } else {
-            allOk = false
-          }
-        }
-
-        if (!ok) {
-          allOk = false
-        }
-      }
-
-      if (!allOk) {
-        throw new Error('Cloud delete failed.')
-      }
-
-      preserveFavoriteSnapshotsBeforeDishDelete(toDelete)
-
-      const deletingIds = new Set(toDelete.map(item => item.id))
-      const finalDishes = dishes.filter(item => !deletingIds.has(item.id))
-
-      mergeDishEntities(finalDishes)
-
-      toDelete.forEach(dish => {
-        removeDishEntityById(dish.id)
-      })
-
-      setAdminItemIds(current => current.filter(id => !deletingIds.has(id)))
-      setHomeDishIds(current => current.filter(id => !deletingIds.has(id)))
-      setDishes(finalDishes)
-      persistDishesLocally(storeId, finalDishes)
-      refreshFavoritesList(finalDishes)
-
-      toDelete.forEach(dish => {
-        removePendingSync(`dish-delete:${dish.id}`)
-        removePendingSync(`dish-upsert:${dish.id}`)
-      })
-
-      setSelectedDishId(current => current && deletingIds.has(current) ? null : current)
-      setEditDishId(current => current && deletingIds.has(current) ? null : current)
-      setAppointmentSourceDishId(current => current && deletingIds.has(current) ? null : current)
-      setLastSyncAt(nowMillis())
-      setSyncOverviewState(SyncOverviewStates.Idle)
-      setSyncErrorMessage(null)
-      setStatusMessage(`Deleted ${toDelete.length} item(s).`)
-    } catch {
-      setStatusMessage('Cloud delete failed.')
-      setSyncOverviewState(SyncOverviewStates.Failed)
-      setSyncErrorMessage('Cloud delete failed.')
-      setLastRetryOp(ShowcaseRetryOps.RetryPendingSync)
-
-      toDelete.forEach(dish => {
-        pushPendingSync({
-          id: `dish-delete:${dish.id}`,
-          type: 'dish-delete',
-          dishId: dish.id,
-          createdAt: nowMillis()
-        })
-      })
-    }
-  }
-
-  function requestDeleteDish(dishIdInput: string): void {
-    const dishId = dishIdInput.trim()
-    if (!dishId) return
-
-    const exists = dishes.some(item => item.id === dishId)
-    if (!exists) return
-
-    setPendingDeleteDishId(dishId)
-  }
-
-  function dismissPendingDelete(): void {
-    setPendingDeleteDishId(null)
-  }
-
-  function updateEditDraft(patch: {
-    name?: string
-    description?: string
-    category?: string | null
-    originalPrice?: string
-    discountPrice?: string
-    isRecommended?: boolean
-    isHidden?: boolean
-    imageUrls?: string[]
-  }): void {
-    const nextName = patch.name !== undefined ? patch.name : editDishName
-    const nextDescription = patch.description !== undefined ? patch.description : editDishDescription
-    const nextCategory = patch.category !== undefined ? patch.category : editDishCategory
-    const nextOriginalPrice = patch.originalPrice !== undefined ? patch.originalPrice : editDishOriginalPrice
-    const nextDiscountPrice = patch.discountPrice !== undefined ? patch.discountPrice : editDishDiscountPrice
-
-    if (patch.name !== undefined) setEditDishName(patch.name)
-    if (patch.description !== undefined) setEditDishDescription(patch.description)
-    if (patch.category !== undefined) setEditDishCategory(patch.category)
-    if (patch.originalPrice !== undefined) setEditDishOriginalPrice(patch.originalPrice)
-    if (patch.discountPrice !== undefined) setEditDishDiscountPrice(patch.discountPrice)
-    if (patch.isRecommended !== undefined) setEditDishRecommended(patch.isRecommended)
-    if (patch.isHidden !== undefined) setEditDishHidden(patch.isHidden)
-    if (patch.imageUrls !== undefined) setEditDishImageUrls(patch.imageUrls)
-
-    persistItemEditorDraftLocally(storeId, {
-      editingId: editDishId?.trim() || null,
-      isNew: !editDishId,
-      name: nextName.trim(),
-      price: nextOriginalPrice.trim(),
-      discountPrice: nextDiscountPrice.trim(),
-      description: nextDescription.trim(),
-      category: nextCategory?.trim() || null
-    })
-
-    setEditValidationError(null)
-  }
-
-  function onEditNameChange(value: string): void {
-    updateEditDraft({
-      name: value
-    })
-  }
-
-  function onEditPriceChange(value: string): void {
-    updateEditDraft({
-      originalPrice: value
-    })
-  }
-
-  function onEditDiscountPriceChange(value: string): void {
-    updateEditDraft({
-      discountPrice: value
-    })
-  }
-
-  function onEditDescriptionChange(value: string): void {
-    updateEditDraft({
-      description: value.slice(0, 200)
-    })
-  }
-
-  function onEditCategorySelected(value: string | null): void {
-    updateEditDraft({
-      category: value
-    })
-  }
-
-  function onEditToggleRecommended(value: boolean): void {
-    updateEditDraft({
-      isRecommended: value
-    })
-  }
-
-  function onEditToggleHidden(value: boolean): void {
-    updateEditDraft({
-      isHidden: value
-    })
-  }
-
-  async function uploadDishImageIfNeeded(value: File | Blob | string): Promise<UploadedShowcaseImage | null> {
-    if (typeof value === 'string') {
-      const url = value.trim()
-      if (!url) return null
-
-      if (!isLocalImageUri(url)) {
-        return {
-          url,
-          variants: createRemoteOnlyImageVariants(url)
-        }
-      }
-
-      try {
-        const response = await fetch(url)
-        if (!response.ok) return null
-
-        const blob = await response.blob()
-        const uploaded = await pickAndUploadImageWithVariants({
-          bucket: 'dish',
-          pathPrefix: editDishId || 'draft',
-          file: blob
-        })
-
-        if (uploaded) {
-          rememberLocalTempImage(storeId, 'edit-dish', url)
-        }
-
-        return uploaded
-      } catch {
-        return null
-      }
-    }
-
-    return pickAndUploadImageWithVariants({
-      bucket: 'dish',
-      pathPrefix: editDishId || 'draft',
-      file: value
-    })
-  }
     function createEditDishLocalPreviewUrl(value: File | Blob | string): string | null {
     if (typeof value === 'string') {
       const url = value.trim()
@@ -11248,226 +8027,18 @@ function backFromAppointments(): void {
     }
   }
 
-  async function onEditImageSelected(value: File | Blob | string): Promise<void> {
-    const url = createEditDishLocalPreviewUrl(value)
 
-    if (!url) {
-      showSnackbar('Image selected failed.')
-      return
-    }
 
-    setEditDishImageUrls(current => {
-      if (current.includes(url)) return current
 
-      if (current.length >= 9) {
-        if (isLocalImageUri(url)) {
-          deleteAppOwnedLocalFileUri(storeId, url)
-        }
 
-        onEditImageLimitReached()
-        return current
-      }
 
-      const next = [...current, url].slice(0, 9)
 
-      persistCurrentItemEditorDraftLocally()
-      showSnackbar('Image selected.')
 
-      return next
-    })
-  }
 
-  async function onEditImagesSelected(values: Array<File | Blob | string>): Promise<void> {
-    for (const value of values) {
-      await onEditImageSelected(value)
-    }
-  }
 
-  function onEditRemoveImage(urlInput: string): void {
-    const url = urlInput.trim()
-    if (!url) return
 
-    setEditDishImageUrls(current => {
-      const next = current.filter(item => item !== url)
-      if (next.length === current.length) return current
 
-      persistCurrentItemEditorDraftLocally()
-      showSnackbar('Image removed.')
 
-      return next
-    })
-
-    if (isAppOwnedLocalFileUri(storeId, url)) {
-      deleteAppOwnedLocalFileUri(storeId, url)
-      return
-    }
-
-    if (!isLocalImageUri(url)) {
-      void deleteDishImage(url)
-    }
-  }
-
-  function onEditRemoveSelectedImage(urlInput?: string | null): void {
-    const url = String(urlInput || '').trim() || editDishImageUrls[editDishImageUrls.length - 1] || ''
-    if (!url) return
-
-    onEditRemoveImage(url)
-  }
-
-  function onEditMoveImage(fromIndex: number, toIndex: number): void {
-    console.log('[ImageDrag] onEditMoveImage called', {
-      fromIndex,
-      toIndex,
-      before: editDishImageUrls
-    })
-
-    setEditDishImageUrls(current => {
-      if (fromIndex < 0 || fromIndex >= current.length) return current
-      if (toIndex < 0 || toIndex >= current.length) return current
-      if (fromIndex === toIndex) return current
-
-      const next = [...current]
-      const [item] = next.splice(fromIndex, 1)
-      next.splice(toIndex, 0, item)
-
-      console.log('[ImageDrag] onEditMoveImage next', {
-        fromIndex,
-        toIndex,
-        before: current,
-        after: next
-      })
-
-      return next
-    })
-  }
-
-  function onEditPickImageClick(): void {
-    showSnackbar('Choose item images in the connected UI.')
-  }
-
-  function onEditImageLimitReached(): void {
-    showSnackbar('Reached max 9 images.')
-  }
-
-  async function updateDish(): Promise<void> {
-    await saveDishFromEditForm()
-  }
-
-  async function onEditSave(): Promise<void> {
-    await updateDish()
-  }
-
-  function deriveEditState(): ShowcaseEditDishUiState {
-    return editDishState
-  }
-
-  function getEditDeleteAction(): (() => void) | null {
-    return null
-  }
-
-  async function incrementDishClick(dishId: string): Promise<void> {
-    const id = dishId.trim()
-    if (!id) return
-
-    setDishes(current => current.map(item => {
-      if (item.id !== id) return item
-
-      return {
-        ...item,
-        clickCount: Math.max(0, Number(item.clickCount || 0) + 1)
-      }
-    }))
-
-    setDishEntitiesById(current => {
-      const dish = current[id]
-
-      if (!dish) return current
-
-      return {
-        ...current,
-        [id]: {
-          ...dish,
-          clickCount: Math.max(0, Number(dish.clickCount || 0) + 1)
-        }
-      }
-    })
-
-    await repository.incrementDishClickCount(storeId, id)
-  }
-
-  async function deleteDishImage(url: string): Promise<void> {
-    const clean = url.trim()
-    if (!clean) return
-
-    if (guardOfflineWriteOperation()) {
-      return
-    }
-
-    const validSession = await ensureValidMerchantSessionLoadedForCloud()
-
-    if (!validSession) {
-      showSnackbar(merchantSessionEnsureSnackbarMessage())
-      return
-    }
-
-    setStoreMerchantSessionFromAuthSession(validSession)
-    bindMerchantSessionToRepository(repository)
-
-    let ok = await repository.deleteDishImageByUrl(storeId, clean)
-
-    if (!ok) {
-      const detail = [
-        repository.lastDeleteCode != null ? `code=${repository.lastDeleteCode}` : '',
-        repository.lastDeleteBody ? `body=${repository.lastDeleteBody.slice(0, 300)}` : ''
-      ].filter(Boolean).join(' ')
-
-      const retry = await retryMerchantCloudOperationAfterAuthRefresh({
-        errorInput: new Error(detail || 'Delete image failed.'),
-        operation: () => repository.deleteDishImageByUrl(storeId, clean),
-        isSuccess: value => value
-      })
-
-      if (retry.status === 'handled_without_retry') return
-
-      if (retry.status === 'retried_success') {
-        ok = true
-      } else {
-        showSnackbar('Delete image failed.')
-        return
-      }
-    }
-
-    setEditDishImageUrls(current => current.filter(item => item !== clean))
-    setDishes(current => current.map(item => ({
-      ...item,
-      imageUrls: item.imageUrls.filter(imageUrl => imageUrl !== clean),
-      imageUri: item.imageUri === clean ? item.imageUrls.filter(imageUrl => imageUrl !== clean)[0] || null : item.imageUri
-    })))
-    setDishEntitiesById(current => {
-      let changed = false
-      const next: Record<string, DemoDish> = {}
-
-      Object.entries(current).forEach(([id, dish]) => {
-        const imageUrls = dish.imageUrls.filter(imageUrl => imageUrl !== clean)
-        const imageUri = dish.imageUri === clean ? imageUrls[0] || null : dish.imageUri
-
-        if (imageUrls.length !== dish.imageUrls.length || imageUri !== dish.imageUri) {
-          changed = true
-          next[id] = {
-            ...dish,
-            imageUrls,
-            imageUri
-          }
-          return
-        }
-
-        next[id] = dish
-      })
-
-      return changed ? next : current
-    })
-    showSnackbar('Image deleted.')
-  }
 
   useEffect(() => {
     ndjcTrace('ENTER initial useEffect', {
@@ -11873,6 +8444,7 @@ function backFromAppointments(): void {
       const url = fileOrUrl.trim()
       if (!url) return
 
+      itemEditorImageDraftDirtyRef.current = true
       rememberLocalTempImage(storeId, 'edit-dish', url)
       setEditDishImageUrls(current => {
         if (current.includes(url)) return current
@@ -11892,6 +8464,7 @@ function backFromAppointments(): void {
       return
     }
 
+    itemEditorImageDraftDirtyRef.current = true
     setEditDishImageUrls(current => {
       if (current.includes(uploadedImage.url)) return current
       return [...current, uploadedImage.url]
@@ -11977,7 +8550,7 @@ function backFromAppointments(): void {
     }
   }
 
-async function resolveAnnouncementCoverDraftUrl(fileOrUrl: File | Blob | string): Promise<string | null> {
+  async function resolveAnnouncementCoverDraftUrl(fileOrUrl: File | Blob | string): Promise<string | null> {
   if (typeof fileOrUrl === 'string') {
     const url = fileOrUrl.trim()
     return url || null
@@ -11992,7 +8565,7 @@ async function resolveAnnouncementCoverDraftUrl(fileOrUrl: File | Blob | string)
   return blobToDataImageUrl(compressed)
 }
 
-async function resolveChatDraftImageUrl(fileOrUrl: File | Blob | string): Promise<string | null> {
+  async function resolveChatDraftImageUrl(fileOrUrl: File | Blob | string): Promise<string | null> {
   if (typeof fileOrUrl === 'string') {
     const url = fileOrUrl.trim()
     return url || null
@@ -12002,7 +8575,7 @@ async function resolveChatDraftImageUrl(fileOrUrl: File | Blob | string): Promis
   return blobToDataImageUrl(compressed)
 }
 
-async function handleChatImagePicked(fileOrUrl: File | Blob | string): Promise<void> {
+  async function handleChatImagePicked(fileOrUrl: File | Blob | string): Promise<void> {
   const draftUrl = await resolveChatDraftImageUrl(fileOrUrl)
 
   if (!draftUrl) {
@@ -12042,7 +8615,7 @@ async function handleChatImagePicked(fileOrUrl: File | Blob | string): Promise<v
   }
 }
 
-async function uploadChatDraftImageForSend(input: {
+  async function uploadChatDraftImageForSend(input: {
   sourceUrl: string
   needsUpload: boolean
   conversation: ChatConversation
@@ -12119,370 +8692,32 @@ async function uploadChatDraftImageForSend(input: {
   }
 }
 
-  function toggleFavorite(dishIdInput: string): void {
-    const dishId = dishIdInput.trim()
-    if (!dishId) return
 
-    const isRemoving = favoriteIds.includes(dishId)
 
-    if (isRemoving) {
-      const nextIds = favoriteIds.filter(id => id !== dishId)
-      const nextAddedAt = { ...favoriteAddedAt }
-      const nextSnapshots = { ...favoriteSnapshots }
 
-      delete nextAddedAt[dishId]
-      delete nextSnapshots[dishId]
 
-      persistFavoritesState(nextIds, nextAddedAt, nextSnapshots)
-      setFavoritesSelectedIds(current => current.filter(id => id !== dishId))
-      setStatusMessage('Removed from saved items.')
-      return
-    }
 
-    const dish = getDishEntityById(dishId)
-    const nextIds = [...favoriteIds, dishId]
-    const nextAddedAt = {
-      ...favoriteAddedAt,
-      [dishId]: nowMillis()
-    }
-    const nextSnapshots = {
-      ...favoriteSnapshots
-    }
 
-    if (dish) {
-      nextSnapshots[dishId] = favoriteSnapshotFromDish(dish)
-    }
 
-    persistFavoritesState(nextIds, nextAddedAt, nextSnapshots)
-    setStatusMessage('Saved item.')
-  }
 
-  function clearFavoritesSelection(): void {
-    setFavoritesSelectedIds([])
-  }
 
-  function toggleFavoriteSelection(dishIdInput: string): void {
-    const dishId = dishIdInput.trim()
-    if (!dishId) return
 
-    setFavoritesSelectedIds(current => {
-      if (current.includes(dishId)) {
-        return current.filter(id => id !== dishId)
-      }
 
-      return [...current, dishId]
-    })
-  }
 
-  function deleteSelectedFavorites(): void {
-    const selected = favoritesSelectedIds
-      .map(id => id.trim())
-      .filter(Boolean)
 
-    if (!selected.length) return
 
-    const deletingIds = new Set(selected)
-    const nextIds = favoriteIds.filter(id => !deletingIds.has(id))
-    const nextAddedAt = { ...favoriteAddedAt }
-    const nextSnapshots = { ...favoriteSnapshots }
 
-    selected.forEach(id => {
-      delete nextAddedAt[id]
-      delete nextSnapshots[id]
-    })
 
-    persistFavoritesState(nextIds, nextAddedAt, nextSnapshots)
-    setFavoritesSelectedIds([])
 
-    const removedCount = selected.length
-    setStatusMessage(removedCount === 1
-      ? 'Removed from saved items.'
-      : `Removed ${removedCount} saved items.`)
-  }
 
-  function clearHomeSortAndFilters(): void {
-    setSearchQuery('')
-    setSortMode('Default')
-    setFilterRecommendedOnly(false)
-    setFilterOnSaleOnly(false)
-    setSelectedTags([])
-    setHomePriceMinDraft('')
-    setHomePriceMaxDraft('')
-    setHomeAppliedMinPrice(null)
-    setHomeAppliedMaxPrice(null)
-    setHomeShowSortMenu(false)
-    setHomeShowFilterMenu(false)
-    setHomeShowPriceMenu(false)
-  }
 
-  function clearAdminItemsFilters(): void {
-    setAdminItemsSearchQuery('')
-    setAdminItemsSortMode('Default')
-    setAdminItemsSortAscending(true)
-    setAdminItemsFilterRecommended(false)
-    setAdminItemsFilterHiddenOnly(false)
-    setAdminItemsFilterDiscountOnly(false)
-    setAdminItemsPriceMinDraft('')
-    setAdminItemsPriceMaxDraft('')
-    setAdminItemsAppliedMinPrice(null)
-    setAdminItemsAppliedMaxPrice(null)
-    setAdminItemsSelectedCategory(null)
-  }
 
-  function clearFavoritesFilters(): void {
-    setFavoritesQuery('')
-    setFavoritesSelectedCategory(null)
-    setFavoritesSortMode('Default')
-    setFavoritesFilterRecommendedOnly(false)
-    setFavoritesFilterOnSaleOnly(false)
-    setFavoritesPriceMinDraft('')
-    setFavoritesPriceMaxDraft('')
-    setFavoritesAppliedMinPrice(null)
-    setFavoritesAppliedMaxPrice(null)
-    setFavoritesShowSortMenu(false)
-    setFavoritesShowFilterMenu(false)
-    setFavoritesShowPriceMenu(false)
-  }
 
-  function toggleTag(tagInput: string): void {
-    const tag = tagInput.trim()
-    if (!tag) return
 
-    setSelectedTags(current => {
-      if (current.includes(tag)) {
-        return current.filter(item => item !== tag)
-      }
 
-      return [...current, tag]
-    })
-  }
 
-  function onToggleTag(tag: string): void {
-    toggleTag(tag)
-  }
 
-  function onSelectedTagsChange(tags: string[]): void {
-    const nextTags = Array.from(
-      new Set(
-        tags
-          .map(tag => tag.trim())
-          .filter(Boolean)
-      )
-    )
 
-    setSelectedTags(nextTags)
-    void refreshHomeDishesFilteredFirstPage(currentHomeDishCloudFilters({
-      selectedTags: nextTags
-    }))
-  }
-
-  function onClearTags(): void {
-    setSelectedTags([])
-    void refreshHomeDishesFilteredFirstPage(currentHomeDishCloudFilters({
-      selectedTags: []
-    }))
-  }
-
-  function onSearchQueryChange(value: string): void {
-    setSearchQuery(value)
-
-    homeSearchRequestSeqRef.current += 1
-    const requestSeq = homeSearchRequestSeqRef.current
-
-    if (homeSearchDebounceTimerRef.current != null && isBrowser()) {
-      window.clearTimeout(homeSearchDebounceTimerRef.current)
-      homeSearchDebounceTimerRef.current = null
-    }
-
-    const nextFilters = currentHomeDishCloudFilters({
-      searchQuery: value
-    })
-
-    if (!isBrowser()) {
-      void refreshHomeDishesFilteredFirstPage(nextFilters, requestSeq)
-      return
-    }
-
-    homeSearchDebounceTimerRef.current = window.setTimeout(() => {
-      void refreshHomeDishesFilteredFirstPage(nextFilters, requestSeq)
-    }, 350)
-  }
-
-  function onCategorySelected(value: string | null): void {
-    const category = String(value || '').trim()
-    const nextCategory = category || null
-
-    setSelectedCategory(nextCategory)
-
-    void refreshHomeDishesFilteredFirstPage(currentHomeDishCloudFilters({
-      categoryName: nextCategory
-    }))
-  }
-  function onAdminItemsCategorySelected(value: string | null): void {
-    const category = String(value || '').trim()
-    const nextCategory = category || null
-
-    setAdminItemsSelectedCategory(nextCategory)
-
-    void refreshAdminItemsFilteredFirstPage(currentAdminItemsCloudFilters({
-      categoryName: nextCategory
-    }))
-  }
-  function onSortModeChange(value: ShowcaseHomeSortMode): void {
-    const nextSortMode = normalizeSortMode(value)
-
-    setSortMode(nextSortMode)
-    setHomeShowSortMenu(false)
-
-    void refreshHomeDishesFilteredFirstPage(currentHomeDishCloudFilters({
-      sortMode: nextSortMode
-    }))
-  }
-
-  function onFilterRecommendedOnlyChange(value: boolean): void {
-    setFilterRecommendedOnly(value)
-    void refreshHomeDishesFilteredFirstPage(currentHomeDishCloudFilters({
-      recommendedOnly: value
-    }))
-  }
-
-  function onFilterOnSaleOnlyChange(value: boolean): void {
-    setFilterOnSaleOnly(value)
-    void refreshHomeDishesFilteredFirstPage(currentHomeDishCloudFilters({
-      onSaleOnly: value
-    }))
-  }
-
-  function onApplyHomeFilters(value: {
-    recommendedOnly: boolean
-    onSaleOnly: boolean
-    minPriceDraft: string
-    maxPriceDraft: string
-  }): void {
-    const min = parseHomePriceDraft(value.minPriceDraft)
-    const max = parseHomePriceDraft(value.maxPriceDraft)
-    const nextMin = min != null && max != null && min > max ? max : min
-    const nextMax = min != null && max != null && min > max ? min : max
-
-    setFilterRecommendedOnly(value.recommendedOnly)
-    setFilterOnSaleOnly(value.onSaleOnly)
-    setHomePriceMinDraft(value.minPriceDraft)
-    setHomePriceMaxDraft(value.maxPriceDraft)
-    setHomeAppliedMinPrice(nextMin)
-    setHomeAppliedMaxPrice(nextMax)
-    setHomeShowFilterMenu(false)
-
-    void refreshHomeDishesFilteredFirstPage(currentHomeDishCloudFilters({
-      recommendedOnly: value.recommendedOnly,
-      onSaleOnly: value.onSaleOnly,
-      minPrice: nextMin,
-      maxPrice: nextMax
-    }))
-  }
-
-  function onHomeShowSortMenuChange(value: boolean): void {
-    setHomeShowSortMenu(value)
-  }
-
-  function onHomeShowFilterMenuChange(value: boolean): void {
-    setHomeShowFilterMenu(value)
-  }
-
-  function onHomeShowPriceMenuChange(value: boolean): void {
-    setHomeShowPriceMenu(value)
-  }
-
-  function onHomePriceMinDraftChange(value: string): void {
-    setHomePriceMinDraft(value)
-  }
-
-  function onHomePriceMaxDraftChange(value: string): void {
-    setHomePriceMaxDraft(value)
-  }
-
-  function onHomeApplyPriceRange(): void {
-    const min = parseHomePriceDraft(homePriceMinDraft)
-    const max = parseHomePriceDraft(homePriceMaxDraft)
-    const nextMin = min != null && max != null && min > max ? max : min
-    const nextMax = min != null && max != null && min > max ? min : max
-
-    setHomeAppliedMinPrice(nextMin)
-    setHomeAppliedMaxPrice(nextMax)
-    setHomeShowPriceMenu(false)
-
-    void refreshHomeDishesFilteredFirstPage(currentHomeDishCloudFilters({
-      minPrice: nextMin,
-      maxPrice: nextMax
-    }))
-  }
-
-  function onHomeClearPriceRange(): void {
-    setHomePriceMinDraft('')
-    setHomePriceMaxDraft('')
-    setHomeAppliedMinPrice(null)
-    setHomeAppliedMaxPrice(null)
-    setHomeShowPriceMenu(false)
-
-    void refreshHomeDishesFilteredFirstPage(currentHomeDishCloudFilters({
-      minPrice: null,
-      maxPrice: null
-    }))
-  }
-
-  function onClearSortAndFilters(): void {
-    clearHomeSortAndFilters()
-
-    void refreshHomeDishesFilteredFirstPage(currentHomeDishCloudFilters({
-      searchQuery: '',
-      selectedTags: [],
-      recommendedOnly: false,
-      onSaleOnly: false,
-      minPrice: null,
-      maxPrice: null,
-      sortMode: 'Default'
-    }))
-  }
-
-  function onClearAll(): void {
-    clearHomeSortAndFilters()
-    setSelectedCategory(null)
-    setSelectedTags([])
-    setHomePriceMinDraft('')
-    setHomePriceMaxDraft('')
-    setHomeAppliedMinPrice(null)
-    setHomeAppliedMaxPrice(null)
-    setHomeShowPriceMenu(false)
-
-    void refreshHomeDishesFilteredFirstPage({
-      categoryName: null,
-      searchQuery: '',
-      selectedTags: [],
-      recommendedOnly: false,
-      onSaleOnly: false,
-      minPrice: null,
-      maxPrice: null,
-      includeHidden: false,
-      hiddenOnly: false,
-      sortMode: 'Default'
-    })
-  }
-
-  function onHomeDishSelected(dishId: string): void {
-    openDetail(dishId)
-  }
-
-  function onHomeProfileClick(): void {
-    setPreviousScreen(ShowcaseScreens.Home)
-
-    if (isAdminLoggedIn) {
-      setScreen(ShowcaseScreens.Admin)
-      void refreshAdminHomeCloudState(false)
-      return
-    }
-
-    prepareLoginScreen(null)
-    setScreen(ShowcaseScreens.Login)
-  }
 
   function onLoginUsernameDraftChange(value: string): void {
     setLoginUsernameDraft(value)
@@ -12527,1224 +8762,215 @@ async function uploadChatDraftImageForSend(input: {
     await signInMerchant(nextUsername, nextPassword)
   }
 
-  function onFavoritesQueryChange(value: string): void {
-    setFavoritesQuery(value)
-  }
 
-  function onFavoritesOpenDetail(dishId: string): void {
-    openDetail(dishId)
-  }
 
-  function onFavoritesToggleSelect(dishId: string): void {
-    toggleFavoriteSelection(dishId)
-  }
 
-  function onFavoritesClearSelection(): void {
-    clearFavoritesSelection()
-  }
 
-  function onFavoritesDeleteSelected(): void {
-    deleteSelectedFavorites()
-  }
 
-  function onFavoritesSortModeChange(value: ShowcaseHomeSortMode): void {
-    setFavoritesSortMode(normalizeSortMode(value))
-  }
 
-  function onFavoritesFilterRecommendedOnlyChange(value: boolean): void {
-    setFavoritesFilterRecommendedOnly(value)
-  }
 
-  function onFavoritesFilterOnSaleOnlyChange(value: boolean): void {
-    setFavoritesFilterOnSaleOnly(value)
-  }
 
-  function onFavoritesClearSortAndFilters(): void {
-    clearFavoritesFilters()
-  }
 
-  function onFavoritesShowSortMenuChange(value: boolean): void {
-    setFavoritesShowSortMenu(value)
-  }
 
-  function onFavoritesShowFilterMenuChange(value: boolean): void {
-    setFavoritesShowFilterMenu(value)
-  }
 
-  function onFavoritesShowPriceMenuChange(value: boolean): void {
-    setFavoritesShowPriceMenu(value)
-  }
 
-  function onFavoritesPriceMinDraftChange(value: string): void {
-    setFavoritesPriceMinDraft(value)
-  }
 
-  function onFavoritesPriceMaxDraftChange(value: string): void {
-    setFavoritesPriceMaxDraft(value)
-  }
 
-  function onFavoritesApplyPriceRange(): void {
-    applyPriceRangeFromDrafts(
-      favoritesPriceMinDraft,
-      favoritesPriceMaxDraft,
-      setFavoritesAppliedMinPrice,
-      setFavoritesAppliedMaxPrice
-    )
-    setFavoritesShowPriceMenu(false)
-    setFavoritesShowFilterMenu(false)
-  }
 
-  function onFavoritesClearPriceRange(): void {
-    setFavoritesPriceMinDraft('')
-    setFavoritesPriceMaxDraft('')
-    setFavoritesAppliedMinPrice(null)
-    setFavoritesAppliedMaxPrice(null)
-  }
 
-  function onFavoritesCategorySelected(value: string | null): void {
-    const category = String(value || '').trim()
-    setFavoritesSelectedCategory(category || null)
-  }
 
   function closeFavoritesPage(): void {
     closeFavorites()
   }
 
-  async function openAppointmentForDish(dishIdInput: string): Promise<void> {
-    const dishId = dishIdInput.trim()
-    const dish = getDishEntityById(dishId) || await ensureDishEntityLoaded(dishId)
 
-    if (!dish || dish.isSoldOut) {
-      setStatusMessage('Please select an item first.')
-      return
-    }
-
-    if (!appointmentsEnabled) {
-      setStatusMessage('Appointment booking is not enabled.')
-      return
-    }
-
-    const serviceTitle = getDishTitle(dish).trim() || 'Selected item'
-    const originalDetailBackTarget = screen === ShowcaseScreens.Detail
-      ? detailBackTargetRef.current || ShowcaseScreens.Home
-      : ShowcaseScreens.Home
-
-    appointmentDetailBackTargetRef.current = originalDetailBackTarget
-
-    setAppointmentSourceDishId(dish.id)
-    setAppointmentServiceDraft(serviceTitle)
-    setAppointmentDateDraft('')
-    setAppointmentTimeDraft('')
-    setAppointmentError(null)
-    setAppointmentSuccess(null)
-    setPreviousScreen(screen)
-    setScreen('Appointments')
-  }
-
-  async function submitAppointmentRequest(): Promise<void> {
-    if (appointmentsRefreshing) {
-      return
-    }
-
-    setAppointmentError(null)
-    setAppointmentSuccess(null)
-
-    if (guardOfflineWriteOperation()) {
-      setAppointmentError('You are offline. Please reconnect and try again.')
-      setAppointmentSuccess(null)
-      return
-    }
-
-    if (!appointmentsEnabled) {
-      setAppointmentError('Appointment booking is not enabled.')
-      setAppointmentSuccess(null)
-      return
-    }
-
-    const sourceDish = appointmentSourceDishId
-      ? getDishEntityById(appointmentSourceDishId) || await ensureDishEntityLoaded(appointmentSourceDishId)
-      : null
-
-    const serviceTitle = sourceDish
-      ? getDishTitle(sourceDish).trim()
-      : appointmentServiceDraft.trim()
-
-    const customerName = appointmentNameDraft.trim()
-    const customerContact = appointmentContactDraft.trim()
-    const preferredDate = appointmentDateDraft.trim()
-    const preferredTime = appointmentTimeDraft.trim()
-    const note = appointmentNoteDraft.trim()
-
-    if (!customerName) {
-      setAppointmentError('Please enter your name.')
-      setAppointmentSuccess(null)
-      return
-    }
-
-    if (!customerContact) {
-      setAppointmentError('Please enter your contact information.')
-      setAppointmentSuccess(null)
-      return
-    }
-
-    if (!sourceDish || !serviceTitle) {
-      setAppointmentError('Please select an item to book.')
-      setAppointmentSuccess(null)
-      return
-    }
-
-    if (!preferredDate) {
-      setAppointmentError('Please select your preferred date.')
-      setAppointmentSuccess(null)
-      return
-    }
-
-    const availableDateValues = customerAppointmentDateChoices()
-      .filter(option => option.available)
-      .map(option => option.value)
-
-    if (!availableDateValues.includes(preferredDate)) {
-      setAppointmentError('Please select an available date.')
-      setAppointmentSuccess(null)
-      return
-    }
-
-    if (!preferredTime) {
-      setAppointmentError('Please select your preferred time.')
-      setAppointmentSuccess(null)
-      return
-    }
-
-    const availableTimeValues = customerAppointmentTimeOptions(preferredDate)
-
-    if (!availableTimeValues.includes(preferredTime)) {
-      setAppointmentError('Please select an available time.')
-      setAppointmentSuccess(null)
-      return
-    }
-
-    setAppointmentsRefreshing(true)
-
-    try {
-      const created = await repository.submitAppointmentRequest({
-        storeId,
-        clientId,
-        customerName,
-        customerContact,
-        serviceTitle: serviceTitle || 'Selected item',
-        preferredDate,
-        preferredTime,
-        note,
-        sourceDishId: sourceDish.id,
-        sourcePriceSnapshot: encodeAppointmentPriceSnapshotFromDish(sourceDish),
-        sourceImageUrlSnapshot: resolveDishImage(sourceDish),
-        sourceCategorySnapshot: sourceDish.category || null,
-        sourceRecommendedSnapshot: Boolean(sourceDish.isRecommended)
-      })
-
-      if (!created) {
-        const detail = [
-          repository.lastUpsertCode != null ? `code=${repository.lastUpsertCode}` : '',
-          repository.lastUpsertBody ? `body=${repository.lastUpsertBody.slice(0, 300)}` : ''
-        ].filter(Boolean).join(' ')
-
-        throw new Error(detail || 'Booking request failed. Please check your connection.')
-      }
-
-      const next = [created, ...appointmentRequests.filter(item => item.id !== created.id)]
-
-      setAppointmentRequests(next)
-      persistAppointmentsLocally(storeId, next)
-      setScreen(ShowcaseScreens.CustomerBookings)
-      setAppointmentNameDraft('')
-      setAppointmentContactDraft('')
-      setAppointmentDateDraft('')
-      setAppointmentTimeDraft('')
-      setAppointmentNoteDraft('')
-      setAppointmentError(null)
-      setAppointmentSuccess(null)
-      setStatusMessage('Booking request sent. Check the status here.')
-
-      await registerAppointmentClientPushDevice('customer-booking-submitted', true)
-      await dispatchNewAppointmentPushToMerchant(created)
-      await refreshCustomerAppointmentsFromCloud()
-    } catch {
-      setAppointmentError('Booking request failed. Please check your connection.')
-      setAppointmentSuccess(null)
-    } finally {
-      setAppointmentsRefreshing(false)
-    }
-  }
-
-  async function saveAppointmentSettings(
-    value?: ShowcaseAppointmentSettingsSaveInput
-  ): Promise<void> {
-    if (guardOfflineWriteOperation()) {
-      return
-    }
-
-    if (!value) {
-      await saveAppointmentSettingsToCloud()
-      return
-    }
-
-    const normalizedHours = normalizeAppointmentAvailableHoursText(value.availableHoursText)
-    const nextSettings = currentAppointmentSettingsForCloud({
-      enabled: value.enabled,
-      bookingWindowDays: value.bookingWindowDays,
-      availableStartTime: normalizedHours.start,
-      availableEndTime: normalizedHours.end,
-      slotIntervalMinutes: value.slotIntervalMinutes,
-      closedDays: value.closedDays,
-      minimumNotice: value.minimumNotice
-    })
-
-    await saveAppointmentSettingsToCloud(nextSettings)
-  }
-
-  async function refreshAppointments(): Promise<void> {
-    if (isAdminLoggedIn) {
-      await refreshAdminAppointmentsFromCloud()
-    } else {
-      await refreshCustomerAppointmentsFromCloud()
-    }
-
-    showSnackbar('Bookings refreshed.')
-  }
-
-async function updateAppointmentStatus(appointmentIdInput: string, statusInput: string): Promise<void> {
-  if (appointmentStatusSubmittingId) return
-
-  const appointmentId = appointmentIdInput.trim()
-  const statusLabel = appointmentsStatusFromCloud(statusInput)
-  const status = appointmentsStatusToCloud(statusLabel)
-
-  if (!appointmentId || !status) return
-
-  const previous = appointmentRequests
-  const previousTarget = previous.find(item => item.id === appointmentId) || null
-
-  if (previousTarget?.status === 'cancelled' && previousTarget.cancelledBy === 'customer') {
-    setStatusMessage('This booking was cancelled by the customer and can no longer be changed.')
-    showSnackbar('This booking was cancelled by the customer.')
-    return
-  }
-
-  if (guardOfflineWriteOperation()) {
-    return
-  }
-
-  setAppointmentStatusSubmittingId(appointmentId)
-
-  const previousStatus = previousTarget?.status || null
-
-  const statusCancelledAt = status === 'cancelled' ? Date.now() : null
-  const statusCancelledBy = status === 'cancelled' ? 'merchant' : null
-
-  const next = previous.map(item => {
-    if (item.id !== appointmentId) return item
-
-    return {
-      ...item,
-      status,
-      cancelledBy: statusCancelledBy,
-      cancelledAt: statusCancelledAt
-    }
+  const {
+    openAppointmentForDish,
+    submitAppointmentRequest,
+    saveAppointmentSettings,
+    refreshAppointments,
+    updateAppointmentStatus,
+    cancelCustomerBooking,
+    normalizeAppointmentAvailableHoursText,
+    normalizeAppointmentBookingWindowDays,
+    normalizeAppointmentSlotIntervalMinutes,
+    normalizeAppointmentMinimumNotice,
+    normalizeAppointmentClosedDays,
+    nextClosedDaysAfterToggle,
+    applyCloudAppointmentSettings,
+    formatAppointmentPushShortTime,
+    formatNewAppointmentMerchantPushBody,
+    formatCancelledAppointmentMerchantPushBody,
+    formatAppointmentStatusCustomerPushBody,
+    appointmentPushTimeText,
+    appointmentStatusFromCloud,
+    appointmentStatusLabelForAdminFilter,
+    currentAppointmentSettingsForCloud,
+    applyAppointmentSettingsLocally,
+    customerAppointmentDateChoices,
+    customerAppointmentRuleSummary,
+    customerAppointmentTimeOptions,
+    filteredAdminAppointments,
+    filteredCustomerAppointments,
+    currentAdminAppointmentCloudFilters,
+    currentCustomerAppointmentCloudFilters,
+    appointmentFilterRowMatchesStatus,
+    appointmentFilterRowMatchesService,
+    appointmentFilterRowsToFutureDateOptions,
+    appointmentFilterRowMatchesDate,
+    appointmentFilterRowsToServiceOptions,
+    resetAdminAppointmentsPaginationForFirstPage,
+    resetCustomerAppointmentsPaginationForFirstPage,
+    onAppointmentAdminDateFilterChange,
+    onAppointmentAdminHistoryDateClear,
+    onAppointmentAdminHistoryDateSelected,
+    onAppointmentAdminServiceFilterChange,
+    onAppointmentAdminStatusFilterChange,
+    onAppointmentAvailableHoursTextChange,
+    onAppointmentBookingWindowDaysChange,
+    onAppointmentClosedDayToggle,
+    onAppointmentContactDraftChange,
+    onAppointmentCustomerDateFilterChange,
+    onAppointmentCustomerServiceFilterChange,
+    onAppointmentCustomerStatusFilterChange,
+    onAppointmentDateDraftChange,
+    onAppointmentMinimumNoticeChange,
+    onAppointmentNameDraftChange,
+    onAppointmentNoteDraftChange,
+    onAppointmentServiceDraftChange,
+    onAppointmentSlotIntervalMinutesChange,
+    onAppointmentTimeDraftChange,
+    onAppointmentsEnabledChange,
+    refreshAdminAppointmentsFromCloud,
+    refreshCustomerAppointmentsFromCloud,
+    saveAppointmentSettingsToCloud,
+    loadMoreCustomerAppointments,
+    loadMoreAdminAppointments,
+    refreshBookingsEntryDotOnce
+  } = createShowcaseBookingActions({
+    SHOWCASE_PAGE_SIZE,
+    ShowcaseScreens,
+    adminAppointmentsPagination,
+    appointmentAdminDateFilter,
+    appointmentAdminHistoryDateFilter,
+    appointmentAdminServiceFilter,
+    appointmentAdminStatusFilter,
+    appointmentAvailableHoursText,
+    appointmentBookingWindowDays,
+    appointmentCards,
+    appointmentClosedDays,
+    appointmentCloudCancelledByFilterFromUi,
+    appointmentCloudCancelledByNotFilterFromUi,
+    appointmentCloudDateFiltersFromUi,
+    appointmentCloudServiceFilterFromUi,
+    appointmentCloudStatusFilterFromUi,
+    appointmentContactDraft,
+    appointmentCustomerDateFilter,
+    appointmentCustomerServiceFilter,
+    appointmentCustomerStatusFilter,
+    appointmentDateDraft,
+    appointmentDetailBackTargetRef,
+    appointmentLocalDateKey,
+    appointmentMinimumNotice,
+    appointmentNameDraft,
+    appointmentNoteDraft,
+    appointmentRequests,
+    appointmentServiceDraft,
+    appointmentSettings,
+    appointmentSlotIntervalMinutes,
+    appointmentSourceDishId,
+    appointmentStatusAlertKey,
+    appointmentStatusSubmittingId,
+    appointmentTimeDraft,
+    appointmentsEnabled,
+    appointmentsRefreshing,
+    appointmentsStatusFromCloud,
+    appointmentsStatusToCloud,
+    bindMerchantSessionToRepository,
+    canCustomerCancelAppointmentStatus,
+    clientId,
+    currentScreenRef,
+    customerAppointmentCards,
+    customerAppointmentDateOptions,
+    customerAppointmentTimeOptionsForDate,
+    customerAppointmentsPagination,
+    defaultAppointmentSettings,
+    detailBackTargetRef,
+    dispatchAppointmentStatusPushToCustomer,
+    dispatchCustomerCancelledAppointmentPushToMerchant,
+    dispatchNewAppointmentPushToMerchant,
+    encodeAppointmentPriceSnapshotFromDish,
+    ensureDishEntityLoaded,
+    ensureValidMerchantSessionLoadedForCloud,
+    formatDateTimeText,
+    formatShowcaseDateAndTimeParts,
+    getDishEntityById,
+    getDishTitle,
+    guardOfflineWriteOperation,
+    hydrateAppointmentLinkedDishesFromRequests,
+    isAdminLoggedIn,
+    isAdminLoggedInRef,
+    isCustomerBookingAlertStatus,
+    isMerchantLoggedInInStoreSession,
+    loadAppointmentsFromStorage,
+    loadSeenAppointmentStatusAlertKeys,
+    merchantSessionEnsureFailureMessage,
+    merchantSessionEnsureSnackbarMessage,
+    mergeUniqueById,
+    nowMillis,
+    parseShowcaseDateInput,
+    persistAppointmentsLocally,
+    updateAdminPendingAppointmentCountSnapshotFromItems,
+    pruneBookingSeenWhenCompletePageLoaded,
+    pushPendingSync,
+    registerAppointmentClientPushDevice,
+    removePendingSync,
+    repository,
+    resolveDishImage,
+    retryMerchantCloudOperationAfterAuthRefresh,
+    screen,
+    setAdminAppointmentFilterRows,
+    setAdminAppointmentsPagination,
+    setAppointmentAdminDateFilter,
+    setAppointmentAdminHistoryDateFilter,
+    setAppointmentAdminServiceFilter,
+    setAppointmentAdminStatusFilter,
+    setAppointmentAvailableHoursText,
+    setAppointmentBookingWindowDays,
+    setAppointmentClosedDays,
+    setAppointmentContactDraft,
+    setAppointmentCustomerDateFilter,
+    setAppointmentCustomerServiceFilter,
+    setAppointmentCustomerStatusFilter,
+    setAppointmentDateDraft,
+    setAppointmentError,
+    setAppointmentMinimumNotice,
+    setAppointmentNameDraft,
+    setAppointmentNoteDraft,
+    setAppointmentRequests,
+    setAppointmentServiceDraft,
+    setAppointmentSettings,
+    setAppointmentSettingsSubmitting,
+    setAppointmentSlotIntervalMinutes,
+    setAppointmentSourceDishId,
+    setAppointmentStatusSubmittingId,
+    setAppointmentSuccess,
+    setAppointmentTimeDraft,
+    setAppointmentsEnabled,
+    setAppointmentsRefreshing,
+    setBookingsEntryDotVisible: setBookingsEntryDotVisibleAndPersist,
+    setCustomerAppointmentFilterRows,
+    setCustomerAppointmentsPagination,
+    setPreviousScreen,
+    setScreen,
+    setStatusMessage,
+    setStoreMerchantSessionFromAuthSession,
+    showSnackbar,
+    sortedAppointmentsForStorage,
+    storeId
   })
 
-  const nextTarget = next.find(item => item.id === appointmentId) || null
-
-  setAppointmentRequests(next)
-  persistAppointmentsLocally(storeId, next)
-  setStatusMessage(null)
-
-  try {
-    const validSession = await ensureValidMerchantSessionLoadedForCloud()
-
-    if (!validSession) {
-      setAppointmentRequests(previous)
-      persistAppointmentsLocally(storeId, previous)
-      setStatusMessage(merchantSessionEnsureFailureMessage())
-      showSnackbar(merchantSessionEnsureSnackbarMessage())
-      return
-    }
-
-    setStoreMerchantSessionFromAuthSession(validSession)
-    bindMerchantSessionToRepository(repository)
-
-    let ok = await repository.updateAppointmentStatus({
-      storeId,
-      appointmentId,
-      status
-    })
-
-    if (!ok) {
-      const detail = [
-        repository.lastUpsertCode != null ? `code=${repository.lastUpsertCode}` : '',
-        repository.lastUpsertBody ? `body=${repository.lastUpsertBody.slice(0, 300)}` : ''
-      ].filter(Boolean).join(' ')
-
-      const retry = await retryMerchantCloudOperationAfterAuthRefresh({
-        errorInput: new Error(detail || 'Appointment status update failed.'),
-        operation: () => repository.updateAppointmentStatus({
-          storeId,
-          appointmentId,
-          status
-        }),
-        isSuccess: value => value
-      })
-
-      if (retry.status === 'handled_without_retry') return
-
-      if (retry.status === 'retried_success') {
-        ok = true
-      } else {
-        throw new Error('Appointment status update failed.')
-      }
-    }
-
-    if (previousStatus !== status && nextTarget && isCustomerBookingAlertStatus(status)) {
-      await dispatchAppointmentStatusPushToCustomer(nextTarget, status)
-    }
-
-    await refreshAdminAppointmentsFromCloud('Appointment status updated.')
-  } catch {
-    setAppointmentRequests(previous)
-    persistAppointmentsLocally(storeId, previous)
-    setStatusMessage('Appointment status update failed.')
-    showSnackbar('Booking status update failed.')
-  } finally {
-    setAppointmentStatusSubmittingId(null)
-  }
-}
-
-async function cancelCustomerBooking(appointmentIdInput: string): Promise<void> {
-  if (appointmentStatusSubmittingId) return
-
-  const appointmentId = appointmentIdInput.trim()
-  const currentClientId = clientId.trim()
-
-  if (!appointmentId || !currentClientId) return
-
-  const target = appointmentRequests.find(item => {
-    return item.id === appointmentId && item.clientId.trim() === currentClientId
-  }) || null
-
-  if (!target || !canCustomerCancelAppointmentStatus(target.status)) {
-    setStatusMessage('This booking can no longer be cancelled.')
-    showSnackbar('This booking can no longer be cancelled.')
-    return
-  }
-
-  if (guardOfflineWriteOperation()) {
-    setStatusMessage('You are offline. Please reconnect and try again.')
-    showSnackbar('You are offline. Please reconnect and try again.')
-    return
-  }
-
-  setAppointmentStatusSubmittingId(appointmentId)
-
-  const previous = appointmentRequests
-  const cancelledAt = Date.now()
-  const next = previous.map(item => {
-    if (item.id !== appointmentId) return item
-
-    return {
-      ...item,
-      status: 'cancelled',
-      cancelledBy: 'customer',
-      cancelledAt
-    }
-  })
-
-  setAppointmentRequests(next)
-  persistAppointmentsLocally(storeId, next)
-  setStatusMessage(null)
-
-  try {
-    const ok = await repository.cancelAppointmentByCustomer({
-      storeId,
-      appointmentId,
-      clientId: currentClientId
-    })
-
-    if (!ok) {
-      const detail = [
-        repository.lastUpsertCode != null ? `code=${repository.lastUpsertCode}` : '',
-        repository.lastUpsertBody ? `body=${repository.lastUpsertBody.slice(0, 300)}` : ''
-      ].filter(Boolean).join(' ')
-
-      throw new Error(detail || 'Booking cancellation failed.')
-    }
-
-    const cancelledTarget = next.find(item => item.id === appointmentId) || null
-    let pushFailureDetail = ''
-
-    if (cancelledTarget) {
-      try {
-        await dispatchCustomerCancelledAppointmentPushToMerchant(cancelledTarget)
-      } catch (pushError) {
-        pushFailureDetail = pushError instanceof Error
-          ? pushError.message
-          : String(pushError || 'Customer cancelled appointment push failed.')
-
-        console.error('[NDJC_PUSH] Customer cancelled appointment push failed after cloud cancellation succeeded.', {
-          storeId,
-          appointmentId,
-          clientId: currentClientId,
-          detail: pushFailureDetail,
-          code: repository.lastAnnouncementPushCode,
-          body: repository.lastAnnouncementPushBody
-        })
-      }
-    }
-
-    await refreshCustomerAppointmentsFromCloud('Booking cancelled.')
-
-    if (pushFailureDetail) {
-      const detail = pushFailureDetail.slice(0, 240)
-      setStatusMessage(`Booking cancelled, but push notification failed. ${detail}`)
-      showSnackbar('Booking cancelled, but push notification failed.')
-      return
-    }
-
-    showSnackbar('Booking cancelled.')
-  } catch (error) {
-    const detail = error instanceof Error ? error.message : String(error || '')
-    console.error('[NDJC_APPOINTMENT_CANCEL] Customer booking cancellation failed.', {
-      storeId,
-      appointmentId,
-      clientId: currentClientId,
-      detail,
-      code: repository.lastUpsertCode,
-      body: repository.lastUpsertBody
-    })
-
-    setAppointmentRequests(previous)
-    persistAppointmentsLocally(storeId, previous)
-    setStatusMessage('Booking cancellation failed.')
-    showSnackbar('Booking cancellation failed.')
-  } finally {
-    setAppointmentStatusSubmittingId(null)
-  }
-}
-
-  function normalizeAppointmentAvailableHoursText(valueInput: string): {
-    text: string
-    start: string
-    end: string
-  } {
-    const normalized = valueInput.trim().replace(/–/g, '-').replace(/\s*-\s*/g, '-')
-    const parts = normalized.split('-').map(item => item.trim())
-    const start = parts[0]?.match(/^\d{2}:\d{2}$/) ? parts[0] : '09:00'
-    const end = parts[1]?.match(/^\d{2}:\d{2}$/) ? parts[1] : '18:00'
-
-    if (start >= end) {
-      return {
-        text: '09:00 - 18:00',
-        start: '09:00',
-        end: '18:00'
-      }
-    }
-
-    return {
-      text: `${start} - ${end}`,
-      start,
-      end
-    }
-  }
-
-  function normalizeAppointmentBookingWindowDays(valueInput: number): number {
-    const rounded = Math.round(valueInput)
-
-    return [1, 2, 3, 4, 5, 6, 7].includes(rounded) ? rounded : 7
-  }
-
-  function normalizeAppointmentSlotIntervalMinutes(valueInput: number): number {
-    const rounded = Math.round(valueInput)
-
-    return rounded === 30 || rounded === 60 ? rounded : 30
-  }
-
-  function normalizeAppointmentMinimumNotice(valueInput: string): string {
-    const trimmed = valueInput.trim()
-
-    return [
-      'No notice',
-      '1 hour',
-      '2 hours',
-      '6 hours',
-      '12 hours',
-      '1 day',
-      '2 days',
-      '3 days'
-    ].includes(trimmed)
-      ? trimmed
-      : 'No notice'
-  }
-
-  function normalizeAppointmentClosedDays(valueInput: string[]): string[] {
-    const allowedDays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
-
-    return allowedDays.filter(day => valueInput.includes(day))
-  }
-
-  function nextClosedDaysAfterToggle(current: string[], dayInput: string): string[] {
-    const day = dayInput.trim()
-    const allowedDays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
-
-    if (!allowedDays.includes(day)) {
-      return normalizeAppointmentClosedDays(current)
-    }
-
-    if (current.includes(day)) {
-      return normalizeAppointmentClosedDays(current.filter(item => item !== day))
-    }
-
-    return normalizeAppointmentClosedDays([...current, day])
-  }
-
-  function applyCloudAppointmentSettings(settingsInput: CloudAppointmentSettings | null): void {
-    const settings = settingsInput || defaultAppointmentSettings(storeId)
-
-    setAppointmentSettings(settings)
-    setAppointmentsEnabled(settings.enabled)
-    setAppointmentBookingWindowDays(settings.bookingWindowDays)
-    setAppointmentAvailableHoursText(`${settings.availableStartTime} - ${settings.availableEndTime}`)
-    setAppointmentSlotIntervalMinutes(settings.slotIntervalMinutes)
-    setAppointmentClosedDays(settings.closedDays)
-    setAppointmentMinimumNotice(settings.minimumNotice)
-  }
-
-  function formatAppointmentPushShortTime(
-    dateInput: string | number | Date | null | undefined,
-    timeInput: string | null | undefined
-  ): string {
-    const combined = formatShowcaseDateAndTimeParts(dateInput, timeInput)
-    const date = parseShowcaseDateInput(dateInput)
-    const rawTime = String(timeInput || '').trim()
-
-    if (!date) return combined || rawTime
-
-    const now = new Date()
-    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
-    const targetDay = new Date(date.getFullYear(), date.getMonth(), date.getDate())
-    const diffDays = Math.round((targetDay.getTime() - today.getTime()) / 86400000)
-    const timeText = rawTime || date.toLocaleTimeString('en-US', {
-      hour: 'numeric',
-      minute: '2-digit',
-      hour12: true
-    })
-
-    if (diffDays === 0) return timeText ? `Today ${timeText}` : 'Today'
-    if (diffDays === 1) return timeText ? `Tomorrow ${timeText}` : 'Tomorrow'
-
-    return combined
-  }
-
-function formatNewAppointmentMerchantPushBody(appointment: CloudAppointmentRequest): string {
-  const customerName = String(appointment.customerName || '').trim() || 'A customer'
-  const serviceTitle = String(appointment.serviceTitle || '').trim()
-  const shortTime = formatAppointmentPushShortTime(appointment.preferredDate, appointment.preferredTime)
-  const parts = [
-    customerName,
-    serviceTitle,
-    shortTime
-  ].map(value => String(value || '').trim()).filter(Boolean)
-
-  if (parts.length > 0) return parts.join(' · ')
-
-  return 'A customer submitted a booking request'
-}
-
-function formatCancelledAppointmentMerchantPushBody(appointment: CloudAppointmentRequest): string {
-  const customerName = String(appointment.customerName || '').trim() || 'A customer'
-  const serviceTitle = String(appointment.serviceTitle || '').trim()
-  const shortTime = formatAppointmentPushShortTime(appointment.preferredDate, appointment.preferredTime)
-  const parts = [
-    customerName,
-    serviceTitle,
-    shortTime
-  ].map(value => String(value || '').trim()).filter(Boolean)
-
-  if (parts.length > 0) {
-    return parts.join(' · ')
-  }
-
-  return 'A customer booking request'
-}
-
-  function formatAppointmentStatusCustomerPushBody(appointment: CloudAppointmentRequest): string {
-    const serviceTitle = String(appointment.serviceTitle || '').trim()
-    const shortTime = formatAppointmentPushShortTime(appointment.preferredDate, appointment.preferredTime)
-    const parts = [
-      serviceTitle,
-      shortTime
-    ].map(value => String(value || '').trim()).filter(Boolean)
-
-    if (parts.length > 0) return parts.join(' · ')
-
-    return 'Your booking was updated'
-  }
-
-  function appointmentPushTimeText(valueInput: number | string | null | undefined): string {
-    if (typeof valueInput === 'number') {
-      return formatDateTimeText(valueInput) || 'Just now'
-    }
-
-    if (typeof valueInput === 'string' && valueInput.trim()) {
-      return valueInput.trim()
-    }
-
-    return 'Just now'
-  }
-
-  function appointmentStatusFromCloud(valueInput: string | null | undefined): string {
-    return appointmentsStatusFromCloud(valueInput)
-  }
-
-  function appointmentStatusLabelForAdminFilter(valueInput: string | null | undefined): string {
-    return appointmentStatusFromCloud(valueInput)
-  }
-
-  function currentAppointmentSettingsForCloud(
-    overrides: Partial<CloudAppointmentSettings> = {}
-  ): CloudAppointmentSettings {
-    const normalizedHours = normalizeAppointmentAvailableHoursText(
-      overrides.availableStartTime && overrides.availableEndTime
-        ? `${overrides.availableStartTime} - ${overrides.availableEndTime}`
-        : appointmentAvailableHoursText
-    )
-
-    const bookingWindowDays = normalizeAppointmentBookingWindowDays(
-      Number(overrides.bookingWindowDays ?? appointmentBookingWindowDays)
-    )
-
-    const slotIntervalMinutes = normalizeAppointmentSlotIntervalMinutes(
-      Number(overrides.slotIntervalMinutes ?? appointmentSlotIntervalMinutes)
-    )
-
-    const minimumNotice = normalizeAppointmentMinimumNotice(
-      String(overrides.minimumNotice ?? appointmentMinimumNotice)
-    )
-
-    const closedDays = normalizeAppointmentClosedDays(
-      Array.isArray(overrides.closedDays) ? overrides.closedDays : appointmentClosedDays
-    )
-
-    return {
-      storeId,
-      enabled: Boolean(overrides.enabled ?? appointmentsEnabled),
-      bookingWindowDays,
-      availableStartTime: String(overrides.availableStartTime || normalizedHours.start),
-      availableEndTime: String(overrides.availableEndTime || normalizedHours.end),
-      slotIntervalMinutes,
-      closedDays,
-      minimumNotice,
-      updatedAt: nowMillis()
-    }
-  }
-
-  function applyAppointmentSettingsLocally(settings: CloudAppointmentSettings): void {
-    setAppointmentSettings(settings)
-    setAppointmentsEnabled(settings.enabled)
-    setAppointmentBookingWindowDays(settings.bookingWindowDays)
-    setAppointmentAvailableHoursText(`${settings.availableStartTime} - ${settings.availableEndTime}`)
-    setAppointmentSlotIntervalMinutes(settings.slotIntervalMinutes)
-    setAppointmentClosedDays(settings.closedDays)
-    setAppointmentMinimumNotice(settings.minimumNotice)
-  }
-
-  function customerAppointmentDateChoices(): ShowcaseAppointmentDateOption[] {
-    return customerAppointmentDateOptions(appointmentSettings)
-  }
-
-  function customerAppointmentRuleSummary(): string {
-    if (!appointmentsEnabled) {
-      return 'Booking unavailable'
-    }
-
-    const availableStartTime = appointmentSettings.availableStartTime.trim() || '09:00'
-    const availableEndTime = appointmentSettings.availableEndTime.trim() || '18:00'
-    const minimumNotice = appointmentSettings.minimumNotice.trim()
-    const minimumNoticeText = !minimumNotice || minimumNotice.toLowerCase() === 'no notice'
-      ? 'Book anytime'
-      : `Book ${minimumNotice} ahead`
-
-    return `Open for booking · ${availableStartTime}-${availableEndTime} · ${minimumNoticeText}`
-  }
-
-  function customerAppointmentTimeOptions(dateValue?: string | null): string[] {
-    return customerAppointmentTimeOptionsForDate(
-      appointmentSettings,
-      dateValue || appointmentDateDraft
-    )
-  }
-
-  function filteredAdminAppointments(): ShowcaseAppointmentCard[] {
-    const today = appointmentLocalDateKey(new Date())
-    const historyDate = appointmentAdminHistoryDateFilter?.trim() || ''
-    const selectedDate = historyDate || appointmentAdminDateFilter.trim() || 'All'
-    const selectedStatus = appointmentAdminStatusFilter.trim() || 'All'
-    const selectedService = appointmentAdminServiceFilter.trim() || 'All'
-
-    return appointmentCards
-      .filter(item => {
-        if (historyDate) {
-          return item.preferredDate === historyDate
-        }
-
-        if (selectedDate === 'All') {
-          return item.preferredDate >= today
-        }
-
-        return item.preferredDate === selectedDate
-      })
-      .filter(item => {
-        const serviceTitle = item.serviceTitle?.trim() || 'General appointment'
-        return selectedService === 'All' || serviceTitle === selectedService
-      })
-      .filter(item => {
-        const normalizedSelectedStatus = selectedStatus.trim().toLowerCase()
-        const normalizedItemStatus = String(item.statusLabel || '').trim().toLowerCase()
-        const normalizedCancelledBy = String(item.cancelledBy || '').trim().toLowerCase()
-
-        if (normalizedSelectedStatus === 'all') return true
-
-        if (normalizedSelectedStatus === 'cancelled by customer') {
-          return normalizedItemStatus === 'cancelled' && normalizedCancelledBy === 'customer'
-        }
-
-        if (normalizedSelectedStatus === 'cancelled') {
-          return normalizedItemStatus === 'cancelled' && normalizedCancelledBy !== 'customer'
-        }
-
-        return item.statusLabel === selectedStatus
-      })
-      .sort((left, right) => {
-        const leftPendingRank = left.statusLabel === 'Pending' ? 0 : 1
-        const rightPendingRank = right.statusLabel === 'Pending' ? 0 : 1
-
-        if (leftPendingRank !== rightPendingRank) {
-          return leftPendingRank - rightPendingRank
-        }
-
-        const dateCompare = left.preferredDate.localeCompare(right.preferredDate)
-        if (dateCompare !== 0) return dateCompare
-
-        const timeCompare = left.preferredTime.localeCompare(right.preferredTime)
-        if (timeCompare !== 0) return timeCompare
-
-        return right.createdAtText.localeCompare(left.createdAtText)
-      })
-  }
-
-  function filteredCustomerAppointments(): ShowcaseAppointmentCard[] {
-    const selectedDate = appointmentCustomerDateFilter.trim() || 'All'
-    const selectedStatus = appointmentCustomerStatusFilter.trim() || 'All'
-    const selectedService = appointmentCustomerServiceFilter.trim() || 'All'
-    const today = appointmentLocalDateKey(new Date())
-
-    if (!customerAppointmentCards.length) return []
-
-    return customerAppointmentCards
-      .filter(item => {
-        if (selectedDate === 'History') {
-          return item.preferredDate < today
-        }
-
-        if (selectedDate === 'All') {
-          return item.preferredDate >= today
-        }
-
-        return item.preferredDate === selectedDate
-      })
-      .filter(item => {
-        const serviceTitle = item.serviceTitle?.trim() || 'General appointment'
-        return selectedService === 'All' || serviceTitle === selectedService
-      })
-      .filter(item => {
-        return selectedStatus === 'All' || item.statusLabel === selectedStatus
-      })
-      .sort((left, right) => {
-        if (selectedDate === 'History') {
-          const dateCompare = right.preferredDate.localeCompare(left.preferredDate)
-          if (dateCompare !== 0) return dateCompare
-
-          const timeCompare = right.preferredTime.localeCompare(left.preferredTime)
-          if (timeCompare !== 0) return timeCompare
-
-          return right.createdAtText.localeCompare(left.createdAtText)
-        }
-
-        const leftPendingRank = left.statusLabel === 'Pending' ? 0 : 1
-        const rightPendingRank = right.statusLabel === 'Pending' ? 0 : 1
-
-        if (leftPendingRank !== rightPendingRank) {
-          return leftPendingRank - rightPendingRank
-        }
-
-        const dateCompare = left.preferredDate.localeCompare(right.preferredDate)
-        if (dateCompare !== 0) return dateCompare
-
-        const timeCompare = left.preferredTime.localeCompare(right.preferredTime)
-        if (timeCompare !== 0) return timeCompare
-
-        return right.createdAtText.localeCompare(left.createdAtText)
-      })
-  }
-
-  function currentAdminAppointmentCloudFilters(input: {
-    dateFilter?: string | null
-    statusFilter?: string | null
-    serviceFilter?: string | null
-    historyDateFilter?: string | null
-  } = {}): AppointmentCloudQueryFilters {
-    const dateFilter = String(input.dateFilter ?? appointmentAdminDateFilter).trim() || 'All'
-    const statusFilter = String(input.statusFilter ?? appointmentAdminStatusFilter).trim() || 'All'
-    const serviceFilter = String(input.serviceFilter ?? appointmentAdminServiceFilter).trim() || 'All'
-    const historyDateFilter = input.historyDateFilter === undefined
-      ? appointmentAdminHistoryDateFilter
-      : input.historyDateFilter
-
-    return {
-      ...appointmentCloudDateFiltersFromUi(dateFilter, historyDateFilter),
-      status: appointmentCloudStatusFilterFromUi(statusFilter),
-      cancelledBy: appointmentCloudCancelledByFilterFromUi(statusFilter),
-      serviceTitle: appointmentCloudServiceFilterFromUi(serviceFilter)
-    }
-  }
-
-  function currentCustomerAppointmentCloudFilters(input: {
-    dateFilter?: string | null
-    statusFilter?: string | null
-    serviceFilter?: string | null
-  } = {}): AppointmentCloudQueryFilters {
-    const dateFilter = String(input.dateFilter ?? appointmentCustomerDateFilter).trim() || 'All'
-    const statusFilter = String(input.statusFilter ?? appointmentCustomerStatusFilter).trim() || 'All'
-    const serviceFilter = String(input.serviceFilter ?? appointmentCustomerServiceFilter).trim() || 'All'
-
-    return {
-      ...appointmentCloudDateFiltersFromUi(dateFilter, null),
-      status: appointmentCloudStatusFilterFromUi(statusFilter),
-      cancelledBy: appointmentCloudCancelledByFilterFromUi(statusFilter),
-      serviceTitle: appointmentCloudServiceFilterFromUi(serviceFilter)
-    }
-  }
-
-  function appointmentFilterRowsToFutureDateOptions(rows: CloudAppointmentFilterRow[]): string[] {
-    const today = appointmentLocalDateKey(new Date())
-
-    return [
-      'All',
-      ...Array.from(
-        new Set(
-          rows
-            .map(item => item.preferredDate.trim())
-            .filter(value => value && value >= today)
-        )
-      ).sort((left, right) => left.localeCompare(right))
-    ]
-  }
-
-  function appointmentFilterRowMatchesDate(
-    row: CloudAppointmentFilterRow,
-    dateFilterInput: string,
-    historyDateInput: string | null = null
-  ): boolean {
-    const today = appointmentLocalDateKey(new Date())
-    const historyDate = String(historyDateInput || '').trim()
-    const dateFilter = historyDate || String(dateFilterInput || '').trim() || 'All'
-
-    if (dateFilter === 'History') return row.preferredDate < today
-    if (dateFilter === 'All') return row.preferredDate >= today
-
-    return row.preferredDate === dateFilter
-  }
-
-  function appointmentFilterRowMatchesStatus(
-    row: CloudAppointmentFilterRow,
-    statusFilterInput: string
-  ): boolean {
-    const statusFilter = String(statusFilterInput || '').trim() || 'All'
-
-    if (statusFilter === 'All') return true
-
-    if (statusFilter === 'Cancelled by customer') {
-      return appointmentsStatusFromCloud(row.status) === 'Cancelled' && row.cancelledBy === 'customer'
-    }
-
-    return appointmentsStatusFromCloud(row.status) === statusFilter
-  }
-
-  function appointmentFilterRowsToServiceOptions(
-    rows: CloudAppointmentFilterRow[],
-    dateFilterInput: string,
-    statusFilterInput: string,
-    historyDateInput: string | null = null
-  ): string[] {
-    return [
-      'All',
-      ...Array.from(
-        new Set(
-          rows
-            .filter(item => appointmentFilterRowMatchesDate(item, dateFilterInput, historyDateInput))
-            .filter(item => appointmentFilterRowMatchesStatus(item, statusFilterInput))
-            .map(item => item.serviceTitle.trim() || 'General appointment')
-            .filter(Boolean)
-        )
-      )
-    ]
-  }
-
-  function resetAdminAppointmentsPaginationForFirstPage(itemsLength: number): void {
-    setAdminAppointmentsPagination({
-      nextOffset: itemsLength,
-      hasMore: itemsLength >= SHOWCASE_PAGE_SIZE.merchantAppointments,
-      isLoadingMore: false
-    })
-  }
-
-  function resetCustomerAppointmentsPaginationForFirstPage(itemsLength: number): void {
-    setCustomerAppointmentsPagination({
-      nextOffset: itemsLength,
-      hasMore: itemsLength >= SHOWCASE_PAGE_SIZE.clientAppointments,
-      isLoadingMore: false
-    })
-  }
-
-  function onAppointmentAdminDateFilterChange(value: string): void {
-    const nextDateFilter = value.trim() || 'All'
-
-    setAppointmentAdminDateFilter(nextDateFilter)
-    setAppointmentAdminHistoryDateFilter(null)
-    setAppointmentAdminServiceFilter('All')
-
-    void refreshAdminAppointmentsFromCloud(null, currentAdminAppointmentCloudFilters({
-      dateFilter: nextDateFilter,
-      historyDateFilter: null,
-      serviceFilter: 'All'
-    }))
-  }
-
-  function onAppointmentAdminHistoryDateClear(): void {
-    setAppointmentAdminHistoryDateFilter(null)
-    setAppointmentAdminDateFilter('All')
-    setAppointmentAdminServiceFilter('All')
-
-    void refreshAdminAppointmentsFromCloud(null, currentAdminAppointmentCloudFilters({
-      dateFilter: 'All',
-      historyDateFilter: null,
-      serviceFilter: 'All'
-    }))
-  }
-
-  function onAppointmentAdminHistoryDateSelected(value: string): void {
-    const safeValue = value.trim()
-
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(safeValue)) return
-
-    setAppointmentAdminHistoryDateFilter(safeValue)
-    setAppointmentAdminDateFilter('All')
-    setAppointmentAdminServiceFilter('All')
-
-    void refreshAdminAppointmentsFromCloud(null, currentAdminAppointmentCloudFilters({
-      dateFilter: 'All',
-      historyDateFilter: safeValue,
-      serviceFilter: 'All'
-    }))
-  }
-
-  function onAppointmentAdminServiceFilterChange(value: string): void {
-    const nextServiceFilter = value.trim() || 'All'
-
-    setAppointmentAdminServiceFilter(nextServiceFilter)
-
-    void refreshAdminAppointmentsFromCloud(null, currentAdminAppointmentCloudFilters({
-      serviceFilter: nextServiceFilter
-    }))
-  }
-
-  function onAppointmentAdminStatusFilterChange(value: string): void {
-    const nextStatusFilter = value.trim() || 'All'
-
-    setAppointmentAdminStatusFilter(nextStatusFilter)
-    setAppointmentAdminServiceFilter('All')
-
-    void refreshAdminAppointmentsFromCloud(null, currentAdminAppointmentCloudFilters({
-      statusFilter: nextStatusFilter,
-      serviceFilter: 'All'
-    }))
-  }
-
-  function onAppointmentAvailableHoursTextChange(value: string): void {
-    if (guardOfflineWriteOperation()) {
-      return
-    }
-
-    const normalizedHours = normalizeAppointmentAvailableHoursText(value)
-    const nextSettings = currentAppointmentSettingsForCloud({
-      availableStartTime: normalizedHours.start,
-      availableEndTime: normalizedHours.end
-    })
-
-    applyAppointmentSettingsLocally(nextSettings)
-    setStatusMessage('Available hours updated.')
-
-    void saveAppointmentSettingsToCloud(nextSettings)
-  }
-
-  function onAppointmentBookingWindowDaysChange(value: number): void {
-    if (guardOfflineWriteOperation()) {
-      return
-    }
-
-    const safeDays = normalizeAppointmentBookingWindowDays(value)
-    const nextSettings = currentAppointmentSettingsForCloud({
-      bookingWindowDays: safeDays
-    })
-
-    applyAppointmentSettingsLocally(nextSettings)
-    setStatusMessage('Booking window updated.')
-
-    void saveAppointmentSettingsToCloud(nextSettings)
-  }
-
-  function onAppointmentClosedDayToggle(value: string): void {
-    if (guardOfflineWriteOperation()) {
-      return
-    }
-
-    const nextClosedDays = nextClosedDaysAfterToggle(appointmentClosedDays, value)
-    const nextSettings = currentAppointmentSettingsForCloud({
-      closedDays: nextClosedDays
-    })
-
-    applyAppointmentSettingsLocally(nextSettings)
-    setStatusMessage('Closed days updated.')
-
-    void saveAppointmentSettingsToCloud(nextSettings)
-  }
-
-  function onAppointmentContactDraftChange(value: string): void {
-    setAppointmentContactDraft(value)
-    setAppointmentError(null)
-    setAppointmentSuccess(null)
-  }
-
-  function onAppointmentCustomerDateFilterChange(value: string): void {
-    const nextDateFilter = value.trim() || 'All'
-
-    setAppointmentCustomerDateFilter(nextDateFilter)
-    setAppointmentCustomerServiceFilter('All')
-
-    void refreshCustomerAppointmentsFromCloud(null, currentCustomerAppointmentCloudFilters({
-      dateFilter: nextDateFilter,
-      serviceFilter: 'All'
-    }))
-  }
-
-  function onAppointmentCustomerServiceFilterChange(value: string): void {
-    const nextServiceFilter = value.trim() || 'All'
-
-    setAppointmentCustomerServiceFilter(nextServiceFilter)
-
-    void refreshCustomerAppointmentsFromCloud(null, currentCustomerAppointmentCloudFilters({
-      serviceFilter: nextServiceFilter
-    }))
-  }
-
-  function onAppointmentCustomerStatusFilterChange(value: string): void {
-    const nextStatusFilter = value.trim() || 'All'
-
-    setAppointmentCustomerStatusFilter(nextStatusFilter)
-    setAppointmentCustomerServiceFilter('All')
-
-    void refreshCustomerAppointmentsFromCloud(null, currentCustomerAppointmentCloudFilters({
-      statusFilter: nextStatusFilter,
-      serviceFilter: 'All'
-    }))
-  }
-
-  function onAppointmentDateDraftChange(value: string): void {
-    setAppointmentDateDraft(value)
-    setAppointmentTimeDraft('')
-    setAppointmentError(null)
-    setAppointmentSuccess(null)
-  }
-
-  function onAppointmentMinimumNoticeChange(value: string): void {
-    if (guardOfflineWriteOperation()) {
-      return
-    }
-
-    const safeValue = normalizeAppointmentMinimumNotice(value)
-    const nextSettings = currentAppointmentSettingsForCloud({
-      minimumNotice: safeValue
-    })
-
-    applyAppointmentSettingsLocally(nextSettings)
-    setStatusMessage('Minimum notice updated.')
-
-    void saveAppointmentSettingsToCloud(nextSettings)
-  }
-
-  function onAppointmentNameDraftChange(value: string): void {
-    setAppointmentNameDraft(value)
-    setAppointmentError(null)
-    setAppointmentSuccess(null)
-  }
-
-  function onAppointmentNoteDraftChange(value: string): void {
-    setAppointmentNoteDraft(value)
-    setAppointmentError(null)
-    setAppointmentSuccess(null)
-  }
-
-  function onAppointmentServiceDraftChange(value: string): void {
-    setAppointmentServiceDraft(value)
-    setAppointmentError(null)
-    setAppointmentSuccess(null)
-  }
-
-  function onAppointmentSlotIntervalMinutesChange(value: number): void {
-    if (guardOfflineWriteOperation()) {
-      return
-    }
-
-    const safeMinutes = normalizeAppointmentSlotIntervalMinutes(value)
-    const nextSettings = currentAppointmentSettingsForCloud({
-      slotIntervalMinutes: safeMinutes
-    })
-
-    applyAppointmentSettingsLocally(nextSettings)
-    setStatusMessage('Slot interval updated.')
-
-    void saveAppointmentSettingsToCloud(nextSettings)
-  }
-
-  function onAppointmentTimeDraftChange(value: string): void {
-    setAppointmentTimeDraft(value)
-    setAppointmentError(null)
-    setAppointmentSuccess(null)
-  }
-
-  function onAppointmentsEnabledChange(value: boolean): void {
-    if (guardOfflineWriteOperation()) {
-      return
-    }
-
-    const nextSettings = currentAppointmentSettingsForCloud({
-      enabled: value
-    })
-
-    applyAppointmentSettingsLocally(nextSettings)
-    setStatusMessage(value ? 'Appointment booking enabled.' : 'Appointment booking disabled.')
-
-    void saveAppointmentSettingsToCloud(nextSettings)
-  }
-
-async function loadMoreHomeDishes(): Promise<void> {
+  async function loadMoreHomeDishes(): Promise<void> {
   if (homePagination.isLoadingMore || !homePagination.hasMore) return
 
   setHomePagination(current => ({
@@ -13781,7 +9007,7 @@ async function loadMoreHomeDishes(): Promise<void> {
   }
 }
 
-async function loadMoreAdminItems(): Promise<void> {
+  async function loadMoreAdminItems(): Promise<void> {
   if (adminItemsPagination.isLoadingMore || !adminItemsPagination.hasMore) return
 
   setAdminItemsPagination(current => ({
@@ -13833,1908 +9059,228 @@ async function loadMoreAdminItems(): Promise<void> {
   }
 }
 
-async function refreshAdminAppointmentsFromCloud(
-  statusMessageOverride: string | null = null,
-  filtersInput: AppointmentCloudQueryFilters = currentAdminAppointmentCloudFilters()
-): Promise<void> {
-  setAppointmentsRefreshing(true)
-
-  try {
-    const validSession = await ensureValidMerchantSessionLoadedForCloud()
-
-    if (!validSession) {
-      setStatusMessage(merchantSessionEnsureFailureMessage())
-      setAdminAppointmentFilterRows([])
-      return
-    }
-
-    setStoreMerchantSessionFromAuthSession(validSession)
-    bindMerchantSessionToRepository(repository)
-
-    const cloudSettings = await repository.fetchAppointmentSettings(storeId)
-
-    if (cloudSettings) {
-      applyCloudAppointmentSettings(cloudSettings)
-    }
-
-    const filterRows = await repository.fetchAppointmentFilterRows({
-      storeId,
-      merchant: true
-    })
-
-    setAdminAppointmentFilterRows(filterRows)
-
-    const items = await repository.fetchAppointmentRequests({
-      storeId,
-      merchant: true,
-      preferredDate: filtersInput.preferredDate,
-      preferredDateGte: filtersInput.preferredDateGte,
-      preferredDateLt: filtersInput.preferredDateLt,
-      status: filtersInput.status,
-      cancelledBy: filtersInput.cancelledBy,
-      serviceTitle: filtersInput.serviceTitle,
-      limit: SHOWCASE_PAGE_SIZE.merchantAppointments,
-      offset: 0
-    })
-    const sortedItems = items.slice().sort((left, right) => {
-      return (right.createdAt || 0) - (left.createdAt || 0)
-    })
-
-    setAppointmentRequests(sortedItems)
-    persistAppointmentsLocally(storeId, sortedItems)
-    void hydrateAppointmentLinkedDishesFromRequests(sortedItems)
-    resetAdminAppointmentsPaginationForFirstPage(sortedItems.length)
-    setStatusMessage(statusMessageOverride || 'Appointments refreshed.')
-  } catch (error) {
-    const cachedItems = loadAppointmentsFromStorage(storeId)
-
-    if (cachedItems.length) {
-      setAppointmentRequests(cachedItems)
-    }
-
-    resetAdminAppointmentsPaginationForFirstPage(cachedItems.length)
-
-    const message = error instanceof Error
-      ? error.message
-      : 'Appointments refresh failed.'
-
-    setStatusMessage(message || 'Appointments refresh failed.')
-  } finally {
-    setAppointmentsRefreshing(false)
-  }
-}
-
-async function refreshCustomerAppointmentsFromCloud(
-  statusMessageOverride: string | null = null,
-  filtersInput: AppointmentCloudQueryFilters = currentCustomerAppointmentCloudFilters()
-): Promise<void> {
-  setAppointmentsRefreshing(true)
-
-  try {
-    const cloudSettings = await repository.fetchAppointmentSettings(storeId)
-
-    if (cloudSettings) {
-      applyCloudAppointmentSettings(cloudSettings)
-    }
-
-    const filterRows = await repository.fetchAppointmentFilterRows({
-      storeId,
-      clientId,
-      merchant: false
-    })
-
-    setCustomerAppointmentFilterRows(filterRows)
-
-    const items = await repository.fetchAppointmentRequests({
-      storeId,
-      clientId,
-      merchant: false,
-      preferredDate: filtersInput.preferredDate,
-      preferredDateGte: filtersInput.preferredDateGte,
-      preferredDateLt: filtersInput.preferredDateLt,
-      status: filtersInput.status,
-      cancelledBy: filtersInput.cancelledBy,
-      serviceTitle: filtersInput.serviceTitle,
-      limit: SHOWCASE_PAGE_SIZE.clientAppointments,
-      offset: 0
-    })
-    const sortedItems = items.slice().sort((left, right) => {
-      return (right.createdAt || 0) - (left.createdAt || 0)
-    })
-
-    setAppointmentRequests(sortedItems)
-    persistAppointmentsLocally(storeId, sortedItems)
-    void hydrateAppointmentLinkedDishesFromRequests(sortedItems)
-    resetCustomerAppointmentsPaginationForFirstPage(sortedItems.length)
-    setStatusMessage(statusMessageOverride || 'Bookings refreshed.')
-  } catch {
-    const cachedItems = loadAppointmentsFromStorage(storeId)
-
-    if (cachedItems.length) {
-      setAppointmentRequests(cachedItems)
-    }
-
-    resetCustomerAppointmentsPaginationForFirstPage(cachedItems.length)
-
-    setStatusMessage('Bookings refresh failed.')
-  } finally {
-    setAppointmentsRefreshing(false)
-  }
-}
-
-  async function saveAppointmentSettingsToCloud(settingsInput?: CloudAppointmentSettings): Promise<void> {
-    const nextSettings = settingsInput || currentAppointmentSettingsForCloud()
-
-    setAppointmentSettingsSubmitting(true)
-    applyAppointmentSettingsLocally(nextSettings)
-
-    try {
-      const validSession = await ensureValidMerchantSessionLoadedForCloud()
-
-      if (!validSession) {
-        setStatusMessage(merchantSessionEnsureFailureMessage())
-        showSnackbar(merchantSessionEnsureSnackbarMessage())
-        return
-      }
-
-      setStoreMerchantSessionFromAuthSession(validSession)
-      bindMerchantSessionToRepository(repository)
-
-      let ok = await repository.upsertAppointmentSettings(nextSettings)
-
-      if (!ok) {
-        const detail = [
-          repository.lastUpsertCode != null ? `code=${repository.lastUpsertCode}` : '',
-          repository.lastUpsertBody ? `body=${repository.lastUpsertBody.slice(0, 300)}` : ''
-        ].filter(Boolean).join(' ')
-
-        const retry = await retryMerchantCloudOperationAfterAuthRefresh({
-          errorInput: new Error(detail || 'Appointment settings save failed.'),
-          operation: () => repository.upsertAppointmentSettings(nextSettings),
-          isSuccess: value => value
-        })
-
-        if (retry.status === 'handled_without_retry') return
-
-        if (retry.status === 'retried_success') {
-          ok = true
-        } else {
-          throw new Error('Appointment settings save failed.')
-        }
-      }
-
-      removePendingSync('appointment-settings-upsert')
-      setStatusMessage('Booking settings saved.')
-      showSnackbar('Booking settings saved.')
-    } catch {
-      pushPendingSync({
-        id: 'appointment-settings-upsert',
-        type: 'appointment-settings-upsert',
-        createdAt: nowMillis()
-      })
-
-      setStatusMessage('Booking settings saved locally, but cloud sync failed.')
-      showSnackbar('Booking settings queued for sync.')
-    } finally {
-      setAppointmentSettingsSubmitting(false)
-    }
-  }
-
-  function startNewAnnouncement(): void {
-    clearAdminAnnouncementEditorDraftLocally(storeId)
-    clearAdminAnnouncementDraftLocalImages(storeId)
-
-    setAdminAnnouncementEditingId(null)
-    setAdminAnnouncementCoverDraftUrl(null)
-    setAdminAnnouncementBodyDraft('')
-    setAdminAnnouncementSelectedIds([])
-    setAdminAnnouncementPreviewId(null)
-    setAdminAnnouncementError(null)
-    setAdminAnnouncementSuccess(null)
-    setAdminAnnouncementIsSubmitting(false)
-    setAdminAnnouncementIsBlocking(false)
-    setAdminAnnouncementComposerExpanded(true)
-  }
-
-  function editAnnouncement(idInput: string): void {
-    const id = idInput.trim()
-    if (!id) return
-
-    const draft = adminAnnouncementDraftItems.find(item => {
-      return item.id === id && item.status === 'draft'
-    }) || null
-
-    if (!draft) return
-
-    setAdminAnnouncementEditingId(draft.id)
-    setAdminAnnouncementCoverDraftUrl(draft.coverUrl)
-    setAdminAnnouncementBodyDraft(draft.body)
-    setAdminAnnouncementSelectedIds([])
-    setAdminAnnouncementPreviewId(null)
-    setAdminAnnouncementError(null)
-    setAdminAnnouncementSuccess(null)
-    setAdminAnnouncementComposerExpanded(true)
-
-    persistAdminAnnouncementEditorDraftLocally(storeId, {
-      id: draft.id,
-      coverUrl: draft.coverUrl,
-      coverImageVariants: draft.coverImageVariants ?? null,
-      body: draft.body,
-      status: 'draft',
-      createdAt: draft.createdAt || nowMillis(),
-      updatedAt: draft.updatedAt || nowMillis(),
-      viewCount: draft.viewCount || 0
-    })
-  }
-
-  async function saveAnnouncement(status: 'draft' | 'published'): Promise<void> {
-    const draftBody = adminAnnouncementBodyDraft.trim()
-    const draftCoverUrl = adminAnnouncementCoverDraftUrl?.trim() || ''
-    const selectedIds = adminAnnouncementSelectedIds
-      .map(id => id.trim())
-      .filter(Boolean)
-
-    const selectedDraft = status === 'published' && !draftCoverUrl && selectedIds.length === 1
-      ? adminAnnouncementDraftItems.find(item => item.id === selectedIds[0] && item.status === 'draft') || null
-      : null
-
-    if (status === 'published' && draftCoverUrl && selectedIds.length > 0) {
-      setAdminAnnouncementError('Clear selected drafts before publishing the editor content.')
-      setAdminAnnouncementSuccess(null)
-      return
-    }
-
-    if (status === 'published' && !draftCoverUrl && selectedIds.length > 1) {
-      setAdminAnnouncementError('Only one announcement can be published at a time.')
-      setAdminAnnouncementSuccess(null)
-      return
-    }
-
-    if (!draftCoverUrl && !selectedDraft) {
-      setAdminAnnouncementError('Cover image is required.')
-      setAdminAnnouncementSuccess(null)
-      return
-    }
-
-    if (selectedDraft && !selectedDraft.coverUrl?.trim()) {
-      setAdminAnnouncementError('Cover image is required.')
-      setAdminAnnouncementSuccess(null)
-      return
-    }
-
-    if (guardOfflineWriteOperation()) {
-      setAdminAnnouncementError('You are offline. Please reconnect and try again.')
-      setAdminAnnouncementSuccess(null)
-      return
-    }
-
-    const now = nowMillis()
-    const editingPublished = adminAnnouncementEditingId
-      ? announcements.some(item => item.id === adminAnnouncementEditingId && item.status !== 'draft')
-      : false
-
-    const editingDraft = adminAnnouncementEditingId && !editingPublished
-      ? adminAnnouncementDraftItems.find(item => {
-        return item.id === adminAnnouncementEditingId && item.status === 'draft'
-      }) || null
-      : null
-
-    const safeEditingId = adminAnnouncementEditingId && !editingPublished
-      ? adminAnnouncementEditingId
-      : null
-
-    const targetId = selectedDraft?.id || editingDraft?.id || safeEditingId || createUuidLikeId()
-    const existingEntity = selectedDraft || editingDraft || null
-    const body = selectedDraft?.body?.trim() || draftBody
-    const sourceCoverUrl = selectedDraft?.coverUrl || adminAnnouncementCoverDraftUrl?.trim() || null
-    const nextStatus = status
-    const viewCount = selectedDraft?.viewCount || existingEntity?.viewCount || 0
-
-    setAdminAnnouncementError(null)
-    setAdminAnnouncementSuccess(null)
-    setAdminAnnouncementSubmittingAction(nextStatus === 'published' ? 'publish' : 'save')
-    setAdminAnnouncementIsSubmitting(true)
-    setAdminAnnouncementIsBlocking(true)
-    setStatusMessage(null)
-
-    try {
-      const validSession = await ensureValidMerchantSessionLoadedForCloud()
-
-      if (!validSession) {
-        setAdminAnnouncementError(merchantSessionEnsureFailureMessage())
-        showSnackbar(merchantSessionEnsureSnackbarMessage())
-        return
-      }
-
-      setStoreMerchantSessionFromAuthSession(validSession)
-      bindMerchantSessionToRepository(repository)
-
-      let uploadedCoverUrl: string | null = sourceCoverUrl
-      let coverImageVariants: ShowcaseImageVariants | null = existingEntity?.coverImageVariants ?? null
-
-      if (uploadedCoverUrl) {
-        const uploadedCover = await uploadAnnouncementCoverIfNeeded(uploadedCoverUrl)
-
-        if (!uploadedCover) {
-          const handled = await handleMerchantAuthExpiredIfNeeded(
-            new Error(nextStatus === 'published' ? 'Cloud publish failed.' : 'Cloud save failed.')
-          )
-
-          if (handled) {
-            setAdminAnnouncementIsSubmitting(false)
-            setAdminAnnouncementIsBlocking(false)
-            setAdminAnnouncementSubmittingAction(null)
-            return
-          }
-
-          throw new Error(nextStatus === 'published' ? 'Cloud publish failed.' : 'Cloud save failed.')
-        }
-
-        uploadedCoverUrl = uploadedCover.url
-        coverImageVariants = uploadedCover.variants
-      }
-
-      let saved = await repository.upsertAnnouncement({
-        id: targetId,
-        storeId,
-        coverUrl: uploadedCoverUrl,
-        coverImageVariants,
-        body,
-        status: nextStatus,
-        updatedAt: now,
-        viewCount
-      })
-
-      if (!saved) {
-        const detail = [
-          repository.lastAnnouncementUpsertCode != null ? `code=${repository.lastAnnouncementUpsertCode}` : '',
-          repository.lastAnnouncementUpsertBody ? `body=${repository.lastAnnouncementUpsertBody.slice(0, 300)}` : ''
-        ].filter(Boolean).join(' ')
-
-        const retry = await retryMerchantCloudOperationAfterAuthRefresh({
-          errorInput: new Error(detail || (nextStatus === 'published' ? 'Cloud publish failed.' : 'Cloud save failed.')),
-          operation: () => repository.upsertAnnouncement({
-            id: targetId,
-            storeId,
-            coverUrl: uploadedCoverUrl,
-            coverImageVariants,
-            body,
-            status: nextStatus,
-            updatedAt: now,
-            viewCount
-          }),
-          isSuccess: value => Boolean(value)
-        })
-
-        if (retry.status === 'handled_without_retry') {
-          setAdminAnnouncementIsSubmitting(false)
-          setAdminAnnouncementIsBlocking(false)
-          return
-        }
-
-        if (retry.status === 'retried_success' && retry.value) {
-          saved = retry.value
-        } else {
-          throw new Error(nextStatus === 'published' ? 'Cloud publish failed.' : 'Cloud save failed.')
-        }
-      }
-
-      if (nextStatus === 'published') {
-        let pushOk = await repository.dispatchAnnouncementPush({
-          storeId,
-          announcementId: targetId,
-          bodyPreview: 'Tap to view the latest update'
-        })
-
-        if (!pushOk) {
-          const detail = [
-            repository.lastAnnouncementPushCode != null ? `code=${repository.lastAnnouncementPushCode}` : '',
-            repository.lastAnnouncementPushBody ? `body=${repository.lastAnnouncementPushBody.slice(0, 300)}` : ''
-          ].filter(Boolean).join(' ')
-
-          const retry = await retryMerchantCloudOperationAfterAuthRefresh({
-            errorInput: new Error(detail || 'Announcement push failed.'),
-            operation: () => repository.dispatchAnnouncementPush({
-              storeId,
-              announcementId: targetId,
-              bodyPreview: 'Tap to view the latest update'
-            }),
-            isSuccess: value => value
-          })
-
-          if (retry.status === 'handled_without_retry') {
-            setAdminAnnouncementIsSubmitting(false)
-            setAdminAnnouncementIsBlocking(false)
-            return
-          }
-
-          if (retry.status === 'retried_success') {
-            pushOk = true
-          }
-        }
-
-        setAdminAnnouncementDraftItems(current => {
-          return current.filter(item => item.id !== targetId)
-        })
-
-        setAdminAnnouncementSelectedIds(current => {
-          return current.filter(id => id !== targetId)
-        })
-
-        setAdminAnnouncementPreviewId(current => {
-          return current === targetId ? null : current
-        })
-
-        setPushTargetAnnouncementId(targetId)
-      }
-
-      clearAdminAnnouncementDraftLocalImages(storeId)
-      clearAdminAnnouncementEditorDraftLocally(storeId)
-
-      const latestAnnouncements = await repository.fetchAnnouncements({
-        storeId,
-        includeDrafts: true,
-        limit: SHOWCASE_PAGE_SIZE.adminAnnouncements,
-        offset: 0
-      })
-
-      rebuildAnnouncementsList(latestAnnouncements)
-
-      setAdminAnnouncementComposerExpanded(false)
-      setAdminAnnouncementCoverDraftUrl(null)
-      setAdminAnnouncementBodyDraft('')
-      setAdminAnnouncementEditingId(null)
-      setAdminAnnouncementSelectedIds([])
-      setAdminAnnouncementPreviewId(null)
-      setAdminAnnouncementError(null)
-      setAdminAnnouncementSuccess(nextStatus === 'published' ? 'Announcement published.' : 'Draft saved.')
-      setAdminAnnouncementIsSubmitting(false)
-      setAdminAnnouncementIsBlocking(false)
-      setAdminAnnouncementSubmittingAction(null)
-      setStatusMessage(nextStatus === 'published' ? 'Announcement published.' : 'Draft saved.')
-      removePendingSync(`announcement-upsert:${targetId}`)
-
-      if (nextStatus === 'published') {
-        await new Promise<void>(resolve => {
-          window.setTimeout(resolve, 800)
-        })
-
-        setScreen('Admin')
-        setStatusMessage(null)
-        void refreshAdminHomeCloudState(false)
-      }
-    } catch (error) {
-      const message = error instanceof Error && error.message.trim()
-        ? error.message.trim()
-        : nextStatus === 'published'
-          ? 'Cloud publish failed.'
-          : 'Cloud save failed.'
-
-      setAdminAnnouncementError(message)
-      setAdminAnnouncementSuccess(null)
-      setAdminAnnouncementIsSubmitting(false)
-      setAdminAnnouncementIsBlocking(false)
-      setAdminAnnouncementSubmittingAction(null)
-      setStatusMessage(nextStatus === 'published'
-        ? `Couldn't publish announcement. ${message}`
-        : `Couldn't save draft. ${message}`)
-    }
-  }
-
-  async function deleteSelectedAnnouncements(): Promise<void> {
-    if (adminAnnouncementIsSubmitting) return
-
-    const draftIdSet = new Set(
-      adminAnnouncementDraftItems
-        .filter(item => item.status === 'draft')
-        .map(item => item.id)
-    )
-
-    const selected = adminAnnouncementSelectedIds
-      .map(id => id.trim())
-      .filter(id => id && draftIdSet.has(id))
-
-    if (!selected.length) return
-
-    if (guardOfflineWriteOperation()) {
-      setAdminAnnouncementError('You are offline. Please reconnect and try again.')
-      setAdminAnnouncementSuccess(null)
-      return
-    }
-
-    setAdminAnnouncementSubmittingAction('delete')
-    setAdminAnnouncementIsSubmitting(true)
-    setAdminAnnouncementIsBlocking(true)
-    setAdminAnnouncementError(null)
-    setAdminAnnouncementSuccess(null)
-    setStatusMessage(null)
-
-    try {
-      const validSession = await ensureValidMerchantSessionLoadedForCloud()
-
-      if (!validSession) {
-        setAdminAnnouncementError(merchantSessionEnsureFailureMessage())
-        showSnackbar(merchantSessionEnsureSnackbarMessage())
-        return
-      }
-
-      setStoreMerchantSessionFromAuthSession(validSession)
-      bindMerchantSessionToRepository(repository)
-
-      let deleteOk = await repository.deleteAnnouncements(storeId, selected)
-
-      if (!deleteOk) {
-        const detail = [
-          repository.lastDeleteCode != null ? `code=${repository.lastDeleteCode}` : '',
-          repository.lastDeleteBody ? `body=${repository.lastDeleteBody.slice(0, 300)}` : ''
-        ].filter(Boolean).join(' ')
-
-        const retry = await retryMerchantCloudOperationAfterAuthRefresh({
-          errorInput: new Error(detail || 'Delete announcements failed.'),
-          operation: () => repository.deleteAnnouncements(storeId, selected),
-          isSuccess: value => value
-        })
-
-        if (retry.status === 'handled_without_retry') return
-
-        if (retry.status === 'retried_success') {
-          deleteOk = true
-        } else {
-          throw new Error('Delete announcements failed.')
-        }
-      }
-
-      setAdminAnnouncementDraftItems(current => {
-        return current.filter(item => {
-          return item.status !== 'draft' || !selected.includes(item.id)
-        })
-      })
-
-      const clearedEditingId = adminAnnouncementEditingId && selected.includes(adminAnnouncementEditingId)
-        ? null
-        : adminAnnouncementEditingId
-
-      const clearedCover = clearedEditingId == null
-        ? null
-        : adminAnnouncementCoverDraftUrl
-
-      const clearedBody = clearedEditingId == null
-        ? ''
-        : adminAnnouncementBodyDraft
-
-      const clearedPreviewId = adminAnnouncementPreviewId && selected.includes(adminAnnouncementPreviewId)
-        ? null
-        : adminAnnouncementPreviewId
-
-      setAdminAnnouncementEditingId(clearedEditingId)
-      setAdminAnnouncementCoverDraftUrl(clearedCover)
-      setAdminAnnouncementBodyDraft(clearedBody)
-      setAdminAnnouncementSelectedIds([])
-      setAdminAnnouncementPreviewId(clearedPreviewId)
-      setAdminAnnouncementError(null)
-      setAdminAnnouncementSuccess(`Deleted ${selected.length} draft(s).`)
-
-      if (clearedEditingId == null) {
-        clearAdminAnnouncementEditorDraftLocally(storeId)
-      } else {
-        const draft = toAnnouncementEntity({
-          id: clearedEditingId,
-          coverUrl: clearedCover,
-          body: clearedBody,
-          status: 'draft',
-          viewCount: 0
-        })
-
-        persistAdminAnnouncementEditorDraftLocally(storeId, draft)
-      }
-    } catch (error) {
-      const message = error instanceof Error && error.message.trim()
-        ? error.message.trim()
-        : 'Delete announcements failed.'
-
-      setAdminAnnouncementError(message)
-      setAdminAnnouncementSuccess(null)
-      setStatusMessage(message)
-    } finally {
-      setAdminAnnouncementIsSubmitting(false)
-      setAdminAnnouncementIsBlocking(false)
-      setAdminAnnouncementSubmittingAction(null)
-    }
-  }
-
-  function hasAnnouncementBeenViewedLocally(idInput: string): boolean {
-    const id = idInput.trim()
-    if (!id) return false
-    return seenAnnouncementIds.includes(id) || loadViewedAnnouncementIdsLocally(storeId).includes(id)
-  }
-
-  function markAnnouncementViewedLocally(idInput: string): void {
-    const id = idInput.trim()
-    if (!id) return
-
-    const viewed = loadViewedAnnouncementIdsLocally(storeId)
-    const nextViewed = Array.from(new Set([...viewed, id]))
-
-    if (nextViewed.length !== viewed.length) {
-      saveViewedAnnouncementIdsLocally(storeId, nextViewed)
-    }
-
-    setSeenAnnouncementIds(current => {
-      if (current.includes(id)) return current
-      return [...current, id]
-    })
-  }
-
-  function markAnnouncementsViewedLocally(idsInput: string[]): void {
-    const ids = Array.from(
-      new Set(
-        idsInput
-          .map(id => id.trim())
-          .filter(Boolean)
-      )
-    )
-
-    if (!ids.length) return
-
-    const viewed = loadViewedAnnouncementIdsLocally(storeId)
-    const nextViewed = Array.from(new Set([...viewed, ...ids]))
-
-    if (nextViewed.length !== viewed.length) {
-      saveViewedAnnouncementIdsLocally(storeId, nextViewed)
-    }
-
-    setSeenAnnouncementIds(current => {
-      const nextSeen = Array.from(new Set([...current, ...ids]))
-      return nextSeen.length === current.length ? current : nextSeen
-    })
-  }
-
-  function hasAnnouncementClickBeenCountedLocally(idInput: string): boolean {
-    const id = idInput.trim()
-    if (!id) return false
-    return loadCountedAnnouncementClickIdsLocally(storeId).includes(id)
-  }
-
-  function markAnnouncementClickCountedLocally(idInput: string): void {
-    const id = idInput.trim()
-    if (!id) return
-
-    const counted = loadCountedAnnouncementClickIdsLocally(storeId)
-    if (counted.includes(id)) return
-
-    saveCountedAnnouncementClickIdsLocally(storeId, [...counted, id])
-  }
-
-  function isAnnouncementSeen(idInput: string): boolean {
-    return hasAnnouncementBeenViewedLocally(idInput)
-  }
-
-  function computeAnnouncementsEntryDot(itemsInput: CloudAnnouncement[]): boolean {
-    return itemsInput
-      .filter(item => item.status === 'published')
-      .some(item => !isAnnouncementSeen(item.id))
-  }
-
-  function shouldShowAnnouncementsEntryDot(): boolean {
-    if (screen === ShowcaseScreens.Announcements) return false
-
-    return announcementsEntryDotVisible
-  }
-
-  function shouldShowBookingsEntryDot(): boolean {
-    if (screen === ShowcaseScreens.CustomerBookings) return false
-
-    return bookingsEntryDotVisible
-  }
-
-  async function trackAnnouncementClickOnce(idInput: string): Promise<void> {
-    const id = idInput.trim()
-    if (!id) return
-
-    if (hasAnnouncementClickBeenCountedLocally(id)) return
-    if (announcementClickCountInFlightRef.current.has(id)) return
-
-    announcementClickCountInFlightRef.current.add(id)
-
-    try {
-      const ok = await repository.incrementAnnouncementViewCount({
-        storeId,
-        announcementId: id
-      })
-
-      if (!ok) return
-
-      markAnnouncementClickCountedLocally(id)
-
-      setAnnouncements(current => current.map(item => {
-        if (item.id !== id) return item
-
-        return {
-          ...item,
-          viewCount: item.viewCount + 1
-        }
-      }))
-    } finally {
-      announcementClickCountInFlightRef.current.delete(id)
-    }
-  }
-
-  async function openAnnouncement(idInput: string): Promise<void> {
-    const id = idInput.trim()
-    if (!id) return
-
-    let exists = announcements.some(item => {
-      return item.id === id && item.status !== 'draft'
-    })
-
-    if (!exists) {
-      await syncPublicAnnouncementsFromCloud(false)
-
-      const cachedItems = loadPublishedAnnouncementsLocally(storeId)
-      exists = cachedItems.some(item => {
-        return item.id === id && item.status !== 'draft'
-      })
-    }
-
-    if (!exists) return
-
-    setFocusedAnnouncementId(current => current === id ? null : id)
-    markAnnouncementViewedLocally(id)
-    await trackAnnouncementClickOnce(id)
-  }
-
-  function toggleAnnouncementSelection(idInput: string): void {
-    const id = idInput.trim()
-    if (!id) return
-
-    const exists = adminAnnouncementDraftItems.some(item => {
-      return item.id === id && item.status === 'draft'
-    })
-
-    if (!exists) return
-
-    setAdminAnnouncementSelectedIds(current => {
-      if (current.includes(id)) {
-        return current.filter(item => item !== id)
-      }
-
-      return [...current, id]
-    })
-  }
-
-  function announcementDraftTimeText(valueInput: number | null | undefined): string {
-    return formatDateTimeText(valueInput) || 'Draft'
-  }
-
-  function announcementPublishedTimeText(valueInput: number | null | undefined): string {
-    return formatDateTimeText(valueInput) || 'Just now'
-  }
-
-  function toAnnouncementEntity(input: {
-    id?: string | null
-    coverUrl?: string | null
-    coverImageVariants?: ShowcaseImageVariants | null
-    body: string
-    status: 'draft' | 'published'
-    viewCount?: number | null
-  }): DraftAnnouncement {
-    const now = nowMillis()
-
-    return {
-      id: input.id || createUuidLikeId(),
-      coverUrl: input.coverUrl || null,
-      coverImageVariants: input.coverImageVariants ?? null,
-      body: input.body,
-      status: input.status,
-      createdAt: now,
-      updatedAt: now,
-      viewCount: Number(input.viewCount || 0)
-    }
-  }
-
-  function toPublishedAnnouncementEntity(item: CloudAnnouncement): CloudAnnouncement {
-    return {
-      ...item,
-      status: 'published'
-    }
-  }
-
-  function toAnnouncementCard(item: DraftAnnouncement | CloudAnnouncement, showYear: boolean): ShowcaseAnnouncementCard {
-    const normalizedBody = item.body.trim()
-    const bodyPreview = normalizedBody
-      .replace(/\n/g, ' ')
-      .trim()
-
-    return {
-      id: item.id,
-      coverUrl: item.coverUrl,
-      coverImageVariants: item.coverImageVariants ?? null,
-      bodyPreview: bodyPreview.length <= 120 ? bodyPreview : `${bodyPreview.slice(0, 120)}…`,
-      bodyText: normalizedBody,
-      timeText: showYear
-        ? announcementPublishedTimeText(item.updatedAt || item.createdAt)
-        : announcementDraftTimeText(item.updatedAt),
-      viewCount: item.viewCount
-    }
-  }
-
-  function getAdminDraftCardsForUi(): ShowcaseAnnouncementCard[] {
-    return adminAnnouncementDraftItems.map(item => toAnnouncementCard(item, false))
-  }
-
-  function getAdminPublishedCardsForUi(): ShowcaseAnnouncementCard[] {
-    return announcements.map(item => toAnnouncementCard(item, true))
-  }
-
-  function rebuildAnnouncementsList(items: CloudAnnouncement[]): void {
-    const published = items
-      .filter(item => item.status === 'published')
-      .sort((left, right) => {
-        return (right.updatedAt || right.createdAt || 0) - (left.updatedAt || left.createdAt || 0)
-      })
-      .map(toPublishedAnnouncementEntity)
-
-    const drafts = items
-      .filter(item => item.status === 'draft')
-      .sort((left, right) => {
-        return (right.updatedAt || right.createdAt || 0) - (left.updatedAt || left.createdAt || 0)
-      })
-      .map(item => ({
-        id: item.id,
-        coverUrl: item.coverUrl,
-        coverImageVariants: item.coverImageVariants ?? null,
-        body: item.body,
-        status: 'draft' as const,
-        createdAt: item.createdAt || nowMillis(),
-        updatedAt: item.updatedAt || nowMillis(),
-        viewCount: item.viewCount
-      }))
-
-    setAnnouncements(published)
-    setAnnouncementsEntryDotVisible(computeAnnouncementsEntryDot(published))
-    setAdminAnnouncementDraftItems(drafts)
-    persistPublishedAnnouncementsLocally(storeId, published)
-  }
-
-  async function loadMoreCustomerAppointments(): Promise<void> {
-    if (customerAppointmentsPagination.isLoadingMore || !customerAppointmentsPagination.hasMore) return
-
-    setCustomerAppointmentsPagination(current => ({
-      nextOffset: current.nextOffset,
-      hasMore: current.hasMore,
-      isLoadingMore: true
-    }))
-
-    try {
-      const filters = currentCustomerAppointmentCloudFilters()
-      const nextItems = await repository.fetchAppointmentRequests({
-        storeId,
-        clientId,
-        merchant: false,
-        preferredDate: filters.preferredDate,
-        preferredDateGte: filters.preferredDateGte,
-        preferredDateLt: filters.preferredDateLt,
-        status: filters.status,
-        cancelledBy: filters.cancelledBy,
-        serviceTitle: filters.serviceTitle,
-        limit: SHOWCASE_PAGE_SIZE.clientAppointments,
-        offset: customerAppointmentsPagination.nextOffset
-      })
-      const merged = sortedAppointmentsForStorage(mergeUniqueById(appointmentRequests, nextItems))
-
-      setAppointmentRequests(merged)
-      if (nextItems.length) {
-        persistAppointmentsLocally(storeId, merged)
-        pruneBookingSeenWhenCompletePageLoaded(
-          storeId,
-          clientId,
-          merged,
-          nextItems.length,
-          SHOWCASE_PAGE_SIZE.clientAppointments
-        )
-      }
-      void hydrateAppointmentLinkedDishesFromRequests(merged)
-
-      setCustomerAppointmentsPagination({
-        nextOffset: customerAppointmentsPagination.nextOffset + nextItems.length,
-        hasMore: nextItems.length >= SHOWCASE_PAGE_SIZE.clientAppointments,
-        isLoadingMore: false
-      })
-    } catch (error) {
-      setCustomerAppointmentsPagination(current => ({
-        nextOffset: current.nextOffset,
-        hasMore: current.hasMore,
-        isLoadingMore: false
-      }))
-      setStatusMessage(error instanceof Error ? error.message : 'Failed to load more bookings.')
-    }
-  }
-
-  async function loadMoreAdminAppointments(): Promise<void> {
-    if (adminAppointmentsPagination.isLoadingMore || !adminAppointmentsPagination.hasMore) return
-
-    setAdminAppointmentsPagination(current => ({
-      nextOffset: current.nextOffset,
-      hasMore: current.hasMore,
-      isLoadingMore: true
-    }))
-
-    try {
-      const validSession = await ensureValidMerchantSessionLoadedForCloud()
-
-      if (!validSession) {
-        setStatusMessage(merchantSessionEnsureFailureMessage())
-        setAdminAppointmentsPagination(current => ({
-          nextOffset: current.nextOffset,
-          hasMore: current.hasMore,
-          isLoadingMore: false
-        }))
-        return
-      }
-
-      setStoreMerchantSessionFromAuthSession(validSession)
-      bindMerchantSessionToRepository(repository)
-
-      const filters = currentAdminAppointmentCloudFilters()
-      const nextItems = await repository.fetchAppointmentRequests({
-        storeId,
-        merchant: true,
-        preferredDate: filters.preferredDate,
-        preferredDateGte: filters.preferredDateGte,
-        preferredDateLt: filters.preferredDateLt,
-        status: filters.status,
-        cancelledBy: filters.cancelledBy,
-        serviceTitle: filters.serviceTitle,
-        limit: SHOWCASE_PAGE_SIZE.merchantAppointments,
-        offset: adminAppointmentsPagination.nextOffset
-      })
-      const merged = sortedAppointmentsForStorage(mergeUniqueById(appointmentRequests, nextItems))
-
-      setAppointmentRequests(merged)
-      if (nextItems.length) persistAppointmentsLocally(storeId, merged)
-      void hydrateAppointmentLinkedDishesFromRequests(merged)
-
-      setAdminAppointmentsPagination({
-        nextOffset: adminAppointmentsPagination.nextOffset + nextItems.length,
-        hasMore: nextItems.length >= SHOWCASE_PAGE_SIZE.merchantAppointments,
-        isLoadingMore: false
-      })
-    } catch (error) {
-      setAdminAppointmentsPagination(current => ({
-        nextOffset: current.nextOffset,
-        hasMore: current.hasMore,
-        isLoadingMore: false
-      }))
-      setStatusMessage(error instanceof Error ? error.message : 'Failed to load more appointments.')
-    }
-  }
-
-  async function syncPublicAnnouncementsFromCloud(markViewedAfterSync = false): Promise<void> {
-    const latest = await repository.fetchAnnouncements({
-      storeId,
-      includeDrafts: false,
-      limit: SHOWCASE_PAGE_SIZE.publicAnnouncements,
-      offset: 0
-    })
-
-    const cachedItems = loadPublishedAnnouncementsLocally(storeId)
-    const effectiveItems = latest.length ? latest : cachedItems
-    const publishedItems = effectiveItems
-      .filter(item => item.status === 'published')
-      .sort((left, right) => {
-        return (right.updatedAt || right.createdAt || 0) - (left.updatedAt || left.createdAt || 0)
-      })
-      .map(toPublishedAnnouncementEntity)
-
-    if (markViewedAfterSync) {
-      markAnnouncementsViewedLocally(
-        publishedItems
-          .filter(item => item.status === 'published')
-          .map(item => item.id)
-          .map(id => id.trim())
-          .filter(Boolean)
-      )
-    }
-
-    setAnnouncements(publishedItems)
-    setAnnouncementsEntryDotVisible(
-      markViewedAfterSync ? false : computeAnnouncementsEntryDot(publishedItems)
-    )
-
-    if (latest.length) {
-      persistPublishedAnnouncementsLocally(storeId, publishedItems)
-      pruneAnnouncementMarksWhenCompletePageLoaded(
-        storeId,
-        publishedItems,
-        latest.length,
-        SHOWCASE_PAGE_SIZE.publicAnnouncements
-      )
-    }
-  }
-
-  async function syncMerchantAnnouncementsFromCloud(): Promise<void> {
-    const validSession = await ensureValidMerchantSessionLoadedForCloud()
-
-    if (!validSession) {
-      setStatusMessage(merchantSessionEnsureFailureMessage())
-      showSnackbar(merchantSessionEnsureSnackbarMessage())
-      return
-    }
-
-    setStoreMerchantSessionFromAuthSession(validSession)
-    bindMerchantSessionToRepository(repository)
-
-    const latest = await repository.fetchAnnouncements({
-      storeId,
-      includeDrafts: true,
-      limit: SHOWCASE_PAGE_SIZE.adminAnnouncements,
-      offset: 0
-    })
-
-    rebuildAnnouncementsList(latest)
-  }
-
-  async function loadMorePublicAnnouncements(): Promise<void> {
-    if (publicAnnouncementsPagination.isLoadingMore || !publicAnnouncementsPagination.hasMore) return
-
-    setPublicAnnouncementsPagination(current => ({
-      nextOffset: current.nextOffset,
-      hasMore: current.hasMore,
-      isLoadingMore: true
-    }))
-
-    try {
-      const latest = await repository.fetchAnnouncements({
-        storeId,
-        includeDrafts: false,
-        limit: SHOWCASE_PAGE_SIZE.publicAnnouncements,
-        offset: publicAnnouncementsPagination.nextOffset
-      })
-      const publishedItems = latest
-        .filter(item => item.status === 'published')
-        .map(toPublishedAnnouncementEntity)
-      const merged = sortedAnnouncementsForStorage(mergeUniqueById(announcements, publishedItems))
-
-      setAnnouncements(merged)
-      setAnnouncementsEntryDotVisible(computeAnnouncementsEntryDot(merged))
-      if (publishedItems.length) {
-        persistPublishedAnnouncementsLocally(storeId, merged)
-        pruneAnnouncementMarksWhenCompletePageLoaded(
-          storeId,
-          merged,
-          latest.length,
-          SHOWCASE_PAGE_SIZE.publicAnnouncements
-        )
-      }
-
-      setPublicAnnouncementsPagination({
-        nextOffset: publicAnnouncementsPagination.nextOffset + latest.length,
-        hasMore: latest.length >= SHOWCASE_PAGE_SIZE.publicAnnouncements,
-        isLoadingMore: false
-      })
-    } catch (error) {
-      setPublicAnnouncementsPagination(current => ({
-        nextOffset: current.nextOffset,
-        hasMore: current.hasMore,
-        isLoadingMore: false
-      }))
-      setStatusMessage(error instanceof Error ? error.message : 'Failed to load more announcements.')
-    }
-  }
-
-  async function loadMoreAdminAnnouncements(): Promise<void> {
-    if (adminAnnouncementsPagination.isLoadingMore || !adminAnnouncementsPagination.hasMore) return
-
-    setAdminAnnouncementsPagination(current => ({
-      nextOffset: current.nextOffset,
-      hasMore: current.hasMore,
-      isLoadingMore: true
-    }))
-
-    try {
-      const validSession = await ensureValidMerchantSessionLoadedForCloud()
-
-      if (!validSession) {
-        setStatusMessage(merchantSessionEnsureFailureMessage())
-        showSnackbar(merchantSessionEnsureSnackbarMessage())
-        setAdminAnnouncementsPagination(current => ({
-          nextOffset: current.nextOffset,
-          hasMore: current.hasMore,
-          isLoadingMore: false
-        }))
-        return
-      }
-
-      setStoreMerchantSessionFromAuthSession(validSession)
-      bindMerchantSessionToRepository(repository)
-
-      const latest = await repository.fetchAnnouncements({
-        storeId,
-        includeDrafts: true,
-        limit: SHOWCASE_PAGE_SIZE.adminAnnouncements,
-        offset: adminAnnouncementsPagination.nextOffset
-      })
-      const currentItems = [
-        ...announcements,
-        ...adminAnnouncementDraftItems.map(item => ({
-          id: item.id,
-          storeId,
-          coverUrl: item.coverUrl,
-          title: '',
-          body: item.body,
-          status: item.status,
-          createdAt: item.createdAt,
-          updatedAt: item.updatedAt,
-          viewCount: item.viewCount
-        } as CloudAnnouncement))
-      ]
-
-      rebuildAnnouncementsList(sortedAnnouncementsForStorage(mergeUniqueById(currentItems, latest)))
-
-      setAdminAnnouncementsPagination({
-        nextOffset: adminAnnouncementsPagination.nextOffset + latest.length,
-        hasMore: latest.length >= SHOWCASE_PAGE_SIZE.adminAnnouncements,
-        isLoadingMore: false
-      })
-    } catch (error) {
-      setAdminAnnouncementsPagination(current => ({
-        nextOffset: current.nextOffset,
-        hasMore: current.hasMore,
-        isLoadingMore: false
-      }))
-      setStatusMessage(error instanceof Error ? error.message : 'Failed to load more announcements.')
-    }
-  }
-
-  async function refreshAnnouncements(): Promise<void> {
-    await syncPublicAnnouncementsFromCloud(screen === ShowcaseScreens.Announcements)
-  }
-
-  async function refreshAnnouncementsEntryDotOnce(): Promise<void> {
-    const latest = await repository.fetchAnnouncements({
-      storeId,
-      includeDrafts: false,
-      limit: SHOWCASE_PAGE_SIZE.publicAnnouncements,
-      offset: 0
-    })
-
-    const cachedItems = loadPublishedAnnouncementsLocally(storeId)
-    const effectiveItems = latest.length ? latest : cachedItems
-    const publishedItems = effectiveItems
-      .filter(item => item.status === 'published')
-      .sort((left, right) => {
-        return (right.updatedAt || right.createdAt || 0) - (left.updatedAt || left.createdAt || 0)
-      })
-      .map(toPublishedAnnouncementEntity)
-
-    setAnnouncements(publishedItems)
-    setAnnouncementsEntryDotVisible(computeAnnouncementsEntryDot(publishedItems))
-
-    if (latest.length) {
-      persistPublishedAnnouncementsLocally(storeId, publishedItems)
-      pruneAnnouncementMarksWhenCompletePageLoaded(
-        storeId,
-        publishedItems,
-        latest.length,
-        SHOWCASE_PAGE_SIZE.publicAnnouncements
-      )
-    }
-  }
-
-  async function refreshBookingsEntryDotOnce(): Promise<void> {
-    const currentClientId = clientId.trim()
-
-    if (!currentClientId) {
-      setBookingsEntryDotVisible(false)
-      return
-    }
-
-    const latestScreen = currentScreenRef.current
-    const latestAdminLoggedIn = isAdminLoggedInRef.current || isMerchantLoggedInInStoreSession()
-    const isCustomerBookingsScreen = latestScreen === ShowcaseScreens.CustomerBookings
-    const canUpdateCustomerAppointmentList = !latestAdminLoggedIn && isCustomerBookingsScreen
-
-    try {
-      const latest = await repository.fetchAppointmentRequests({
-        storeId,
-        clientId: currentClientId,
-        merchant: false,
-        limit: SHOWCASE_PAGE_SIZE.clientAppointments,
-        offset: 0
-      })
-      const sortedItems = latest.slice().sort((left, right) => {
-        return (right.createdAt || 0) - (left.createdAt || 0)
-      })
-
-      if (canUpdateCustomerAppointmentList) {
-        setAppointmentRequests(sortedItems)
-        persistAppointmentsLocally(storeId, sortedItems)
-      } else {
-        console.log('[NDJC_APPOINTMENTS] Skip customer booking list overwrite from entry polling.', {
-          storeId,
-          currentClientId,
-          latestScreen,
-          latestAdminLoggedIn,
-          isCustomerBookingsScreen,
-          itemCount: sortedItems.length
-        })
-      }
-
-      pruneBookingSeenWhenCompletePageLoaded(
-        storeId,
-        currentClientId,
-        sortedItems,
-        latest.length,
-        SHOWCASE_PAGE_SIZE.clientAppointments
-      )
-
-      const seenKeys = loadSeenAppointmentStatusAlertKeys(storeId, currentClientId)
-      const hasUnseenAlert = sortedItems
-        .filter(item => isCustomerBookingAlertStatus(appointmentsStatusFromCloud(item.status)))
-        .map(item => appointmentStatusAlertKey(item.id, appointmentsStatusFromCloud(item.status)))
-        .filter(Boolean)
-        .some(key => !seenKeys.includes(key))
-
-      setBookingsEntryDotVisible(
-        latestAdminLoggedIn || isCustomerBookingsScreen
-          ? false
-          : hasUnseenAlert
-      )
-    } catch {
-      setBookingsEntryDotVisible(false)
-    }
-  }
-
-  function clearAdminAnnouncementComposerState(): void {
-    clearAdminAnnouncementDraftLocalImages(storeId)
-    clearAdminAnnouncementEditorDraftLocally(storeId)
-
-    setAdminAnnouncementComposerExpanded(false)
-    setAdminAnnouncementEditingId(null)
-    setAdminAnnouncementCoverDraftUrl(null)
-    setAdminAnnouncementBodyDraft('')
-    setAdminAnnouncementSelectedIds([])
-    setAdminAnnouncementPreviewId(null)
-    setAdminAnnouncementError(null)
-    setAdminAnnouncementSuccess(null)
-    setAdminAnnouncementIsSubmitting(false)
-    setAdminAnnouncementIsBlocking(false)
-  }
-
-  function hasUnsavedAdminAnnouncementDraft(): boolean {
-    const currentBody = adminAnnouncementBodyDraft.trim()
-    const currentCover = adminAnnouncementCoverDraftUrl
-      ?.trim()
-      || null
-
-    const editingId = adminAnnouncementEditingId?.trim() || null
-
-    if (!editingId) {
-      return Boolean(currentBody || currentCover)
-    }
-
-    const original = adminAnnouncementDraftItems.find(item => {
-      return item.id === editingId && item.status === 'draft'
-    }) || null
-
-    if (!original) {
-      return Boolean(currentBody || currentCover)
-    }
-
-    const originalBody = original.body.trim()
-    const originalCover = original.coverUrl
-      ?.trim()
-      || null
-
-    return currentBody !== originalBody || currentCover !== originalCover
-  }
-
-  function discardAdminAnnouncementDraftAndBack(): void {
-    clearAdminAnnouncementComposerState()
-    setScreen('Admin')
-    void refreshAdminHomeCloudState(false)
-  }
-
-  function discardAdminAnnouncementDraftAndGoHome(): void {
-    clearAdminAnnouncementComposerState()
-    setPreviousScreen(screen)
-    setScreen('Home')
-  }
-
-  function onAdminAnnouncementBodyDraftChange(value: string): void {
-    setAdminAnnouncementBodyDraft(value)
-    setAdminAnnouncementError(null)
-
-    const draft = toAnnouncementEntity({
-      id: adminAnnouncementEditingId,
-      coverUrl: adminAnnouncementCoverDraftUrl,
-      body: value,
-      status: 'draft',
-      viewCount: 0
-    })
-
-    persistAdminAnnouncementEditorDraftLocally(storeId, draft)
-  }
-
-  function onAdminAnnouncementClearCover(): void {
-    const url = adminAnnouncementCoverDraftUrl
-
-    setAdminAnnouncementCoverDraftUrl(null)
-    setAdminAnnouncementError(null)
-    setAdminAnnouncementSuccess(null)
-
-    if (url && isAppOwnedLocalFileUri(storeId, url)) {
-      deleteAppOwnedLocalFileUri(storeId, url)
-    }
-
-    const draft = toAnnouncementEntity({
-      id: adminAnnouncementEditingId,
-      coverUrl: null,
-      body: adminAnnouncementBodyDraft,
-      status: 'draft',
-      viewCount: 0
-    })
-
-    persistAdminAnnouncementEditorDraftLocally(storeId, draft)
-  }
-
-  function onAdminAnnouncementClearSelection(): void {
-    setAdminAnnouncementSelectedIds([])
-  }
-
-  async function onAdminAnnouncementCoverPicked(value: File | Blob | string): Promise<void> {
-    const previousCoverUrl = adminAnnouncementCoverDraftUrl
-    const nextCoverUrl = await resolveAnnouncementCoverDraftUrl(value)
-
-    if (!nextCoverUrl) {
-      setAdminAnnouncementError('Cover image compress failed.')
-      setAdminAnnouncementSuccess(null)
-      showSnackbar('Cover image compress failed.')
-      return
-    }
-
-    if (previousCoverUrl && previousCoverUrl !== nextCoverUrl && isAppOwnedLocalFileUri(storeId, previousCoverUrl)) {
-      deleteAppOwnedLocalFileUri(storeId, previousCoverUrl)
-    }
-
-    if (isLocalImageUri(nextCoverUrl)) {
-      rememberLocalTempImage(storeId, 'admin-announcement', nextCoverUrl)
-    }
-
-    setAdminAnnouncementCoverDraftUrl(nextCoverUrl)
-    setAdminAnnouncementError(null)
-    setAdminAnnouncementSuccess(null)
-    setAdminAnnouncementComposerExpanded(true)
-
-    const draft = toAnnouncementEntity({
-      id: adminAnnouncementEditingId,
-      coverUrl: nextCoverUrl,
-      body: adminAnnouncementBodyDraft,
-      status: 'draft',
-      viewCount: 0
-    })
-
-    persistAdminAnnouncementEditorDraftLocally(storeId, draft)
-  }
-
-  function onAdminAnnouncementDeleteSelected(): Promise<void> {
-    return deleteSelectedAnnouncements()
-  }
-
-  function onAdminAnnouncementDismissPreview(): void {
-    setAdminAnnouncementPreviewId(null)
-  }
-
-  function onAdminAnnouncementOpenItem(id: string): void {
-    editAnnouncement(id)
-  }
-
-  function onAdminAnnouncementPreviewItem(id: string): void {
-    const clean = id.trim()
-    if (!clean) return
-
-    const exists = adminAnnouncementDraftItems.some(item => {
-      return item.id === clean && item.status === 'draft'
-    })
-
-    if (!exists) return
-
-    setAdminAnnouncementPreviewId(clean)
-  }
-
-  function onAdminAnnouncementPushNow(): Promise<void> {
-    return saveAnnouncement('published')
-  }
-
-  function onAdminAnnouncementSaveDraft(): Promise<void> {
-    return saveAnnouncement('draft')
-  }
-
-  function onAdminAnnouncementStartNew(): void {
-    startNewAnnouncement()
-  }
-
-  function onAdminAnnouncementToggleSelect(id: string): void {
-    toggleAnnouncementSelection(id)
-  }
-
-  function onAnnouncementExpanded(id: string): void {
-    void openAnnouncement(id)
-  }
-
-  function onAnnouncementImageOpened(id: string): void {
-    const clean = id.trim()
-    if (!clean) return
-
-    const exists = announcements.some(item => {
-      return item.id === clean && item.status !== 'draft'
-    })
-
-    if (!exists) return
-
-    markAnnouncementViewedLocally(clean)
-    void trackAnnouncementClickOnce(clean)
-  }
-
-  async function syncAnnouncementsAfterPush(): Promise<void> {
-    await syncPublicAnnouncementsFromCloud(false)
-  }
-
-  async function ensureAnnouncementVisible(idInput: string): Promise<void> {
-    const id = idInput.trim()
-    if (!id) return
-
-    const exists = announcements.some(item => item.id === id)
-    if (!exists) {
-      await refreshAnnouncements()
-    }
-
-    setFocusedAnnouncementId(id)
-  }
-
-  async function ensureAnnouncementViewed(idInput: string): Promise<void> {
-    const id = idInput.trim()
-    if (!id) return
-
-    markAnnouncementViewedLocally(id)
-    await trackAnnouncementClickOnce(id)
-  }
-
-  async function ensureAnnouncementOpened(idInput: string): Promise<void> {
-    const id = idInput.trim()
-    if (!id) return
-
-    announcementsBackTargetRef.current = ShowcaseScreens.Home
-
-    await syncPublicAnnouncementsFromCloud(true)
-
-    setFocusedAnnouncementId(id)
-    setPreviousScreen(ShowcaseScreens.Home)
-    setScreen(ShowcaseScreens.Announcements)
-    await trackAnnouncementClickOnce(id)
-  }
-
-  async function ensureAnnouncementPushRoute(idInput: string): Promise<void> {
-    const id = idInput.trim()
-    if (!id) return
-
-    await onAnnouncementPushArrived(id)
-  }
-
-  async function ensureAnnouncementPublished(idInput: string): Promise<void> {
-    const id = idInput.trim()
-    if (!id) return
-
-    const item = announcements.find(announcement => announcement.id === id)
-    if (!item) return
-
-    await repository.dispatchAnnouncementPush({
-      storeId,
-      announcementId: item.id,
-      bodyPreview: item.body.slice(0, 120)
-    })
-
-    setPushTargetAnnouncementId(item.id)
-  }
-
-  async function ensureAnnouncementDraftSaved(): Promise<void> {
-    await saveAnnouncement('draft')
-  }
-
-  async function ensureAnnouncementPublishedNow(): Promise<void> {
-    await saveAnnouncement('published')
-  }
-
-  async function ensureAnnouncementSelectionDeleted(): Promise<void> {
-    await deleteSelectedAnnouncements()
-  }
-
-  async function ensureAnnouncementListFresh(): Promise<void> {
-    await refreshAnnouncements()
-  }
-
-  async function ensureAnnouncementEntryDotFresh(): Promise<void> {
-    await refreshAnnouncementsEntryDotOnce()
-  }
-
-  async function ensureAnnouncementClickTracked(id: string): Promise<void> {
-    await trackAnnouncementClickOnce(id)
-  }
-
-  function clearFocusedAnnouncement(): void {
-    setFocusedAnnouncementId(null)
-  }
-
-  async function ensureAnnouncementImageOpened(id: string): Promise<void> {
-    onAnnouncementImageOpened(id)
-    await ensureAnnouncementClickTracked(id)
-  }
-
-  async function ensureAnnouncementExpanded(id: string): Promise<void> {
-    onAnnouncementExpanded(id)
-  }
-
-  async function ensureAnnouncementRouteConsumed(): Promise<void> {
-    clearFocusedAnnouncement()
-  }
-
-  async function ensureAnnouncementDraftDiscardedToAdmin(): Promise<void> {
-    discardAdminAnnouncementDraftAndBack()
-  }
-
-  async function ensureAnnouncementDraftDiscardedToHome(): Promise<void> {
-    discardAdminAnnouncementDraftAndGoHome()
-  }
-
-  async function ensureAnnouncementComposerCleared(): Promise<void> {
-    clearAdminAnnouncementComposerState()
-  }
-
-  async function ensureAnnouncementCoverCleared(): Promise<void> {
-    onAdminAnnouncementClearCover()
-  }
-
-  async function ensureAnnouncementCoverPicked(value: File | Blob | string): Promise<void> {
-    await onAdminAnnouncementCoverPicked(value)
-  }
-
-  async function ensureAnnouncementBodyChanged(value: string): Promise<void> {
-    onAdminAnnouncementBodyDraftChange(value)
-  }
-
-  async function ensureAnnouncementSelectionCleared(): Promise<void> {
-    onAdminAnnouncementClearSelection()
-  }
-
-  async function ensureAnnouncementPreviewDismissed(): Promise<void> {
-    onAdminAnnouncementDismissPreview()
-  }
-
-  async function ensureAnnouncementItemOpened(id: string): Promise<void> {
-    onAdminAnnouncementOpenItem(id)
-  }
-
-  async function ensureAnnouncementItemPreviewed(id: string): Promise<void> {
-    onAdminAnnouncementPreviewItem(id)
-  }
-
-  async function ensureAnnouncementItemToggled(id: string): Promise<void> {
-    onAdminAnnouncementToggleSelect(id)
-  }
-
-  function getAnnouncementUnreadCount(): number {
-    return announcements.filter(item => !hasAnnouncementBeenViewedLocally(item.id)).length
-  }
-
-  async function ensureAnnouncementUnreadStateFresh(): Promise<void> {
-    await refreshAnnouncementsEntryDotOnce()
-  }
-
-  async function ensureAnnouncementAllViewed(): Promise<void> {
-    markAnnouncementsViewedLocally(announcements.map(item => item.id))
-  }
-
-  async function ensureAnnouncementCacheRebuilt(): Promise<void> {
-    rebuildAnnouncementsList(announcements)
-  }
-
-  async function ensureAnnouncementCloudSynced(): Promise<void> {
-    await refreshAnnouncements()
-  }
-
-  async function ensureAnnouncementDraftRestored(): Promise<void> {
-    startNewAnnouncement()
-  }
-
-  async function ensureAnnouncementDraftPersisted(): Promise<void> {
-    const draft = toAnnouncementEntity({
-      id: adminAnnouncementEditingId,
-      coverUrl: adminAnnouncementCoverDraftUrl,
-      body: adminAnnouncementBodyDraft,
-      status: 'draft',
-      viewCount: 0
-    })
-
-    persistAdminAnnouncementEditorDraftLocally(storeId, draft)
-  }
-
-  async function ensureAnnouncementDraftCleared(): Promise<void> {
-    clearAdminAnnouncementEditorDraftLocally(storeId)
-    clearAdminAnnouncementDraftLocalImages(storeId)
-  }
-
-  async function ensureAnnouncementLocalCacheWritten(): Promise<void> {
-    persistPublishedAnnouncementsLocally(storeId, announcements)
-  }
-
-  async function ensureAnnouncementLocalCacheRead(): Promise<CloudAnnouncement[]> {
-    const all = readJson<Array<{ storeId: string; items: CloudAnnouncement[] }>>(SHOWCASE_PUBLISHED_ANNOUNCEMENTS_KEY, [])
-    return all.find(item => item.storeId === storeId)?.items || []
-  }
-
-  async function ensureAnnouncementLocalCacheLoaded(): Promise<void> {
-    const local = await ensureAnnouncementLocalCacheRead()
-    if (local.length) {
-      setAnnouncements(local)
-    }
-  }
-
-  async function ensureAnnouncementLocalViewedLoaded(): Promise<string[]> {
-    return loadViewedAnnouncementIdsLocally(storeId)
-  }
-
-  async function ensureAnnouncementLocalCountedLoaded(): Promise<string[]> {
-    return loadCountedAnnouncementClickIdsLocally(storeId)
-  }
-
-  async function ensureAnnouncementLocalViewedSaved(ids: string[]): Promise<void> {
-    saveViewedAnnouncementIdsLocally(storeId, ids)
-  }
-
-  async function ensureAnnouncementLocalCountedSaved(ids: string[]): Promise<void> {
-    saveCountedAnnouncementClickIdsLocally(storeId, ids)
-  }
-
-  async function ensureAnnouncementLocalViewedCleared(): Promise<void> {
-    saveViewedAnnouncementIdsLocally(storeId, [])
-  }
-
-  async function ensureAnnouncementLocalCountedCleared(): Promise<void> {
-    saveCountedAnnouncementClickIdsLocally(storeId, [])
-  }
-
-  async function ensureAnnouncementDraftImagesCleared(): Promise<void> {
-    clearAdminAnnouncementDraftLocalImages(storeId)
-  }
-
-  async function ensureAnnouncementDraftComposerExpanded(): Promise<void> {
-    setAdminAnnouncementComposerExpanded(true)
-  }
-
-  async function ensureAnnouncementDraftComposerCollapsed(): Promise<void> {
-    setAdminAnnouncementComposerExpanded(false)
-  }
-
-  async function ensureAnnouncementPreviewVisible(id: string): Promise<void> {
-    setAdminAnnouncementPreviewId(id)
-  }
-
-  async function ensureAnnouncementPreviewHidden(): Promise<void> {
-    setAdminAnnouncementPreviewId(null)
-  }
-
-  async function ensureAnnouncementPushTargetCleared(): Promise<void> {
-    setPushTargetAnnouncementId(null)
-  }
-
-  async function ensureAnnouncementPushTargetSet(id: string): Promise<void> {
-    setPushTargetAnnouncementId(id)
-  }
-
-  async function ensureAnnouncementComposerErrorDismissed(): Promise<void> {
-    setAdminAnnouncementError(null)
-  }
-
-  async function ensureAnnouncementComposerSuccessDismissed(): Promise<void> {
-    setAdminAnnouncementSuccess(null)
-  }
-
-  async function ensureAnnouncementComposerBlocking(value: boolean): Promise<void> {
-    setAdminAnnouncementIsBlocking(value)
-  }
-
-  async function ensureAnnouncementComposerSubmitting(value: boolean): Promise<void> {
-    setAdminAnnouncementIsSubmitting(value)
-  }
-
-  async function ensureAnnouncementComposerExpanded(value: boolean): Promise<void> {
-    setAdminAnnouncementComposerExpanded(value)
-  }
-
-  async function ensureAnnouncementFocused(id: string | null): Promise<void> {
-    setFocusedAnnouncementId(id)
-  }
-
-  async function ensureAnnouncementSelection(ids: string[]): Promise<void> {
-    setAdminAnnouncementSelectedIds(ids.map(id => id.trim()).filter(Boolean))
-  }
-
-  async function ensureAnnouncementDraftBody(value: string): Promise<void> {
-    setAdminAnnouncementBodyDraft(value)
-  }
-
-  async function ensureAnnouncementDraftCover(value: string | null): Promise<void> {
-    setAdminAnnouncementCoverDraftUrl(value)
-  }
-
-  async function ensureAnnouncementDraftEditingId(value: string | null): Promise<void> {
-    setAdminAnnouncementEditingId(value)
-  }
-
-  async function ensureAnnouncementDraftItems(items: DraftAnnouncement[]): Promise<void> {
-    setAdminAnnouncementDraftItems(items)
-  }
-
-  async function ensureAnnouncementPublishedItems(items: CloudAnnouncement[]): Promise<void> {
-    setAnnouncements(items)
-  }
-
-  async function ensureAnnouncementResetAllLocalState(): Promise<void> {
-    clearAdminAnnouncementComposerState()
-    setAdminAnnouncementDraftItems([])
-    setAdminAnnouncementSelectedIds([])
-    setAdminAnnouncementPreviewId(null)
-    setFocusedAnnouncementId(null)
-  }
-
-  async function ensureAnnouncementPostPublishRefresh(): Promise<void> {
-    await refreshAnnouncements()
-    await refreshAnnouncementsEntryDotOnce()
-  }
-
-  async function ensureAnnouncementPostDeleteRefresh(): Promise<void> {
-    await refreshAnnouncements()
-  }
-
-  async function ensureAnnouncementPostDraftRefresh(): Promise<void> {
-    await syncMerchantAnnouncementsFromCloud()
-  }
-
-  async function ensureAnnouncementPostViewedRefresh(): Promise<void> {
-    await refreshAnnouncementsEntryDotOnce()
-  }
-
-  async function ensureAnnouncementPostPushRefresh(): Promise<void> {
-    await refreshAnnouncementsEntryDotOnce()
-  }
-
-  async function ensureAnnouncementPostRouteRefresh(id: string): Promise<void> {
-    await ensureAnnouncementPushRoute(id)
-  }
-
-  async function ensureAnnouncementPostImageOpenRefresh(id: string): Promise<void> {
-    await ensureAnnouncementImageOpened(id)
-  }
-
-  async function ensureAnnouncementPostExpandedRefresh(id: string): Promise<void> {
-    await ensureAnnouncementExpanded(id)
-  }
-
-  async function ensureAnnouncementPostComposerDismiss(): Promise<void> {
-    clearAdminAnnouncementComposerState()
-  }
-
-  async function ensureAnnouncementPostSelectionClear(): Promise<void> {
-    onAdminAnnouncementClearSelection()
-  }
-
-  async function ensureAnnouncementPostPreviewDismiss(): Promise<void> {
-    onAdminAnnouncementDismissPreview()
-  }
-
-  async function ensureAnnouncementPostDraftDiscardBack(): Promise<void> {
-    discardAdminAnnouncementDraftAndBack()
-  }
-
-  async function ensureAnnouncementPostDraftDiscardHome(): Promise<void> {
-    discardAdminAnnouncementDraftAndGoHome()
-  }
-
-  async function ensureAnnouncementPostComposerClear(): Promise<void> {
-    clearAdminAnnouncementComposerState()
-  }
-
-  async function ensureAnnouncementPostLocalCacheWrite(): Promise<void> {
-    await ensureAnnouncementLocalCacheWritten()
-  }
-
-  async function ensureAnnouncementPostLocalCacheLoad(): Promise<void> {
-    await ensureAnnouncementLocalCacheLoaded()
-  }
-
-  async function ensureAnnouncementPostAllViewed(): Promise<void> {
-    await ensureAnnouncementAllViewed()
-  }
-
-  async function ensureAnnouncementPostUnreadFresh(): Promise<void> {
-    await ensureAnnouncementUnreadStateFresh()
-  }
-
-  async function ensureAnnouncementPostDraftRestore(): Promise<void> {
-    await ensureAnnouncementDraftRestored()
-  }
-
-  async function ensureAnnouncementPostDraftPersist(): Promise<void> {
-    await ensureAnnouncementDraftPersisted()
-  }
-
-  async function ensureAnnouncementPostDraftClear(): Promise<void> {
-    await ensureAnnouncementDraftCleared()
-  }
-
-  async function ensureAnnouncementPostPushTargetClear(): Promise<void> {
-    await ensureAnnouncementPushTargetCleared()
-  }
-
-  async function ensureAnnouncementPostPushTargetSet(id: string): Promise<void> {
-    await ensureAnnouncementPushTargetSet(id)
-  }
-
-  async function ensureAnnouncementPostErrorDismiss(): Promise<void> {
-    await ensureAnnouncementComposerErrorDismissed()
-  }
-
-  async function ensureAnnouncementPostSuccessDismiss(): Promise<void> {
-    await ensureAnnouncementComposerSuccessDismissed()
-  }
-
-  async function ensureAnnouncementPostBlocking(value: boolean): Promise<void> {
-    await ensureAnnouncementComposerBlocking(value)
-  }
-
-  async function ensureAnnouncementPostSubmitting(value: boolean): Promise<void> {
-    await ensureAnnouncementComposerSubmitting(value)
-  }
-
-  async function ensureAnnouncementPostComposerExpanded(value: boolean): Promise<void> {
-    await ensureAnnouncementComposerExpanded(value)
-  }
-
-  async function ensureAnnouncementPostFocused(id: string | null): Promise<void> {
-    await ensureAnnouncementFocused(id)
-  }
-
-  async function ensureAnnouncementPostSelection(ids: string[]): Promise<void> {
-    await ensureAnnouncementSelection(ids)
-  }
-
-  async function ensureAnnouncementPostDraftBody(value: string): Promise<void> {
-    await ensureAnnouncementDraftBody(value)
-  }
-
-  async function ensureAnnouncementPostDraftCover(value: string | null): Promise<void> {
-    await ensureAnnouncementDraftCover(value)
-  }
-
-  async function ensureAnnouncementPostDraftEditingId(value: string | null): Promise<void> {
-    await ensureAnnouncementDraftEditingId(value)
-  }
-
-  async function ensureAnnouncementPostDraftItems(items: DraftAnnouncement[]): Promise<void> {
-    await ensureAnnouncementDraftItems(items)
-  }
-
-  async function ensureAnnouncementPostPublishedItems(items: CloudAnnouncement[]): Promise<void> {
-    await ensureAnnouncementPublishedItems(items)
-  }
-
-  async function ensureAnnouncementPostResetAllLocalState(): Promise<void> {
-    await ensureAnnouncementResetAllLocalState()
-  }
-
-  async function ensureAnnouncementNoop(): Promise<void> {
-    return
-  }
+  const {
+    computeAnnouncementsEntryDot,
+    shouldShowAnnouncementsEntryDot,
+    shouldShowBookingsEntryDot,
+    trackAnnouncementClickOnce,
+    openAnnouncement,
+    announcementDraftTimeText,
+    announcementPublishedTimeText,
+    toAnnouncementEntity,
+    toPublishedAnnouncementEntity,
+    getAdminDraftCardsForUi,
+    getAdminPublishedCardsForUi,
+    rebuildAnnouncementsList,
+    syncPublicAnnouncementsFromCloud,
+    syncMerchantAnnouncementsFromCloud,
+    loadMorePublicAnnouncements,
+    loadMoreAdminAnnouncements,
+    refreshAnnouncements,
+    refreshAnnouncementsEntryDotOnce,
+    clearAdminAnnouncementComposerState,
+    hasUnsavedAdminAnnouncementDraft,
+    discardAdminAnnouncementDraftAndBack,
+    discardAdminAnnouncementDraftAndGoHome,
+    onAdminAnnouncementBodyDraftChange,
+    onAdminAnnouncementClearCover,
+    onAdminAnnouncementClearSelection,
+    onAdminAnnouncementCoverPicked,
+    onAdminAnnouncementDeleteSelected,
+    onAdminAnnouncementDismissPreview,
+    onAdminAnnouncementOpenItem,
+    onAdminAnnouncementPreviewItem,
+    onAdminAnnouncementPushNow,
+    onAdminAnnouncementSaveDraft,
+    onAdminAnnouncementStartNew,
+    onAdminAnnouncementToggleSelect,
+    onAnnouncementExpanded,
+    onAnnouncementImageOpened,
+    syncAnnouncementsAfterPush,
+    ensureAnnouncementVisible,
+    ensureAnnouncementViewed,
+    ensureAnnouncementOpened,
+    ensureAnnouncementPushRoute,
+    ensureAnnouncementPublished,
+    ensureAnnouncementDraftSaved,
+    ensureAnnouncementPublishedNow,
+    ensureAnnouncementSelectionDeleted,
+    ensureAnnouncementListFresh,
+    ensureAnnouncementEntryDotFresh,
+    ensureAnnouncementClickTracked,
+    clearFocusedAnnouncement,
+    ensureAnnouncementImageOpened,
+    ensureAnnouncementExpanded,
+    ensureAnnouncementRouteConsumed,
+    ensureAnnouncementDraftDiscardedToAdmin,
+    ensureAnnouncementDraftDiscardedToHome,
+    ensureAnnouncementComposerCleared,
+    ensureAnnouncementCoverCleared,
+    ensureAnnouncementCoverPicked,
+    ensureAnnouncementBodyChanged,
+    ensureAnnouncementSelectionCleared,
+    ensureAnnouncementPreviewDismissed,
+    ensureAnnouncementItemOpened,
+    ensureAnnouncementItemPreviewed,
+    ensureAnnouncementItemToggled,
+    getAnnouncementUnreadCount,
+    ensureAnnouncementUnreadStateFresh,
+    ensureAnnouncementAllViewed,
+    ensureAnnouncementCacheRebuilt,
+    ensureAnnouncementCloudSynced,
+    ensureAnnouncementDraftRestored,
+    ensureAnnouncementDraftPersisted,
+    ensureAnnouncementDraftCleared,
+    ensureAnnouncementLocalCacheWritten,
+    ensureAnnouncementLocalCacheRead,
+    ensureAnnouncementLocalCacheLoaded,
+    ensureAnnouncementLocalViewedLoaded,
+    ensureAnnouncementLocalCountedLoaded,
+    ensureAnnouncementLocalViewedSaved,
+    ensureAnnouncementLocalCountedSaved,
+    ensureAnnouncementLocalViewedCleared,
+    ensureAnnouncementLocalCountedCleared,
+    ensureAnnouncementDraftImagesCleared,
+    ensureAnnouncementDraftComposerExpanded,
+    ensureAnnouncementDraftComposerCollapsed,
+    ensureAnnouncementPreviewVisible,
+    ensureAnnouncementPreviewHidden,
+    ensureAnnouncementPushTargetCleared,
+    ensureAnnouncementPushTargetSet,
+    ensureAnnouncementComposerErrorDismissed,
+    ensureAnnouncementComposerSuccessDismissed,
+    ensureAnnouncementComposerBlocking,
+    ensureAnnouncementComposerSubmitting,
+    ensureAnnouncementComposerExpanded,
+    ensureAnnouncementFocused,
+    ensureAnnouncementSelection,
+    ensureAnnouncementDraftBody,
+    ensureAnnouncementDraftCover,
+    ensureAnnouncementDraftEditingId,
+    ensureAnnouncementDraftItems,
+    ensureAnnouncementPublishedItems,
+    ensureAnnouncementResetAllLocalState,
+    ensureAnnouncementPostPublishRefresh,
+    ensureAnnouncementPostDeleteRefresh,
+    ensureAnnouncementPostDraftRefresh,
+    ensureAnnouncementPostViewedRefresh,
+    ensureAnnouncementPostPushRefresh,
+    ensureAnnouncementPostRouteRefresh,
+    ensureAnnouncementPostImageOpenRefresh,
+    ensureAnnouncementPostExpandedRefresh,
+    ensureAnnouncementPostComposerDismiss,
+    ensureAnnouncementPostSelectionClear,
+    ensureAnnouncementPostPreviewDismiss,
+    ensureAnnouncementPostDraftDiscardBack,
+    ensureAnnouncementPostDraftDiscardHome,
+    ensureAnnouncementPostComposerClear,
+    ensureAnnouncementPostLocalCacheWrite,
+    ensureAnnouncementPostLocalCacheLoad,
+    ensureAnnouncementPostAllViewed,
+    ensureAnnouncementPostUnreadFresh,
+    ensureAnnouncementPostDraftRestore,
+    ensureAnnouncementPostDraftPersist,
+    ensureAnnouncementPostDraftClear,
+    ensureAnnouncementPostPushTargetClear,
+    ensureAnnouncementPostPushTargetSet,
+    ensureAnnouncementPostErrorDismiss,
+    ensureAnnouncementPostSuccessDismiss,
+    ensureAnnouncementPostBlocking,
+    ensureAnnouncementPostSubmitting,
+    ensureAnnouncementPostComposerExpanded,
+    ensureAnnouncementPostFocused,
+    ensureAnnouncementPostSelection,
+    ensureAnnouncementPostDraftBody,
+    ensureAnnouncementPostDraftCover,
+    ensureAnnouncementPostDraftEditingId,
+    ensureAnnouncementPostDraftItems,
+    ensureAnnouncementPostPublishedItems,
+    ensureAnnouncementPostResetAllLocalState,
+    ensureAnnouncementNoop
+  } = createShowcaseAnnouncementActions({
+    SHOWCASE_PAGE_SIZE,
+    SHOWCASE_PUBLISHED_ANNOUNCEMENTS_KEY,
+    ShowcaseScreens,
+    adminAnnouncementBodyDraft,
+    adminAnnouncementComposerExpanded,
+    adminAnnouncementCoverDraftUrl,
+    adminAnnouncementDraftItems,
+    adminAnnouncementEditingId,
+    adminAnnouncementIsSubmitting,
+    adminAnnouncementPreviewId,
+    adminAnnouncementSelectedIds,
+    adminAnnouncementsPagination,
+    announcementClickCountInFlightRef,
+    announcements,
+    announcementsBackTargetRef,
+    announcementsEntryDotVisible,
+    bindMerchantSessionToRepository,
+    bookingsEntryDotVisible,
+    clearAdminAnnouncementDraftLocalImages,
+    clearAdminAnnouncementEditorDraftLocally,
+    createUuidLikeId,
+    deleteAppOwnedLocalFileUri,
+    ensureValidMerchantSessionLoadedForCloud,
+    formatDateTimeText,
+    guardOfflineWriteOperation,
+    handleMerchantAuthExpiredIfNeeded,
+    isAppOwnedLocalFileUri,
+    isLocalImageUri,
+    loadCountedAnnouncementClickIdsLocally,
+    loadPublishedAnnouncementsLocally,
+    loadViewedAnnouncementIdsLocally,
+    merchantSessionEnsureFailureMessage,
+    merchantSessionEnsureSnackbarMessage,
+    mergeUniqueById,
+    nowMillis,
+    onAnnouncementPushArrived,
+    persistAdminAnnouncementEditorDraftLocally,
+    persistPublishedAnnouncementsLocally,
+    pruneAnnouncementMarksWhenCompletePageLoaded,
+    publicAnnouncementsPagination,
+    readJson,
+    refreshAdminHomeCloudState,
+    rememberLocalTempImage,
+    removePendingSync,
+    repository,
+    resolveAnnouncementCoverDraftUrl,
+    retryMerchantCloudOperationAfterAuthRefresh,
+    saveCountedAnnouncementClickIdsLocally,
+    saveViewedAnnouncementIdsLocally,
+    screen,
+    seenAnnouncementIds,
+    setAdminAnnouncementBodyDraft,
+    setAdminAnnouncementComposerExpanded,
+    setAdminAnnouncementCoverDraftUrl,
+    setAdminAnnouncementDraftItems,
+    setAdminAnnouncementEditingId,
+    setAdminAnnouncementError,
+    setAdminAnnouncementIsBlocking,
+    setAdminAnnouncementIsSubmitting,
+    setAdminAnnouncementPreviewId,
+    setAdminAnnouncementSelectedIds,
+    setAdminAnnouncementSubmittingAction,
+    setAdminAnnouncementSuccess,
+    setAdminAnnouncementsPagination,
+    setAnnouncements,
+    setAnnouncementsEntryDotVisible,
+    setFocusedAnnouncementId,
+    setPreviousScreen,
+    setPublicAnnouncementsPagination,
+    setPushTargetAnnouncementId,
+    setScreen,
+    setSeenAnnouncementIds,
+    setStatusMessage,
+    setStoreMerchantSessionFromAuthSession,
+    showSnackbar,
+    sortedAnnouncementsForStorage,
+    storeId,
+    uploadAnnouncementCoverIfNeeded
+  })
+
+  const adminAnnouncementCards = useMemo<ShowcaseAnnouncementCard[]>(() => {
+    return getAdminDraftCardsForUi()
+  }, [adminAnnouncementDraftItems])
 
   async function ensureActiveConversation(): Promise<ChatConversation | null> {
     if (guardOfflineWriteOperation()) {
@@ -16521,14 +10067,15 @@ async function refreshCustomerAppointmentsFromCloud(
 
       if (role === 'merchant') {
         const traceId = `VM${Date.now()}_${storeId.slice(-4)}`
+        const conversationId = String(activeConversationIdRef.current || activeConversationId || '').trim()
 
         await chatRepository.syncMerchantThreadMetaFromCloud(
           storeId,
           traceId
         )
 
-        if (activeConversationId && canLoadFullMessages) {
-          await refreshChatMessages(activeConversationId, true, true)
+        if (conversationId && canLoadFullMessages) {
+          await refreshChatMessages(conversationId, true, true)
         }
 
         await mergeLatestMerchantThreadsIntoState(traceId)
@@ -17170,7 +10717,7 @@ async function refreshCustomerAppointmentsFromCloud(
 
     announcementsBackTargetRef.current = ShowcaseScreens.Home
 
-    setPendingPushRoute({
+    setPendingShowcasePushRoute({
       type: 'announcement',
       announcementId
     })
@@ -17236,13 +10783,17 @@ async function refreshCustomerAppointmentsFromCloud(
     appointmentId?: string | null
     openAs?: string | null
   }): Promise<void> {
-    setPendingPushRoute(routeInput)
+    setPendingShowcasePushRoute(routeInput)
 
     const openAs = String(routeInput.openAs || '').trim().toLowerCase()
-    const merchantRuntimeLoggedIn = isAdminLoggedIn || isMerchantLoggedInInStoreSession()
+    const merchantRuntimeLoggedIn = isAdminLoggedInRef.current || isMerchantLoggedInInStoreSession()
 
     if (openAs === 'merchant' && !merchantRuntimeLoggedIn) {
-      setPreviousScreen(screen)
+      if (!merchantAuthRestoredRef.current) {
+        return
+      }
+
+      setPreviousScreen(currentScreenRef.current)
       prepareLoginScreen(null)
       setScreen('Login')
       return
@@ -17265,12 +10816,12 @@ async function refreshCustomerAppointmentsFromCloud(
         setRuntimeActiveConversationId(routeInput.conversationId)
         await restoreMerchantChatContext(routeInput.conversationId)
       } else if (routeInput.conversationId) {
-        chatBackTargetRef.current = isAdminLoggedIn
+        chatBackTargetRef.current = isAdminLoggedInRef.current
           ? ShowcaseScreens.MerchantChatList
           : ShowcaseScreens.Home
         setPreviousScreen(chatBackTargetRef.current)
 
-        if (isAdminLoggedIn) {
+        if (isAdminLoggedInRef.current) {
           stopChatPolling()
           stopChatDbObserve()
           setChatMode('Merchant')
@@ -17296,6 +10847,7 @@ async function refreshCustomerAppointmentsFromCloud(
       startChatDbObserve()
       startChatPolling()
       await syncChat()
+      setPendingShowcasePushRoute(null)
       return
     }
 
@@ -17306,21 +10858,26 @@ async function refreshCustomerAppointmentsFromCloud(
 
     if (routeInput.type === 'appointment') {
       await refreshAppointments()
-      setPreviousScreen(screen)
+      setPreviousScreen(currentScreenRef.current)
 
       if (openAs === 'merchant') {
         setScreen('AdminAppointmentManager')
+        setPendingShowcasePushRoute(null)
         return
       }
 
       if (openAs === 'customer' || openAs === 'client') {
         setScreen('CustomerBookings')
+        setPendingShowcasePushRoute(null)
         return
       }
 
-      setScreen(isAdminLoggedIn ? 'AdminAppointmentManager' : 'CustomerBookings')
+      setScreen(isAdminLoggedInRef.current ? 'AdminAppointmentManager' : 'CustomerBookings')
+      setPendingShowcasePushRoute(null)
     }
   }
+
+  handlePushRouteRef.current = handlePushRoute
 
   useEffect(() => {
     const uninstall = installShowcasePushRouter()
@@ -17337,7 +10894,10 @@ async function refreshCustomerAppointmentsFromCloud(
         return
       }
 
-      void handlePushRoute(viewModelRoute).then(() => {
+      const pushHandler = handlePushRouteRef.current
+      if (!pushHandler) return
+
+      void pushHandler(viewModelRoute).then(() => {
         consumeShowcasePushRoute(route)
       })
     })
@@ -17351,7 +10911,7 @@ async function refreshCustomerAppointmentsFromCloud(
       unsubscribe()
       uninstall()
     }
-  }, [screen, isAdminLoggedIn, activeConversationId, storeId])
+  }, [storeId])
 
   async function dispatchNewAppointmentPushToMerchant(appointment: CloudAppointmentRequest): Promise<void> {
     const body = formatNewAppointmentMerchantPushBody(appointment)
@@ -17380,7 +10940,7 @@ async function refreshCustomerAppointmentsFromCloud(
     }
   }
 
-async function dispatchCustomerCancelledAppointmentPushToMerchant(appointment: CloudAppointmentRequest): Promise<void> {
+  async function dispatchCustomerCancelledAppointmentPushToMerchant(appointment: CloudAppointmentRequest): Promise<void> {
   const body = formatCancelledAppointmentMerchantPushBody(appointment)
 
   console.log('[NDJC_PUSH] Customer cancelled appointment push to merchant started.', {
@@ -17479,7 +11039,7 @@ async function dispatchCustomerCancelledAppointmentPushToMerchant(appointment: C
     }
   }
 
-async function sendChatMessage(): Promise<void> {
+  async function sendChatMessage(): Promise<void> {
   if (chatIsSending || chatIsOpeningRef.current) return
 
   const rawBody = chatDraft.trim()
@@ -19995,7 +13555,7 @@ async function sendChatMessage(): Promise<void> {
     updateChatDraftPersistence(value, chatDraftImageUrls, chatPendingProduct, chatQuotedMessageId, chatPendingAppointment)
   }
 
-async function onChatImagesSelected(values: Array<File | Blob | string>): Promise<void> {
+  async function onChatImagesSelected(values: Array<File | Blob | string>): Promise<void> {
   if (!values.length) return
 
   const draftUrls: string[] = []
@@ -20121,6 +13681,8 @@ function onChatImageLimitReached(): void {
   }
 
   function moveEditImage(fromIndex: number, toIndex: number): void {
+    itemEditorImageDraftDirtyRef.current = true
+
     setEditDishImageUrls(current => {
       if (fromIndex < 0 || fromIndex >= current.length) return current
       if (toIndex < 0 || toIndex >= current.length) return current
@@ -20164,458 +13726,58 @@ function onChatImageLimitReached(): void {
     setScreen('Edit')
   }
 
-  function startEditStoreProfile(): void {
-    const baseProfile = storeProfile || storeProfileFromCloud(storeProfileCloud)
-    const nextDraft = storeProfileDraftFromProfile(baseProfile)
-
-    setStoreProfileDraft(nextDraft)
-    setDraftStoreProfileServices(storeProfileServices)
-    setDraftStoreProfileExtraContacts(
-      storeProfileExtraContacts.map((item, index) => ({
-        id: item.id || `extra_contact_${index + 1}`,
-        name: item.name,
-        value: item.value
-      }))
-    )
-    setDraftStoreProfileCoverUrl(storeProfileCoverUrl)
-    setDraftStoreProfileLogoUrl(storeProfileLogoUrl)
-    setDraftStoreProfileDescription(storeProfileCloud?.description || '')
-    setDraftBusinessStatus(storeProfileCloud?.businessStatus || '')
-    setIsEditingStoreProfile(true)
-    setIsSavingStoreProfile(false)
-    setStoreProfileSaveError(null)
-    setStoreProfileSaveSuccess(false)
-    writePersistedStoreProfileDraft(storeId, null)
-  }
-
-  function cancelEditStoreProfile(): void {
-    clearStoreProfileDraftLocalImages(storeId)
-    setStoreProfileDraft(null)
-    setDraftStoreProfileServices(storeProfileServices)
-    setDraftStoreProfileExtraContacts(
-      storeProfileExtraContacts.map((item, index) => ({
-        id: item.id || `extra_contact_${index + 1}`,
-        name: item.name,
-        value: item.value
-      }))
-    )
-    setDraftStoreProfileCoverUrl(storeProfileCoverUrl)
-    setDraftStoreProfileLogoUrl(storeProfileLogoUrl)
-    setDraftStoreProfileDescription(storeProfileCloud?.description || '')
-    setDraftBusinessStatus(storeProfileCloud?.businessStatus || '')
-    setIsEditingStoreProfile(false)
-    setIsSavingStoreProfile(false)
-    setStoreProfileSaveError(null)
-    setStoreProfileSaveSuccess(false)
-    writePersistedStoreProfileDraft(storeId, null)
-  }
-
-  function updateStoreProfileDraft(patch: Partial<ShowcaseStoreProfileDraft>): void {
-    setStoreProfileDraft(current => {
-      const base = current || storeProfileDraftFromProfile(storeProfile || storeProfileFromCloud(storeProfileCloud))
-      const next = {
-        ...base,
-        ...patch,
-        isDirty: true
-      }
-
-      writePersistedStoreProfileDraft(storeId, next)
-      return next
-    })
-  }
-
-  function addStoreService(valueInput: string): void {
-    const value = valueInput.trim()
-    if (!value) return
-
-    setDraftStoreProfileServices(current => {
-      if (current.includes(value)) return current
-      return [...current, value]
-    })
-  }
-
-  function removeStoreService(indexInput: number): void {
-    const index = Math.max(0, Math.round(indexInput))
-
-    setDraftStoreProfileServices(current => {
-      if (index < 0 || index >= current.length) return current
-      return current.filter((_, itemIndex) => itemIndex !== index)
-    })
-  }
-
-  function addExtraContact(nameInput: string, valueInput: string): void {
-    const name = nameInput.trim()
-    const value = valueInput.trim()
-
-    if (!name || !value) return
-
-    setDraftStoreProfileExtraContacts(current => [
-      ...current,
-      {
-        id: createId('extra_contact'),
-        name,
-        value
-      }
-    ])
-
-    setStoreProfileSaveError(null)
-  }
-
-  function removeExtraContact(idInput: string): void {
-    const id = idInput.trim()
-    if (!id) return
-
-    setDraftStoreProfileExtraContacts(current => current.filter(item => item.id !== id))
-  }
-
-  function updateExtraContactName(idInput: string, value: string): void {
-    const id = idInput.trim()
-    if (!id) return
-
-    setDraftStoreProfileExtraContacts(current => current.map(item => {
-      if (item.id !== id) return item
-
-      return {
-        ...item,
-        name: value
-      }
-    }))
-  }
-
-  function updateExtraContactValue(idInput: string, value: string): void {
-    const id = idInput.trim()
-    if (!id) return
-
-    setDraftStoreProfileExtraContacts(current => current.map(item => {
-      if (item.id !== id) return item
-
-      return {
-        ...item,
-        value
-      }
-    }))
-  }
-
-  function onStoreProfileDraftTitleChange(value: string): void {
-    updateStoreProfileDraft({ displayName: value })
-  }
-
-  function onStoreProfileDraftSubtitleChange(value: string): void {
-    updateStoreProfileDraft({ tagline: value })
-  }
-
-  function onStoreProfileDraftDescriptionChange(value: string): void {
-    setDraftStoreProfileDescription(value.slice(0, 200))
-    setStoreProfileSaveError(null)
-  }
-
-  function onStoreProfileDraftAddressChange(value: string): void {
-    updateStoreProfileDraft({ address: value })
-  }
-
-  function onStoreProfileDraftHoursChange(value: string): void {
-    updateStoreProfileDraft({ businessHours: value })
-  }
-
-  function onStoreProfileDraftMapUrlChange(value: string): void {
-    updateStoreProfileDraft({ mapUrl: value })
-  }
-
-  function onStoreProfileDraftBusinessStatusChange(value: string): void {
-    setDraftBusinessStatus(value)
-  }
-
-  function onStoreProfileDraftLogoUrlChange(value: string): void {
-    void onStoreProfileLogoPicked(value)
-  }
-
-  function onStoreProfileDraftCoverUrlChange(value: string): void {
-    void onStoreProfileCoversPicked([value])
-  }
-
-  function storeProfileDraftImageUrl(value: File | Blob | string): string {
-    if (typeof value === 'string') {
-      const url = value.trim()
-
-      if (url && isLocalImageUri(url)) {
-        rememberLocalTempImage(storeId, 'store-profile', url)
-      }
-
-      return url
-    }
-
-    if (!isBrowser()) {
-      return ''
-    }
-
-    const url = window.URL.createObjectURL(value)
-    rememberLocalTempImage(storeId, 'store-profile', url)
-    return url
-  }
-
-  async function uploadStoreImageIfNeeded(value: File | Blob | string, scope: 'logo' | 'cover'): Promise<UploadedShowcaseImage | null> {
-    if (typeof value === 'string') {
-      const url = value.trim()
-      if (!url) return null
-
-      if (!isLocalImageUri(url)) {
-        return {
-          url,
-          variants: createRemoteOnlyImageVariants(url)
-        }
-      }
-
-      try {
-        const response = await fetch(url)
-        if (!response.ok) return null
-
-        const blob = await response.blob()
-        const uploaded = await pickAndUploadImageWithVariants({
-          bucket: 'store',
-          pathPrefix: scope,
-          file: blob
-        })
-
-        if (uploaded) {
-          rememberLocalTempImage(storeId, 'store-profile', url)
-        }
-
-        return uploaded
-      } catch {
-        return null
-      }
-    }
-
-    return pickAndUploadImageWithVariants({
-      bucket: 'store',
-      pathPrefix: scope,
-      file: value
-    })
-  }
-
-  async function onStoreProfileLogoPicked(value: File | Blob | string): Promise<void> {
-    const url = storeProfileDraftImageUrl(value)
-
-    if (!url) {
-      showSnackbar('Logo selection failed.')
-      return
-    }
-
-    setDraftStoreProfileLogoUrl(url)
-    setStoreProfileSaveError(null)
-    setStoreProfileSaveSuccess(false)
-  }
-
-  function onStoreProfileLogoRemove(): void {
-    const url = draftStoreProfileLogoUrl
-    setDraftStoreProfileLogoUrl('')
-
-    if (url && isAppOwnedLocalFileUri(storeId, url)) {
-      deleteAppOwnedLocalFileUri(storeId, url)
-    }
-  }
-
-  async function onStoreProfileCoversPicked(values: Array<File | Blob | string>): Promise<void> {
-    if (!values.length) return
-
-    const currentUrls = draftStoreProfileCoverUrl
-      .replace(/\\n/g, '\n')
-      .split('\n')
-      .map(item => item.trim())
-      .filter(Boolean)
-      .filter((item, index, all) => all.indexOf(item) === index)
-      .slice(0, 9)
-
-    if (currentUrls.length >= 9) {
-      onStoreProfileCoverLimitReached()
-      return
-    }
-
-    const nextUrls = [...currentUrls]
-
-    for (const value of values) {
-      if (nextUrls.length >= 9) {
-        onStoreProfileCoverLimitReached()
-        break
-      }
-
-      const url = storeProfileDraftImageUrl(value)
-
-      if (!url) {
-        showSnackbar('Cover selection failed.')
-        continue
-      }
-
-      if (!nextUrls.includes(url)) {
-        nextUrls.push(url)
-      }
-    }
-
-    setDraftStoreProfileCoverUrl(nextUrls.slice(0, 9).join('\n'))
-    setStoreProfileSaveError(null)
-    setStoreProfileSaveSuccess(false)
-  }
-
-  function onStoreProfileCoverRemove(urlInput: string): void {
-    const url = urlInput.trim()
-    if (!url) return
-
-    const currentUrls = draftStoreProfileCoverUrl
-      .replace(/\\n/g, '\n')
-      .split('\n')
-      .map(item => item.trim())
-      .filter(Boolean)
-
-    const nextUrls = currentUrls.filter(item => item !== url)
-
-    setDraftStoreProfileCoverUrl(nextUrls.join('\n'))
-    setStoreProfileSaveError(null)
-
-    if (isAppOwnedLocalFileUri(storeId, url)) {
-      deleteAppOwnedLocalFileUri(storeId, url)
-    }
-  }
-
-  function onStoreProfileCoverMove(fromIndexInput: number, toIndexInput: number): void {
-    const fromIndex = Math.max(0, Math.round(fromIndexInput))
-    const toIndex = Math.max(0, Math.round(toIndexInput))
-
-    const currentUrls = draftStoreProfileCoverUrl
-      .replace(/\\n/g, '\n')
-      .split('\n')
-      .map(item => item.trim())
-      .filter(Boolean)
-      .filter((item, index, all) => all.indexOf(item) === index)
-      .slice(0, 9)
-
-    if (
-      fromIndex < 0 ||
-      toIndex < 0 ||
-      fromIndex >= currentUrls.length ||
-      toIndex >= currentUrls.length ||
-      fromIndex === toIndex
-    ) {
-      return
-    }
-
-    const nextUrls = [...currentUrls]
-    const [moved] = nextUrls.splice(fromIndex, 1)
-    nextUrls.splice(toIndex, 0, moved)
-
-    setDraftStoreProfileCoverUrl(nextUrls.join('\n'))
-    setStoreProfileSaveError(null)
-  }
-
-  function onStoreProfileCoverLimitReached(): void {
-    showSnackbar('Reached max 9 images.')
-  }
-
-  function onStoreProfileServiceAdd(value: string): void {
-    addStoreService(value)
-  }
-
-  function onStoreProfileServiceChange(indexInput: number, valueInput: string): void {
-    const index = Math.max(0, Math.round(indexInput))
-
-    setDraftStoreProfileServices(current => {
-      if (index < 0 || index >= current.length) return current
-
-      return current.map((item, itemIndex) => {
-        if (itemIndex !== index) return item
-        return valueInput
-      })
-    })
-
-    setStoreProfileSaveError(null)
-  }
-
-  function onStoreProfileServiceRemove(index: number): void {
-    removeStoreService(index)
-  }
-
-  function onStoreProfileExtraContactAdd(name: string, value: string): void {
-    addExtraContact(name, value)
-  }
-
-  function onStoreProfileExtraContactNameChange(id: string, value: string): void {
-    updateExtraContactName(id, value)
-  }
-
-  function onStoreProfileExtraContactValueChange(id: string, value: string): void {
-    updateExtraContactValue(id, value)
-  }
-
-  function onStoreProfileExtraContactRemove(id: string): void {
-    removeExtraContact(id)
-  }
-
-  function normalizeStoreProfileForCompare(
-    profile: ShowcaseStoreProfile | ShowcaseStoreProfileDraft | null,
-    description: string,
-    services: string[],
-    contacts: Array<ShowcaseExtraContact | DraftExtraContact>
-  ): string {
-    if (!profile) return ''
-
-    return JSON.stringify({
-      displayName: profile.displayName.trim(),
-      tagline: profile.tagline.trim(),
-      phone: profile.phone.trim(),
-      address: profile.address.trim(),
-      businessHours: profile.businessHours.trim(),
-      websiteUrl: profile.websiteUrl.trim(),
-      mapUrl: profile.mapUrl.trim(),
-      description: description.trim(),
-      services: services.map(item => item.trim()).filter(Boolean),
-      contacts: contacts.map(item => ({
-        name: item.name.trim(),
-        value: item.value.trim()
-      })).filter(item => item.name || item.value),
-      coverUrl: draftStoreProfileCoverUrl.trim(),
-      logoUrl: draftStoreProfileLogoUrl.trim(),
-      businessStatus: draftBusinessStatus.trim()
-    })
-  }
-
-  function hasUnsavedStoreProfileDraft(): boolean {
-    const currentProfile = storeProfile || storeProfileFromCloud(storeProfileCloud)
-    const draftProfile = storeProfileDraftForUi || storeProfileDraftFromProfile(currentProfile)
-
-    const current = normalizeStoreProfileForCompare(
-      currentProfile,
-      storeProfileCloud?.description || '',
-      storeProfileServices,
-      storeProfileExtraContacts
-    )
-
-    const draft = normalizeStoreProfileForCompare(
-      draftProfile,
-      draftStoreProfileDescription,
-      draftStoreProfileServices,
-      draftStoreProfileExtraContacts
-    )
-
-    return current !== draft
-  }
-
-  function discardStoreProfileDraftAndGoHome(): void {
-    clearStoreProfileDraftLocalImages(storeId)
-    setStoreProfileDraft(null)
-    setIsEditingStoreProfile(false)
-    setIsSavingStoreProfile(false)
-    setStoreProfileSaveError(null)
-    setStoreProfileSaveSuccess(false)
-    writePersistedStoreProfileDraft(storeId, null)
-    setPreviousScreen(screen)
-    setScreen('Home')
-  }
-
   function copyToClipboard(label: string, value: string): void {
     const text = value.trim()
     if (!text) return
 
-    if (isBrowser() && navigator.clipboard) {
+    if (isBrowser() && navigator.clipboard?.writeText) {
       navigator.clipboard.writeText(text).catch(() => undefined)
+      showSnackbar('Copied')
+      return
+    }
+
+    if (isBrowser() && typeof document !== 'undefined') {
+      const previousActiveElement = document.activeElement instanceof HTMLElement
+        ? document.activeElement
+        : null
+
+      const textarea = document.createElement('textarea')
+      textarea.value = text
+      textarea.setAttribute('readonly', 'true')
+      textarea.style.position = 'fixed'
+      textarea.style.left = '0'
+      textarea.style.top = '0'
+      textarea.style.width = '1px'
+      textarea.style.height = '1px'
+      textarea.style.opacity = '0'
+      textarea.style.pointerEvents = 'none'
+      textarea.style.zIndex = '-1'
+
+      document.body.appendChild(textarea)
+
+      try {
+        textarea.focus({ preventScroll: true })
+      } catch {
+        textarea.focus()
+      }
+
+      textarea.select()
+      textarea.setSelectionRange(0, textarea.value.length)
+
+      try {
+        document.execCommand('copy')
+      } catch {
+      }
+
+      document.body.removeChild(textarea)
+
+      if (previousActiveElement) {
+        try {
+          previousActiveElement.focus({ preventScroll: true })
+        } catch {
+          previousActiveElement.focus()
+        }
+      }
     }
 
     showSnackbar('Copied')
@@ -20655,10 +13817,18 @@ function onChatImageLimitReached(): void {
 
   const adminTodayDateKey = appointmentLocalDateKey(new Date())
 
-  const dateFilterOptions = appointmentFilterRowsToFutureDateOptions(adminAppointmentFilterRows)
+  const dateFilterOptions = appointmentFilterRowsToFutureDateOptions(
+    adminAppointmentFilterRows,
+    appointmentAdminStatusFilter.trim() || 'All',
+    appointmentAdminServiceFilter.trim() || 'All'
+  )
 
   const customerDateFilterOptions = [
-    ...appointmentFilterRowsToFutureDateOptions(customerAppointmentFilterRows),
+    ...appointmentFilterRowsToFutureDateOptions(
+      customerAppointmentFilterRows,
+      appointmentCustomerStatusFilter.trim() || 'All',
+      appointmentCustomerServiceFilter.trim() || 'All'
+    ),
     'History'
   ]
 
@@ -20702,6 +13872,120 @@ function onChatImageLimitReached(): void {
         isDirty: 'isDirty' in storeProfileDraft ? Boolean((storeProfileDraft as ShowcaseStoreProfileDraft).isDirty) : false
       }
     : null
+
+  const storeProfileActionHandlers = createShowcaseStoreProfileActions({
+    setLastRetryOp,
+    ShowcaseRetryOps,
+    setIsRefreshingStoreProfile,
+    repository,
+    storeId,
+    loadStoreProfileFromStorage,
+    storeProfileFromCachedProfile,
+    setStoreProfile,
+    setStoreProfileServices,
+    setStoreProfileExtraContacts,
+    setStoreProfileCoverUrl,
+    setStoreProfileLogoUrl,
+    setDraftStoreProfileCoverUrl,
+    setDraftStoreProfileLogoUrl,
+    setDraftStoreProfileDescription,
+    setDraftBusinessStatus,
+    setDraftStoreProfileServices,
+    setDraftStoreProfileExtraContacts,
+    setStoreProfileDraft,
+    storeProfileCloud,
+    setIsEditingStoreProfile,
+    screen,
+    ShowcaseScreens,
+    storeProfileDraftFromProfile,
+    setStatusMessage,
+    setSyncErrorMessage,
+    storeProfileServices,
+    storeProfileExtraContacts,
+    storeProfileCoverUrl,
+    storeProfileLogoUrl,
+    parseJsonStringArray,
+    parseExtraContacts,
+    serializeServices,
+    serializeExtraContacts,
+    applyCloudStoreProfile,
+    persistStoreProfileLocally,
+    storeProfileDraft,
+    setStoreProfileSaveError,
+    draftStoreProfileExtraContacts,
+    createId,
+    draftStoreProfileServices,
+    draftStoreProfileDescription,
+    guardOfflineWriteOperation,
+    setIsSavingStoreProfile,
+    setStoreProfileSaveSuccess,
+    isWriteAllowed,
+    ensureValidMerchantSessionLoadedForCloud,
+    merchantSessionEnsureFailureMessage,
+    showSnackbar,
+    merchantSessionEnsureSnackbarMessage,
+    setStoreMerchantSessionFromAuthSession,
+    bindMerchantSessionToRepository,
+    draftStoreProfileLogoUrl,
+    isLocalImageUri,
+    createRemoteOnlyImageVariants,
+    draftStoreProfileCoverUrl,
+    nowMillis,
+    retryMerchantCloudOperationAfterAuthRefresh,
+    clearStoreProfileDraftLocalImages,
+    storeProfileFromCloud,
+    setStoreProfileCloud,
+    writePersistedStoreProfileDraft,
+    setLastSyncAt,
+    removePendingSync,
+    pushPendingSync,
+    draftBusinessStatus,
+    storeProfile,
+    rememberLocalTempImage,
+    isBrowser,
+    pickAndUploadImageWithVariants,
+    isAppOwnedLocalFileUri,
+    deleteAppOwnedLocalFileUri,
+    storeProfileDraftForUi,
+    setPreviousScreen,
+    setScreen
+  })
+
+  const {
+    refreshStoreProfileFromCloud,
+    refreshStoreProfile,
+    saveStoreProfile,
+    startEditStoreProfile,
+    cancelEditStoreProfile,
+    updateStoreProfileDraft,
+    onStoreProfileDraftTitleChange,
+    onStoreProfileDraftSubtitleChange,
+    onStoreProfileDraftDescriptionChange,
+    onStoreProfileDraftAddressChange,
+    onStoreProfileDraftHoursChange,
+    onStoreProfileDraftMapUrlChange,
+    onStoreProfileDraftBusinessStatusChange,
+    onStoreProfileDraftLogoUrlChange,
+    onStoreProfileDraftCoverUrlChange,
+    storeProfileDraftImageUrl,
+    uploadStoreImageIfNeeded,
+    onStoreProfileLogoPicked,
+    onStoreProfileLogoRemove,
+    onStoreProfileCoversPicked,
+    onStoreProfileCoverRemove,
+    onStoreProfileCoverMove,
+    onStoreProfileCoverLimitReached,
+    onStoreProfileServiceAdd,
+    onStoreProfileServiceChange,
+    onStoreProfileServiceRemove,
+    onStoreProfileExtraContactAdd,
+    onStoreProfileExtraContactNameChange,
+    onStoreProfileExtraContactValueChange,
+    onStoreProfileExtraContactRemove,
+    normalizeStoreProfileForCompare,
+    hasUnsavedStoreProfileDraft,
+    discardStoreProfileDraftAndGoHome
+  } = storeProfileActionHandlers
 
   const cloudStatusUi = cloudStatusToUi(cloudStatus, storeId)
 
@@ -20899,10 +14183,11 @@ function onChatImageLimitReached(): void {
     showFilterMenu: favoritesShowFilterMenu,
     showPriceMenu: favoritesShowPriceMenu,
 
-    selectedCategory: favoriteCategories.includes(favoritesSelectedCategory || '')
+    selectedCategory: manualCategories.includes(favoritesSelectedCategory || '')
       ? favoritesSelectedCategory
       : null,
     categories: favoriteCategories,
+    manualCategories,
 
     statusMessage: statusMessage || snackbarMessage
   }
@@ -20999,10 +14284,10 @@ function onChatImageLimitReached(): void {
   }
 
   const hasAnnouncementSelection = adminAnnouncementSelectedIds.length > 0
-  const hasAnnouncementComposerCover = Boolean(adminAnnouncementCoverDraftUrl?.trim())
+  const hasAnnouncementEditorCover = adminAnnouncementComposerExpanded && Boolean(adminAnnouncementCoverDraftUrl?.trim())
   const selectedAnnouncementDraftCount = adminAnnouncementSelectedIds.length
-  const canPublishAnnouncementFromEditor = adminAnnouncementComposerExpanded && hasAnnouncementComposerCover && selectedAnnouncementDraftCount === 0
-  const canPublishSelectedAnnouncementDraft = !hasAnnouncementComposerCover && selectedAnnouncementDraftCount === 1
+  const canPublishAnnouncementFromEditor = hasAnnouncementEditorCover && selectedAnnouncementDraftCount === 0
+  const canPublishSelectedAnnouncementDraft = !hasAnnouncementEditorCover && selectedAnnouncementDraftCount === 1
 
   const announcementEditState: ShowcaseAnnouncementEditUiState = {
     coverDraftUrl: adminAnnouncementCoverDraftUrl,
@@ -21019,7 +14304,7 @@ function onChatImageLimitReached(): void {
 
     canStartNew: !adminAnnouncementComposerExpanded && !adminAnnouncementIsSubmitting,
     canDeleteSelected: hasAnnouncementSelection && !adminAnnouncementIsSubmitting,
-    canSaveDraft: adminAnnouncementComposerExpanded && hasAnnouncementComposerCover && !adminAnnouncementIsSubmitting,
+    canSaveDraft: hasAnnouncementEditorCover && !adminAnnouncementIsSubmitting,
     canPublish: (
       canPublishAnnouncementFromEditor ||
       canPublishSelectedAnnouncementDraft
@@ -21109,6 +14394,7 @@ function onChatImageLimitReached(): void {
 
     selectedCategory: adminItemsSelectedCategory,
     manualCategories,
+    adminCategories,
     dishes: adminVisibleDishes,
     pendingDeleteDishId,
     selectedDishIds: adminSelectedDishIds,
@@ -21133,10 +14419,17 @@ function onChatImageLimitReached(): void {
 
     appointmentsEnabled,
     appointmentCount: appointmentRequests.length,
-    pendingAppointmentCount: appointmentCards.filter(item => {
-      return item.preferredDate >= adminTodayDateKey && item.statusLabel === 'Pending'
-    }).length,
-    unreadMessageCount: merchantThreadSummaries.reduce((sum, item) => sum + item.unreadCount, 0),
+    pendingAppointmentCount: Math.max(
+      appointmentCards.filter(item => {
+        return item.preferredDate >= adminTodayDateKey && item.statusLabel === 'Pending'
+      }).length,
+      adminPendingAppointmentCountSnapshot
+    ),
+    unreadMessageCount: merchantChatThreads.length > 0
+      ? merchantChatThreads.reduce((sum, item) => {
+        return sum + Math.max(0, Number(item.unreadCount || 0))
+      }, 0)
+      : adminUnreadMessageCountSnapshot,
 
     itemsPagination: pageStateForUi(adminItemsPagination)
   }
@@ -21173,8 +14466,6 @@ function onChatImageLimitReached(): void {
     editValidationError &&
     !editDishShowsRequiredFieldErrors
   )
-
-console.log('[ImageDrag] render editDishImageUrls', editDishImageUrls)
 
 const editDishState: ShowcaseEditDishUiState = {
     id: editDishId || 'new',
@@ -21225,6 +14516,7 @@ const editDishState: ShowcaseEditDishUiState = {
   const showcaseState: ShowcaseUiState = {
     dishes,
     manualCategories,
+    adminCategories,
     selectedCategory,
 
     loginUsernameDraft,
@@ -21509,43 +14801,77 @@ const editDishState: ShowcaseEditDishUiState = {
       void refreshStoreProfile()
     },
 
-    onEdit: startEditStoreProfile,
+    onEdit: () => {
+      resetStoreProfileDraftDirty()
+      startEditStoreProfile()
+    },
 
-    onCancelEdit: cancelEditStoreProfile,
+    onCancelEdit: () => {
+      resetStoreProfileDraftDirty()
+      cancelEditStoreProfile()
+    },
 
-    onDiscardDraftAndGoHome: discardStoreProfileDraftAndGoHome,
+    onDiscardDraftAndGoHome: () => {
+      resetStoreProfileDraftDirty()
+      discardStoreProfileDraftAndGoHome()
+    },
 
     onSave: () => {
       void saveStoreProfile()
     },
 
-    onTitleChange: onStoreProfileDraftTitleChange,
+    onTitleChange: value => {
+      markStoreProfileDraftDirty()
+      onStoreProfileDraftTitleChange(value)
+    },
 
-    onSubtitleChange: onStoreProfileDraftSubtitleChange,
+    onSubtitleChange: value => {
+      markStoreProfileDraftDirty()
+      onStoreProfileDraftSubtitleChange(value)
+    },
 
-    onDescriptionChange: onStoreProfileDraftDescriptionChange,
+    onDescriptionChange: value => {
+      markStoreProfileDraftDirty()
+      onStoreProfileDraftDescriptionChange(value)
+    },
 
-    onAddressChange: onStoreProfileDraftAddressChange,
+    onAddressChange: value => {
+      markStoreProfileDraftDirty()
+      onStoreProfileDraftAddressChange(value)
+    },
 
-    onHoursChange: onStoreProfileDraftHoursChange,
+    onHoursChange: value => {
+      markStoreProfileDraftDirty()
+      onStoreProfileDraftHoursChange(value)
+    },
 
-    onMapUrlChange: onStoreProfileDraftMapUrlChange,
+    onMapUrlChange: value => {
+      markStoreProfileDraftDirty()
+      onStoreProfileDraftMapUrlChange(value)
+    },
 
-    onBusinessStatusChange: onStoreProfileDraftBusinessStatusChange,
+    onBusinessStatusChange: value => {
+      markStoreProfileDraftDirty()
+      onStoreProfileDraftBusinessStatusChange(value)
+    },
 
     onLogoUrlChange: value => {
+      markStoreProfileDraftDirty()
       void onStoreProfileLogoPicked(value)
     },
 
     onCoverUrlChange: value => {
+      markStoreProfileDraftDirty()
       void onStoreProfileCoversPicked([value])
     },
 
     onLogoImagePicked: value => {
+      markStoreProfileDraftDirty()
       void onStoreProfileLogoPicked(value)
     },
 
     onCoverImagesPicked: values => {
+      markStoreProfileDraftDirty()
       void onStoreProfileCoversPicked(values)
     },
 
@@ -21557,28 +14883,58 @@ const editDishState: ShowcaseEditDishUiState = {
       showSnackbar('Choose a cover file in the connected UI.')
     },
 
-    onRemoveLogo: onStoreProfileLogoRemove,
+    onRemoveLogo: () => {
+      markStoreProfileDraftDirty()
+      onStoreProfileLogoRemove()
+    },
 
-    onRemoveCover: onStoreProfileCoverRemove,
+    onRemoveCover: value => {
+      markStoreProfileDraftDirty()
+      onStoreProfileCoverRemove(value)
+    },
 
-    onMoveCover: onStoreProfileCoverMove,
+    onMoveCover: (fromIndex, toIndex) => {
+      markStoreProfileDraftDirty()
+      onStoreProfileCoverMove(fromIndex, toIndex)
+    },
 
     onCoverDraggingChange: () => {
     },
 
-    onServiceChange: onStoreProfileServiceChange,
+    onServiceChange: (index, value) => {
+      markStoreProfileDraftDirty()
+      onStoreProfileServiceChange(index, value)
+    },
 
-    onAddService: onStoreProfileServiceAdd,
+    onAddService: value => {
+      markStoreProfileDraftDirty()
+      onStoreProfileServiceAdd(value)
+    },
 
-    onRemoveService: onStoreProfileServiceRemove,
+    onRemoveService: index => {
+      markStoreProfileDraftDirty()
+      onStoreProfileServiceRemove(index)
+    },
 
-    onAddExtraContact: onStoreProfileExtraContactAdd,
+    onAddExtraContact: () => {
+      markStoreProfileDraftDirty()
+      onStoreProfileExtraContactAdd('', '')
+    },
 
-    onRemoveExtraContact: onStoreProfileExtraContactRemove,
+    onRemoveExtraContact: id => {
+      markStoreProfileDraftDirty()
+      onStoreProfileExtraContactRemove(id)
+    },
 
-    onExtraContactNameChange: onStoreProfileExtraContactNameChange,
+    onExtraContactNameChange: (id, value) => {
+      markStoreProfileDraftDirty()
+      onStoreProfileExtraContactNameChange(id, value)
+    },
 
-    onExtraContactValueChange: onStoreProfileExtraContactValueChange,
+    onExtraContactValueChange: (id, value) => {
+      markStoreProfileDraftDirty()
+      onStoreProfileExtraContactValueChange(id, value)
+    },
 
     onOpenMap: openMap,
 
@@ -21666,6 +15022,8 @@ const editDishState: ShowcaseEditDishUiState = {
       void refreshCustomerAppointmentsFromCloud()
     },
 
+    onCopy: copyText,
+
     onLoadMore: () => {
       void loadMoreCustomerAppointments()
     },
@@ -21695,6 +15053,8 @@ const editDishState: ShowcaseEditDishUiState = {
     onRefresh: () => {
       void refreshAdminAppointmentsFromCloud()
     },
+
+    onCopy: copyText,
 
     onLoadMore: () => {
       void loadMoreAdminAppointments()
@@ -21826,181 +15186,70 @@ const editDishState: ShowcaseEditDishUiState = {
     }
   }
 
-  const chatActions: ShowcaseChatActions = {
-    ...bottomNavigationActions,
-
-    onUseProductCardAsPending: chatUseProductCardAsPending,
-
-    onUseAppointmentCardAsPending: setPendingAppointmentForChat,
-
-    onJumpToMessage: chatJumpToMessageFromQuote,
-
-    onBackToHome: closeToHome,
-
-    onBack: handleShowcaseBack,
-
-    onDraftChange: onChatDraftChange,
-
-    onSend: () => {
-      void sendChat()
-    },
-
-    onRetry: (messageId: string) => {
-      void retryChatMessage(messageId)
-    },
-
-    onRefresh: () => {
-      void refreshChatLatest()
-    },
-
-    onLoadOlderMessages: () => {
-      void loadOlderChatMessages()
-    },
-
-    onLoadNewerMessages: () => {
-      void loadNewerChatMessages()
-    },
-
-    onQuoteMessage: chatQuoteMessage,
-
-    onCancelQuote: chatCancelQuote,
-
-    onEnterSelection: chatEnterSelection,
-
-    onToggleSelection: chatToggleSelection,
-
-    onExitSelection: chatExitSelection,
-
-    onDeleteMessage: chatDeleteMessage,
-
-    onDeleteSelected: chatDeleteSelected,
-
-    onOpenSearchResults: chatOpenSearchResults,
-
-    onCloseSearchResults: chatCloseSearchResults,
-
-    onOpenMediaGallery: chatOpenMediaGallery,
-
-    onOpenImagePreview: chatOpenImagePreview,
-
-    onJumpToFoundMessage: chatJumpToFoundMessage,
-
-    onOpenThreadFromSearch: chatOpenThreadFromSearch,
-
-    onLoadMoreSearchResults: () => {
-      void loadMoreChatSearchResults()
-    },
-
-    onLoadMoreMediaItems: () => {
-      void loadMoreChatMediaItems()
-    },
-
-    onTogglePinned: chatTogglePinned,
-
-    onOpenFind: chatOpenFind,
-
-    onCloseFind: chatCloseFind,
-
-    onFindQueryChange: chatFindQueryChange,
-
-    onFindNext: chatFindNext,
-
-    onFindPrev: chatFindPrev,
-
-    onPickImages: values => {
-      void onChatImagesSelected(values)
-    },
-
-    onOpenCamera: () => {
-      const uri = prepareChatCameraCapture(storeId)
-      if (!uri) {
-        onChatFullCameraUnavailable()
-      }
-    },
-
-    onCameraCaptured: value => {
-      void onChatCameraResult(value)
-    },
-
-    onRemoveDraftImage: chatRemoveDraftImage,
-
-    onSavePreviewImage: saveChatPreviewImage,
-
-    onSendPendingProduct: () => {
-      void sendPendingProductShare()
-    },
-
-    onClearPendingProduct: () => {
-      chatUseProductCardAsPending(null)
-    },
-
-    onSendPendingAppointment: () => {
-      void sendPendingAppointmentShare()
-    },
-
-    onClearPendingAppointment: () => {
-      setPendingAppointmentForChat(null)
-    },
-
-    onOpenProductDetail: openProductFromChat,
-
-    onOpenAppointmentDetail: () => {
-    },
-
+  const {
+    chatActions,
+    chatMediaActions,
+    merchantChatListActions
+  } = createShowcaseChatActionObjects({
+    bottomNavigationActions,
+    buildChatProductClipboardPayload,
+    copyText,
+    chatCancelQuote,
+    chatCloseFind,
+    chatCloseSearchResults,
+    chatDeleteMessage,
+    chatDeleteSelected,
+    chatEnterSelection,
+    chatExitSelection,
+    chatFindNext,
+    chatFindPrev,
+    chatFindQueryChange,
+    chatJumpToFoundMessage,
+    chatJumpToMessageFromQuote,
+    chatOpenFind,
+    chatOpenImagePreview,
+    chatOpenMediaGallery,
+    chatOpenSearchResults,
+    chatOpenThreadFromSearch,
+    chatQuoteMessage,
+    chatRemoveDraftImage,
+    chatTogglePinned,
+    chatToggleSelection,
+    chatUseProductCardAsPending,
+    closeMerchantChatListToHome,
+    closeToHome,
+    handleShowcaseBack,
     isProductAvailable,
-
-    buildProductClipboardPayload: buildChatProductClipboardPayload
-  }
-
-  const chatMediaActions: ShowcaseChatMediaActions = {
-    onBackToHome: () => {
-      setChatMediaPreviewUrls([])
-      setChatMediaPreviewIndex(0)
-      closeToHome()
-    },
-
-    onBack: handleShowcaseBack,
-
-    onLoadMoreMediaItems: () => {
-      void loadMoreChatMediaItems()
-    },
-
-    onSavePreviewImage: savePreviewImage
-  }
-
-  const merchantChatListActions: ShowcaseMerchantChatListActions = {
-    onBackToHome: closeMerchantChatListToHome,
-
-    onBack: handleShowcaseBack,
-
-    onRefresh: () => {
-      void refreshMerchantChatListByUser()
-    },
-
-    onLoadMore: () => {
-      void loadMoreMerchantChatThreads()
-    },
-
-    onSearchQueryChange: value => {
-      setMerchantChatListSearchQuery(value)
-    },
-
-    onOpenThread: (threadId, title) => {
-      void openMerchantThread(threadId, title)
-    },
-
-    onDeleteThread: threadId => {
-      return merchantChatListDeleteThread(threadId)
-    },
-
-    onTogglePin: (threadId, pinned) => {
-      void merchantChatListTogglePin(threadId, pinned)
-    },
-
-    onRenameThread: (threadId, newName) => {
-      return merchantChatListRenameThread(threadId, newName)
-    }
-  }
+    loadNewerChatMessages,
+    loadOlderChatMessages,
+    loadMoreChatMediaItems,
+    loadMoreChatSearchResults,
+    loadMoreMerchantChatThreads,
+    merchantChatListDeleteThread,
+    merchantChatListRenameThread,
+    merchantChatListTogglePin,
+    onChatDraftChange,
+    onChatFullCameraUnavailable,
+    onChatCameraResult,
+    onChatImagesSelected,
+    openMerchantThread,
+    openProductFromChat,
+    prepareChatCameraCapture,
+    refreshChatLatest,
+    refreshMerchantChatListByUser,
+    removeDraftChatImage: chatRemoveDraftImage,
+    retryChatMessage,
+    saveChatPreviewImage,
+    savePreviewImage,
+    sendChat,
+    sendPendingAppointmentShare,
+    sendPendingProductShare,
+    setChatMediaPreviewIndex,
+    setChatMediaPreviewUrls,
+    setMerchantChatListSearchQuery,
+    setPendingAppointmentForChat,
+    storeId
+  })
 
   const adminActions: ShowcaseAdminActions = {
     onBackToHome: closeToHome,
