@@ -9288,10 +9288,29 @@ function backFromAppointments(): void {
       return null
     }
 
-    const effectiveConversationId = activeConversation?.id || repository.buildConversationId(storeId, clientId)
-    const effectiveClientId = activeConversation?.clientId || clientId
+    const role = currentChatRole()
+    const activeIdFromRoute = String(activeConversationIdRef.current || activeConversationId || '').trim()
+    const activeThread = activeIdFromRoute
+      ? merchantChatThreads.find(thread => thread.conversationId === activeIdFromRoute) || null
+      : null
+
+    const effectiveConversationId = role === 'merchant'
+      ? activeIdFromRoute
+      : activeConversation?.id || repository.buildConversationId(storeId, clientId)
+
+    const effectiveClientId = role === 'merchant'
+      ? (
+          activeConversation?.id === effectiveConversationId
+            ? activeConversation.clientId
+            : null
+        ) || activeThread?.clientId || extractClientIdFromConversationId(effectiveConversationId)
+      : activeConversation?.clientId || clientId
 
     if (!effectiveConversationId || !effectiveClientId) {
+      setChatStatusMessage(role === 'merchant'
+        ? 'Conversation unavailable. Please reopen this customer chat.'
+        : 'Conversation unavailable.'
+      )
       return null
     }
 
@@ -9304,16 +9323,29 @@ function backFromAppointments(): void {
     const conversation = await repository.findOrCreateChatConversation({
       storeId,
       clientId: effectiveClientId,
-      customerName: DEFAULT_CUSTOMER_NAME,
-      customerContact: ''
+      customerName: activeThread?.title || activeConversation?.customerName || DEFAULT_CUSTOMER_NAME,
+      customerContact: activeConversation?.customerContact || ''
     })
 
     if (!conversation) return null
 
-    setActiveConversation(conversation)
-    setActiveConversationId(conversation.id)
-    setRuntimeActiveConversationId(conversation.id)
-    return conversation
+    const resolvedConversation: ChatConversation = role === 'merchant'
+      ? {
+          ...conversation,
+          id: effectiveConversationId,
+          clientId: effectiveClientId,
+          customerName: activeThread?.title || conversation.customerName || activeConversation?.customerName || DEFAULT_CUSTOMER_NAME,
+          customerContact: conversation.customerContact || activeConversation?.customerContact || effectiveClientId,
+          customerSeq: activeThread?.customerSeq || conversation.customerSeq || activeConversation?.customerSeq || null,
+          updatedAt: activeThread?.lastMessageAt || conversation.updatedAt || activeConversation?.updatedAt || null
+        }
+      : conversation
+
+    setActiveConversation(resolvedConversation)
+    setActiveConversationId(resolvedConversation.id)
+    setRuntimeActiveConversationId(resolvedConversation.id)
+    activeConversationIdRef.current = resolvedConversation.id
+    return resolvedConversation
   }
   async function refreshChatMessages(
     conversationIdInput = activeConversationId,
@@ -10000,17 +10032,19 @@ function backFromAppointments(): void {
     activeConversationIdRef.current = conversationId
     setActiveConversationId(conversationId)
     setRuntimeActiveConversationId(conversationId)
-    setActiveConversation(thread
+    const restoredClientId = thread?.clientId || extractClientIdFromConversationId(conversationId)
+
+    setActiveConversation(restoredClientId
       ? {
           id: conversationId,
           storeId,
-          clientId: thread.clientId,
+          clientId: restoredClientId,
           merchantAuthUserId: merchantSession?.authUserId || null,
-          customerName: thread.title,
-          customerContact: thread.clientId,
-          customerSeq: Number(thread.customerSeq || 0) > 0 ? Math.trunc(Number(thread.customerSeq)) : null,
+          customerName: thread?.title || DEFAULT_CUSTOMER_NAME,
+          customerContact: thread?.clientId || restoredClientId,
+          customerSeq: Number(thread?.customerSeq || 0) > 0 ? Math.trunc(Number(thread?.customerSeq)) : null,
           createdAt: null,
-          updatedAt: thread.lastMessageAt
+          updatedAt: thread?.lastMessageAt || null
         }
       : null
     )
