@@ -911,6 +911,7 @@ export type ShowcaseAdminAppointmentsUiState = {
   isRefreshing: boolean
   statusSubmittingId: string | null
   settingsSubmitting: boolean
+  focusedAdminAppointmentId: string | null
 
   bookingWindowDays: number
   availableHoursText: string
@@ -947,6 +948,7 @@ export type ShowcaseCustomerBookingsUiState = {
   statusMessage: string | null
   isRefreshing: boolean
   cancellationSubmittingId: string | null
+  focusedCustomerAppointmentId: string | null
 
   dateFilterOptions: string[]
   statusFilterOptions: string[]
@@ -978,6 +980,7 @@ export type ShowcaseAdminAppointmentsActions = {
   onServiceFilterChange: (value: string) => void
   onHistoryDateSelected: (value: string) => void
   onHistoryDateClear: () => void
+  onConsumeFocusedAppointment: () => void
 
   onContactCustomer: (id: string) => void
   onOpenAppointmentProductDetail: (dishId: string) => void
@@ -998,6 +1001,7 @@ export type ShowcaseCustomerBookingsActions = ShowcaseBottomNavigationActions & 
   onDateFilterChange: (value: string) => void
   onStatusFilterChange: (value: string) => void
   onServiceFilterChange: (value: string) => void
+  onConsumeFocusedAppointment: () => void
   onContactMerchant: (id: string) => void
   onCancelBooking: (id: string) => void | Promise<void>
   onOpenAppointmentProductDetail: (dishId: string) => void

@@ -48,12 +48,22 @@ export function markConversationRecentlySeen(conversationId: string | null | und
   lastSeenConversationAtMs = nowMs()
 }
 
-export function shouldSuppressChatPush(conversationId: string | null | undefined): boolean {
+export function shouldSuppressChatPush(
+  conversationId: string | null | undefined,
+  options: { source?: string | null } = {}
+): boolean {
   const normalized = normalizeConversationId(conversationId)
   if (!normalized) return false
 
+  const source = String(options.source || '').trim().toLowerCase()
+  const isExplicitNotificationClick = source === 'notification_click'
+
   if (chatVisible && normalized === activeConversationId) {
-    return true
+    return !isExplicitNotificationClick
+  }
+
+  if (isExplicitNotificationClick) {
+    return false
   }
 
   const lastSeenId = lastSeenConversationId

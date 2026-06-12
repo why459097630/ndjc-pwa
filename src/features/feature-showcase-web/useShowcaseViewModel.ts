@@ -1036,6 +1036,8 @@ export function useShowcaseViewModel(input: UseShowcaseViewModelInput = {}): Sho
   const [appointmentAdminStatusFilter, setAppointmentAdminStatusFilter] = useState(defaultUiState.appointmentAdminStatusFilter)
   const [appointmentAdminServiceFilter, setAppointmentAdminServiceFilter] = useState(defaultUiState.appointmentAdminServiceFilter)
   const [appointmentAdminHistoryDateFilter, setAppointmentAdminHistoryDateFilter] = useState<string | null>(defaultUiState.appointmentAdminHistoryDateFilter)
+  const [focusedAdminAppointmentId, setFocusedAdminAppointmentId] = useState<string | null>(null)
+  const [focusedCustomerAppointmentId, setFocusedCustomerAppointmentId] = useState<string | null>(null)
   const [appointmentCustomerDateFilter, setAppointmentCustomerDateFilter] = useState(defaultUiState.appointmentCustomerDateFilter)
   const [appointmentCustomerStatusFilter, setAppointmentCustomerStatusFilter] = useState(defaultUiState.appointmentCustomerStatusFilter)
   const [appointmentCustomerServiceFilter, setAppointmentCustomerServiceFilter] = useState(defaultUiState.appointmentCustomerServiceFilter)
@@ -1069,10 +1071,14 @@ export function useShowcaseViewModel(input: UseShowcaseViewModelInput = {}): Sho
 
   type PendingShowcasePushRoute = {
     type: 'chat' | 'announcement' | 'appointment'
+    pushType?: string | null
     conversationId?: string | null
     announcementId?: string | null
     appointmentId?: string | null
+    appointmentStatus?: string | null
+    targetClientId?: string | null
     openAs?: string | null
+    source?: string | null
   }
 
   const [pendingPushRoute, setPendingPushRoute] = useState<PendingShowcasePushRoute | null>(null)
@@ -10869,9 +10875,102 @@ function backFromAppointments(): void {
     return resolveCustomerChatPushSenderName(conversationIdInput)
   }
 
+  async function ensureAnnouncementPushTargetVisible(announcementIdInput: string): Promise<boolean> {
+    const announcementId = announcementIdInput.trim()
+    if (!announcementId) return false
+
+    const currentItems = announcements
+      .filter(item => item.status === 'published')
+      .map(item => ({
+        ...item,
+        status: 'published' as const
+      }))
+
+    if (currentItems.some(item => item.id === announcementId)) {
+      return true
+    }
+
+    const pageSize = SHOWCASE_PAGE_SIZE.publicAnnouncements
+    let offset = 0
+    let hasMore = true
+    let found = false
+    let collectedItems: CloudAnnouncement[] = []
+
+    while (hasMore && !found) {
+      const latest = await repository.fetchAnnouncements({
+        storeId,
+        includeDrafts: false,
+        limit: pageSize,
+        offset
+      })
+
+      const publishedItems = latest
+        .filter(item => item.status === 'published')
+        .map(item => ({
+          ...item,
+          status: 'published' as const
+        }))
+
+      collectedItems = sortedAnnouncementsForStorage(
+        mergeUniqueById(collectedItems, publishedItems)
+      )
+
+      found = publishedItems.some(item => item.id === announcementId)
+      offset += latest.length
+      hasMore = latest.length >= pageSize
+
+      if (!latest.length) {
+        break
+      }
+    }
+
+    if (!collectedItems.length) {
+      const cachedItems = loadPublishedAnnouncementsLocally(storeId)
+        .filter(item => item.status === 'published')
+        .map(item => ({
+          ...item,
+          status: 'published' as const
+        }))
+
+      const cachedHasTarget = cachedItems.some(item => item.id === announcementId)
+
+      if (cachedHasTarget) {
+        const mergedCachedItems = sortedAnnouncementsForStorage(
+          mergeUniqueById(currentItems, cachedItems)
+        )
+
+        setAnnouncements(mergedCachedItems)
+        setAnnouncementsEntryDotVisible(computeAnnouncementsEntryDot(mergedCachedItems))
+        persistPublishedAnnouncementsLocally(storeId, mergedCachedItems)
+
+        return true
+      }
+
+      return false
+    }
+
+    const mergedItems = sortedAnnouncementsForStorage(
+      mergeUniqueById(currentItems, collectedItems)
+    )
+
+    setAnnouncements(mergedItems)
+    setAnnouncementsEntryDotVisible(computeAnnouncementsEntryDot(mergedItems))
+    persistPublishedAnnouncementsLocally(storeId, mergedItems)
+    setPublicAnnouncementsPagination({
+      nextOffset: Math.max(offset, pageSize),
+      hasMore,
+      isLoadingMore: false
+    })
+
+    return mergedItems.some(item => item.id === announcementId)
+  }
+
   async function onAnnouncementPushArrived(announcementIdInput: string): Promise<void> {
     const announcementId = announcementIdInput.trim()
-    if (!announcementId) return
+    if (!announcementId) {
+      setPendingShowcasePushRoute(null)
+      return
+    }
 
     announcementsBackTargetRef.current = ShowcaseScreens.Home
 
@@ -10881,18 +10980,305 @@ function backFromAppointments(): void {
     })
 
     setPreviousScreen(ShowcaseScreens.Home)
-    setFocusedAnnouncementId(announcementId)
     setScreen(ShowcaseScreens.Announcements)
 
-    await syncPublicAnnouncementsFromCloud(false)
+    try {
+      const targetVisible = await ensureAnnouncementPushTargetVisible(announcementId)
+
+      if (targetVisible) {
+        await ensureAnnouncementViewed(announcementId)
+        setFocusedAnnouncementId(announcementId)
+      } else {
+        setFocusedAnnouncementId(null)
+        setStatusMessage('Announcement unavailable.')
+      }
+    } finally {
+      setPendingShowcasePushRoute(null)
+    }
+  }
+
+  function adminAppointmentStatusFilterForPushType(pushTypeInput?: string | null): string {
+    const pushType = String(pushTypeInput || '').trim().toLowerCase()
+
+    if (pushType === 'appointment_cancelled') {
+      return 'Cancelled by customer'
+    }
+
+    return 'Pending'
+  }
+
+  async function ensureAdminAppointmentPushTargetVisible(
+    appointmentIdInput: string,
+    statusFilterInput = 'Pending'
+  ): Promise<boolean> {
+    const appointmentId = appointmentIdInput.trim()
+    if (!appointmentId) return false
+
+    const targetStatusFilter = String(statusFilterInput || 'Pending').trim() || 'Pending'
+
+    const pushFilters = currentAdminAppointmentCloudFilters({
+      dateFilter: 'All',
+      statusFilter: targetStatusFilter,
+      serviceFilter: 'All',
+      historyDateFilter: null
+    })
+
+    setAppointmentAdminDateFilter('All')
+    setAppointmentAdminHistoryDateFilter(null)
+    setAppointmentAdminStatusFilter(targetStatusFilter)
+    setAppointmentAdminServiceFilter('All')
+    setFocusedAdminAppointmentId(null)
+    setAppointmentsRefreshing(true)
+
+    try {
+      const validSession = await ensureValidMerchantSessionLoadedForCloud()
+
+      if (!validSession) {
+        setStatusMessage(merchantSessionEnsureFailureMessage())
+        setAdminAppointmentFilterRows([])
+        return false
+      }
+
+      setStoreMerchantSessionFromAuthSession(validSession)
+      bindMerchantSessionToRepository(repository)
+
+      const cloudSettings = await repository.fetchAppointmentSettings(storeId)
+
+      if (cloudSettings) {
+        applyCloudAppointmentSettings(cloudSettings)
+      }
+
+      const filterRows = await repository.fetchAppointmentFilterRows({
+        storeId,
+        merchant: true
+      })
+
+      setAdminAppointmentFilterRows(filterRows)
+
+      const pageSize = SHOWCASE_PAGE_SIZE.merchantAppointments
+      let offset = 0
+      let hasMore = true
+      let found = false
+      let collectedItems: CloudAppointmentRequest[] = []
+
+      while (hasMore && !found) {
+        const latest = await repository.fetchAppointmentRequests({
+          storeId,
+          merchant: true,
+          preferredDate: pushFilters.preferredDate,
+          preferredDateGte: pushFilters.preferredDateGte,
+          preferredDateLt: pushFilters.preferredDateLt,
+          status: pushFilters.status,
+          cancelledBy: pushFilters.cancelledBy,
+          cancelledByNot: pushFilters.cancelledByNot,
+          serviceTitle: pushFilters.serviceTitle,
+          limit: pageSize,
+          offset
+        })
+
+        collectedItems = sortedAppointmentsForStorage(
+          mergeUniqueById(collectedItems, latest)
+        )
+
+        found = latest.some(item => item.id === appointmentId)
+        offset += latest.length
+        hasMore = latest.length >= pageSize
+
+        if (!latest.length) {
+          break
+        }
+      }
+
+      if (!collectedItems.length) {
+        const cachedItems = loadAppointmentsFromStorage(storeId)
+
+        if (cachedItems.length) {
+          setAppointmentRequests(cachedItems)
+          resetAdminAppointmentsPaginationForFirstPage(cachedItems.length)
+        }
+
+        setStatusMessage('Appointment unavailable.')
+        return false
+      }
+
+      const sortedItems = sortedAppointmentsForStorage(collectedItems)
+      const targetVisible = collectedItems.some(item => item.id === appointmentId)
+
+      setAppointmentRequests(sortedItems)
+      persistAppointmentsLocally(storeId, sortedItems)
+      updateAdminPendingAppointmentCountSnapshotFromItems(sortedItems)
+      void hydrateAppointmentLinkedDishesFromRequests(sortedItems)
+      setAdminAppointmentsPagination({
+        nextOffset: offset,
+        hasMore,
+        isLoadingMore: false
+      })
+
+      if (!targetVisible) {
+        setStatusMessage('Appointment unavailable.')
+      } else {
+        setStatusMessage(null)
+      }
+
+      return targetVisible
+    } catch (error) {
+      const cachedItems = loadAppointmentsFromStorage(storeId)
+
+      if (cachedItems.length) {
+        setAppointmentRequests(cachedItems)
+        resetAdminAppointmentsPaginationForFirstPage(cachedItems.length)
+      }
+
+      const message = error instanceof Error
+        ? error.message
+        : 'Appointments refresh failed.'
+
+      setStatusMessage(message || 'Appointment unavailable.')
+      return false
+    } finally {
+      setAppointmentsRefreshing(false)
+    }
+  }
+
+  function customerAppointmentStatusFilterForPush(input: {
+    pushType?: string | null
+    appointmentStatus?: string | null
+  }): string {
+    const pushType = String(input.pushType || '').trim().toLowerCase()
+    const status = String(input.appointmentStatus || '').trim()
+
+    if (pushType === 'appointment_created') {
+      return 'Pending'
+    }
+
+    if (pushType === 'appointment_cancelled') {
+      return 'Cancelled by customer'
+    }
+
+    if (pushType === 'appointment_status' && status) {
+      return appointmentStatusFromCloud(status)
+    }
+
+    return 'All'
+  }
+
+  async function ensureCustomerAppointmentPushTargetVisible(
+    appointmentIdInput: string,
+    statusFilterInput = 'All'
+  ): Promise<boolean> {
+    const appointmentId = appointmentIdInput.trim()
+    if (!appointmentId) return false
+
+    const targetStatusFilter = String(statusFilterInput || 'All').trim() || 'All'
+
+    const pushFilters = currentCustomerAppointmentCloudFilters({
+      dateFilter: 'All',
+      statusFilter: targetStatusFilter,
+      serviceFilter: 'All'
+    })
+
+    setAppointmentCustomerDateFilter('All')
+    setAppointmentCustomerStatusFilter(targetStatusFilter)
+    setAppointmentCustomerServiceFilter('All')
+    setFocusedCustomerAppointmentId(null)
+    setAppointmentsRefreshing(true)
+
+    try {
+      const cloudSettings = await repository.fetchAppointmentSettings(storeId)
+
+      if (cloudSettings) {
+        applyCloudAppointmentSettings(cloudSettings)
+      }
+
+      const filterRows = await repository.fetchAppointmentFilterRows({
+        storeId,
+        clientId,
+        merchant: false
+      })
+
+      setCustomerAppointmentFilterRows(filterRows)
+
+      const pageSize = SHOWCASE_PAGE_SIZE.clientAppointments
+      let offset = 0
+      let hasMore = true
+      let found = false
+      let collectedItems: CloudAppointmentRequest[] = []
+
+      while (hasMore && !found) {
+        const latest = await repository.fetchAppointmentRequests({
+          storeId,
+          clientId,
+          merchant: false,
+          preferredDate: pushFilters.preferredDate,
+          preferredDateGte: pushFilters.preferredDateGte,
+          preferredDateLt: pushFilters.preferredDateLt,
+          status: pushFilters.status,
+          cancelledBy: pushFilters.cancelledBy,
+          cancelledByNot: pushFilters.cancelledByNot,
+          serviceTitle: pushFilters.serviceTitle,
+          limit: pageSize,
+          offset
+        })
+
+        collectedItems = sortedAppointmentsForStorage(
+          mergeUniqueById(collectedItems, latest)
+        )
+
+        found = latest.some(item => item.id === appointmentId)
+        offset += latest.length
+        hasMore = latest.length >= pageSize
+
+        if (!latest.length) {
+          break
+        }
+      }
+
+      if (!collectedItems.length) {
+        setStatusMessage('Booking unavailable.')
+        return false
+      }
+
+      const sortedItems = sortedAppointmentsForStorage(collectedItems)
+      const targetVisible = collectedItems.some(item => item.id === appointmentId)
+
+      setAppointmentRequests(sortedItems)
+      persistAppointmentsLocally(storeId, sortedItems)
+      void hydrateAppointmentLinkedDishesFromRequests(sortedItems)
+      setCustomerAppointmentsPagination({
+        nextOffset: offset,
+        hasMore,
+        isLoadingMore: false
+      })
+
+      if (!targetVisible) {
+        setStatusMessage('Booking unavailable.')
+      } else {
+        setStatusMessage(null)
+      }
+
+      return targetVisible
+    } catch (error) {
+      const message = error instanceof Error
+        ? error.message
+        : 'Bookings refresh failed.'
+
+      setStatusMessage(message || 'Booking unavailable.')
+      return false
+    } finally {
+      setAppointmentsRefreshing(false)
+    }
   }
 
   function showcasePushRouteToViewModelRoute(route: ShowcasePushRoute): {
     type: 'chat' | 'announcement' | 'appointment'
+    pushType?: string | null
     conversationId?: string | null
     announcementId?: string | null
     appointmentId?: string | null
+    appointmentStatus?: string | null
+    targetClientId?: string | null
     openAs?: string | null
+    source?: string | null
   } | null {
     const pushType = route.pushType.trim().toLowerCase()
 
@@ -10903,16 +11289,20 @@ function backFromAppointments(): void {
     ) {
       return {
         type: 'chat',
+        pushType,
         conversationId: route.conversationId,
-        openAs: route.openAs
+        openAs: route.openAs,
+        source: route.source
       }
     }
 
     if (pushType === 'announcement' || pushType === 'announcements') {
       return {
         type: 'announcement',
+        pushType,
         announcementId: route.announcementId,
-        openAs: route.openAs
+        openAs: route.openAs,
+        source: route.source
       }
     }
 
@@ -10926,8 +11316,12 @@ function backFromAppointments(): void {
     ) {
       return {
         type: 'appointment',
+        pushType,
         appointmentId: route.appointmentId,
-        openAs: route.openAs
+        appointmentStatus: route.appointmentStatus,
+        targetClientId: route.targetClientId,
+        openAs: route.openAs,
+        source: route.source
       }
     }
 
@@ -10936,10 +11330,14 @@ function backFromAppointments(): void {
 
   async function handlePushRoute(routeInput: {
     type: 'chat' | 'announcement' | 'appointment'
+    pushType?: string | null
     conversationId?: string | null
     announcementId?: string | null
     appointmentId?: string | null
+    appointmentStatus?: string | null
+    targetClientId?: string | null
     openAs?: string | null
+    source?: string | null
   }): Promise<void> {
     setPendingShowcasePushRoute(routeInput)
 
@@ -10963,6 +11361,7 @@ function backFromAppointments(): void {
       const isClientChatPush = openAs === 'customer' || openAs === 'client'
       const currentVisibleScreen = currentScreenRef.current
       const currentVisibleConversationId = String(activeConversationIdRef.current || activeConversationId || '').trim()
+      const localClientConversationId = repository.buildConversationId(storeId, clientId)
       const isViewingMerchantChat =
         currentChatRole() === 'merchant' &&
         Boolean(currentVisibleConversationId) &&
@@ -10971,6 +11370,16 @@ function backFromAppointments(): void {
           currentVisibleScreen === ShowcaseScreens.ChatMedia ||
           currentVisibleScreen === ShowcaseScreens.ChatSearchResults
         )
+
+      if (
+        isClientChatPush &&
+        pushedConversationId &&
+        localClientConversationId &&
+        pushedConversationId !== localClientConversationId
+      ) {
+        setPendingShowcasePushRoute(null)
+        return
+      }
 
       if (isClientChatPush && isViewingMerchantChat) {
         setPendingShowcasePushRoute(null)
@@ -11031,26 +11440,142 @@ function backFromAppointments(): void {
 
     if (routeInput.type === 'announcement') {
       await onAnnouncementPushArrived(routeInput.announcementId || '')
+      setPendingShowcasePushRoute(null)
       return
     }
 
     if (routeInput.type === 'appointment') {
-      await refreshAppointments()
+      const pushedAppointmentId = String(routeInput.appointmentId || '').trim()
+      const pushedTargetClientId = String(routeInput.targetClientId || '').trim()
+      const targetAdminStatusFilter = adminAppointmentStatusFilterForPushType(routeInput.pushType)
+      const targetCustomerStatusFilter = customerAppointmentStatusFilterForPush({
+        pushType: routeInput.pushType,
+        appointmentStatus: routeInput.appointmentStatus
+      })
+
       setPreviousScreen(currentScreenRef.current)
 
       if (openAs === 'merchant') {
         setScreen('AdminAppointmentManager')
+
+        if (pushedAppointmentId) {
+          const targetVisible = await ensureAdminAppointmentPushTargetVisible(
+            pushedAppointmentId,
+            targetAdminStatusFilter
+          )
+
+          if (targetVisible) {
+            setFocusedAdminAppointmentId(pushedAppointmentId)
+          }
+        } else {
+          setAppointmentAdminDateFilter('All')
+          setAppointmentAdminHistoryDateFilter(null)
+          setAppointmentAdminStatusFilter(targetAdminStatusFilter)
+          setAppointmentAdminServiceFilter('All')
+
+          await refreshAdminAppointmentsFromCloud(null, currentAdminAppointmentCloudFilters({
+            dateFilter: 'All',
+            statusFilter: targetAdminStatusFilter,
+            serviceFilter: 'All',
+            historyDateFilter: null
+          }))
+        }
+
         setPendingShowcasePushRoute(null)
         return
       }
 
       if (openAs === 'customer' || openAs === 'client') {
+        if (pushedTargetClientId && pushedTargetClientId !== clientId) {
+          setPendingShowcasePushRoute(null)
+          return
+        }
+
         setScreen('CustomerBookings')
+
+        if (pushedAppointmentId) {
+          const targetVisible = await ensureCustomerAppointmentPushTargetVisible(
+            pushedAppointmentId,
+            targetCustomerStatusFilter
+          )
+
+          if (targetVisible) {
+            setFocusedCustomerAppointmentId(pushedAppointmentId)
+          }
+        } else {
+          setAppointmentCustomerDateFilter('All')
+          setAppointmentCustomerStatusFilter(targetCustomerStatusFilter)
+          setAppointmentCustomerServiceFilter('All')
+
+          await refreshCustomerAppointmentsFromCloud(null, currentCustomerAppointmentCloudFilters({
+            dateFilter: 'All',
+            statusFilter: targetCustomerStatusFilter,
+            serviceFilter: 'All'
+          }))
+        }
+
         setPendingShowcasePushRoute(null)
         return
       }
 
-      setScreen(isAdminLoggedInRef.current ? 'AdminAppointmentManager' : 'CustomerBookings')
+      if (isAdminLoggedInRef.current) {
+        setScreen('AdminAppointmentManager')
+
+        if (pushedAppointmentId) {
+          const targetVisible = await ensureAdminAppointmentPushTargetVisible(
+            pushedAppointmentId,
+            targetAdminStatusFilter
+          )
+
+          if (targetVisible) {
+            setFocusedAdminAppointmentId(pushedAppointmentId)
+          }
+        } else {
+          setAppointmentAdminDateFilter('All')
+          setAppointmentAdminHistoryDateFilter(null)
+          setAppointmentAdminStatusFilter(targetAdminStatusFilter)
+          setAppointmentAdminServiceFilter('All')
+
+          await refreshAdminAppointmentsFromCloud(null, currentAdminAppointmentCloudFilters({
+            dateFilter: 'All',
+            statusFilter: targetAdminStatusFilter,
+            serviceFilter: 'All',
+            historyDateFilter: null
+          }))
+        }
+
+        setPendingShowcasePushRoute(null)
+        return
+      }
+
+      if (pushedTargetClientId && pushedTargetClientId !== clientId) {
+        setPendingShowcasePushRoute(null)
+        return
+      }
+
+      setScreen('CustomerBookings')
+
+      if (pushedAppointmentId) {
+        const targetVisible = await ensureCustomerAppointmentPushTargetVisible(
+          pushedAppointmentId,
+          targetCustomerStatusFilter
+        )
+
+        if (targetVisible) {
+          setFocusedCustomerAppointmentId(pushedAppointmentId)
+        }
+      } else {
+        setAppointmentCustomerDateFilter('All')
+        setAppointmentCustomerStatusFilter(targetCustomerStatusFilter)
+        setAppointmentCustomerServiceFilter('All')
+
+        await refreshCustomerAppointmentsFromCloud(null, currentCustomerAppointmentCloudFilters({
+          dateFilter: 'All',
+          statusFilter: targetCustomerStatusFilter,
+          serviceFilter: 'All'
+        }))
+      }
+
       setPendingShowcasePushRoute(null)
     }
   }
@@ -11066,7 +11591,9 @@ function backFromAppointments(): void {
       if (
         viewModelRoute.type === 'chat' &&
         viewModelRoute.conversationId &&
-        shouldSuppressRuntimeChatPush(viewModelRoute.conversationId)
+        shouldSuppressRuntimeChatPush(viewModelRoute.conversationId, {
+          source: viewModelRoute.source
+        })
       ) {
         consumeShowcasePushRoute(route)
         return
@@ -11184,6 +11711,8 @@ function backFromAppointments(): void {
       openAs: 'client',
       targetClientId,
       actor: 'merchant',
+      pushType: 'appointment_status',
+      appointmentStatus: nextStatus,
       title: appointmentStatusPushTitle(nextStatus),
       body,
       bodyPreview: body
@@ -11204,6 +11733,8 @@ function backFromAppointments(): void {
           openAs: 'client',
           targetClientId,
           actor: 'merchant',
+          pushType: 'appointment_status',
+          appointmentStatus: nextStatus,
           title: appointmentStatusPushTitle(nextStatus),
           body,
           bodyPreview: body
@@ -14413,6 +14944,7 @@ function onChatImageLimitReached(): void {
     statusMessage: statusMessage || snackbarMessage,
     isRefreshing: appointmentsRefreshing,
     cancellationSubmittingId: appointmentStatusSubmittingId,
+    focusedCustomerAppointmentId,
 
     dateFilterOptions: customerDateFilterOptions,
     statusFilterOptions,
@@ -14432,6 +14964,7 @@ function onChatImageLimitReached(): void {
     isRefreshing: appointmentsRefreshing,
     statusSubmittingId: appointmentStatusSubmittingId,
     settingsSubmitting: appointmentSettingsSubmitting,
+    focusedAdminAppointmentId,
 
     bookingWindowDays: appointmentBookingWindowDays,
     availableHoursText: appointmentAvailableHoursText,
@@ -15214,6 +15747,10 @@ const editDishState: ShowcaseEditDishUiState = {
 
     onServiceFilterChange: onAppointmentCustomerServiceFilterChange,
 
+    onConsumeFocusedAppointment: () => {
+      setFocusedCustomerAppointmentId(null)
+    },
+
     onContactMerchant: appointmentId => {
       openChatFromCustomerBooking(appointmentId)
     },
@@ -15265,6 +15802,10 @@ const editDishState: ShowcaseEditDishUiState = {
     onHistoryDateSelected: onAppointmentAdminHistoryDateSelected,
 
     onHistoryDateClear: onAppointmentAdminHistoryDateClear,
+
+    onConsumeFocusedAppointment: () => {
+      setFocusedAdminAppointmentId(null)
+    },
 
     onContactCustomer: appointmentId => {
       void openChatFromAppointment(appointmentId)

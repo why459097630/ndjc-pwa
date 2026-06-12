@@ -9,7 +9,10 @@ export type ShowcasePushRoute = {
   conversationId: string | null
   announcementId: string | null
   appointmentId: string | null
+  appointmentStatus: string | null
+  targetClientId: string | null
   openAs: string | null
+  source: string | null
 }
 
 export type ShowcasePushRouteHandler = (route: ShowcasePushRoute) => void
@@ -102,8 +105,13 @@ export function parseShowcasePushPayload(payload: PushRoutePayload | null | unde
     conversationId: readFirstString(payload, ['conversation_id', 'conversationId']),
     announcementId: readFirstString(payload, ['announcement_id', 'announcementId']),
     appointmentId: readFirstString(payload, ['appointment_id', 'appointmentId']),
+    appointmentStatus: readFirstString(payload, ['appointment_status', 'appointmentStatus', 'status']),
+    targetClientId: readFirstString(payload, ['target_client_id', 'targetClientId']),
     openAs: normalizeLowerNullableString(
       readFirstString(payload, ['open_as', 'openAs', 'open'])
+    ),
+    source: normalizeLowerNullableString(
+      readFirstString(payload, ['push_route_source', 'pushRouteSource', 'source'])
     )
   }
 }
@@ -128,9 +136,17 @@ function hasPushRouteParams(params: URLSearchParams): boolean {
     'announcementId',
     'appointment_id',
     'appointmentId',
+    'appointment_status',
+    'appointmentStatus',
+    'status',
+    'target_client_id',
+    'targetClientId',
     'open_as',
     'openAs',
     'open',
+    'push_route_source',
+    'pushRouteSource',
+    'source',
     'context_route',
     'contextRoute'
   ]
@@ -153,9 +169,17 @@ function clearPushRouteParamsFromLocation(): void {
     'announcementId',
     'appointment_id',
     'appointmentId',
+    'appointment_status',
+    'appointmentStatus',
+    'status',
+    'target_client_id',
+    'targetClientId',
     'open_as',
     'openAs',
     'open',
+    'push_route_source',
+    'pushRouteSource',
+    'source',
     'context_route',
     'contextRoute',
     'route',
@@ -219,7 +243,10 @@ export function consumeShowcasePushRoute(route: ShowcasePushRoute | null | undef
     pendingRoute.conversationId === route.conversationId &&
     pendingRoute.announcementId === route.announcementId &&
     pendingRoute.appointmentId === route.appointmentId &&
-    pendingRoute.openAs === route.openAs
+    pendingRoute.appointmentStatus === route.appointmentStatus &&
+    pendingRoute.targetClientId === route.targetClientId &&
+    pendingRoute.openAs === route.openAs &&
+    pendingRoute.source === route.source
   ) {
     pendingRoute = null
   }

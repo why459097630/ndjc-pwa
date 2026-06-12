@@ -3398,6 +3398,7 @@ async dispatchAppointmentPush(input: {
   scopeClientId?: string | null
   actor?: string | null
   pushType?: string | null
+  appointmentStatus?: string | null
 }): Promise<boolean> {
   const storeId = this.requireStoreId(input.storeId)
   const actor = normalizePushActor(input.actor || 'merchant')
@@ -3409,6 +3410,7 @@ async dispatchAppointmentPush(input: {
     : actor === 'public'
       ? 'appointment_created'
       : 'appointment_status'
+  const appointmentStatus = String(input.appointmentStatus || '').trim()
   const normalizedTargetAudience = normalizePushAudience(input.targetAudience)
   const targetAudience = normalizedTargetAudience || (
     actor === 'public'
@@ -3431,6 +3433,8 @@ async dispatchAppointmentPush(input: {
     target_audience: targetAudience,
     store_id: storeId,
     appointment_id: input.appointmentId,
+    appointment_status: appointmentStatus || null,
+    appointmentStatus: appointmentStatus || null,
     open_as: openAs,
     target_client_id: input.targetClientId || null,
     scope_client_id: input.scopeClientId || null,
@@ -3445,6 +3449,9 @@ async dispatchAppointmentPush(input: {
       storeId,
       appointment_id: input.appointmentId,
       appointmentId: input.appointmentId,
+      appointment_status: appointmentStatus || '',
+      appointmentStatus: appointmentStatus || '',
+      status: appointmentStatus || '',
       audience: targetAudience,
       target_audience: targetAudience,
       open_as: openAs,

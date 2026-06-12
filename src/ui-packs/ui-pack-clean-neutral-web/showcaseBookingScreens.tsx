@@ -1925,6 +1925,20 @@ export function ShowcaseCustomerBookingsScreen({
     ].join('|')
   })
 
+  React.useEffect(() => {
+    const targetId = state.focusedCustomerAppointmentId?.trim() || ''
+    if (!targetId) return
+
+    const targetItem = state.items.find(item => item.id === targetId) || null
+    if (!targetItem) return
+
+    setDetailsItem(targetItem)
+    actions.onConsumeFocusedAppointment()
+  }, [
+    state.focusedCustomerAppointmentId,
+    state.items
+  ])
+
 return (
   <NdjcUnifiedBackground
     topNav={{
@@ -2687,6 +2701,20 @@ export function ShowcaseAdminAppointmentManager({
     state.slotIntervalMinutes,
     state.minimumNotice,
     state.closedDays.join(',')
+  ])
+
+  React.useEffect(() => {
+    const targetId = state.focusedAdminAppointmentId?.trim() || ''
+    if (!targetId) return
+
+    const targetItem = state.items.find(item => item.id === targetId) || null
+    if (!targetItem) return
+
+    setDetailsItem(targetItem)
+    actions.onConsumeFocusedAppointment()
+  }, [
+    state.focusedAdminAppointmentId,
+    state.items
   ])
 
   const bookingSettingsSummary = [
