@@ -288,6 +288,7 @@ export function apkHomeMediaCardButtonStyle(disabled = false): React.CSSProperti
     padding: 0,
     display: 'flex',
     flexDirection: 'column',
+    alignItems: 'stretch',
     textAlign: 'left',
     color: APK_SHOWCASE_ITEM_UI.black,
     background: APK_SHOWCASE_ITEM_UI.transparent,
@@ -295,6 +296,8 @@ export function apkHomeMediaCardButtonStyle(disabled = false): React.CSSProperti
     overflow: 'hidden',
     cursor: disabled ? 'default' : 'pointer',
     opacity: disabled ? APK_SHOWCASE_ITEM_UI.disabledAlpha : 1,
+    appearance: 'none',
+    WebkitAppearance: 'none',
     WebkitTapHighlightColor: 'transparent',
     touchAction: 'manipulation'
   }
@@ -311,9 +314,11 @@ export const apkHomeMediaImageWrapStyle: React.CSSProperties = {
 }
 
 export const apkHomeMediaBodyStyle: React.CSSProperties = {
+  width: '100%',
   minWidth: 0,
   minHeight: APK_SHOWCASE_ITEM_UI.homeCardBottomMinHeight,
   flex: '1 1 auto',
+  boxSizing: 'border-box',
   padding: `${APK_SHOWCASE_ITEM_UI.homeContentPaddingTop}px ${APK_SHOWCASE_ITEM_UI.homeContentPaddingEnd}px ${APK_SHOWCASE_ITEM_UI.homeContentPaddingBottom}px ${APK_SHOWCASE_ITEM_UI.homeContentPaddingStart}px`,
   display: 'grid',
   alignContent: 'start',
