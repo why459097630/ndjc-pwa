@@ -146,6 +146,26 @@ function urlBase64ToArrayBuffer(base64String: string): ArrayBuffer {
   return outputArray.buffer
 }
 
+function arrayBufferToBase64Url(buffer: ArrayBuffer | null): string {
+  if (!buffer) return ''
+
+  const bytes = new Uint8Array(buffer)
+  let binary = ''
+
+  for (let index = 0; index < bytes.byteLength; index += 1) {
+    binary += String.fromCharCode(bytes[index])
+  }
+
+  return window.btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '')
+}
+
+function isSameApplicationServerKey(
+  existingKey: ArrayBuffer | null,
+  currentKey: ArrayBuffer
+): boolean {
+  return arrayBufferToBase64Url(existingKey) === arrayBufferToBase64Url(currentKey)
+}
+
 function createWebPushToken(subscription: PushSubscription): string {
   const subscriptionJson = subscription.toJSON()
   const endpoint = String(subscriptionJson.endpoint || '').trim()
@@ -310,6 +330,8 @@ async function getOrRegisterAppServiceWorker(): Promise<ServiceWorkerRegistratio
 async function getExistingOrCreateSubscription(
   registration: ServiceWorkerRegistration
 ): Promise<PushSubscription> {
+  const applicationServerKey = urlBase64ToArrayBuffer(readWebPushVapidPublicKey())
+
   const existing = await withTimeout(
     registration.pushManager.getSubscription(),
     'Web Push getSubscription',
@@ -317,13 +339,20 @@ async function getExistingOrCreateSubscription(
   )
 
   if (existing) {
-    return existing
+    const existingApplicationServerKey = existing.options.applicationServerKey || null
+
+    if (isSameApplicationServerKey(existingApplicationServerKey, applicationServerKey)) {
+      return existing
+    }
+
+    console.warn('[NDJC_PUSH] Existing Web Push subscription uses a different VAPID key. Re-subscribing.')
+    await existing.unsubscribe().catch(() => false)
   }
 
   return withTimeout(
     registration.pushManager.subscribe({
       userVisibleOnly: true,
-      applicationServerKey: urlBase64ToArrayBuffer(readWebPushVapidPublicKey())
+      applicationServerKey
     }),
     'Web Push subscribe',
     15000
