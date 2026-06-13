@@ -40,6 +40,28 @@ export type NdjcFirebaseMessagingDiagnostics = {
   error: string | null
 }
 
+export type NdjcFirebaseMessagingFailureSnapshot = {
+  source: string
+  message: string
+  name: string | null
+  code: string | null
+  permission: NotificationPermission | 'unsupported'
+  isSecureContext: boolean
+  href: string
+  userAgent: string
+  serviceWorkerScope: string | null
+  serviceWorkerActive: boolean
+  serviceWorkerInstalling: boolean
+  serviceWorkerWaiting: boolean
+  serviceWorkerScriptURL: string | null
+}
+
+declare global {
+  interface Window {
+    __NDJC_PUSH_LAST_ERROR__?: NdjcFirebaseMessagingFailureSnapshot | null
+  }
+}
+
 const NDJC_FIREBASE_APP_NAME = 'ndjc-pwa'
 const NDJC_SERVICE_WORKER_PATH = '/sw.js'
 
@@ -122,21 +144,83 @@ function normalizeError(error: unknown): string {
   return String(error)
 }
 
+function readFirebaseErrorName(error: unknown): string | null {
+  if (error instanceof Error && error.name) {
+    return error.name
+  }
+
+  const errorRecord = error as { name?: unknown } | null
+
+  if (typeof errorRecord?.name === 'string' && errorRecord.name.trim()) {
+    return errorRecord.name.trim()
+  }
+
+  return null
+}
+
+function readFirebaseErrorCode(error: unknown): string | null {
+  const errorRecord = error as { code?: unknown } | null
+
+  if (typeof errorRecord?.code === 'string' && errorRecord.code.trim()) {
+    return errorRecord.code.trim()
+  }
+
+  return null
+}
+
+function createFirebaseGetTokenFailureSnapshot(
+  source: string,
+  error: unknown,
+  serviceWorkerRegistration: ServiceWorkerRegistration
+): NdjcFirebaseMessagingFailureSnapshot {
+  return {
+    source,
+    message: normalizeError(error),
+    name: readFirebaseErrorName(error),
+    code: readFirebaseErrorCode(error),
+    permission: typeof Notification !== 'undefined' ? Notification.permission : 'unsupported',
+    isSecureContext: typeof window !== 'undefined' ? window.isSecureContext : false,
+    href: typeof window !== 'undefined' ? window.location.href : '',
+    userAgent: typeof navigator !== 'undefined' ? navigator.userAgent : '',
+    serviceWorkerScope: serviceWorkerRegistration.scope || null,
+    serviceWorkerActive: Boolean(serviceWorkerRegistration.active),
+    serviceWorkerInstalling: Boolean(serviceWorkerRegistration.installing),
+    serviceWorkerWaiting: Boolean(serviceWorkerRegistration.waiting),
+    serviceWorkerScriptURL: serviceWorkerRegistration.active?.scriptURL || null
+  }
+}
+
+function writeLastNdjcFirebaseMessagingFailure(snapshot: NdjcFirebaseMessagingFailureSnapshot | null): void {
+  if (!isBrowser()) return
+
+  window.__NDJC_PUSH_LAST_ERROR__ = snapshot
+}
+
+export function getLastNdjcFirebaseMessagingFailure(): NdjcFirebaseMessagingFailureSnapshot | null {
+  if (!isBrowser()) return null
+
+  return window.__NDJC_PUSH_LAST_ERROR__ || null
+}
+
 function logFirebaseGetTokenFailure(
   source: string,
   error: unknown,
   serviceWorkerRegistration: ServiceWorkerRegistration
 ): void {
+  const snapshot = createFirebaseGetTokenFailureSnapshot(source, error, serviceWorkerRegistration)
+
+  writeLastNdjcFirebaseMessagingFailure(snapshot)
+
   console.error(`[NDJC_PUSH] Firebase getToken failed from ${source}.`, {
-    permission: typeof Notification !== 'undefined' ? Notification.permission : 'unsupported',
-    isSecureContext: typeof window !== 'undefined' ? window.isSecureContext : false,
-    href: typeof window !== 'undefined' ? window.location.href : '',
-    userAgent: typeof navigator !== 'undefined' ? navigator.userAgent : '',
-    serviceWorkerScope: serviceWorkerRegistration.scope,
-    serviceWorkerActive: Boolean(serviceWorkerRegistration.active),
-    serviceWorkerInstalling: Boolean(serviceWorkerRegistration.installing),
-    serviceWorkerWaiting: Boolean(serviceWorkerRegistration.waiting),
-    serviceWorkerScriptURL: serviceWorkerRegistration.active?.scriptURL || null,
+    permission: snapshot.permission,
+    isSecureContext: snapshot.isSecureContext,
+    href: snapshot.href,
+    userAgent: snapshot.userAgent,
+    serviceWorkerScope: snapshot.serviceWorkerScope,
+    serviceWorkerActive: snapshot.serviceWorkerActive,
+    serviceWorkerInstalling: snapshot.serviceWorkerInstalling,
+    serviceWorkerWaiting: snapshot.serviceWorkerWaiting,
+    serviceWorkerScriptURL: snapshot.serviceWorkerScriptURL,
     error
   })
 }
@@ -218,6 +302,8 @@ async function appendServiceWorkerDiagnostics(
 export async function getNdjcFirebaseMessagingToken(): Promise<string | null> {
   if (!isBrowser()) return null
 
+  writeLastNdjcFirebaseMessagingFailure(null)
+
   if (!('Notification' in window)) {
     console.warn('[NDJC_PUSH] Notification API is not supported.')
     return null
@@ -261,6 +347,14 @@ export async function getNdjcFirebaseMessagingToken(): Promise<string | null> {
   }
 
   if (!token) {
+    const emptyTokenError = new Error('Firebase getToken returned empty token.')
+
+    logFirebaseGetTokenFailure(
+      'getNdjcFirebaseMessagingToken',
+      emptyTokenError,
+      serviceWorkerRegistration
+    )
+
     console.warn('[NDJC_PUSH] Firebase getToken returned empty token.', {
       permission: Notification.permission,
       serviceWorkerScope: serviceWorkerRegistration.scope,

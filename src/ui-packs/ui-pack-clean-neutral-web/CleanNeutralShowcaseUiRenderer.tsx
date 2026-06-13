@@ -60,6 +60,7 @@ export const CleanNeutralShowcaseUiRenderer: ShowcaseUiRenderer = {
     permissionState,
     registrationState,
     messageCode,
+    debugMessage,
     installState,
     installBusy,
     onRegister,
@@ -73,6 +74,7 @@ export const CleanNeutralShowcaseUiRenderer: ShowcaseUiRenderer = {
       permissionState={permissionState}
       registrationState={registrationState}
       messageCode={messageCode}
+      debugMessage={debugMessage}
       installState={installState}
       installBusy={installBusy}
       onRegister={onRegister}

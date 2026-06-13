@@ -3635,6 +3635,7 @@ export function NdjcNotificationOptInPanel({
   permissionState,
   registrationState,
   messageCode,
+  debugMessage,
   installState,
   installBusy,
   onRegister,
@@ -3647,6 +3648,7 @@ export function NdjcNotificationOptInPanel({
   permissionState: ShowcaseNotificationPermissionState
   registrationState: ShowcaseNotificationRegistrationState
   messageCode: ShowcaseNotificationMessageCode
+  debugMessage?: string | null
   installState: ShowcasePwaInstallState
   installBusy: boolean
   onRegister: () => void
@@ -3692,6 +3694,7 @@ export function NdjcNotificationOptInPanel({
       ? 'Tap Share, then Add to Home Screen for faster access and better notification support. Already added? You can ignore this.'
       : installGuideDescription
   const installActionLabel = installBusy ? 'Opening...' : 'Add'
+  const normalizedDebugMessage = String(debugMessage || '').trim()
 
   return (
     <div
@@ -3953,6 +3956,32 @@ export function NdjcNotificationOptInPanel({
                 >
                   {description}
                 </p>
+
+                {normalizedDebugMessage
+                  ? (
+                      <pre
+                        style={{
+                          margin: 0,
+                          maxHeight: 112,
+                          overflow: 'auto',
+                          whiteSpace: 'pre-wrap',
+                          wordBreak: 'break-word',
+                          borderRadius: 12,
+                          padding: '8px 9px',
+                          background: 'rgba(15, 23, 42, 0.05)',
+                          border: '1px solid rgba(15, 23, 42, 0.08)',
+                          color: 'rgba(17, 24, 39, 0.72)',
+                          fontSize: 10,
+                          lineHeight: 1.42,
+                          fontWeight: 700,
+                          fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace',
+                          boxSizing: 'border-box'
+                        }}
+                      >
+                        {normalizedDebugMessage}
+                      </pre>
+                    )
+                  : null}
 
                 <div
                   style={{

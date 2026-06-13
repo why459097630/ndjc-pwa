@@ -74,6 +74,7 @@ export type ShowcaseUiRenderer = {
     permissionState: ShowcaseNotificationPermissionState
     registrationState: ShowcaseNotificationRegistrationState
     messageCode: ShowcaseNotificationMessageCode
+    debugMessage?: string | null
     installState: ShowcasePwaInstallState
     installBusy: boolean
     onRegister: () => void

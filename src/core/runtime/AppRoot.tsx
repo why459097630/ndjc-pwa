@@ -162,6 +162,7 @@ export function AppRoot({ assembly }: { assembly: Assembly }) {
   const [notificationOptInPanelOpen, setNotificationOptInPanelOpen] = useState(false)
   const [notificationOptInBusy, setNotificationOptInBusy] = useState(false)
   const [notificationOptInMessageCode, setNotificationOptInMessageCode] = useState<ShowcaseNotificationMessageCode>(null)
+  const [notificationOptInDebugMessage, setNotificationOptInDebugMessage] = useState<string | null>(null)
   const [notificationRegistered, setNotificationRegistered] = useState(false)
   const [notificationPermissionState, setNotificationPermissionState] = useState<ShowcaseNotificationPermissionState>('default')
   const [notificationRegistrationState, setNotificationRegistrationState] = useState<ShowcaseNotificationRegistrationState>('idle')
@@ -178,6 +179,7 @@ const [pwaInstallBusy, setPwaInstallBusy] = useState(false)
     setNotificationPermissionState(inspected.permissionState)
     setNotificationOptInVisible(true)
     setNotificationOptInMessageCode(inspected.messageCode)
+    setNotificationOptInDebugMessage(null)
   }, [])
 
 useEffect(() => {
@@ -317,6 +319,7 @@ useEffect(() => {
   async function registerPushDeviceForCurrentStore(source: 'manual' | 'startup'): Promise<boolean> {
     if (source === 'manual') {
       setNotificationOptInMessageCode(null)
+      setNotificationOptInDebugMessage(null)
     }
 
     setNotificationOptInBusy(true)
@@ -331,6 +334,7 @@ useEffect(() => {
       setNotificationRegistrationState(result.registrationState)
       setNotificationRegistered(result.registered)
       setNotificationOptInMessageCode(result.messageCode)
+      setNotificationOptInDebugMessage(result.debugMessage || null)
 
       if (result.success) {
         setNotificationOptInVisible(true)
@@ -509,6 +513,7 @@ async function promptInstallCurrentPwa(): Promise<void> {
       permissionState: notificationPermissionState,
       registrationState: notificationRegistrationState,
       messageCode: notificationOptInMessageCode,
+      debugMessage: notificationOptInDebugMessage,
       installState: pwaInstallState,
       installBusy: pwaInstallBusy,
       onRegister: () => {

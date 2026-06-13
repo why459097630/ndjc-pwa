@@ -1,6 +1,10 @@
 import type { MetadataRoute } from 'next'
 
-export default function manifest(): MetadataRoute.Manifest {
+type NdjcManifest = MetadataRoute.Manifest & {
+  gcm_sender_id?: string
+}
+
+export default function manifest(): NdjcManifest {
   return {
     name: 'Customer Hub',
     short_name: 'Hub',
