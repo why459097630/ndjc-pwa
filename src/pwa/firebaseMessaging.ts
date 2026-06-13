@@ -71,7 +71,7 @@ declare global {
 const NDJC_FIREBASE_APP_NAME = 'ndjc-pwa'
 const NDJC_SERVICE_WORKER_PATH = '/sw.js'
 const NDJC_FIREBASE_MESSAGING_SERVICE_WORKER_PATH = '/firebase-messaging-sw.js'
-const NDJC_FIREBASE_MESSAGING_SERVICE_WORKER_SCOPE = '/firebase-cloud-messaging-push-scope'
+const NDJC_FIREBASE_MESSAGING_SERVICE_WORKER_SCOPE = '/firebase-cloud-messaging-push-scope/'
 
 function isBrowser(): boolean {
   return typeof window !== 'undefined'
@@ -229,6 +229,29 @@ function createFirebaseGetTokenFailureSnapshot(
   }
 }
 
+function createFirebaseMessagingServiceWorkerFailureSnapshot(
+  source: string,
+  error: unknown,
+  messagingServiceWorkerMode: NdjcFirebaseMessagingServiceWorkerMode
+): NdjcFirebaseMessagingFailureSnapshot {
+  return {
+    source,
+    message: normalizeError(error),
+    name: readFirebaseErrorName(error),
+    code: readFirebaseErrorCode(error),
+    permission: typeof Notification !== 'undefined' ? Notification.permission : 'unsupported',
+    isSecureContext: typeof window !== 'undefined' ? window.isSecureContext : false,
+    href: typeof window !== 'undefined' ? window.location.href : '',
+    userAgent: typeof navigator !== 'undefined' ? navigator.userAgent : '',
+    messagingServiceWorkerMode,
+    serviceWorkerScope: NDJC_FIREBASE_MESSAGING_SERVICE_WORKER_SCOPE,
+    serviceWorkerActive: false,
+    serviceWorkerInstalling: false,
+    serviceWorkerWaiting: false,
+    serviceWorkerScriptURL: NDJC_FIREBASE_MESSAGING_SERVICE_WORKER_PATH
+  }
+}
+
 function writeLastNdjcFirebaseMessagingFailure(snapshot: NdjcFirebaseMessagingFailureSnapshot | null): void {
   if (!isBrowser()) return
 
@@ -257,6 +280,34 @@ function logFirebaseGetTokenFailure(
   writeLastNdjcFirebaseMessagingFailure(snapshot)
 
   console.error(`[NDJC_PUSH] Firebase getToken failed from ${source}.`, {
+    permission: snapshot.permission,
+    isSecureContext: snapshot.isSecureContext,
+    href: snapshot.href,
+    userAgent: snapshot.userAgent,
+    messagingServiceWorkerMode: snapshot.messagingServiceWorkerMode,
+    serviceWorkerScope: snapshot.serviceWorkerScope,
+    serviceWorkerActive: snapshot.serviceWorkerActive,
+    serviceWorkerInstalling: snapshot.serviceWorkerInstalling,
+    serviceWorkerWaiting: snapshot.serviceWorkerWaiting,
+    serviceWorkerScriptURL: snapshot.serviceWorkerScriptURL,
+    error
+  })
+}
+
+function logFirebaseMessagingServiceWorkerFailure(
+  source: string,
+  error: unknown,
+  messagingServiceWorkerMode: NdjcFirebaseMessagingServiceWorkerMode
+): void {
+  const snapshot = createFirebaseMessagingServiceWorkerFailureSnapshot(
+    source,
+    error,
+    messagingServiceWorkerMode
+  )
+
+  writeLastNdjcFirebaseMessagingFailure(snapshot)
+
+  console.error(`[NDJC_PUSH] Firebase messaging service worker failed from ${source}.`, {
     permission: snapshot.permission,
     isSecureContext: snapshot.isSecureContext,
     href: snapshot.href,
@@ -410,9 +461,13 @@ async function getMessagingServiceWorkerRegistration(): Promise<{
         mode: 'firebase-sw'
       }
     } catch (error) {
-      console.warn('[NDJC_PUSH] Dedicated Firebase messaging service worker failed. Falling back to app service worker.', {
-        error
-      })
+      logFirebaseMessagingServiceWorkerFailure(
+        'getMessagingServiceWorkerRegistration',
+        error,
+        'firebase-sw'
+      )
+
+      throw error
     }
   }
 
@@ -483,10 +538,17 @@ export async function getNdjcFirebaseMessagingToken(): Promise<string | null> {
     return null
   }
 
-  const {
-    registration: serviceWorkerRegistration,
-    mode: messagingServiceWorkerMode
-  } = await getMessagingServiceWorkerRegistration()
+  let serviceWorkerRegistration: ServiceWorkerRegistration
+  let messagingServiceWorkerMode: NdjcFirebaseMessagingServiceWorkerMode
+
+  try {
+    const messagingServiceWorker = await getMessagingServiceWorkerRegistration()
+    serviceWorkerRegistration = messagingServiceWorker.registration
+    messagingServiceWorkerMode = messagingServiceWorker.mode
+  } catch {
+    return null
+  }
+
   const vapidKey = readVapidKey()
 
   let token = ''
@@ -643,10 +705,28 @@ export async function runNdjcFirebaseMessagingDiagnostics(): Promise<NdjcFirebas
       return diagnostics
     }
 
-    const {
-      registration: serviceWorkerRegistration,
-      mode: messagingServiceWorkerMode
-    } = await getMessagingServiceWorkerRegistration()
+    let serviceWorkerRegistration: ServiceWorkerRegistration
+    let messagingServiceWorkerMode: NdjcFirebaseMessagingServiceWorkerMode
+
+    try {
+      const messagingServiceWorker = await getMessagingServiceWorkerRegistration()
+      serviceWorkerRegistration = messagingServiceWorker.registration
+      messagingServiceWorkerMode = messagingServiceWorker.mode
+    } catch (error) {
+      diagnostics.messagingServiceWorkerMode = 'firebase-sw'
+      diagnostics.serviceWorkerScope = NDJC_FIREBASE_MESSAGING_SERVICE_WORKER_SCOPE
+      diagnostics.serviceWorkerActive = false
+      diagnostics.serviceWorkerScriptURL = NDJC_FIREBASE_MESSAGING_SERVICE_WORKER_PATH
+      diagnostics.error = normalizeError(error)
+
+      const registrations = await navigator.serviceWorker.getRegistrations()
+      diagnostics.serviceWorkerRegistrationCount = registrations.length
+
+      console.log('[NDJC_PUSH_DIAG] final', diagnostics)
+      console.groupEnd()
+      return diagnostics
+    }
+
     diagnostics.messagingServiceWorkerMode = messagingServiceWorkerMode
     diagnostics.serviceWorkerScope = serviceWorkerRegistration.scope
     diagnostics.serviceWorkerActive = Boolean(serviceWorkerRegistration.active)
