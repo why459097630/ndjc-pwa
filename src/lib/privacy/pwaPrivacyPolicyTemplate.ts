@@ -220,7 +220,7 @@ Users can clear browser storage from their device. Clearing browser storage may 
 Data may be stored securely using cloud services, including:
 
 • Supabase for database, authentication, storage, and cloud functions
-• Firebase Cloud Messaging for push notifications
+• Web Push services provided by the user's browser or operating system for push notifications
 • Browser and operating system services needed to install, cache, and run the Progressive Web App
 
 Supabase may be used to store and process:
@@ -235,8 +235,8 @@ Supabase may be used to store and process:
 • Device installation records
 • Store-scoped cloud data needed to operate the App
 
-Firebase Cloud Messaging may be used to process:
-• Push notification tokens
+Web Push services may be used to process:
+• Push notification subscription endpoints and keys
 • Notification delivery data
 • Device or browser information required to deliver notifications
 • Notification events such as chat replies, announcements, booking confirmations, and booking cancellations
@@ -283,7 +283,7 @@ We do not sell personal data.
 We may share limited data with third-party infrastructure services only when required to operate the App, including:
 
 • Supabase for database, authentication, storage, and cloud functions
-• Firebase Cloud Messaging for push notifications
+• Web Push services provided by the user's browser or operating system for push notifications
 • Browser and operating system services needed to install, cache, and run the Progressive Web App
 
 The merchant may view and use customer information submitted through their App, such as chat messages, booking requests, appointment contact information, and related service records.
