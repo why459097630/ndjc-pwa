@@ -1,4 +1,4 @@
-﻿const NDJC_DEV_KILL_SERVICE_WORKER = false
+const NDJC_DEV_KILL_SERVICE_WORKER = false
 const NDJC_SW_VERSION = 'ndjc-pwa-1.0.0-20260613114933'
 const NDJC_STATIC_CACHE = `${NDJC_SW_VERSION}-static`
 const NDJC_NAVIGATION_CACHE = `${NDJC_SW_VERSION}-navigation`
@@ -949,6 +949,24 @@ function ndjcFocusOrNavigatePushClient(client, routeWithPayload, payloadInput) {
   try {
     client.postMessage(message)
   } catch (error) {
+  }
+
+  if (client && 'navigate' in client && typeof client.navigate === 'function') {
+    return client.navigate(routeWithPayload).then(navigatedClient => {
+      const targetClient = navigatedClient || client
+
+      if (targetClient && 'focus' in targetClient && typeof targetClient.focus === 'function') {
+        return targetClient.focus()
+      }
+
+      return targetClient
+    }).catch(() => {
+      if (client && 'focus' in client && typeof client.focus === 'function') {
+        return client.focus()
+      }
+
+      return client
+    })
   }
 
   if (client && 'focus' in client && typeof client.focus === 'function') {
