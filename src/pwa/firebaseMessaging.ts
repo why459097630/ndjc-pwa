@@ -29,6 +29,13 @@ export type NdjcPushRegistrationDiagnosticStep = {
   serviceWorkerScriptURL: string | null
 }
 
+export type NdjcPushRegistrationTokenResult = {
+  token: string
+  provider: 'fcm' | 'web_push'
+  platform: 'web' | 'ios_web_push'
+  appVersion: 'pwa' | 'pwa-web-push'
+}
+
 export type NdjcFirebaseMessagingDiagnostics = {
   href: string
   origin: string
@@ -264,6 +271,26 @@ function urlBase64ToArrayBuffer(base64String: string): ArrayBuffer {
   }
 
   return outputArray.buffer
+}
+
+function createNativeWebPushToken(subscription: PushSubscription): string {
+  const subscriptionJson = subscription.toJSON()
+  const endpoint = String(subscriptionJson.endpoint || '').trim()
+  const p256dh = String(subscriptionJson.keys?.p256dh || '').trim()
+  const auth = String(subscriptionJson.keys?.auth || '').trim()
+
+  if (!endpoint || !p256dh || !auth) {
+    throw new Error('Native Web Push subscription is missing endpoint or keys.')
+  }
+
+  return `webpush:${JSON.stringify({
+    endpoint,
+    expirationTime: subscriptionJson.expirationTime ?? null,
+    keys: {
+      p256dh,
+      auth
+    }
+  })}`
 }
 
 async function runNativePushSubscribeDiagnostic(
@@ -804,6 +831,118 @@ export async function getNdjcFirebaseMessagingToken(): Promise<string | null> {
   }
 
   return token
+}
+
+export async function getNdjcNativeWebPushRegistrationToken(): Promise<string | null> {
+  if (!isBrowser()) return null
+
+  writeLastNdjcFirebaseMessagingFailure(null)
+
+  if (!('Notification' in window)) {
+    console.warn('[NDJC_PUSH] Notification API is not supported.')
+    return null
+  }
+
+  if (Notification.permission === 'denied') {
+    console.warn('[NDJC_PUSH] Notification permission is denied.')
+    return null
+  }
+
+  const permission = Notification.permission === 'granted'
+    ? 'granted'
+    : await Notification.requestPermission()
+
+  if (permission !== 'granted') {
+    console.warn('[NDJC_PUSH] Notification permission was not granted.', {
+      permission
+    })
+    return null
+  }
+
+  let serviceWorkerRegistration: ServiceWorkerRegistration
+
+  try {
+    serviceWorkerRegistration = await getDedicatedFirebaseMessagingServiceWorker()
+  } catch (error) {
+    logFirebaseMessagingServiceWorkerFailure(
+      'getNdjcNativeWebPushRegistrationToken',
+      error,
+      'firebase-sw'
+    )
+    return null
+  }
+
+  if (!('PushManager' in window) || !serviceWorkerRegistration.pushManager) {
+    const pushManagerError = new Error('PushManager is not available for native Web Push registration.')
+    logFirebaseGetTokenFailure(
+      'getNdjcNativeWebPushRegistrationToken',
+      pushManagerError,
+      serviceWorkerRegistration,
+      'firebase-sw'
+    )
+    return null
+  }
+
+  try {
+    const existing = await withTimeout(
+      serviceWorkerRegistration.pushManager.getSubscription(),
+      'Native Web Push getSubscription',
+      5000
+    )
+
+    if (existing) {
+      return createNativeWebPushToken(existing)
+    }
+
+    const subscription = await withTimeout(
+      serviceWorkerRegistration.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToArrayBuffer(readVapidKey())
+      }),
+      'Native Web Push subscribe',
+      15000
+    )
+
+    return createNativeWebPushToken(subscription)
+  } catch (error) {
+    logFirebaseGetTokenFailure(
+      'getNdjcNativeWebPushRegistrationToken',
+      error,
+      serviceWorkerRegistration,
+      'firebase-sw'
+    )
+    return null
+  }
+}
+
+export async function getNdjcPushRegistrationTokenForCurrentBrowser(): Promise<NdjcPushRegistrationTokenResult | null> {
+  if (isAppleMobileWebKitRuntime()) {
+    const token = await getNdjcNativeWebPushRegistrationToken()
+
+    if (!token) {
+      return null
+    }
+
+    return {
+      token,
+      provider: 'web_push',
+      platform: 'ios_web_push',
+      appVersion: 'pwa-web-push'
+    }
+  }
+
+  const token = await getNdjcFirebaseMessagingToken()
+
+  if (!token) {
+    return null
+  }
+
+  return {
+    token,
+    provider: 'fcm',
+    platform: 'web',
+    appVersion: 'pwa'
+  }
 }
 
 export async function runNdjcFirebaseMessagingDiagnostics(): Promise<NdjcFirebaseMessagingDiagnostics> {
