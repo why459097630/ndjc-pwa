@@ -118,7 +118,7 @@ function formatPushRegistrationDebugMessage(input: {
   code: string | null
   permission: NotificationPermission | 'unsupported'
   isSecureContext: boolean
-  messagingServiceWorkerMode?: string | null
+  serviceWorkerMode?: string | null
   serviceWorkerScope: string | null
   serviceWorkerActive: boolean
   serviceWorkerScriptURL: string | null
@@ -131,7 +131,7 @@ function formatPushRegistrationDebugMessage(input: {
     `Code: ${input.code || 'unknown'}`,
     `Permission: ${input.permission}`,
     `Secure context: ${input.isSecureContext ? 'yes' : 'no'}`,
-    `Messaging SW mode: ${input.messagingServiceWorkerMode || 'unknown'}`,
+    `Service worker mode: ${input.serviceWorkerMode || 'unknown'}`,
     `Service worker active: ${input.serviceWorkerActive ? 'yes' : 'no'}`,
     `Service worker scope: ${input.serviceWorkerScope || 'none'}`,
     `Service worker script: ${input.serviceWorkerScriptURL || 'none'}`,
@@ -245,14 +245,14 @@ export async function registerShowcasePushDeviceForCurrentStore({
     }
 
     const {
-      getLastNdjcFirebaseMessagingFailure,
+      getLastNdjcWebPushRegistrationFailure,
       getNdjcPushRegistrationTokenForCurrentBrowser,
       runNdjcPushRegistrationComparisonDiagnostics
-    } = await import('@/pwa/firebaseMessaging')
+    } = await import('@/pwa/webPushRegistration')
     const registrationToken = await getNdjcPushRegistrationTokenForCurrentBrowser()
 
     if (!registrationToken) {
-      const failure = getLastNdjcFirebaseMessagingFailure()
+      const failure = getLastNdjcWebPushRegistrationFailure()
       const debugMessages = [
         failure ? formatPushRegistrationDebugMessage(failure) : null,
         source === 'manual'

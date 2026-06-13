@@ -1,6 +1,5 @@
 'use client'
 
-import { getNdjcFirebaseMessagingToken } from '@/pwa/firebaseMessaging'
 import {
   NDJC_SHOWCASE_APP_LIFECYCLE_EVENT,
   readShowcaseAppLifecycleSnapshot,

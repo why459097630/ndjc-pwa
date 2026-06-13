@@ -1,6 +1,9 @@
 'use client'
 
-import { getNdjcFirebaseMessagingToken } from '@/pwa/firebaseMessaging'
+import {
+  getNdjcPushRegistrationTokenForCurrentBrowser,
+  type NdjcPushRegistrationTokenResult
+} from '@/pwa/webPushRegistration'
 import {
   NDJC_SHOWCASE_APP_LIFECYCLE_EVENT,
   readShowcaseAppLifecycleSnapshot,
@@ -10325,22 +10328,22 @@ function backFromAppointments(): void {
     }
   }
 
-  async function awaitFcmToken(): Promise<string | null> {
+  async function awaitWebPushRegistrationToken(): Promise<NdjcPushRegistrationTokenResult | null> {
     if (!isBrowser()) return null
 
     try {
-      const token = await getNdjcFirebaseMessagingToken()
+      const registrationToken = await getNdjcPushRegistrationTokenForCurrentBrowser()
 
-      if (!token) {
+      if (!registrationToken) {
         setPushToken(null)
         return null
       }
 
-      window.localStorage.setItem('ndjc_showcase_push_token', token)
-      setPushToken(token)
-      return token
+      window.localStorage.setItem('ndjc_showcase_push_token', registrationToken.token)
+      setPushToken(registrationToken.token)
+      return registrationToken
     } catch (error) {
-      console.warn('[NDJC_PUSH] Failed to get Firebase messaging token.', error)
+      console.warn('[NDJC_PUSH] Failed to get Web Push registration token.', error)
       setPushToken(null)
       return null
     }
@@ -10355,8 +10358,10 @@ function backFromAppointments(): void {
       | 'appointment_merchant'
     conversationId?: string | null
   }): Promise<boolean> {
-    const token = await awaitFcmToken()
-    if (!token) return false
+    const registrationToken = await awaitWebPushRegistrationToken()
+    if (!registrationToken) return false
+
+    const token = registrationToken.token
 
     const audience = options?.audience || (
       isAdminLoggedIn
@@ -10398,8 +10403,8 @@ function backFromAppointments(): void {
       conversationId: registrationConversationId,
       clientId: registrationClientId,
       merchantId: registrationMerchantId,
-      platform: 'web',
-      appVersion: 'pwa',
+      platform: registrationToken.platform,
+      appVersion: registrationToken.appVersion,
       deviceInstallId
     })
 
@@ -16216,7 +16221,7 @@ const editDishState: ShowcaseEditDishUiState = {
   void appointmentsStatusFromCloud
   void appointmentsStatusToCloud
   void appointmentStatusPushTitle
-  void awaitFcmToken
+  void awaitWebPushRegistrationToken
   void ensurePushRegistration
   void handlePushRoute
   void onAnnouncementPushArrived
