@@ -122,6 +122,25 @@ function normalizeError(error: unknown): string {
   return String(error)
 }
 
+function logFirebaseGetTokenFailure(
+  source: string,
+  error: unknown,
+  serviceWorkerRegistration: ServiceWorkerRegistration
+): void {
+  console.error(`[NDJC_PUSH] Firebase getToken failed from ${source}.`, {
+    permission: typeof Notification !== 'undefined' ? Notification.permission : 'unsupported',
+    isSecureContext: typeof window !== 'undefined' ? window.isSecureContext : false,
+    href: typeof window !== 'undefined' ? window.location.href : '',
+    userAgent: typeof navigator !== 'undefined' ? navigator.userAgent : '',
+    serviceWorkerScope: serviceWorkerRegistration.scope,
+    serviceWorkerActive: Boolean(serviceWorkerRegistration.active),
+    serviceWorkerInstalling: Boolean(serviceWorkerRegistration.installing),
+    serviceWorkerWaiting: Boolean(serviceWorkerRegistration.waiting),
+    serviceWorkerScriptURL: serviceWorkerRegistration.active?.scriptURL || null,
+    error
+  })
+}
+
 function getOrCreateFirebaseApp(): FirebaseApp {
   const existing = getApps().find(app => app.name === NDJC_FIREBASE_APP_NAME)
   if (existing) return existing
@@ -146,18 +165,20 @@ async function getOrRegisterServiceWorker(): Promise<ServiceWorkerRegistration> 
   if (existing) {
     await existing.update().catch(() => undefined)
 
-    if (existing.active) {
-      return existing
+    const readyExisting = await navigator.serviceWorker.ready
+    if (readyExisting) {
+      return readyExisting
     }
+
+    return existing
   }
 
   const registration = await navigator.serviceWorker.register(NDJC_SERVICE_WORKER_PATH, {
-    scope: '/'
+    scope: '/',
+    updateViaCache: 'none'
   })
 
-  await navigator.serviceWorker.ready
-
-  const readyRegistration = await navigator.serviceWorker.getRegistration('/')
+  const readyRegistration = await navigator.serviceWorker.ready
   if (readyRegistration) {
     return readyRegistration
   }
@@ -227,10 +248,17 @@ export async function getNdjcFirebaseMessagingToken(): Promise<string | null> {
   const serviceWorkerRegistration = await getOrRegisterServiceWorker()
   const vapidKey = readVapidKey()
 
-  const token = await getToken(messaging, {
-    vapidKey,
-    serviceWorkerRegistration
-  })
+  let token = ''
+
+  try {
+    token = await getToken(messaging, {
+      vapidKey,
+      serviceWorkerRegistration
+    })
+  } catch (error) {
+    logFirebaseGetTokenFailure('getNdjcFirebaseMessagingToken', error, serviceWorkerRegistration)
+    return null
+  }
 
   if (!token) {
     console.warn('[NDJC_PUSH] Firebase getToken returned empty token.', {
@@ -365,10 +393,20 @@ export async function runNdjcFirebaseMessagingDiagnostics(): Promise<NdjcFirebas
     diagnostics.serviceWorkerRegistrationCount = registrations.length
 
     const vapidKey = readVapidKey()
-    const token = await getToken(messaging, {
-      vapidKey,
-      serviceWorkerRegistration
-    })
+    let token = ''
+
+    try {
+      token = await getToken(messaging, {
+        vapidKey,
+        serviceWorkerRegistration
+      })
+    } catch (error) {
+      diagnostics.error = normalizeError(error)
+      logFirebaseGetTokenFailure('runNdjcFirebaseMessagingDiagnostics', error, serviceWorkerRegistration)
+      console.log('[NDJC_PUSH_DIAG] final', diagnostics)
+      console.groupEnd()
+      return diagnostics
+    }
 
     diagnostics.token = token || null
     diagnostics.tokenLength = token ? token.length : 0

@@ -8,6 +8,7 @@ export default function manifest(): MetadataRoute.Manifest {
     start_url: '/',
     scope: '/',
     display: 'standalone',
+    gcm_sender_id: '103953800507',
     background_color: '#ffffff',
     theme_color: '#ffffff',
     orientation: 'portrait',

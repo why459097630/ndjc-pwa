@@ -357,6 +357,7 @@ export async function buildStorePwaManifest(storeIdInput: unknown) {
     start_url: startUrl,
     scope,
     display: 'standalone',
+    gcm_sender_id: '103953800507',
     orientation: 'portrait',
     background_color: profile.backgroundColor,
     theme_color: profile.themeColor,
