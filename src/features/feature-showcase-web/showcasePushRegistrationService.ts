@@ -246,12 +246,12 @@ export async function registerShowcasePushDeviceForCurrentStore({
 
     const {
       getLastNdjcFirebaseMessagingFailure,
-      getNdjcFirebaseMessagingToken,
+      getNdjcPushRegistrationTokenForCurrentBrowser,
       runNdjcPushRegistrationComparisonDiagnostics
     } = await import('@/pwa/firebaseMessaging')
-    const token = await getNdjcFirebaseMessagingToken()
+    const registrationToken = await getNdjcPushRegistrationTokenForCurrentBrowser()
 
-    if (!token) {
+    if (!registrationToken) {
       const failure = getLastNdjcFirebaseMessagingFailure()
       const debugMessages = [
         failure ? formatPushRegistrationDebugMessage(failure) : null,
@@ -277,6 +277,7 @@ export async function registerShowcasePushDeviceForCurrentStore({
       }
     }
 
+    const token = registrationToken.token
     const tokenFingerprint = createPushTokenFingerprint(token)
 
     const deviceInstallId = getOrCreatePwaDeviceInstallId()
@@ -291,8 +292,8 @@ export async function registerShowcasePushDeviceForCurrentStore({
       token,
       conversationId: '__announcement__',
       clientId: showcaseClientId,
-      platform: 'web',
-      appVersion: 'pwa',
+      platform: registrationToken.platform,
+      appVersion: registrationToken.appVersion,
       deviceInstallId
     })
 
@@ -302,8 +303,8 @@ export async function registerShowcasePushDeviceForCurrentStore({
       token,
       conversationId: '__appointment_client__',
       clientId: showcaseClientId,
-      platform: 'web',
-      appVersion: 'pwa',
+      platform: registrationToken.platform,
+      appVersion: registrationToken.appVersion,
       deviceInstallId
     })
 
