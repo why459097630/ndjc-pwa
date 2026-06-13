@@ -43,6 +43,7 @@ export type ShowcasePushRegistrationResult = {
   registrationState: ShowcaseNotificationRegistrationState
   registered: boolean
   messageCode: ShowcaseNotificationMessageCode
+  debugMessage?: string | null
 }
 
 function createPwaDeviceInstallId(): string {
@@ -109,6 +110,33 @@ function resolveBrowserNotificationPermission(): ShowcaseNotificationPermissionS
   if (typeof window === 'undefined') return 'unsupported'
   if (!('Notification' in window)) return 'unsupported'
   return Notification.permission
+}
+
+function formatPushRegistrationDebugMessage(input: {
+  message: string
+  name: string | null
+  code: string | null
+  permission: NotificationPermission | 'unsupported'
+  isSecureContext: boolean
+  serviceWorkerScope: string | null
+  serviceWorkerActive: boolean
+  serviceWorkerScriptURL: string | null
+  userAgent: string
+}): string {
+  const lines = [
+    'Push registration debug',
+    `Error: ${input.message}`,
+    `Name: ${input.name || 'unknown'}`,
+    `Code: ${input.code || 'unknown'}`,
+    `Permission: ${input.permission}`,
+    `Secure context: ${input.isSecureContext ? 'yes' : 'no'}`,
+    `Service worker active: ${input.serviceWorkerActive ? 'yes' : 'no'}`,
+    `Service worker scope: ${input.serviceWorkerScope || 'none'}`,
+    `Service worker script: ${input.serviceWorkerScriptURL || 'none'}`,
+    `User agent: ${input.userAgent || 'unknown'}`
+  ]
+
+  return lines.join('\n')
 }
 
 export function inspectShowcaseNotificationPermission(): {
@@ -214,16 +242,25 @@ export async function registerShowcasePushDeviceForCurrentStore({
       }
     }
 
-    const { getNdjcFirebaseMessagingToken } = await import('@/pwa/firebaseMessaging')
+    const {
+      getLastNdjcFirebaseMessagingFailure,
+      getNdjcFirebaseMessagingToken
+    } = await import('@/pwa/firebaseMessaging')
     const token = await getNdjcFirebaseMessagingToken()
 
     if (!token) {
+      const failure = getLastNdjcFirebaseMessagingFailure()
+      const debugMessage = failure
+        ? formatPushRegistrationDebugMessage(failure)
+        : null
+
       return {
         success: false,
         permissionState: 'granted',
         registrationState: 'failed',
         registered: false,
-        messageCode: 'push-registration-failed-after-allowed'
+        messageCode: 'push-registration-failed-after-allowed',
+        debugMessage
       }
     }
 
@@ -283,13 +320,30 @@ export async function registerShowcasePushDeviceForCurrentStore({
         ? 'notifications-enabled-device'
         : 'notifications-active'
     }
-  } catch {
+  } catch (error) {
+    const debugMessage = error instanceof Error
+      ? [
+          'Push registration debug',
+          `Error: ${error.message}`,
+          `Name: ${error.name || 'unknown'}`,
+          'Code: unknown',
+          `Permission: ${resolveBrowserNotificationPermission()}`
+        ].join('\n')
+      : [
+          'Push registration debug',
+          `Error: ${String(error)}`,
+          'Name: unknown',
+          'Code: unknown',
+          `Permission: ${resolveBrowserNotificationPermission()}`
+        ].join('\n')
+
     return {
       success: false,
       permissionState: resolveBrowserNotificationPermission(),
       registrationState: 'failed',
       registered: false,
-      messageCode: 'push-registration-failed-check-connection'
+      messageCode: 'push-registration-failed-check-connection',
+      debugMessage
     }
   }
 }
