@@ -246,15 +246,26 @@ export async function registerShowcasePushDeviceForCurrentStore({
 
     const {
       getLastNdjcFirebaseMessagingFailure,
-      getNdjcFirebaseMessagingToken
+      getNdjcFirebaseMessagingToken,
+      runNdjcPushRegistrationComparisonDiagnostics
     } = await import('@/pwa/firebaseMessaging')
     const token = await getNdjcFirebaseMessagingToken()
 
     if (!token) {
       const failure = getLastNdjcFirebaseMessagingFailure()
-      const debugMessage = failure
-        ? formatPushRegistrationDebugMessage(failure)
-        : null
+      const debugMessages = [
+        failure ? formatPushRegistrationDebugMessage(failure) : null,
+        source === 'manual'
+          ? await runNdjcPushRegistrationComparisonDiagnostics().catch(error => [
+              'Push registration comparison diagnostics',
+              `Error: ${error instanceof Error ? error.message : String(error)}`,
+              `Name: ${error instanceof Error ? error.name || 'unknown' : 'unknown'}`
+            ].join('\n'))
+          : null
+      ]
+      const debugMessage = debugMessages
+        .filter((message): message is string => Boolean(message && message.trim()))
+        .join('\n\n')
 
       return {
         success: false,
@@ -262,7 +273,7 @@ export async function registerShowcasePushDeviceForCurrentStore({
         registrationState: 'failed',
         registered: false,
         messageCode: 'push-registration-failed-after-allowed',
-        debugMessage
+        debugMessage: debugMessage || null
       }
     }
 
