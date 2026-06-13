@@ -118,6 +118,7 @@ function formatPushRegistrationDebugMessage(input: {
   code: string | null
   permission: NotificationPermission | 'unsupported'
   isSecureContext: boolean
+  messagingServiceWorkerMode?: string | null
   serviceWorkerScope: string | null
   serviceWorkerActive: boolean
   serviceWorkerScriptURL: string | null
@@ -130,6 +131,7 @@ function formatPushRegistrationDebugMessage(input: {
     `Code: ${input.code || 'unknown'}`,
     `Permission: ${input.permission}`,
     `Secure context: ${input.isSecureContext ? 'yes' : 'no'}`,
+    `Messaging SW mode: ${input.messagingServiceWorkerMode || 'unknown'}`,
     `Service worker active: ${input.serviceWorkerActive ? 'yes' : 'no'}`,
     `Service worker scope: ${input.serviceWorkerScope || 'none'}`,
     `Service worker script: ${input.serviceWorkerScriptURL || 'none'}`,
