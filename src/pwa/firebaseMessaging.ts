@@ -145,6 +145,34 @@ function createBaseDiagnostics(): NdjcFirebaseMessagingDiagnostics {
   }
 }
 
+function createTimeoutError(label: string, timeoutMs: number): Error {
+  const error = new Error(`${label} timed out after ${timeoutMs}ms.`)
+  error.name = 'TimeoutError'
+  return error
+}
+
+function withTimeout<T>(
+  promise: Promise<T>,
+  label: string,
+  timeoutMs = 15000
+): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = window.setTimeout(() => {
+      reject(createTimeoutError(label, timeoutMs))
+    }, timeoutMs)
+
+    promise
+      .then(value => {
+        window.clearTimeout(timer)
+        resolve(value)
+      })
+      .catch(error => {
+        window.clearTimeout(timer)
+        reject(error)
+      })
+  })
+}
+
 function normalizeError(error: unknown): string {
   if (error instanceof Error) {
     return error.message
@@ -350,15 +378,23 @@ async function getDedicatedFirebaseMessagingServiceWorker(): Promise<ServiceWork
     return waitForServiceWorkerActivation(existing)
   }
 
-  const registration = await navigator.serviceWorker.register(
-    NDJC_FIREBASE_MESSAGING_SERVICE_WORKER_PATH,
-    {
-      scope: NDJC_FIREBASE_MESSAGING_SERVICE_WORKER_SCOPE,
-      updateViaCache: 'none'
-    }
+  const registration = await withTimeout(
+    navigator.serviceWorker.register(
+      NDJC_FIREBASE_MESSAGING_SERVICE_WORKER_PATH,
+      {
+        scope: NDJC_FIREBASE_MESSAGING_SERVICE_WORKER_SCOPE,
+        updateViaCache: 'none'
+      }
+    ),
+    'Firebase messaging service worker registration',
+    10000
   )
 
-  return waitForServiceWorkerActivation(registration)
+  return withTimeout(
+    waitForServiceWorkerActivation(registration),
+    'Firebase messaging service worker activation',
+    10000
+  )
 }
 
 async function getMessagingServiceWorkerRegistration(): Promise<{
@@ -456,10 +492,14 @@ export async function getNdjcFirebaseMessagingToken(): Promise<string | null> {
   let token = ''
 
   try {
-    token = await getToken(messaging, {
-      vapidKey,
-      serviceWorkerRegistration
-    })
+    token = await withTimeout(
+      getToken(messaging, {
+        vapidKey,
+        serviceWorkerRegistration
+      }),
+      'Firebase getToken',
+      15000
+    )
   } catch (error) {
     logFirebaseGetTokenFailure(
       'getNdjcFirebaseMessagingToken',
@@ -619,10 +659,14 @@ export async function runNdjcFirebaseMessagingDiagnostics(): Promise<NdjcFirebas
     let token = ''
 
     try {
-      token = await getToken(messaging, {
-        vapidKey,
-        serviceWorkerRegistration
-      })
+      token = await withTimeout(
+        getToken(messaging, {
+          vapidKey,
+          serviceWorkerRegistration
+        }),
+        'Firebase getToken diagnostics',
+        15000
+      )
     } catch (error) {
       diagnostics.error = normalizeError(error)
       logFirebaseGetTokenFailure(
