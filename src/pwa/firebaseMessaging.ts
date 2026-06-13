@@ -236,7 +236,9 @@ function createDiagnosticStep(input: {
     name: typeof error === 'undefined' ? null : readFirebaseErrorName(error),
     code: typeof error === 'undefined' ? null : readFirebaseErrorCode(error),
     serviceWorkerScope: input.serviceWorkerRegistration?.scope || null,
-    serviceWorkerScriptURL: input.serviceWorkerRegistration?.active?.scriptURL || null
+    serviceWorkerScriptURL: input.serviceWorkerRegistration
+      ? readServiceWorkerScriptURL(input.serviceWorkerRegistration) || null
+      : null
   }
 }
 
@@ -294,12 +296,7 @@ async function runNativePushSubscribeDiagnostic(
     )
 
     if (existing) {
-      return createDiagnosticStep({
-        label,
-        status: 'success',
-        message: 'Existing native PushSubscription is available.',
-        serviceWorkerRegistration: registration
-      })
+      await existing.unsubscribe().catch(() => false)
     }
 
     const subscription = await withTimeout(
@@ -592,14 +589,53 @@ function waitForServiceWorkerActivation(
   })
 }
 
+function readServiceWorkerScriptURL(registration: ServiceWorkerRegistration): string {
+  return registration.active?.scriptURL
+    || registration.waiting?.scriptURL
+    || registration.installing?.scriptURL
+    || ''
+}
+
+function assertDedicatedFirebaseMessagingServiceWorker(
+  registration: ServiceWorkerRegistration
+): ServiceWorkerRegistration {
+  const scriptURL = readServiceWorkerScriptURL(registration)
+
+  if (!scriptURL.includes(NDJC_FIREBASE_MESSAGING_SERVICE_WORKER_PATH)) {
+    throw new Error(`Dedicated Firebase messaging service worker was not activated. Actual script: ${scriptURL || 'none'}.`)
+  }
+
+  return registration
+}
+
+async function findDedicatedFirebaseMessagingServiceWorker(): Promise<ServiceWorkerRegistration | null> {
+  const registrations = await navigator.serviceWorker.getRegistrations()
+  const expectedScope = new URL(
+    NDJC_FIREBASE_MESSAGING_SERVICE_WORKER_SCOPE,
+    window.location.origin
+  ).href
+
+  return registrations.find(registration => {
+    const scriptURL = readServiceWorkerScriptURL(registration)
+
+    return registration.scope === expectedScope
+      && scriptURL.includes(NDJC_FIREBASE_MESSAGING_SERVICE_WORKER_PATH)
+  }) || null
+}
+
 async function getDedicatedFirebaseMessagingServiceWorker(): Promise<ServiceWorkerRegistration> {
-  const existing = await navigator.serviceWorker.getRegistration(
-    NDJC_FIREBASE_MESSAGING_SERVICE_WORKER_SCOPE
-  )
+  const existing = await findDedicatedFirebaseMessagingServiceWorker()
 
   if (existing) {
     await existing.update().catch(() => undefined)
-    return waitForServiceWorkerActivation(existing)
+
+    const readyExisting = await withTimeout(
+      waitForServiceWorkerActivation(existing),
+      'Firebase messaging service worker existing activation',
+      10000
+    )
+
+    return assertDedicatedFirebaseMessagingServiceWorker(readyExisting)
   }
 
   const registration = await withTimeout(
@@ -614,11 +650,13 @@ async function getDedicatedFirebaseMessagingServiceWorker(): Promise<ServiceWork
     10000
   )
 
-  return withTimeout(
+  const readyRegistration = await withTimeout(
     waitForServiceWorkerActivation(registration),
     'Firebase messaging service worker activation',
     10000
   )
+
+  return assertDedicatedFirebaseMessagingServiceWorker(readyRegistration)
 }
 
 async function getMessagingServiceWorkerRegistration(): Promise<{
@@ -976,14 +1014,14 @@ export async function runNdjcPushRegistrationComparisonDiagnostics(): Promise<st
   let firebaseRegistration: ServiceWorkerRegistration | null = null
 
   try {
-    appRegistration = await withTimeout(
-      getOrRegisterServiceWorker(),
-      'App service worker diagnostic registration',
+    firebaseRegistration = await withTimeout(
+      getDedicatedFirebaseMessagingServiceWorker(),
+      'Firebase service worker diagnostic registration',
       8000
     )
   } catch (error) {
     const step = createDiagnosticStep({
-      label: 'App SW registration',
+      label: 'Firebase SW registration',
       status: 'failed',
       error,
       serviceWorkerRegistration: null
@@ -993,14 +1031,14 @@ export async function runNdjcPushRegistrationComparisonDiagnostics(): Promise<st
   }
 
   try {
-    firebaseRegistration = await withTimeout(
-      getDedicatedFirebaseMessagingServiceWorker(),
-      'Firebase service worker diagnostic registration',
+    appRegistration = await withTimeout(
+      getOrRegisterServiceWorker(),
+      'App service worker diagnostic registration',
       8000
     )
   } catch (error) {
     const step = createDiagnosticStep({
-      label: 'Firebase SW registration',
+      label: 'App SW registration',
       status: 'failed',
       error,
       serviceWorkerRegistration: null
