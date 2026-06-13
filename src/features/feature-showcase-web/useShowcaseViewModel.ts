@@ -10612,7 +10612,7 @@ function backFromAppointments(): void {
       return
     }
 
-    if (shouldThrottlePushRegistration(merchantKey, reason)) {
+    if (!force && shouldThrottlePushRegistration(merchantKey, reason)) {
       return
     }
 
