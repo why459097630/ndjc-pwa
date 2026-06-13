@@ -149,7 +149,7 @@ function validatePackageJson() {
     }
   })
 
-  const requiredDependencies = ['next', 'react', 'react-dom', 'typescript', '@supabase/supabase-js', 'firebase']
+  const requiredDependencies = ['next', 'react', 'react-dom', 'typescript', '@supabase/supabase-js']
   const dependencies = {
     ...(packageJson.dependencies || {}),
     ...(packageJson.devDependencies || {})

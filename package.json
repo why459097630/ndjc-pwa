@@ -14,7 +14,6 @@
     "@types/node": "latest",
     "@types/react": "latest",
     "@types/react-dom": "latest",
-    "firebase": "^12.13.0",
     "next": "^16.2.6",
     "postcss": "^8.5.15",
     "protobufjs": "^8.4.2",

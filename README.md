@@ -17,7 +17,7 @@
 | `core-skeleton/UiPackRegistry.kt` | `src/core/runtime/uiPackRegistry.ts` |
 | `core/ui/UiPack.kt` | `src/core/ui/UiPack.tsx` |
 | `AndroidManifest.xml` | `src/app/manifest.ts`、`public/sw.js` |
-| `NdjcFirebaseMessagingService.kt` | `public/sw.js`、`src/pwa/pushRouter.ts` |
+| Android push service | `public/sw.js`、`src/pwa/webPushRegistration.ts` |
 
 ## 边界
 
