@@ -14,6 +14,21 @@ export type NdjcFirebaseMessagingServiceWorkerMode =
   | 'app-sw'
   | 'firebase-sw'
 
+export type NdjcPushRegistrationDiagnosticStatus =
+  | 'success'
+  | 'failed'
+  | 'skipped'
+
+export type NdjcPushRegistrationDiagnosticStep = {
+  label: string
+  status: NdjcPushRegistrationDiagnosticStatus
+  message: string | null
+  name: string | null
+  code: string | null
+  serviceWorkerScope: string | null
+  serviceWorkerScriptURL: string | null
+}
+
 export type NdjcFirebaseMessagingDiagnostics = {
   href: string
   origin: string
@@ -203,6 +218,164 @@ function readFirebaseErrorCode(error: unknown): string | null {
   }
 
   return null
+}
+
+function createDiagnosticStep(input: {
+  label: string
+  status: NdjcPushRegistrationDiagnosticStatus
+  error?: unknown
+  message?: string | null
+  serviceWorkerRegistration?: ServiceWorkerRegistration | null
+}): NdjcPushRegistrationDiagnosticStep {
+  const error = input.error
+
+  return {
+    label: input.label,
+    status: input.status,
+    message: input.message ?? (typeof error === 'undefined' ? null : normalizeError(error)),
+    name: typeof error === 'undefined' ? null : readFirebaseErrorName(error),
+    code: typeof error === 'undefined' ? null : readFirebaseErrorCode(error),
+    serviceWorkerScope: input.serviceWorkerRegistration?.scope || null,
+    serviceWorkerScriptURL: input.serviceWorkerRegistration?.active?.scriptURL || null
+  }
+}
+
+function formatDiagnosticStep(step: NdjcPushRegistrationDiagnosticStep): string[] {
+  return [
+    `${step.label}: ${step.status}`,
+    `${step.label} error: ${step.message || 'none'}`,
+    `${step.label} name: ${step.name || 'none'}`,
+    `${step.label} code: ${step.code || 'none'}`,
+    `${step.label} scope: ${step.serviceWorkerScope || 'none'}`,
+    `${step.label} script: ${step.serviceWorkerScriptURL || 'none'}`
+  ]
+}
+
+function urlBase64ToArrayBuffer(base64String: string): ArrayBuffer {
+  const padding = '='.repeat((4 - (base64String.length % 4)) % 4)
+  const base64 = `${base64String}${padding}`.replace(/-/g, '+').replace(/_/g, '/')
+  const rawData = window.atob(base64)
+  const outputArray = new Uint8Array(rawData.length)
+
+  for (let index = 0; index < rawData.length; index += 1) {
+    outputArray[index] = rawData.charCodeAt(index)
+  }
+
+  return outputArray.buffer
+}
+
+async function runNativePushSubscribeDiagnostic(
+  registration: ServiceWorkerRegistration,
+  label: string
+): Promise<NdjcPushRegistrationDiagnosticStep> {
+  if (!isBrowser()) {
+    return createDiagnosticStep({
+      label,
+      status: 'skipped',
+      message: 'Browser runtime is required.',
+      serviceWorkerRegistration: registration
+    })
+  }
+
+  if (!('PushManager' in window) || !registration.pushManager) {
+    return createDiagnosticStep({
+      label,
+      status: 'skipped',
+      message: 'PushManager is not available.',
+      serviceWorkerRegistration: registration
+    })
+  }
+
+  try {
+    const existing = await withTimeout(
+      registration.pushManager.getSubscription(),
+      `${label} getSubscription`,
+      5000
+    )
+
+    if (existing) {
+      return createDiagnosticStep({
+        label,
+        status: 'success',
+        message: 'Existing native PushSubscription is available.',
+        serviceWorkerRegistration: registration
+      })
+    }
+
+    const subscription = await withTimeout(
+      registration.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToArrayBuffer(readVapidKey())
+      }),
+      `${label} subscribe`,
+      8000
+    )
+
+    await subscription.unsubscribe().catch(() => false)
+
+    return createDiagnosticStep({
+      label,
+      status: 'success',
+      message: 'Native PushSubscription was created and removed.',
+      serviceWorkerRegistration: registration
+    })
+  } catch (error) {
+    return createDiagnosticStep({
+      label,
+      status: 'failed',
+      error,
+      serviceWorkerRegistration: registration
+    })
+  }
+}
+
+async function runFirebaseGetTokenDiagnostic(input: {
+  messaging: Messaging | null
+  registration: ServiceWorkerRegistration | null
+  label: string
+}): Promise<NdjcPushRegistrationDiagnosticStep> {
+  if (!input.messaging) {
+    return createDiagnosticStep({
+      label: input.label,
+      status: 'skipped',
+      message: 'Firebase messaging is not supported.',
+      serviceWorkerRegistration: input.registration
+    })
+  }
+
+  if (!input.registration) {
+    return createDiagnosticStep({
+      label: input.label,
+      status: 'skipped',
+      message: 'Service worker registration is not available.',
+      serviceWorkerRegistration: null
+    })
+  }
+
+  try {
+    const token = await withTimeout(
+      getToken(input.messaging, {
+        vapidKey: readVapidKey(),
+        serviceWorkerRegistration: input.registration
+      }),
+      `${input.label} getToken`,
+      8000
+    )
+
+    return createDiagnosticStep({
+      label: input.label,
+      status: token ? 'success' : 'failed',
+      message: token ? `Firebase token length: ${token.length}.` : 'Firebase getToken returned empty token.',
+      serviceWorkerRegistration: input.registration
+    })
+  } catch (error) {
+    return createDiagnosticStep({
+      label: input.label,
+      status: 'failed',
+      error,
+      serviceWorkerRegistration: input.registration
+    })
+  }
 }
 
 function createFirebaseGetTokenFailureSnapshot(
@@ -780,4 +953,104 @@ export async function runNdjcFirebaseMessagingDiagnostics(): Promise<NdjcFirebas
     console.groupEnd()
     return diagnostics
   }
+}
+
+export async function runNdjcPushRegistrationComparisonDiagnostics(): Promise<string> {
+  const lines: string[] = [
+    'Push registration comparison diagnostics',
+    `Permission: ${typeof Notification !== 'undefined' ? Notification.permission : 'unsupported'}`,
+    `Secure context: ${isBrowser() && window.isSecureContext ? 'yes' : 'no'}`,
+    `Apple mobile WebKit: ${isAppleMobileWebKitRuntime() ? 'yes' : 'no'}`,
+    `User agent: ${typeof navigator !== 'undefined' ? navigator.userAgent : 'unknown'}`
+  ]
+
+  if (!isBrowser()) {
+    return lines.concat(['Error: Browser runtime is required.']).join('\n')
+  }
+
+  if (!('serviceWorker' in navigator)) {
+    return lines.concat(['Error: Service Worker API is not supported.']).join('\n')
+  }
+
+  let appRegistration: ServiceWorkerRegistration | null = null
+  let firebaseRegistration: ServiceWorkerRegistration | null = null
+
+  try {
+    appRegistration = await withTimeout(
+      getOrRegisterServiceWorker(),
+      'App service worker diagnostic registration',
+      8000
+    )
+  } catch (error) {
+    const step = createDiagnosticStep({
+      label: 'App SW registration',
+      status: 'failed',
+      error,
+      serviceWorkerRegistration: null
+    })
+
+    lines.push('', ...formatDiagnosticStep(step))
+  }
+
+  try {
+    firebaseRegistration = await withTimeout(
+      getDedicatedFirebaseMessagingServiceWorker(),
+      'Firebase service worker diagnostic registration',
+      8000
+    )
+  } catch (error) {
+    const step = createDiagnosticStep({
+      label: 'Firebase SW registration',
+      status: 'failed',
+      error,
+      serviceWorkerRegistration: null
+    })
+
+    lines.push('', ...formatDiagnosticStep(step))
+  }
+
+  const nativeRegistration = firebaseRegistration || appRegistration
+
+  if (nativeRegistration) {
+    const nativeStep = await runNativePushSubscribeDiagnostic(
+      nativeRegistration,
+      firebaseRegistration ? 'Native Push subscribe firebase-sw' : 'Native Push subscribe app-sw'
+    )
+
+    lines.push('', ...formatDiagnosticStep(nativeStep))
+  } else {
+    const nativeStep = createDiagnosticStep({
+      label: 'Native Push subscribe',
+      status: 'skipped',
+      message: 'No service worker registration is available.',
+      serviceWorkerRegistration: null
+    })
+
+    lines.push('', ...formatDiagnosticStep(nativeStep))
+  }
+
+  const messaging = await getSupportedMessaging()
+
+  const appTokenStep = await runFirebaseGetTokenDiagnostic({
+    messaging,
+    registration: appRegistration,
+    label: 'Firebase getToken app-sw'
+  })
+
+  lines.push('', ...formatDiagnosticStep(appTokenStep))
+
+  const firebaseTokenStep = await runFirebaseGetTokenDiagnostic({
+    messaging,
+    registration: firebaseRegistration,
+    label: 'Firebase getToken firebase-sw'
+  })
+
+  lines.push('', ...formatDiagnosticStep(firebaseTokenStep))
+
+  if (nativeRegistration) {
+    const registrations = await navigator.serviceWorker.getRegistrations().catch(() => [])
+    lines.push('', `Service worker registration count: ${registrations.length}`)
+  }
+
+  return lines.join('\n')
 }
