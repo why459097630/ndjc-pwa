@@ -1,6 +1,7 @@
 'use client'
 
 import React from 'react'
+import { createPortal } from 'react-dom'
 import { APK_SHOWCASE_COLOR_TOKENS, cx } from './showcaseTokens'
 import { NdjcSystemBars } from './showcaseLayout'
 import {
@@ -218,6 +219,13 @@ export function NdjcFullscreenImageViewerScreen({
   const activeUrl = cleanImages[currentIndex] || ''
   const handleDismiss = onDismiss || onBack
   const [isLargeViewport, setIsLargeViewport] = React.useState(false)
+  const [fullscreenPortalTarget, setFullscreenPortalTarget] = React.useState<HTMLElement | null>(null)
+
+  React.useEffect(() => {
+    if (typeof document === 'undefined') return
+
+    setFullscreenPortalTarget(document.body)
+  }, [])
 
   React.useEffect(() => {
     if (typeof window === 'undefined') return
@@ -816,9 +824,9 @@ export function NdjcFullscreenImageViewerScreen({
     }
   }, [])
 
-  if (!activeUrl) return null
+  if (!activeUrl || !fullscreenPortalTarget) return null
 
-  return (
+  const viewer = (
     <main
       className="ndjc-screen ndjc-fullscreen-image-viewer-screen"
       style={apkFullscreenBackdropStyle}
@@ -1062,6 +1070,8 @@ export function NdjcFullscreenImageViewerScreen({
       </section>
     </main>
   )
+
+  return createPortal(viewer, fullscreenPortalTarget)
 }
 
 export function NdjcEditableImageGrid({
