@@ -10840,14 +10840,32 @@ function backFromAppointments(): void {
     return DEFAULT_CUSTOMER_NAME
   }
 
-  function resolveChatPushSenderName(senderRoleInput: string, conversationIdInput: string): string {
+  async function resolveChatPushSenderName(senderRoleInput: string, conversationIdInput: string): Promise<string> {
     const senderRole = senderRoleInput.trim().toLowerCase()
+    const conversationId = String(conversationIdInput || '').trim()
 
     if (senderRole === 'merchant') {
       return storeProfile?.displayName || storeProfileForUi.displayName || 'Store'
     }
 
-    return resolveCustomerChatPushSenderName(conversationIdInput)
+    if (conversationId) {
+      try {
+        const merchantThreadTitle = normalizeChatPushTitleText(
+          await chatRepository.resolveMerchantThreadPushDisplayName(storeId, conversationId)
+        )
+
+        if (
+          merchantThreadTitle &&
+          merchantThreadTitle !== 'New Customer' &&
+          merchantThreadTitle !== DEFAULT_CUSTOMER_NAME
+        ) {
+          return merchantThreadTitle
+        }
+      } catch (error) {
+      }
+    }
+
+    return resolveCustomerChatPushSenderName(conversationId)
   }
 
   async function ensureAnnouncementPushTargetVisible(announcementIdInput: string): Promise<boolean> {
@@ -11883,7 +11901,7 @@ function backFromAppointments(): void {
     const chatPushOk = await repository.dispatchChatPush({
       storeId,
       conversationId: conversation.id,
-      title: resolveChatPushSenderName(senderRole, conversation.id),
+      title: await resolveChatPushSenderName(senderRole, conversation.id),
       body: operationResult.pushBody,
       senderRole,
       targetAudience,
@@ -13088,7 +13106,7 @@ function backFromAppointments(): void {
       const chatPushOk = await repository.dispatchChatPush({
         storeId,
         conversationId: conversation.id,
-        title: resolveChatPushSenderName(senderRole, conversation.id),
+        title: await resolveChatPushSenderName(senderRole, conversation.id),
         body: operationResult.pushBody,
         senderRole,
         targetAudience,
@@ -13237,7 +13255,7 @@ function backFromAppointments(): void {
       const chatPushOk = await repository.dispatchChatPush({
         storeId,
         conversationId: conversation.id,
-        title: resolveChatPushSenderName(senderRole, conversation.id),
+        title: await resolveChatPushSenderName(senderRole, conversation.id),
         body: operationResult.pushBody,
         senderRole,
         targetAudience,

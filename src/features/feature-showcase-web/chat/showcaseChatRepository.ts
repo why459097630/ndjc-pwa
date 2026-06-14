@@ -1189,6 +1189,10 @@ export class ShowcaseChatRepository {
         `P${Date.now()}_${storeIdInput.slice(-4)}`
       )
       const matched = summaries.find(item => item.conversationId === conversationIdInput)
+      const cloudAlias = this.normalizeNullableString(matched?.merchantAlias)
+
+      if (cloudAlias) return cloudAlias
+
       const seq = Number(matched?.customerSeq || 0)
 
       if (Number.isFinite(seq) && seq > 0) {
