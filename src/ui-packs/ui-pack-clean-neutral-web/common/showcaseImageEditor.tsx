@@ -3,7 +3,6 @@
 import React from 'react'
 import { createPortal } from 'react-dom'
 import { APK_SHOWCASE_COLOR_TOKENS, cx } from './showcaseTokens'
-import { NdjcSystemBars } from './showcaseLayout'
 import {
   APK_MEDIA_UI,
   ImageTile,
@@ -19,42 +18,6 @@ import {
   apkFullscreenPagerButtonStyle,
   apkFullscreenTopActionsStyle
 } from './showcaseMedia'
-
-const NDJC_FULLSCREEN_IMAGE_THEME_COLOR = '#000000'
-const NDJC_DEFAULT_PWA_THEME_COLOR = '#eff3f2'
-
-function ndjcApplyThemeColor(color: string): void {
-  if (typeof document === 'undefined') return
-
-  const themeMetaNodes = Array.from(document.head.querySelectorAll<HTMLMetaElement>('meta[name="theme-color"]'))
-
-  if (!themeMetaNodes.length) {
-    const themeMetaNode = document.createElement('meta')
-    themeMetaNode.name = 'theme-color'
-    themeMetaNode.content = color
-    document.head.appendChild(themeMetaNode)
-    return
-  }
-
-  themeMetaNodes.forEach(themeMetaNode => {
-    themeMetaNode.content = color
-  })
-}
-
-function ndjcForceStatusBarRepaint(): void {
-  if (typeof document === 'undefined') return
-
-  const previousDocumentBackground = document.documentElement.style.background
-  const previousBodyBackground = document.body.style.background
-
-  document.documentElement.style.background = NDJC_DEFAULT_PWA_THEME_COLOR
-  document.body.style.background = NDJC_DEFAULT_PWA_THEME_COLOR
-
-  window.requestAnimationFrame(() => {
-    document.documentElement.style.background = previousDocumentBackground
-    document.body.style.background = previousBodyBackground
-  })
-}
 
 const ndjcImageEditorDialogBackdropStyle: React.CSSProperties = {
   position: 'fixed',
@@ -284,8 +247,6 @@ export function NdjcFullscreenImageViewerScreen({
     const previousBodyTouchAction = document.body.style.touchAction
     const previousDocumentOverflow = document.documentElement.style.overflow
 
-    ndjcApplyThemeColor(NDJC_FULLSCREEN_IMAGE_THEME_COLOR)
-
     document.body.style.overflow = 'hidden'
     document.body.style.touchAction = 'none'
     document.documentElement.style.overflow = 'hidden'
@@ -294,8 +255,6 @@ export function NdjcFullscreenImageViewerScreen({
       document.body.style.overflow = previousBodyOverflow
       document.body.style.touchAction = previousBodyTouchAction
       document.documentElement.style.overflow = previousDocumentOverflow
-      ndjcApplyThemeColor(NDJC_DEFAULT_PWA_THEME_COLOR)
-      ndjcForceStatusBarRepaint()
     }
   }, [])
 
@@ -870,14 +829,6 @@ export function NdjcFullscreenImageViewerScreen({
       className="ndjc-screen ndjc-fullscreen-image-viewer-screen"
       style={apkFullscreenBackdropStyle}
     >
-      <NdjcSystemBars
-        color={APK_MEDIA_UI.fullscreenBg}
-        darkIcons={false}
-        navigationBarColor={APK_MEDIA_UI.fullscreenBg}
-        lightNavIcons={false}
-        decorFitsSystemWindows={false}
-      />
-
       <section
         className="ndjc-fullscreen-image-screen"
         style={{
