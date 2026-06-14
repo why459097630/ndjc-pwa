@@ -413,6 +413,7 @@ import {
   imageExtensionFromContentType,
   uploadImageProfileForBucket,
   buildImageUploadFileName,
+  validateShowcaseImageUploadFile,
   compressImage,
   createRemoteOnlyImageVariants,
   buildImageVariantSpecs,
@@ -975,8 +976,9 @@ export function useShowcaseViewModel(input: UseShowcaseViewModelInput = {}): Sho
   const [isSavingStoreProfile, setIsSavingStoreProfile] = useState(defaultUiState.isSavingStoreProfile)
   const [isRefreshingStoreProfile, setIsRefreshingStoreProfile] = useState(false)
   const [storeProfileSaveError, setStoreProfileSaveError] = useState<string | null>(defaultUiState.storeProfileSaveError)
+  const [storeProfileLogoUploadError, setStoreProfileLogoUploadError] = useState<string | null>(null)
+  const [storeProfileCoverUploadError, setStoreProfileCoverUploadError] = useState<string | null>(null)
   const [storeProfileSaveSuccess, setStoreProfileSaveSuccess] = useState(defaultUiState.storeProfileSaveSuccess)
-
   const [editDishId, setEditDishId] = useState<string | null>(null)
   const [editDishName, setEditDishName] = useState('')
   const [editDishDescription, setEditDishDescription] = useState('')
@@ -990,6 +992,7 @@ export function useShowcaseViewModel(input: UseShowcaseViewModelInput = {}): Sho
   const [isSavingEditDish, setIsSavingEditDish] = useState(defaultUiState.isSavingEditDish)
   const [isBlockingEditDish, setIsBlockingEditDish] = useState(defaultUiState.isBlockingEditDish)
   const [editValidationError, setEditValidationError] = useState<string | null>(defaultUiState.editValidationError)
+  const [editImageUploadError, setEditImageUploadError] = useState<string | null>(null)
 
   useEffect(() => {
     isEditingStoreProfileRef.current = isEditingStoreProfile
@@ -1065,6 +1068,7 @@ export function useShowcaseViewModel(input: UseShowcaseViewModelInput = {}): Sho
   const [adminAnnouncementPreviewId, setAdminAnnouncementPreviewId] = useState<string | null>(defaultUiState.adminAnnouncementPreviewId)
   const [adminAnnouncementError, setAdminAnnouncementError] = useState<string | null>(defaultUiState.adminAnnouncementError)
   const [adminAnnouncementSuccess, setAdminAnnouncementSuccess] = useState(defaultUiState.adminAnnouncementSuccess)
+  const [adminAnnouncementCoverUploadError, setAdminAnnouncementCoverUploadError] = useState<string | null>(null)
   const [adminAnnouncementIsSubmitting, setAdminAnnouncementIsSubmitting] = useState(defaultUiState.adminAnnouncementIsSubmitting)
   const [adminAnnouncementIsBlocking, setAdminAnnouncementIsBlocking] = useState(defaultUiState.adminAnnouncementIsBlocking)
   const [adminAnnouncementSubmittingAction, setAdminAnnouncementSubmittingAction] = useState<'save' | 'publish' | 'delete' | null>(null)
@@ -1242,6 +1246,7 @@ export function useShowcaseViewModel(input: UseShowcaseViewModelInput = {}): Sho
   const merchantChatListSearchRequestSeqRef = useRef(0)
   const chatDbObserveAbortRef = useRef<AbortController | null>(null)
   const pushLocationSearchConsumedRef = useRef(false)
+  const pushRouteSeqRef = useRef(0)
   const merchantPushRegistrationKeyRef = useRef('')
   const chatClientPushRegistrationKeyRef = useRef('')
   const appointmentClientPushRegistrationKeyRef = useRef('')
@@ -1276,6 +1281,21 @@ export function useShowcaseViewModel(input: UseShowcaseViewModelInput = {}): Sho
     const activeId = activeConversationIdRef.current.trim()
 
     return currentChatRole() === role && activeId === conversationId
+  }
+
+  function beginPushRouteTask(): number {
+    pushRouteSeqRef.current += 1
+    return pushRouteSeqRef.current
+  }
+
+  function isCurrentPushRouteTask(routeSeq: number): boolean {
+    return pushRouteSeqRef.current === routeSeq
+  }
+
+  function clearPendingPushRouteIfCurrent(routeSeq: number): void {
+    if (!isCurrentPushRouteTask(routeSeq)) return
+
+    setPendingShowcasePushRoute(null)
   }
 
   function resolveMerchantClientIdForConversation(conversationIdInput: string): string | null {
@@ -2925,6 +2945,7 @@ export function useShowcaseViewModel(input: UseShowcaseViewModelInput = {}): Sho
     setEditDishHidden(false)
     setEditDishImageUrls([])
     setEditValidationError(null)
+    setEditImageUploadError(null)
     setIsSavingEditDish(false)
     setIsBlockingEditDish(false)
   }
@@ -2949,6 +2970,7 @@ export function useShowcaseViewModel(input: UseShowcaseViewModelInput = {}): Sho
     }
 
     setEditValidationError(null)
+    setEditImageUploadError(null)
     setIsSavingEditDish(false)
     setIsBlockingEditDish(false)
   }
@@ -7348,6 +7370,7 @@ function backFromAppointments(): void {
     persistFavoritesState,
     persistItemEditorDraftLocally,
     pickAndUploadImageWithVariants,
+    validateShowcaseImageUploadFile,
     prepareLoginScreen,
     preserveFavoriteSnapshotsBeforeDishDelete,
     previousScreen,
@@ -7398,6 +7421,7 @@ function backFromAppointments(): void {
     setEditDishOriginalPrice,
     setEditDishRecommended,
     setEditValidationError,
+    setEditImageUploadError,
     setFavoritesAppliedMaxPrice,
     setFavoritesAppliedMinPrice,
     setFavoritesFilterOnSaleOnly,
@@ -8485,80 +8509,6 @@ function backFromAppointments(): void {
     link.remove()
   }
 
-  async function handleDishImagePicked(fileOrUrl: File | Blob | string): Promise<void> {
-    if (typeof fileOrUrl === 'string') {
-      const url = fileOrUrl.trim()
-      if (!url) return
-
-      itemEditorImageDraftDirtyRef.current = true
-      rememberLocalTempImage(storeId, 'edit-dish', url)
-      setEditDishImageUrls(current => {
-        if (current.includes(url)) return current
-        return [...current, url]
-      })
-      return
-    }
-
-    const uploadedImage = await pickAndUploadImageWithVariants({
-      bucket: 'dish',
-      pathPrefix: editDishId || 'draft',
-      file: fileOrUrl
-    })
-
-    if (!uploadedImage) {
-      showSnackbar('Image upload failed.')
-      return
-    }
-
-    itemEditorImageDraftDirtyRef.current = true
-    setEditDishImageUrls(current => {
-      if (current.includes(uploadedImage.url)) return current
-      return [...current, uploadedImage.url]
-    })
-  }
-
-  async function handleStoreLogoPicked(fileOrUrl: File | Blob | string): Promise<void> {
-    if (typeof fileOrUrl === 'string') {
-      rememberLocalTempImage(storeId, 'store-profile', fileOrUrl)
-      setDraftStoreProfileLogoUrl(fileOrUrl)
-      return
-    }
-
-    const uploadedImage = await pickAndUploadImageWithVariants({
-      bucket: 'store',
-      pathPrefix: 'logo',
-      file: fileOrUrl
-    })
-
-    if (!uploadedImage) {
-      showSnackbar('Logo upload failed.')
-      return
-    }
-
-    setDraftStoreProfileLogoUrl(uploadedImage.url)
-  }
-
-  async function handleStoreCoverPicked(fileOrUrl: File | Blob | string): Promise<void> {
-    if (typeof fileOrUrl === 'string') {
-      rememberLocalTempImage(storeId, 'store-profile', fileOrUrl)
-      setDraftStoreProfileCoverUrl(fileOrUrl)
-      return
-    }
-
-    const uploadedImage = await pickAndUploadImageWithVariants({
-      bucket: 'store',
-      pathPrefix: 'cover',
-      file: fileOrUrl
-    })
-
-    if (!uploadedImage) {
-      showSnackbar('Cover upload failed.')
-      return
-    }
-
-    setDraftStoreProfileCoverUrl(uploadedImage.url)
-  }
-
   async function uploadAnnouncementCoverIfNeeded(valueInput: string | null): Promise<UploadedShowcaseImage | null> {
     const value = valueInput?.trim() || null
 
@@ -8602,6 +8552,12 @@ function backFromAppointments(): void {
     return url || null
   }
 
+  const uploadGuardMessage = validateShowcaseImageUploadFile(fileOrUrl, 'announcement')
+
+  if (uploadGuardMessage) {
+    throw new Error(uploadGuardMessage)
+  }
+
   const compressed = await compressImage(
     fileOrUrl,
     ANNOUNCEMENT_IMAGE_LONG_EDGE,
@@ -8617,15 +8573,28 @@ function backFromAppointments(): void {
     return url || null
   }
 
+  const uploadGuardMessage = validateShowcaseImageUploadFile(fileOrUrl, 'chat')
+
+  if (uploadGuardMessage) {
+    throw new Error(uploadGuardMessage)
+  }
+
   const compressed = await compressImage(fileOrUrl, CHAT_IMAGE_LONG_EDGE, CHAT_IMAGE_JPEG_QUALITY)
   return blobToDataImageUrl(compressed)
 }
 
   async function handleChatImagePicked(fileOrUrl: File | Blob | string): Promise<void> {
-  const draftUrl = await resolveChatDraftImageUrl(fileOrUrl)
+  let draftUrl: string | null = null
+
+  try {
+    draftUrl = await resolveChatDraftImageUrl(fileOrUrl)
+  } catch (error) {
+    showSnackbar(error instanceof Error && error.message ? error.message : 'Image compression failed.')
+    return
+  }
 
   if (!draftUrl) {
-    showSnackbar('Image compress failed.')
+    showSnackbar('Image compression failed.')
     return
   }
 
@@ -9301,6 +9270,7 @@ function backFromAppointments(): void {
     setAdminAnnouncementDraftItems,
     setAdminAnnouncementEditingId,
     setAdminAnnouncementError,
+    setAdminAnnouncementCoverUploadError,
     setAdminAnnouncementIsBlocking,
     setAdminAnnouncementIsSubmitting,
     setAdminAnnouncementPreviewId,
@@ -11344,6 +11314,8 @@ function backFromAppointments(): void {
     openAs?: string | null
     source?: string | null
   }): Promise<void> {
+    const pushRouteSeq = beginPushRouteTask()
+
     setPendingShowcasePushRoute(routeInput)
 
     const openAs = String(routeInput.openAs || '').trim().toLowerCase()
@@ -11382,12 +11354,12 @@ function backFromAppointments(): void {
         localClientConversationId &&
         pushedConversationId !== localClientConversationId
       ) {
-        setPendingShowcasePushRoute(null)
+        clearPendingPushRouteIfCurrent(pushRouteSeq)
         return
       }
 
       if (isClientChatPush && isViewingMerchantChat) {
-        setPendingShowcasePushRoute(null)
+        clearPendingPushRouteIfCurrent(pushRouteSeq)
         return
       }
 
@@ -11425,11 +11397,19 @@ function backFromAppointments(): void {
         await restoreClientChatContext()
       }
 
+      if (!isCurrentPushRouteTask(pushRouteSeq)) {
+        return
+      }
+
       if (
         shouldOpenAsMerchant &&
         pushedConversationId &&
         !isStillActiveChatTarget('merchant', pushedConversationId)
       ) {
+        return
+      }
+
+      if (isClientChatPush && !isStillActiveChatTarget('user', localClientConversationId)) {
         return
       }
 
@@ -11439,13 +11419,19 @@ function backFromAppointments(): void {
       startChatDbObserve()
       startChatPolling()
       await syncChat()
-      setPendingShowcasePushRoute(null)
+
+      if (!isCurrentPushRouteTask(pushRouteSeq)) {
+        return
+      }
+
+      setChatScrollToBottomSignal(Date.now())
+      clearPendingPushRouteIfCurrent(pushRouteSeq)
       return
     }
 
     if (routeInput.type === 'announcement') {
       await onAnnouncementPushArrived(routeInput.announcementId || '')
-      setPendingShowcasePushRoute(null)
+      clearPendingPushRouteIfCurrent(pushRouteSeq)
       return
     }
 
@@ -11469,7 +11455,7 @@ function backFromAppointments(): void {
             targetAdminStatusFilter
           )
 
-          if (targetVisible) {
+          if (targetVisible && isCurrentPushRouteTask(pushRouteSeq)) {
             setFocusedAdminAppointmentId(pushedAppointmentId)
           }
         } else {
@@ -11486,13 +11472,13 @@ function backFromAppointments(): void {
           }))
         }
 
-        setPendingShowcasePushRoute(null)
+        clearPendingPushRouteIfCurrent(pushRouteSeq)
         return
       }
 
       if (openAs === 'customer' || openAs === 'client') {
         if (pushedTargetClientId && pushedTargetClientId !== clientId) {
-          setPendingShowcasePushRoute(null)
+          clearPendingPushRouteIfCurrent(pushRouteSeq)
           return
         }
 
@@ -11504,7 +11490,7 @@ function backFromAppointments(): void {
             targetCustomerStatusFilter
           )
 
-          if (targetVisible) {
+          if (targetVisible && isCurrentPushRouteTask(pushRouteSeq)) {
             setFocusedCustomerAppointmentId(pushedAppointmentId)
           }
         } else {
@@ -11519,7 +11505,7 @@ function backFromAppointments(): void {
           }))
         }
 
-        setPendingShowcasePushRoute(null)
+        clearPendingPushRouteIfCurrent(pushRouteSeq)
         return
       }
 
@@ -11532,7 +11518,7 @@ function backFromAppointments(): void {
             targetAdminStatusFilter
           )
 
-          if (targetVisible) {
+          if (targetVisible && isCurrentPushRouteTask(pushRouteSeq)) {
             setFocusedAdminAppointmentId(pushedAppointmentId)
           }
         } else {
@@ -11549,12 +11535,12 @@ function backFromAppointments(): void {
           }))
         }
 
-        setPendingShowcasePushRoute(null)
+        clearPendingPushRouteIfCurrent(pushRouteSeq)
         return
       }
 
       if (pushedTargetClientId && pushedTargetClientId !== clientId) {
-        setPendingShowcasePushRoute(null)
+        clearPendingPushRouteIfCurrent(pushRouteSeq)
         return
       }
 
@@ -11566,7 +11552,7 @@ function backFromAppointments(): void {
           targetCustomerStatusFilter
         )
 
-        if (targetVisible) {
+        if (targetVisible && isCurrentPushRouteTask(pushRouteSeq)) {
           setFocusedCustomerAppointmentId(pushedAppointmentId)
         }
       } else {
@@ -11581,7 +11567,7 @@ function backFromAppointments(): void {
         }))
       }
 
-      setPendingShowcasePushRoute(null)
+      clearPendingPushRouteIfCurrent(pushRouteSeq)
     }
   }
 
@@ -14275,21 +14261,27 @@ function backFromAppointments(): void {
   if (!values.length) return
 
   const draftUrls: string[] = []
-  let hasFailedImage = false
+  let failedImageMessage: string | null = null
 
   for (const value of values) {
-    const draftUrl = await resolveChatDraftImageUrl(value)
+    try {
+      const draftUrl = await resolveChatDraftImageUrl(value)
 
-    if (!draftUrl) {
-      hasFailedImage = true
-      continue
+      if (!draftUrl) {
+        failedImageMessage = failedImageMessage || 'Image compression failed.'
+        continue
+      }
+
+      draftUrls.push(draftUrl)
+    } catch (error) {
+      failedImageMessage = error instanceof Error && error.message
+        ? error.message
+        : 'Image compression failed.'
     }
-
-    draftUrls.push(draftUrl)
   }
 
-  if (hasFailedImage) {
-    showSnackbar('Image compress failed.')
+  if (failedImageMessage) {
+    showSnackbar(failedImageMessage)
   }
 
   if (!draftUrls.length) return
@@ -14628,6 +14620,8 @@ function onChatImageLimitReached(): void {
     persistStoreProfileLocally,
     storeProfileDraft,
     setStoreProfileSaveError,
+    setStoreProfileLogoUploadError,
+    setStoreProfileCoverUploadError,
     draftStoreProfileExtraContacts,
     createId,
     draftStoreProfileServices,
@@ -14660,6 +14654,7 @@ function onChatImageLimitReached(): void {
     rememberLocalTempImage,
     isBrowser,
     pickAndUploadImageWithVariants,
+    validateShowcaseImageUploadFile,
     isAppOwnedLocalFileUri,
     deleteAppOwnedLocalFileUri,
     storeProfileDraftForUi,
@@ -14868,6 +14863,8 @@ function onChatImageLimitReached(): void {
     draftExtraContacts: draftStoreProfileExtraContacts,
 
     validationError: storeProfileSaveError,
+    logoUploadErrorMessage: storeProfileLogoUploadError,
+    coverUploadErrorMessage: storeProfileCoverUploadError,
 
     isSaving: isSavingStoreProfile,
     isRefreshing: isRefreshingStoreProfile,
@@ -15014,6 +15011,7 @@ function onChatImageLimitReached(): void {
     errorMessage: adminAnnouncementError,
     successMessage: adminAnnouncementSuccess,
     statusMessage,
+    coverUploadErrorMessage: adminAnnouncementCoverUploadError,
     isSubmitting: adminAnnouncementIsSubmitting,
     isBlockingInput: adminAnnouncementIsBlocking,
     submittingAction: adminAnnouncementSubmittingAction,
@@ -15214,6 +15212,7 @@ const editDishState: ShowcaseEditDishUiState = {
     descriptionRequiredError: editDishDescriptionRequiredError,
     categoryRequiredError: editDishCategoryRequiredError,
     imagesRequiredError: editDishImagesRequiredError,
+    imageUploadErrorMessage: editImageUploadError,
     showErrorDialog: editDishShowErrorDialog,
     canSave: editDishCanSave,
     canAddImageSlot: editDishImageUrls.length < 9,
@@ -15260,6 +15259,7 @@ const editDishState: ShowcaseEditDishUiState = {
     snackbarMessage,
     cloudStatus: cloudStatusUi,
     editValidationError,
+    editImageUploadError,
     loginError,
 
     selectedDish,
@@ -15337,6 +15337,8 @@ const editDishState: ShowcaseEditDishUiState = {
     isSavingStoreProfile,
     isRefreshingStoreProfile,
     storeProfileSaveError,
+    storeProfileLogoUploadError,
+    storeProfileCoverUploadError,
     storeProfileSaveSuccess,
 
     chat: chatState,
@@ -15359,6 +15361,7 @@ const editDishState: ShowcaseEditDishUiState = {
     adminAnnouncementPreviewId,
     adminAnnouncementError,
     adminAnnouncementSuccess,
+    adminAnnouncementCoverUploadError,
     adminAnnouncementIsSubmitting,
     adminAnnouncementIsBlocking,
     adminAnnouncementSubmittingAction,
@@ -16177,8 +16180,6 @@ const editDishState: ShowcaseEditDishUiState = {
   void merchantBindings
   void chatSearchResults
   void reorderCategory
-  void handleStoreLogoPicked
-  void handleStoreCoverPicked
   void handleChatImagePicked
   void shouldShowChatEntryDot
   void startChatPolling
