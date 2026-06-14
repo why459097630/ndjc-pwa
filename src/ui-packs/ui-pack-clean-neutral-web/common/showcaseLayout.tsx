@@ -40,7 +40,7 @@ export const APK_SHELL_UI = {
   ink: '#111827',
   muted: '#4b5563',
   mutedText: 'rgba(0, 0, 0, 0.82)',
-  systemBarFallbackBg: '#dfe5e3',
+  systemBarFallbackBg: '#eff3f2',
 
   phoneViewportWidth: '100%',
   phoneViewportHeight: '100dvh',

@@ -26,7 +26,7 @@ html {
   overflow-x: hidden;
   -webkit-text-size-adjust: 100%;
   text-size-adjust: 100%;
-  background: #ffffff;
+  background: #eff3f2;
 }
 
 body {
@@ -38,7 +38,7 @@ body {
   margin: 0;
   padding: 0;
   overflow-x: hidden;
-  background: #ffffff;
+  background: #eff3f2;
 }
 
 #__next {
@@ -47,6 +47,7 @@ body {
   min-width: 0;
   height: 100%;
   min-height: 100%;
+  background: #eff3f2;
 }
 
 img,
@@ -91,7 +92,7 @@ export const metadata: Metadata = {
   appleWebApp: {
     capable: true,
     title: 'Customer Hub',
-    statusBarStyle: 'default'
+    statusBarStyle: 'black-translucent'
   },
   formatDetection: {
     telephone: false,
@@ -104,8 +105,8 @@ export const metadata: Metadata = {
     'mobile-web-app-capable': 'yes',
     'apple-mobile-web-app-capable': 'yes',
     'apple-mobile-web-app-title': 'Customer Hub',
-    'apple-mobile-web-app-status-bar-style': 'default',
-    'msapplication-TileColor': '#ffffff',
+    'apple-mobile-web-app-status-bar-style': 'black-translucent',
+    'msapplication-TileColor': '#eff3f2',
     'msapplication-tap-highlight': 'no'
   }
 }
@@ -115,7 +116,7 @@ export const viewport: Viewport = {
   initialScale: 1,
   maximumScale: 5,
   viewportFit: 'cover',
-  themeColor: '#ffffff'
+  themeColor: '#eff3f2'
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
@@ -135,7 +136,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         overflowX: 'hidden',
         overscrollBehavior: 'none',
         overscrollBehaviorY: 'none',
-        background: '#ffffff',
+        background: '#eff3f2',
         fontFamily: 'var(--font-inter), Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif'
       }}
     >
@@ -152,7 +153,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           overflowX: 'hidden',
           overscrollBehavior: 'none',
           overscrollBehaviorY: 'none',
-          background: '#ffffff',
+          background: '#eff3f2',
           color: '#171717',
           fontFamily: 'inherit'
         }}
