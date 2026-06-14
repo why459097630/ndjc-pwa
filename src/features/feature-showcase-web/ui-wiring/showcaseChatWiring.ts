@@ -307,7 +307,7 @@ export function buildChatWiringState(uiState: ShowcaseUiState): ShowcaseChatUiSt
     pendingAppointment: normalizeChatAppointmentShare(uiState.chat.pendingAppointment),
     quotedMessageId: normalizeNullableText(uiState.chat.quotedMessageId),
     isSending: uiState.chat.isSending,
-    statusMessage: uiState.chat.statusMessage,
+    statusMessage: uiState.chat.statusMessage || uiState.snackbarMessage,
     inputPlaceholder: uiState.chat.inputPlaceholder || 'Type a message',
     selectionMode,
     selectedMessageIds: Array.from(selectedIds),

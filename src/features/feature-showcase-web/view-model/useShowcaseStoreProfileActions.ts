@@ -42,6 +42,8 @@ type ShowcaseStoreProfileActionsContext = {
   setSyncErrorMessage: StateSetter
   setIsRefreshingStoreProfile: StateSetter
   setStoreProfileSaveError: StateSetter
+  setStoreProfileLogoUploadError: StateSetter
+  setStoreProfileCoverUploadError: StateSetter
   setIsSavingStoreProfile: StateSetter
   setStoreProfileSaveSuccess: StateSetter
   setStoreProfileCloud: StateSetter
@@ -102,6 +104,8 @@ export function createShowcaseStoreProfileActions(context: ShowcaseStoreProfileA
     persistStoreProfileLocally,
     storeProfileDraft,
     setStoreProfileSaveError,
+    setStoreProfileLogoUploadError,
+    setStoreProfileCoverUploadError,
     draftStoreProfileExtraContacts,
     createId,
     draftStoreProfileServices,
@@ -134,6 +138,7 @@ export function createShowcaseStoreProfileActions(context: ShowcaseStoreProfileA
     rememberLocalTempImage,
     isBrowser,
     pickAndUploadImageWithVariants,
+    validateShowcaseImageUploadFile,
     isAppOwnedLocalFileUri,
     deleteAppOwnedLocalFileUri,
     storeProfileDraftForUi,
@@ -465,6 +470,8 @@ export function createShowcaseStoreProfileActions(context: ShowcaseStoreProfileA
       setIsEditingStoreProfile(false)
       setIsSavingStoreProfile(false)
       setStoreProfileSaveError(null)
+      setStoreProfileLogoUploadError(null)
+      setStoreProfileCoverUploadError(null)
       setStoreProfileSaveSuccess(true)
       setStatusMessage('Store profile saved.')
       writePersistedStoreProfileDraft(storeId, null)
@@ -490,17 +497,29 @@ export function createShowcaseStoreProfileActions(context: ShowcaseStoreProfileA
       removePendingSync('store-profile-upsert')
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error || 'Cloud save failed.')
+      const isImageGuardFailure =
+        message.includes('Image is too large') ||
+        message.includes('Only JPG, PNG, or WebP images are supported') ||
+        message.includes('Image compression failed')
+      const failureMessage = isImageGuardFailure
+        ? message
+        : message.startsWith('Cloud save failed')
+          ? message
+          : 'Cloud save failed.'
 
       setIsSavingStoreProfile(false)
-      setStoreProfileSaveError(message.startsWith('Cloud save failed') ? message : 'Cloud save failed.')
+      setStoreProfileSaveError(failureMessage)
       setStoreProfileSaveSuccess(false)
-      setStatusMessage("Couldn't save store profile. Please try again.")
+      setStatusMessage(isImageGuardFailure ? failureMessage : "Couldn't save store profile. Please try again.")
+      showSnackbar(failureMessage)
 
-      pushPendingSync({
-        id: 'store-profile-upsert',
-        type: 'store-profile-upsert',
-        createdAt: nowMillis()
-      })
+      if (!isImageGuardFailure) {
+        pushPendingSync({
+          id: 'store-profile-upsert',
+          type: 'store-profile-upsert',
+          createdAt: nowMillis()
+        })
+      }
     }
   }
   function startEditStoreProfile(): void {
@@ -523,6 +542,8 @@ export function createShowcaseStoreProfileActions(context: ShowcaseStoreProfileA
     setIsEditingStoreProfile(true)
     setIsSavingStoreProfile(false)
     setStoreProfileSaveError(null)
+    setStoreProfileLogoUploadError(null)
+    setStoreProfileCoverUploadError(null)
     setStoreProfileSaveSuccess(false)
     writePersistedStoreProfileDraft(storeId, null)
   }
@@ -545,6 +566,8 @@ export function createShowcaseStoreProfileActions(context: ShowcaseStoreProfileA
     setIsEditingStoreProfile(false)
     setIsSavingStoreProfile(false)
     setStoreProfileSaveError(null)
+    setStoreProfileLogoUploadError(null)
+    setStoreProfileCoverUploadError(null)
     setStoreProfileSaveSuccess(false)
     writePersistedStoreProfileDraft(storeId, null)
   }
@@ -693,6 +716,8 @@ export function createShowcaseStoreProfileActions(context: ShowcaseStoreProfileA
   }
 
   async function uploadStoreImageIfNeeded(value: File | Blob | string, scope: 'logo' | 'cover'): Promise<UploadedShowcaseImage | null> {
+    const uploadScope = scope === 'logo' ? 'store_logo' : 'store_cover'
+
     if (typeof value === 'string') {
       const url = value.trim()
       if (!url) return null
@@ -709,6 +734,12 @@ export function createShowcaseStoreProfileActions(context: ShowcaseStoreProfileA
         if (!response.ok) return null
 
         const blob = await response.blob()
+        const uploadGuardMessage = validateShowcaseImageUploadFile(blob, uploadScope)
+
+        if (uploadGuardMessage) {
+          throw new Error(uploadGuardMessage)
+        }
+
         const uploaded = await pickAndUploadImageWithVariants({
           bucket: 'store',
           pathPrefix: scope,
@@ -720,9 +751,19 @@ export function createShowcaseStoreProfileActions(context: ShowcaseStoreProfileA
         }
 
         return uploaded
-      } catch {
+      } catch (error) {
+        if (error instanceof Error && error.message) {
+          throw error
+        }
+
         return null
       }
+    }
+
+    const uploadGuardMessage = validateShowcaseImageUploadFile(value, uploadScope)
+
+    if (uploadGuardMessage) {
+      throw new Error(uploadGuardMessage)
     }
 
     return pickAndUploadImageWithVariants({
@@ -733,6 +774,20 @@ export function createShowcaseStoreProfileActions(context: ShowcaseStoreProfileA
   }
 
   async function onStoreProfileLogoPicked(value: File | Blob | string): Promise<void> {
+    if (typeof value !== 'string') {
+      const uploadGuardMessage = validateShowcaseImageUploadFile(value, 'store_logo')
+
+      if (uploadGuardMessage) {
+        setStoreProfileLogoUploadError(uploadGuardMessage)
+        setStoreProfileSaveError(null)
+        setStoreProfileSaveSuccess(false)
+        showSnackbar(uploadGuardMessage)
+        return
+      }
+    }
+
+    setStoreProfileLogoUploadError(null)
+
     const url = storeProfileDraftImageUrl(value)
 
     if (!url) {
@@ -748,6 +803,7 @@ export function createShowcaseStoreProfileActions(context: ShowcaseStoreProfileA
   function onStoreProfileLogoRemove(): void {
     const url = draftStoreProfileLogoUrl
     setDraftStoreProfileLogoUrl('')
+    setStoreProfileLogoUploadError(null)
 
     if (url && isAppOwnedLocalFileUri(storeId, url)) {
       deleteAppOwnedLocalFileUri(storeId, url)
@@ -771,11 +827,25 @@ export function createShowcaseStoreProfileActions(context: ShowcaseStoreProfileA
     }
 
     const nextUrls = [...currentUrls]
+    let hasUploadGuardError = false
 
     for (const value of values) {
       if (nextUrls.length >= 9) {
         onStoreProfileCoverLimitReached()
         break
+      }
+
+      if (typeof value !== 'string') {
+        const uploadGuardMessage = validateShowcaseImageUploadFile(value, 'store_cover')
+
+        if (uploadGuardMessage) {
+          hasUploadGuardError = true
+          setStoreProfileCoverUploadError(uploadGuardMessage)
+          setStoreProfileSaveError(null)
+          setStoreProfileSaveSuccess(false)
+          showSnackbar(uploadGuardMessage)
+          continue
+        }
       }
 
       const url = storeProfileDraftImageUrl(value)
@@ -791,7 +861,12 @@ export function createShowcaseStoreProfileActions(context: ShowcaseStoreProfileA
     }
 
     setDraftStoreProfileCoverUrl(nextUrls.slice(0, 9).join('\n'))
-    setStoreProfileSaveError(null)
+
+    if (!hasUploadGuardError) {
+      setStoreProfileCoverUploadError(null)
+      setStoreProfileSaveError(null)
+    }
+
     setStoreProfileSaveSuccess(false)
   }
 
@@ -808,6 +883,7 @@ export function createShowcaseStoreProfileActions(context: ShowcaseStoreProfileA
     const nextUrls = currentUrls.filter((item: string) => item !== url)
 
     setDraftStoreProfileCoverUrl(nextUrls.join('\n'))
+    setStoreProfileCoverUploadError(null)
     setStoreProfileSaveError(null)
 
     if (isAppOwnedLocalFileUri(storeId, url)) {
@@ -943,6 +1019,8 @@ export function createShowcaseStoreProfileActions(context: ShowcaseStoreProfileA
     setIsEditingStoreProfile(false)
     setIsSavingStoreProfile(false)
     setStoreProfileSaveError(null)
+    setStoreProfileLogoUploadError(null)
+    setStoreProfileCoverUploadError(null)
     setStoreProfileSaveSuccess(false)
     writePersistedStoreProfileDraft(storeId, null)
     setPreviousScreen(screen)

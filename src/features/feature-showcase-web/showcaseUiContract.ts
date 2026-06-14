@@ -555,6 +555,7 @@ export type ShowcaseEditDishUiState = {
   descriptionRequiredError: boolean
   categoryRequiredError: boolean
   imagesRequiredError: boolean
+  imageUploadErrorMessage: string | null
   showErrorDialog: boolean
   canSave: boolean
   canAddImageSlot: boolean
@@ -702,6 +703,8 @@ export type ShowcaseStoreProfileUiState = {
   draftExtraContacts: ExtraContactDraft[]
 
   validationError: string | null
+  logoUploadErrorMessage: string | null
+  coverUploadErrorMessage: string | null
 
   isSaving: boolean
   isRefreshing: boolean
@@ -1048,6 +1051,7 @@ export type ShowcaseAnnouncementEditUiState = {
   errorMessage: string | null
   successMessage: string | null
   statusMessage: string | null
+  coverUploadErrorMessage: string | null
   isSubmitting: boolean
   isBlockingInput: boolean
   submittingAction: 'save' | 'publish' | 'delete' | null
@@ -1131,6 +1135,7 @@ export type ShowcaseUiState = {
   snackbarMessage: string | null
   cloudStatus: ShowcaseCloudStatusUi | null
   editValidationError: string | null
+  editImageUploadError: string | null
   loginError: string | null
 
   selectedDish: DemoDish | null
@@ -1208,6 +1213,8 @@ export type ShowcaseUiState = {
   isSavingStoreProfile: boolean
   isRefreshingStoreProfile: boolean
   storeProfileSaveError: string | null
+  storeProfileLogoUploadError: string | null
+  storeProfileCoverUploadError: string | null
   storeProfileSaveSuccess: boolean
 
   chat: ShowcaseChatUiState
@@ -1226,6 +1233,7 @@ export type ShowcaseUiState = {
   adminAnnouncementPreviewId: string | null
   adminAnnouncementError: string | null
   adminAnnouncementSuccess: string | null
+  adminAnnouncementCoverUploadError: string | null
   adminAnnouncementIsSubmitting: boolean
   adminAnnouncementIsBlocking: boolean
   adminAnnouncementSubmittingAction: 'save' | 'publish' | 'delete' | null

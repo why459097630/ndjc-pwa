@@ -78,6 +78,7 @@ type ShowcaseAnnouncementActionsContext = {
   setAdminAnnouncementDraftItems: StateSetter<DraftAnnouncement[]>
   setAdminAnnouncementEditingId: StateSetter<string | null>
   setAdminAnnouncementError: StateSetter<string | null>
+  setAdminAnnouncementCoverUploadError: StateSetter<string | null>
   setAdminAnnouncementIsBlocking: StateSetter<boolean>
   setAdminAnnouncementIsSubmitting: StateSetter<boolean>
   setAdminAnnouncementPreviewId: StateSetter<string | null>
@@ -160,6 +161,7 @@ export function createShowcaseAnnouncementActions(context: ShowcaseAnnouncementA
     setAdminAnnouncementDraftItems,
     setAdminAnnouncementEditingId,
     setAdminAnnouncementError,
+    setAdminAnnouncementCoverUploadError,
     setAdminAnnouncementIsBlocking,
     setAdminAnnouncementIsSubmitting,
     setAdminAnnouncementPreviewId,
@@ -193,6 +195,7 @@ export function createShowcaseAnnouncementActions(context: ShowcaseAnnouncementA
     setAdminAnnouncementSelectedIds([])
     setAdminAnnouncementPreviewId(null)
     setAdminAnnouncementError(null)
+    setAdminAnnouncementCoverUploadError(null)
     setAdminAnnouncementSuccess(null)
     setAdminAnnouncementIsSubmitting(false)
     setAdminAnnouncementIsBlocking(false)
@@ -215,6 +218,7 @@ export function createShowcaseAnnouncementActions(context: ShowcaseAnnouncementA
     setAdminAnnouncementSelectedIds([])
     setAdminAnnouncementPreviewId(null)
     setAdminAnnouncementError(null)
+    setAdminAnnouncementCoverUploadError(null)
     setAdminAnnouncementSuccess(null)
     setAdminAnnouncementComposerExpanded(true)
 
@@ -459,6 +463,7 @@ export function createShowcaseAnnouncementActions(context: ShowcaseAnnouncementA
       setAdminAnnouncementSelectedIds([])
       setAdminAnnouncementPreviewId(null)
       setAdminAnnouncementError(null)
+      setAdminAnnouncementCoverUploadError(null)
       setAdminAnnouncementSuccess(nextStatus === 'published' ? 'Announcement published.' : 'Draft saved.')
       setAdminAnnouncementIsSubmitting(false)
       setAdminAnnouncementIsBlocking(false)
@@ -1091,6 +1096,7 @@ export function createShowcaseAnnouncementActions(context: ShowcaseAnnouncementA
     setAdminAnnouncementSelectedIds([])
     setAdminAnnouncementPreviewId(null)
     setAdminAnnouncementError(null)
+    setAdminAnnouncementCoverUploadError(null)
     setAdminAnnouncementSuccess(null)
     setAdminAnnouncementIsSubmitting(false)
     setAdminAnnouncementIsBlocking(false)
@@ -1155,6 +1161,7 @@ export function createShowcaseAnnouncementActions(context: ShowcaseAnnouncementA
     const url = adminAnnouncementCoverDraftUrl
 
     setAdminAnnouncementCoverDraftUrl(null)
+    setAdminAnnouncementCoverUploadError(null)
     setAdminAnnouncementError(null)
     setAdminAnnouncementSuccess(null)
 
@@ -1179,12 +1186,27 @@ export function createShowcaseAnnouncementActions(context: ShowcaseAnnouncementA
 
   async function onAdminAnnouncementCoverPicked(value: File | Blob | string): Promise<void> {
     const previousCoverUrl = adminAnnouncementCoverDraftUrl
-    const nextCoverUrl = await resolveAnnouncementCoverDraftUrl(value)
+    let nextCoverUrl: string | null = null
+
+    try {
+      nextCoverUrl = await resolveAnnouncementCoverDraftUrl(value)
+    } catch (error) {
+      const message = error instanceof Error && error.message
+        ? error.message
+        : 'Cover image compression failed.'
+
+      setAdminAnnouncementCoverUploadError(message)
+      setAdminAnnouncementError(null)
+      setAdminAnnouncementSuccess(null)
+      showSnackbar(message)
+      return
+    }
 
     if (!nextCoverUrl) {
-      setAdminAnnouncementError('Cover image compress failed.')
+      setAdminAnnouncementCoverUploadError('Cover image compression failed.')
+      setAdminAnnouncementError(null)
       setAdminAnnouncementSuccess(null)
-      showSnackbar('Cover image compress failed.')
+      showSnackbar('Cover image compression failed.')
       return
     }
 
@@ -1197,6 +1219,7 @@ export function createShowcaseAnnouncementActions(context: ShowcaseAnnouncementA
     }
 
     setAdminAnnouncementCoverDraftUrl(nextCoverUrl)
+    setAdminAnnouncementCoverUploadError(null)
     setAdminAnnouncementError(null)
     setAdminAnnouncementSuccess(null)
     setAdminAnnouncementComposerExpanded(true)

@@ -60,6 +60,7 @@ type ShowcaseCatalogActionsContext = {
   setEditDishOriginalPrice: StateSetter
   setEditDishRecommended: StateSetter
   setEditValidationError: StateSetter
+  setEditImageUploadError: StateSetter
   setFavoritesAppliedMaxPrice: StateSetter
   setFavoritesAppliedMinPrice: StateSetter
   setFavoritesFilterOnSaleOnly: StateSetter
@@ -196,6 +197,7 @@ export function createShowcaseCatalogActions(ctx: ShowcaseCatalogActionsContext)
     persistFavoritesState,
     persistItemEditorDraftLocally,
     pickAndUploadImageWithVariants,
+    validateShowcaseImageUploadFile,
     prepareLoginScreen,
     preserveFavoriteSnapshotsBeforeDishDelete,
     previousScreen,
@@ -246,6 +248,7 @@ export function createShowcaseCatalogActions(ctx: ShowcaseCatalogActionsContext)
     setEditDishOriginalPrice,
     setEditDishRecommended,
     setEditValidationError,
+    setEditImageUploadError,
     setFavoritesAppliedMaxPrice,
     setFavoritesAppliedMinPrice,
     setFavoritesFilterOnSaleOnly,
@@ -900,6 +903,7 @@ export function createShowcaseCatalogActions(ctx: ShowcaseCatalogActionsContext)
       setLastRetryOp(null)
       setStatusMessage(wasNew ? 'Item published.' : 'Item updated.')
       setEditValidationError(null)
+      setEditImageUploadError(null)
       setIsSavingEditDish(false)
       setIsBlockingEditDish(false)
 
@@ -917,6 +921,7 @@ export function createShowcaseCatalogActions(ctx: ShowcaseCatalogActionsContext)
         setPreviousScreen('Admin')
         setStatusMessage(null)
         setEditValidationError(null)
+        setEditImageUploadError(null)
       }
 
       if (isBrowser()) {
@@ -927,14 +932,29 @@ export function createShowcaseCatalogActions(ctx: ShowcaseCatalogActionsContext)
     } catch (error) {
       const rawMessage = error instanceof Error ? error.message : String(error || '')
       const isImageUploadFailure = rawMessage.includes('Image upload failed')
-      const failureMessage = isImageUploadFailure ? 'Image upload failed. Please try again.' : 'Cloud save failed.'
+      const isImageGuardFailure =
+        rawMessage.includes('Image is too large') ||
+        rawMessage.includes('Only JPG, PNG, or WebP images are supported') ||
+        rawMessage.includes('Image compression failed')
+      const failureMessage = isImageGuardFailure
+        ? rawMessage
+        : isImageUploadFailure
+          ? 'Image upload failed. Please try again.'
+          : 'Cloud save failed.'
 
-      if (isImageUploadFailure || !uploadedDraftDish) {
+      if (isImageGuardFailure || isImageUploadFailure || !uploadedDraftDish) {
         setStatusMessage(null)
         setSyncOverviewState(SyncOverviewStates.Failed)
         setSyncErrorMessage(failureMessage)
         setLastRetryOp(null)
-        setEditValidationError(failureMessage)
+
+        if (isImageGuardFailure) {
+          setEditImageUploadError(failureMessage)
+          setEditValidationError(null)
+        } else {
+          setEditValidationError(failureMessage)
+        }
+
         setIsSavingEditDish(false)
         setIsBlockingEditDish(false)
         showSnackbar(failureMessage)
@@ -1410,6 +1430,12 @@ export function createShowcaseCatalogActions(ctx: ShowcaseCatalogActionsContext)
         if (!response.ok) return null
 
         const blob = await response.blob()
+        const uploadGuardMessage = validateShowcaseImageUploadFile(blob, 'dish')
+
+        if (uploadGuardMessage) {
+          throw new Error(uploadGuardMessage)
+        }
+
         const uploaded = await pickAndUploadImageWithVariants({
           bucket: 'dish',
           pathPrefix: editDishId || 'draft',
@@ -1421,9 +1447,19 @@ export function createShowcaseCatalogActions(ctx: ShowcaseCatalogActionsContext)
         }
 
         return uploaded
-      } catch {
+      } catch (error) {
+        if (error instanceof Error && error.message) {
+          throw error
+        }
+
         return null
       }
+    }
+
+    const uploadGuardMessage = validateShowcaseImageUploadFile(value, 'dish')
+
+    if (uploadGuardMessage) {
+      throw new Error(uploadGuardMessage)
     }
 
     return pickAndUploadImageWithVariants({
@@ -1434,6 +1470,18 @@ export function createShowcaseCatalogActions(ctx: ShowcaseCatalogActionsContext)
   }
 
   async function onEditImageSelected(value: File | Blob | string): Promise<void> {
+    if (typeof value !== 'string') {
+      const uploadGuardMessage = validateShowcaseImageUploadFile(value, 'dish')
+
+      if (uploadGuardMessage) {
+        setEditImageUploadError(uploadGuardMessage)
+        showSnackbar(uploadGuardMessage)
+        return
+      }
+    }
+
+    setEditImageUploadError(null)
+
     const url = createEditDishLocalPreviewUrl(value)
 
     if (!url) {
@@ -1471,6 +1519,8 @@ export function createShowcaseCatalogActions(ctx: ShowcaseCatalogActionsContext)
   function onEditRemoveImage(urlInput: string): void {
     const url = urlInput.trim()
     if (!url) return
+
+    setEditImageUploadError(null)
 
     setEditDishImageUrls((current: any) => {
       const next = current.filter((item: any) => item !== url)

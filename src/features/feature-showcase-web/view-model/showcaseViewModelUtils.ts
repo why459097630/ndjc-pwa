@@ -1122,6 +1122,80 @@ export const STORE_LOGO_IMAGE_MEDIUM_LONG_EDGE = 512
 export const STORE_LOGO_IMAGE_THUMB_LONG_EDGE = 256
 export const STORE_LOGO_IMAGE_BLUR_LONG_EDGE = 32
 
+const SHOWCASE_IMAGE_UPLOAD_BYTES_PER_MB = 1024 * 1024
+const SHOWCASE_IMAGE_UPLOAD_ALLOWED_TYPES = new Set([
+  'image/jpeg',
+  'image/png',
+  'image/webp'
+])
+
+export type ShowcaseImageUploadScope = 'dish' | 'store_logo' | 'store_cover' | 'announcement' | 'chat'
+
+export const SHOWCASE_IMAGE_UPLOAD_MAX_BYTES: Record<ShowcaseImageUploadScope, number> = {
+  dish: 12 * SHOWCASE_IMAGE_UPLOAD_BYTES_PER_MB,
+  store_logo: 8 * SHOWCASE_IMAGE_UPLOAD_BYTES_PER_MB,
+  store_cover: 12 * SHOWCASE_IMAGE_UPLOAD_BYTES_PER_MB,
+  announcement: 12 * SHOWCASE_IMAGE_UPLOAD_BYTES_PER_MB,
+  chat: 8 * SHOWCASE_IMAGE_UPLOAD_BYTES_PER_MB
+}
+
+function formatShowcaseImageUploadLimit(bytes: number): string {
+  const mb = bytes / SHOWCASE_IMAGE_UPLOAD_BYTES_PER_MB
+
+  if (Number.isInteger(mb)) {
+    return `${mb}MB`
+  }
+
+  return `${mb.toFixed(1).replace(/\.0$/, '')}MB`
+}
+
+function readImageUploadFileName(file: File | Blob): string {
+  if ('name' in file && typeof file.name === 'string') {
+    return file.name
+  }
+
+  return ''
+}
+
+function readImageUploadFileExtension(fileName: string): string {
+  const clean = fileName.trim().toLowerCase()
+  const match = clean.match(/\.([a-z0-9]+)$/)
+
+  return match ? match[1] : ''
+}
+
+export function validateShowcaseImageUploadFile(file: File | Blob, scope: ShowcaseImageUploadScope): string | null {
+  const size = Number(file.size || 0)
+
+  if (!Number.isFinite(size) || size <= 0) {
+    return 'Image file is empty.'
+  }
+
+  const fileName = readImageUploadFileName(file)
+  const extension = readImageUploadFileExtension(fileName)
+  const rawType = String(file.type || '').trim().toLowerCase()
+
+  if (rawType && !SHOWCASE_IMAGE_UPLOAD_ALLOWED_TYPES.has(rawType)) {
+    return 'Only JPG, PNG, or WebP images are supported.'
+  }
+
+  if (!rawType && extension && !['jpg', 'jpeg', 'png', 'webp'].includes(extension)) {
+    return 'Only JPG, PNG, or WebP images are supported.'
+  }
+
+  if (!rawType && !extension) {
+    return 'Only JPG, PNG, or WebP images are supported.'
+  }
+
+  const maxBytes = SHOWCASE_IMAGE_UPLOAD_MAX_BYTES[scope]
+
+  if (size > maxBytes) {
+    return `Image is too large. Please choose an image under ${formatShowcaseImageUploadLimit(maxBytes)}.`
+  }
+
+  return null
+}
+
 export function normalizeImageContentType(value: string | null | undefined): string {
   const clean = String(value || '').trim().toLowerCase()
 
@@ -1188,11 +1262,15 @@ export function buildImageUploadFileName(inputFileName: string | null | undefine
 }
 
 export async function compressImage(file: File | Blob, maxLongEdge = PRODUCT_IMAGE_LONG_EDGE, jpegQuality = PRODUCT_IMAGE_JPEG_QUALITY): Promise<Blob> {
-  if (!isBrowser()) return file
+  if (!isBrowser()) {
+    throw new Error('Image compression is not available.')
+  }
 
   const sourceType = normalizeImageContentType(file.type || 'image/jpeg')
 
-  if (!sourceType.startsWith('image/')) return file
+  if (!sourceType.startsWith('image/')) {
+    throw new Error('Only image files can be uploaded.')
+  }
 
   const sourceUrl = window.URL.createObjectURL(file)
 
@@ -1207,7 +1285,9 @@ export async function compressImage(file: File | Blob, maxLongEdge = PRODUCT_IMA
     const sourceWidth = image.naturalWidth || image.width
     const sourceHeight = image.naturalHeight || image.height
 
-    if (!sourceWidth || !sourceHeight) return file
+    if (!sourceWidth || !sourceHeight) {
+      throw new Error('Image size could not be read.')
+    }
 
     const longEdge = Math.max(sourceWidth, sourceHeight)
     const scale = longEdge <= maxLongEdge ? 1 : maxLongEdge / longEdge
@@ -1219,17 +1299,29 @@ export async function compressImage(file: File | Blob, maxLongEdge = PRODUCT_IMA
     canvas.height = targetHeight
 
     const context = canvas.getContext('2d')
-    if (!context) return file
+
+    if (!context) {
+      throw new Error('Image compression failed.')
+    }
 
     context.drawImage(image, 0, 0, targetWidth, targetHeight)
 
-    return await new Promise<Blob>((resolve) => {
+    return await new Promise<Blob>((resolve, reject) => {
       canvas.toBlob(blob => {
-        resolve(blob || file)
+        if (!blob) {
+          reject(new Error('Image compression failed.'))
+          return
+        }
+
+        resolve(blob)
       }, 'image/jpeg', jpegQuality)
     })
-  } catch {
-    return file
+  } catch (error) {
+    if (error instanceof Error && error.message) {
+      throw error
+    }
+
+    throw new Error('Image compression failed.')
   } finally {
     revokeLocalObjectUrl(sourceUrl)
   }

@@ -168,6 +168,7 @@ export function createDefaultShowcaseUiState(
     snackbarMessage: null,
     cloudStatus: createDefaultShowcaseCloudStatusUi(),
     editValidationError: null,
+    editImageUploadError: null,
     loginError: null,
 
     selectedDish: null,
@@ -245,6 +246,8 @@ export function createDefaultShowcaseUiState(
     isSavingStoreProfile: false,
     isRefreshingStoreProfile: false,
     storeProfileSaveError: null,
+    storeProfileLogoUploadError: null,
+    storeProfileCoverUploadError: null,
     storeProfileSaveSuccess: false,
 
     chat: createDefaultShowcaseChatUiState(),
@@ -266,6 +269,7 @@ export function createDefaultShowcaseUiState(
     adminAnnouncementPreviewId: null,
     adminAnnouncementError: null,
     adminAnnouncementSuccess: null,
+    adminAnnouncementCoverUploadError: null,
     adminAnnouncementIsSubmitting: false,
     adminAnnouncementIsBlocking: false,
     adminAnnouncementSubmittingAction: null,

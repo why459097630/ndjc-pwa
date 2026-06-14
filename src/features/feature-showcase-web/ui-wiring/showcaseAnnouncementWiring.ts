@@ -110,6 +110,7 @@ export function buildAnnouncementEditWiringState(uiState: ShowcaseUiState): Show
     errorMessage: uiState.adminAnnouncementError,
     successMessage: uiState.adminAnnouncementSuccess,
     statusMessage: uiState.statusMessage,
+    coverUploadErrorMessage: uiState.adminAnnouncementCoverUploadError,
     isSubmitting: uiState.adminAnnouncementIsSubmitting,
     isBlockingInput: uiState.adminAnnouncementIsBlocking,
     submittingAction: uiState.adminAnnouncementSubmittingAction,
