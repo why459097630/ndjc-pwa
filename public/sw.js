@@ -921,7 +921,7 @@ function ndjcFindBestWindowClientForPush(clientsInput, payloadInput) {
         return sameRoleClient
       }
 
-      return null
+      return sameStoreClients[0]
     }
 
     const sameConversationClient = sameStoreClients.find(client => {
