@@ -39,8 +39,8 @@ type StorePwaProfileRow = {
 const DEFAULT_APP_NAME = 'Customer Hub'
 const DEFAULT_SHORT_NAME = 'Hub'
 const DEFAULT_DESCRIPTION = 'A branded customer hub for services, appointments, messages, and updates.'
-const DEFAULT_THEME_COLOR = '#ffffff'
-const DEFAULT_BACKGROUND_COLOR = '#ffffff'
+const DEFAULT_THEME_COLOR = '#000000'
+const DEFAULT_BACKGROUND_COLOR = '#eff3f2'
 const DEFAULT_ICON_192 = '/icons/icon-192.png'
 const DEFAULT_ICON_512 = '/icons/icon-512.png'
 const DEFAULT_MASKABLE_192 = '/icons/maskable-192.png'
@@ -296,7 +296,7 @@ export async function resolveStorePwaPageMetadata(storeIdInput: unknown): Promis
     appleWebApp: {
       capable: true,
       title: profile.appName,
-      statusBarStyle: 'default'
+      statusBarStyle: 'black'
     },
     formatDetection: {
       telephone: false,
@@ -309,8 +309,8 @@ export async function resolveStorePwaPageMetadata(storeIdInput: unknown): Promis
       'mobile-web-app-capable': 'yes',
       'apple-mobile-web-app-capable': 'yes',
       'apple-mobile-web-app-title': profile.appName,
-      'apple-mobile-web-app-status-bar-style': 'default',
-      'msapplication-TileColor': profile.themeColor,
+      'apple-mobile-web-app-status-bar-style': 'black',
+      'msapplication-TileColor': '#000000',
       'msapplication-tap-highlight': 'no'
     }
   }
@@ -360,7 +360,7 @@ export async function buildStorePwaManifest(storeIdInput: unknown) {
     gcm_sender_id: '103953800507',
     orientation: 'portrait',
     background_color: profile.backgroundColor,
-    theme_color: profile.themeColor,
+    theme_color: '#000000',
     icons,
     shortcuts: [
       {

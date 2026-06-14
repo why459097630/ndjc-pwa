@@ -92,7 +92,7 @@ export const metadata: Metadata = {
   appleWebApp: {
     capable: true,
     title: 'Customer Hub',
-    statusBarStyle: 'black-translucent'
+    statusBarStyle: 'black'
   },
   formatDetection: {
     telephone: false,
@@ -105,8 +105,8 @@ export const metadata: Metadata = {
     'mobile-web-app-capable': 'yes',
     'apple-mobile-web-app-capable': 'yes',
     'apple-mobile-web-app-title': 'Customer Hub',
-    'apple-mobile-web-app-status-bar-style': 'black-translucent',
-    'msapplication-TileColor': '#eff3f2',
+    'apple-mobile-web-app-status-bar-style': 'black',
+    'msapplication-TileColor': '#000000',
     'msapplication-tap-highlight': 'no'
   }
 }
@@ -116,7 +116,7 @@ export const viewport: Viewport = {
   initialScale: 1,
   maximumScale: 5,
   viewportFit: 'cover',
-  themeColor: '#eff3f2'
+  themeColor: '#000000'
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
