@@ -1697,7 +1697,7 @@ export function NdjcTextField({
     background: 'transparent',
     boxShadow: 'none',
     fontFamily: 'inherit',
-    fontSize: 15,
+    fontSize: 16,
     lineHeight: isMultiline ? 1.45 : '24px',
     fontWeight: 500,
     letterSpacing: 0,
@@ -6361,8 +6361,8 @@ export function AppointmentTimeSettingRow({
             textAlign: 'right',
             color: APK_APPOINTMENT_UI.brand,
             background: 'transparent',
-            fontSize: APK_APPOINTMENT_UI.labelMediumSize,
-            lineHeight: APK_APPOINTMENT_UI.labelMediumLineHeight,
+            fontSize: 16,
+            lineHeight: '20px',
             fontWeight: APK_APPOINTMENT_UI.labelMediumWeight
           }}
           aria-label={label}

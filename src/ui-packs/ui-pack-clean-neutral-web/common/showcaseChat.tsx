@@ -244,7 +244,7 @@ export const apkChatTextareaStyle: React.CSSProperties = {
   color: APK_CHAT_UI.black,
   background: 'transparent',
   boxShadow: 'none',
-  fontSize: 15,
+  fontSize: 16,
   lineHeight: 1.35,
   fontWeight: 400,
   resize: 'none',

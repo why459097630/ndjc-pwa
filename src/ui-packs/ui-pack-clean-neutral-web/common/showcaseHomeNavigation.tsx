@@ -41,7 +41,7 @@ export const APK_HOME_NAV_UI = {
   searchTextStartSpacing: 8,
   searchTextColor: '#111111',
   searchPlaceholderColor: '#8A94A6',
-  searchFontSize: 15,
+  searchFontSize: 16,
   profileButtonSize: 32,
   profileIconSize: 21,
   profileButtonBg: 'transparent',

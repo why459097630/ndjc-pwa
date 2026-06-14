@@ -780,7 +780,7 @@ export function EditItemModernTextField({
     background: 'transparent',
     boxShadow: 'none',
     fontFamily: 'inherit',
-    fontSize: 15,
+    fontSize: 16,
     lineHeight: isMultiline ? 1.45 : '24px',
     fontWeight: 500,
     letterSpacing: 0,
