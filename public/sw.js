@@ -1,5 +1,5 @@
-const NDJC_DEV_KILL_SERVICE_WORKER = false
-const NDJC_SW_VERSION = 'ndjc-pwa-1.0.0-20260613114933'
+﻿const NDJC_DEV_KILL_SERVICE_WORKER = false
+const NDJC_SW_VERSION = 'ndjc-pwa-1.0.0-20260614082722'
 const NDJC_STATIC_CACHE = `${NDJC_SW_VERSION}-static`
 const NDJC_NAVIGATION_CACHE = `${NDJC_SW_VERSION}-navigation`
 const NDJC_CACHE_PREFIX = 'ndjc-pwa-'
