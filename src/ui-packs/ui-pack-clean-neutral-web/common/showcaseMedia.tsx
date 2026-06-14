@@ -257,17 +257,10 @@ export const apkEditableGridStyle: React.CSSProperties = {
 export const apkFullscreenBackdropStyle: React.CSSProperties = {
   position: 'fixed',
   inset: 0,
-  width: '100vw',
-  height: '100dvh',
-  minHeight: '100dvh',
   zIndex: APK_MEDIA_UI.fullscreenZ,
   display: 'grid',
   placeItems: 'center',
-  background: APK_MEDIA_UI.fullscreenBg,
-  overflow: 'hidden',
-  overscrollBehavior: 'none',
-  overscrollBehaviorY: 'none',
-  touchAction: 'none'
+  background: APK_MEDIA_UI.fullscreenBg
 }
 
 export const apkFullscreenTopActionsStyle: React.CSSProperties = {

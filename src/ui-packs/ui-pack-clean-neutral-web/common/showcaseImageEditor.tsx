@@ -3,6 +3,7 @@
 import React from 'react'
 import { createPortal } from 'react-dom'
 import { APK_SHOWCASE_COLOR_TOKENS, cx } from './showcaseTokens'
+import { NdjcSystemBars } from './showcaseLayout'
 import {
   APK_MEDIA_UI,
   ImageTile,
@@ -18,6 +19,7 @@ import {
   apkFullscreenPagerButtonStyle,
   apkFullscreenTopActionsStyle
 } from './showcaseMedia'
+
 
 const ndjcImageEditorDialogBackdropStyle: React.CSSProperties = {
   position: 'fixed',
@@ -829,6 +831,14 @@ export function NdjcFullscreenImageViewerScreen({
       className="ndjc-screen ndjc-fullscreen-image-viewer-screen"
       style={apkFullscreenBackdropStyle}
     >
+      <NdjcSystemBars
+        color={APK_MEDIA_UI.fullscreenBg}
+        darkIcons={false}
+        navigationBarColor={APK_MEDIA_UI.fullscreenBg}
+        lightNavIcons={false}
+        decorFitsSystemWindows={false}
+      />
+
       <section
         className="ndjc-fullscreen-image-screen"
         style={{
