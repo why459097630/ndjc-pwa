@@ -1,4 +1,4 @@
-﻿const NDJC_DEV_KILL_SERVICE_WORKER = false
+const NDJC_DEV_KILL_SERVICE_WORKER = false
 const NDJC_SW_VERSION = 'ndjc-pwa-1.0.0-20260614082722'
 const NDJC_STATIC_CACHE = `${NDJC_SW_VERSION}-static`
 const NDJC_NAVIGATION_CACHE = `${NDJC_SW_VERSION}-navigation`
@@ -884,6 +884,7 @@ function ndjcFindBestWindowClientForPush(clientsInput, payloadInput) {
   const payload = payloadInput && typeof payloadInput === 'object' ? payloadInput : {}
   const storeId = ndjcPayloadStoreId(payload)
   const isChatPush = ndjcIsChatPushPayload(payload)
+  const pushRole = ndjcPushOpenAsRole(payload)
 
   const sameOriginClients = clientsInput.filter(client => {
     return client && 'focus' in client && ndjcSameOriginWindowClient(client)
@@ -898,17 +899,29 @@ function ndjcFindBestWindowClientForPush(clientsInput, payloadInput) {
     : sameOriginClients
 
   if (!sameStoreClients.length) {
-    return sameOriginClients[0]
+    return null
   }
 
   if (isChatPush) {
-    const sameConversationAndRoleClient = sameStoreClients.find(client => {
-      return ndjcWindowClientMatchesVisibleConversation(client, payload) &&
-        ndjcWindowClientMatchesVisibleRole(client, payload)
-    })
+    if (pushRole) {
+      const sameConversationAndRoleClient = sameStoreClients.find(client => {
+        return ndjcWindowClientMatchesVisibleConversation(client, payload) &&
+          ndjcWindowClientMatchesVisibleRole(client, payload)
+      })
 
-    if (sameConversationAndRoleClient) {
-      return sameConversationAndRoleClient
+      if (sameConversationAndRoleClient) {
+        return sameConversationAndRoleClient
+      }
+
+      const sameRoleClient = sameStoreClients.find(client => {
+        return ndjcWindowClientMatchesVisibleRole(client, payload)
+      })
+
+      if (sameRoleClient) {
+        return sameRoleClient
+      }
+
+      return null
     }
 
     const sameConversationClient = sameStoreClients.find(client => {
@@ -943,30 +956,12 @@ function ndjcBuildPushRouteMessage(routeWithPayload, payloadInput) {
   }
 }
 
-function ndjcFocusOrNavigatePushClient(client, routeWithPayload, payloadInput) {
+function ndjcFocusPushClient(client, routeWithPayload, payloadInput) {
   const message = ndjcBuildPushRouteMessage(routeWithPayload, payloadInput)
 
   try {
     client.postMessage(message)
   } catch (error) {
-  }
-
-  if (client && 'navigate' in client && typeof client.navigate === 'function') {
-    return client.navigate(routeWithPayload).then(navigatedClient => {
-      const targetClient = navigatedClient || client
-
-      if (targetClient && 'focus' in targetClient && typeof targetClient.focus === 'function') {
-        return targetClient.focus()
-      }
-
-      return targetClient
-    }).catch(() => {
-      if (client && 'focus' in client && typeof client.focus === 'function') {
-        return client.focus()
-      }
-
-      return client
-    })
   }
 
   if (client && 'focus' in client && typeof client.focus === 'function') {
@@ -991,7 +986,7 @@ self.addEventListener('notificationclick', event => {
       const existing = ndjcFindBestWindowClientForPush(clients, payload)
 
       if (existing) {
-        return ndjcFocusOrNavigatePushClient(existing, routeWithPayload, payload)
+        return ndjcFocusPushClient(existing, routeWithPayload, payload)
       }
 
       return self.clients.openWindow(routeWithPayload)
