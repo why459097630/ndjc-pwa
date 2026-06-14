@@ -266,6 +266,8 @@ export const apkDetailPickBadgeTextStyle: React.CSSProperties = apkPickBadgeText
 export function apkHomeMediaCardStyle(pressed = false): React.CSSProperties {
   return {
     width: '100%',
+    maxWidth: '100%',
+    minWidth: 0,
     minHeight: APK_SHOWCASE_ITEM_UI.homeCardHeight,
     borderRadius: APK_SHOWCASE_ITEM_UI.homeCardRadius,
     padding: APK_SHOWCASE_ITEM_UI.homeCardPadding,
@@ -273,6 +275,7 @@ export function apkHomeMediaCardStyle(pressed = false): React.CSSProperties {
     background: APK_SHOWCASE_ITEM_UI.transparent,
     boxShadow: pressed ? APK_SHOWCASE_ITEM_UI.homePressedShadow : APK_SHOWCASE_ITEM_UI.homeShadow,
     overflow: 'hidden',
+    boxSizing: 'border-box',
     transform: pressed ? `scale(${APK_SHOWCASE_ITEM_UI.homePressedScale})` : 'scale(1)',
     transformOrigin: 'center center',
     transition: 'transform 120ms ease, box-shadow 120ms ease'
@@ -282,6 +285,8 @@ export function apkHomeMediaCardStyle(pressed = false): React.CSSProperties {
 export function apkHomeMediaCardButtonStyle(disabled = false): React.CSSProperties {
   return {
     width: '100%',
+    maxWidth: '100%',
+    minWidth: 0,
     minHeight: APK_SHOWCASE_ITEM_UI.homeCardHeight,
     border: 0,
     borderRadius: APK_SHOWCASE_ITEM_UI.homeCardRadius,
@@ -294,6 +299,7 @@ export function apkHomeMediaCardButtonStyle(disabled = false): React.CSSProperti
     background: APK_SHOWCASE_ITEM_UI.transparent,
     boxShadow: 'none',
     overflow: 'hidden',
+    boxSizing: 'border-box',
     cursor: disabled ? 'default' : 'pointer',
     opacity: disabled ? APK_SHOWCASE_ITEM_UI.disabledAlpha : 1,
     appearance: 'none',
@@ -306,27 +312,37 @@ export function apkHomeMediaCardButtonStyle(disabled = false): React.CSSProperti
 export const apkHomeMediaImageWrapStyle: React.CSSProperties = {
   position: 'relative',
   width: '100%',
+  maxWidth: '100%',
+  minWidth: 0,
   aspectRatio: APK_SHOWCASE_ITEM_UI.homeImageAspectRatio,
   borderRadius: 0,
   overflow: 'hidden',
   background: APK_SHOWCASE_ITEM_UI.homeImageBg,
-  flex: '0 0 auto'
+  flex: '0 0 auto',
+  flexShrink: 0,
+  boxSizing: 'border-box'
 }
 
 export const apkHomeMediaBodyStyle: React.CSSProperties = {
   width: '100%',
+  maxWidth: '100%',
   minWidth: 0,
   minHeight: APK_SHOWCASE_ITEM_UI.homeCardBottomMinHeight,
-  flex: '1 1 auto',
+  flex: '0 0 auto',
+  flexShrink: 0,
   boxSizing: 'border-box',
   padding: `${APK_SHOWCASE_ITEM_UI.homeContentPaddingTop}px ${APK_SHOWCASE_ITEM_UI.homeContentPaddingEnd}px ${APK_SHOWCASE_ITEM_UI.homeContentPaddingBottom}px ${APK_SHOWCASE_ITEM_UI.homeContentPaddingStart}px`,
   display: 'grid',
+  gridTemplateColumns: 'minmax(0, 1fr)',
   alignContent: 'start',
   gap: 8,
+  overflow: 'hidden',
   background: APK_SHOWCASE_ITEM_UI.homeBottomBg
 }
 
 export const apkHomeMediaTitleStyle: React.CSSProperties = {
+  minWidth: 0,
+  maxWidth: '100%',
   margin: 0,
   color: APK_SHOWCASE_ITEM_UI.black,
   fontSize: APK_SHOWCASE_ITEM_UI.homeTitleSize,
@@ -334,18 +350,24 @@ export const apkHomeMediaTitleStyle: React.CSSProperties = {
   fontWeight: APK_SHOWCASE_ITEM_UI.homeTitleWeight,
   overflow: 'hidden',
   textOverflow: 'ellipsis',
-  whiteSpace: 'nowrap'
+  whiteSpace: 'nowrap',
+  display: 'block'
 }
 
 export const apkHomePriceRowStyle: React.CSSProperties = {
+  width: '100%',
+  maxWidth: '100%',
   minWidth: 0,
   display: 'flex',
   alignItems: 'baseline',
-  gap: APK_SHOWCASE_ITEM_UI.homePriceGap
+  gap: APK_SHOWCASE_ITEM_UI.homePriceGap,
+  overflow: 'hidden'
 }
 
 export function apkHomePrimaryPriceStyle(style?: React.CSSProperties): React.CSSProperties {
   return {
+    minWidth: 0,
+    maxWidth: '100%',
     color: APK_SHOWCASE_ITEM_UI.black,
     fontSize: APK_SHOWCASE_ITEM_UI.homePriceSize,
     lineHeight: APK_SHOWCASE_ITEM_UI.homePriceLineHeight,
@@ -353,11 +375,14 @@ export function apkHomePrimaryPriceStyle(style?: React.CSSProperties): React.CSS
     whiteSpace: 'nowrap',
     overflow: 'hidden',
     textOverflow: 'ellipsis',
+    display: 'block',
     ...style
   }
 }
 
 export const apkHomeSecondaryPriceStyle: React.CSSProperties = {
+  minWidth: 0,
+  maxWidth: '100%',
   color: `rgba(0, 0, 0, ${APK_SHOWCASE_ITEM_UI.homeOriginalAlpha})`,
   fontSize: APK_SHOWCASE_ITEM_UI.homeOriginalSize,
   lineHeight: APK_SHOWCASE_ITEM_UI.homeOriginalLineHeight,
@@ -367,7 +392,8 @@ export const apkHomeSecondaryPriceStyle: React.CSSProperties = {
   textDecorationColor: `rgba(0, 0, 0, ${APK_SHOWCASE_ITEM_UI.homeOriginalAlpha})`,
   whiteSpace: 'nowrap',
   overflow: 'hidden',
-  textOverflow: 'ellipsis'
+  textOverflow: 'ellipsis',
+  display: 'block'
 }
 
 export const apkHomeBadgeStyle: React.CSSProperties = {
@@ -402,6 +428,8 @@ export const apkHomeFavoriteIconStyle: React.CSSProperties = {
 export function apkCatalogCardStyle(pressed = false): React.CSSProperties {
   return {
     width: '100%',
+    maxWidth: '100%',
+    minWidth: 0,
     minHeight: APK_SHOWCASE_ITEM_UI.catalogImageSize + APK_SHOWCASE_ITEM_UI.catalogCardPadding * 2,
     border: `1px solid ${NDJC_GLOBAL_UI_TOKENS.colors.divider}`,
     borderRadius: APK_SHOWCASE_ITEM_UI.catalogCardRadius,
@@ -412,7 +440,7 @@ export function apkCatalogCardStyle(pressed = false): React.CSSProperties {
     alignItems: 'center',
     background: NDJC_GLOBAL_UI_TOKENS.colors.surface,
     boxShadow: 'none',
-    overflow: 'visible',
+    overflow: 'hidden',
     boxSizing: 'border-box',
     transform: pressed ? `scale(${APK_SHOWCASE_ITEM_UI.catalogPressedScale})` : 'scale(1)',
     transformOrigin: 'center center',
@@ -422,6 +450,7 @@ export function apkCatalogCardStyle(pressed = false): React.CSSProperties {
 
 export const apkCatalogMainButtonStyle: React.CSSProperties = {
   minWidth: 0,
+  maxWidth: '100%',
   width: '100%',
   minHeight: APK_SHOWCASE_ITEM_UI.catalogImageSize,
   border: 0,
@@ -434,6 +463,8 @@ export const apkCatalogMainButtonStyle: React.CSSProperties = {
   textAlign: 'left',
   background: 'transparent',
   boxShadow: 'none',
+  overflow: 'hidden',
+  boxSizing: 'border-box',
   cursor: 'pointer',
   WebkitTapHighlightColor: 'transparent',
   touchAction: 'manipulation'
@@ -444,25 +475,33 @@ export const apkCatalogMediaStyle: React.CSSProperties = {
   height: APK_SHOWCASE_ITEM_UI.catalogImageSize,
   minWidth: APK_SHOWCASE_ITEM_UI.catalogImageSize,
   minHeight: APK_SHOWCASE_ITEM_UI.catalogImageSize,
+  maxWidth: APK_SHOWCASE_ITEM_UI.catalogImageSize,
+  maxHeight: APK_SHOWCASE_ITEM_UI.catalogImageSize,
   borderRadius: APK_SHOWCASE_ITEM_UI.catalogImageRadius,
   display: 'block',
   overflow: 'hidden',
   background: APK_MEDIA_UI.imagePlaceholderBg,
-  flex: '0 0 auto'
+  flex: '0 0 auto',
+  flexShrink: 0,
+  boxSizing: 'border-box'
 }
 
 export const apkCatalogBodyStyle: React.CSSProperties = {
   minWidth: 0,
+  maxWidth: '100%',
   minHeight: APK_SHOWCASE_ITEM_UI.catalogImageSize,
   display: 'flex',
   flexDirection: 'column',
   alignItems: 'stretch',
   justifyContent: 'flex-start',
   gap: 0,
-  overflow: 'visible'
+  overflow: 'hidden',
+  boxSizing: 'border-box'
 }
 
 export const apkCatalogTitleStyle: React.CSSProperties = {
+  minWidth: 0,
+  maxWidth: '100%',
   margin: 0,
   color: NDJC_GLOBAL_UI_TOKENS.colors.controlEmphasis,
   fontSize: APK_SHOWCASE_ITEM_UI.catalogTitleSize,
@@ -481,29 +520,42 @@ export const apkCatalogSpacerStyle: React.CSSProperties = {
 }
 
 export const apkCatalogPriceStackStyle: React.CSSProperties = {
+  width: '100%',
+  maxWidth: '100%',
   minWidth: 0,
   display: 'grid',
+  gridTemplateColumns: 'minmax(0, 1fr)',
   gap: 6,
   alignItems: 'end',
-  overflow: 'visible'
+  overflow: 'hidden'
 }
 
 export const apkCatalogPriceRowStyle: React.CSSProperties = {
+  width: '100%',
+  maxWidth: '100%',
   minWidth: 0,
   display: 'flex',
   alignItems: 'baseline',
-  gap: APK_SHOWCASE_ITEM_UI.catalogPriceGap
+  gap: APK_SHOWCASE_ITEM_UI.catalogPriceGap,
+  overflow: 'hidden'
 }
 
 export const apkCatalogPriceStyle: React.CSSProperties = {
+  minWidth: 0,
+  maxWidth: '100%',
   color: NDJC_GLOBAL_UI_TOKENS.colors.controlEmphasis,
   fontSize: APK_SHOWCASE_ITEM_UI.catalogPriceSize,
   lineHeight: APK_SHOWCASE_ITEM_UI.catalogPriceLineHeight,
   fontWeight: APK_SHOWCASE_ITEM_UI.catalogPriceWeight,
-  whiteSpace: 'nowrap'
+  whiteSpace: 'nowrap',
+  overflow: 'hidden',
+  textOverflow: 'ellipsis',
+  display: 'block'
 }
 
 export const apkCatalogOriginalPriceStyle: React.CSSProperties = {
+  minWidth: 0,
+  maxWidth: '100%',
   color: NDJC_GLOBAL_UI_TOKENS.colors.controlWeakText,
   fontSize: APK_SHOWCASE_ITEM_UI.catalogOriginalSize,
   lineHeight: APK_SHOWCASE_ITEM_UI.catalogOriginalLineHeight,
@@ -512,7 +564,10 @@ export const apkCatalogOriginalPriceStyle: React.CSSProperties = {
   textDecoration: 'line-through',
   textDecorationThickness: 1.5,
   textDecorationColor: NDJC_GLOBAL_UI_TOKENS.colors.controlWeakText,
-  whiteSpace: 'nowrap'
+  whiteSpace: 'nowrap',
+  overflow: 'hidden',
+  textOverflow: 'ellipsis',
+  display: 'block'
 }
 
 export const apkCatalogMetaTextStyle: React.CSSProperties = {
@@ -521,13 +576,13 @@ export const apkCatalogMetaTextStyle: React.CSSProperties = {
   fontSize: 13,
   lineHeight: 1.2,
   fontWeight: 600,
-  minWidth: 64,
+  minWidth: 48,
   maxWidth: 84,
-  overflow: 'visible',
-  textOverflow: 'clip',
+  overflow: 'hidden',
+  textOverflow: 'ellipsis',
   whiteSpace: 'nowrap',
   textAlign: 'right',
-  flex: '0 0 auto'
+  flex: '0 1 auto'
 }
 
 export const apkCatalogCategoryChipStyle: React.CSSProperties = {
@@ -547,19 +602,22 @@ export const apkCatalogCategoryChipStyle: React.CSSProperties = {
 }
 export const apkAdminCatalogBottomStackStyle: React.CSSProperties = {
   minWidth: 0,
+  maxWidth: '100%',
   width: '100%',
   display: 'grid',
+  gridTemplateColumns: 'minmax(0, 1fr)',
   gap: 6,
-  overflow: 'visible'
+  overflow: 'hidden'
 }
 
 export const apkAdminCatalogPriceMetaRowStyle: React.CSSProperties = {
   minWidth: 0,
+  maxWidth: '100%',
   width: '100%',
   display: 'flex',
   alignItems: 'baseline',
   gap: APK_SHOWCASE_ITEM_UI.catalogPriceGap,
-  overflow: 'visible'
+  overflow: 'hidden'
 }
 
 export const apkAdminCatalogViewsStyle: React.CSSProperties = {

@@ -99,15 +99,18 @@ export const APK_SHELL_UI = {
 export const apkShellScreenStyle: React.CSSProperties = {
   width: '100%',
   minWidth: 0,
+  maxWidth: '100%',
   height: '100dvh',
   minHeight: APK_SHELL_UI.screenMinHeight,
   display: 'grid',
   placeItems: 'center',
   background: APK_SHELL_UI.systemBarFallbackBg,
   overflow: 'hidden',
+  overflowX: 'hidden',
   overscrollBehavior: 'none',
   overscrollBehaviorY: 'none',
-  boxSizing: 'border-box'
+  boxSizing: 'border-box',
+  touchAction: 'manipulation'
 }
 
 export const apkPhoneSurfaceStyle: React.CSSProperties = {
@@ -121,9 +124,11 @@ export const apkPhoneSurfaceStyle: React.CSSProperties = {
   margin: '0 auto',
   background: APK_SHELL_UI.pageBg,
   overflow: 'hidden',
+  overflowX: 'hidden',
   overscrollBehavior: 'contain',
   overscrollBehaviorY: 'contain',
-  boxSizing: 'border-box'
+  boxSizing: 'border-box',
+  touchAction: 'manipulation'
 }
 
 export const apkUnifiedBackgroundSurfaceStyle: React.CSSProperties = {
@@ -134,7 +139,9 @@ export const apkUnifiedBackgroundSurfaceStyle: React.CSSProperties = {
   height: '100dvh',
   minHeight: '100dvh',
   maxHeight: '100dvh',
-  background: APK_SHELL_UI.pageBg
+  background: APK_SHELL_UI.pageBg,
+  overflowX: 'hidden',
+  boxSizing: 'border-box'
 }
 export const apkWhiteCardStyle: React.CSSProperties = {
   border: 0,
@@ -335,10 +342,14 @@ export const apkHomeEntryOverlayStyle: React.CSSProperties = {
 
 export const apkScreenHeaderStyle: React.CSSProperties = {
   width: '100%',
+  minWidth: 0,
+  maxWidth: '100%',
   padding: `calc(${APK_SHELL_UI.topNavTopPadding}px + env(safe-area-inset-top)) ${APK_SHELL_UI.topNavHorizontalPadding}px ${APK_SHELL_UI.topNavToCardSpacing}px`,
   display: 'flex',
   justifyContent: 'space-between',
-  alignItems: 'center'
+  alignItems: 'center',
+  overflowX: 'hidden',
+  boxSizing: 'border-box'
 }
 
 export const apkTitleBlockStyle: React.CSSProperties = {
@@ -350,9 +361,15 @@ export const apkTitleBlockStyle: React.CSSProperties = {
 }
 
 export const apkScreenContentStyle: React.CSSProperties = {
+  width: '100%',
+  minWidth: 0,
+  maxWidth: '100%',
   padding: `${APK_SHELL_UI.contentPaddingTop}px ${APK_SHELL_UI.contentPaddingX}px ${APK_SHELL_UI.contentPaddingBottom}px`,
   display: 'grid',
-  gap: 14
+  gridTemplateColumns: 'minmax(0, 1fr)',
+  gap: 14,
+  overflowX: 'hidden',
+  boxSizing: 'border-box'
 }
 
 export const APK_HOME_PAGE_UI = {
@@ -449,10 +466,14 @@ export const apkHomeCategoryWrapStyle: React.CSSProperties = {
 }
 
 export const apkHomeListStyle: React.CSSProperties = {
+  width: '100%',
+  minWidth: 0,
+  maxWidth: '100%',
   minHeight: 0,
   height: '100%',
   padding: `0 ${APK_PAGE_SHELL_UI.screenPadding}px calc(${APK_HOME_PAGE_UI.screenVerticalPadding}px + var(${NDJC_BOTTOM_BAR_RESERVE_CSS_VAR}, ${APK_PAGE_SHELL_UI.tabBottomReserve}px))`,
   display: 'grid',
+  gridTemplateColumns: 'minmax(0, 1fr)',
   alignContent: 'start',
   gap: APK_HOME_PAGE_UI.listItemSpacing,
   overflowY: 'auto',
@@ -464,15 +485,22 @@ export const apkHomeListStyle: React.CSSProperties = {
 
 export const apkHomeGridRowStyle: React.CSSProperties = {
   width: '100%',
+  minWidth: 0,
+  maxWidth: '100%',
   display: 'grid',
   gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
   gap: APK_HOME_PAGE_UI.listItemSpacing,
   alignItems: 'stretch',
+  overflow: 'hidden',
   boxSizing: 'border-box'
 }
 
 export const apkHomeGridPlaceholderStyle: React.CSSProperties = {
-  minWidth: 0
+  width: '100%',
+  minWidth: 0,
+  maxWidth: '100%',
+  overflow: 'hidden',
+  boxSizing: 'border-box'
 }
 
 export const apkHomeBottomBarHostStyle: React.CSSProperties = {

@@ -420,7 +420,6 @@ import {
   NdjcCollapsibleAdminHeaderState,
   useNdjcCollapsibleAdminHeader,
   ndjcHandleLoadOlderScroll,
-  NdjcSnackbarHost,
   NdjcSyncErrorBanner,
   normalizeStoreUnavailableLinkHref,
   renderStoreUnavailableMessageLine,
@@ -4641,6 +4640,28 @@ export function ShowcaseChatThread({
                 />
               ) : null}
 
+              {state.statusMessage?.trim() ? (
+                <p
+                  className="ndjc-chat-composer-status-message"
+                  style={{
+                    width: '100%',
+                    maxWidth: '100%',
+                    minWidth: 0,
+                    margin: 0,
+                    color: APK_CHAT_UI.danger,
+                    fontSize: 12,
+                    lineHeight: 1.35,
+                    fontWeight: 500,
+                    whiteSpace: 'nowrap',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    boxSizing: 'border-box'
+                  }}
+                >
+                  {state.statusMessage}
+                </p>
+              ) : null}
+
               <section
                 className="ndjc-chat-composer-row"
                 style={{
@@ -4933,8 +4954,6 @@ export function ShowcaseChatThread({
           onLoadMore={actions.onLoadNewerMessages}
         />
       ) : null}
-
-      <NdjcSnackbarHost message={state.statusMessage?.trim() ? state.statusMessage : null} />
 
       {chatImagePreview ? (
         <NdjcFullscreenImageViewerScreen

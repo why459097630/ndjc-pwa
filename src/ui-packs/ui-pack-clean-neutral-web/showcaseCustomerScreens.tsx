@@ -1234,7 +1234,7 @@ export function DetailScreen({
 
               {state.canBookAppointment ? (
                 <NdjcDetailHeroActionButton
-                  label="Book appointment"
+                  label="Book"
                   ariaLabel="Book appointment"
                   icon={<NdjcAdminEntryIcon name="appointments" />}
                   onClick={actions.onBookAppointment}

@@ -10,7 +10,7 @@ import { APK_PAGE_SHELL_UI } from './showcaseLayout'
 import { APK_EDIT_ITEM_UI } from './showcaseControls'
 
 export const APK_DETAIL_PAGE_UI = {
-  heroSize: 'min(100vw, 480px)',
+  heroSize: 480,
   heroGradientTop: '#fff9ecf',
   heroGradientBottom: '#ffc1d9',
   heroCounterRadius: 10,
@@ -108,13 +108,18 @@ export const apkDetailScrollStyle: React.CSSProperties = {
 export const apkDetailHeroStyle: React.CSSProperties = {
   position: 'relative',
   width: '100%',
-  height: APK_DETAIL_PAGE_UI.heroSize,
+  maxWidth: '100%',
+  minWidth: 0,
+  height: 'auto',
+  maxHeight: APK_DETAIL_PAGE_UI.heroSize,
+  aspectRatio: '1 / 1',
   display: 'grid',
   placeItems: 'center',
   background: `linear-gradient(180deg, ${APK_DETAIL_PAGE_UI.heroGradientTop}, ${APK_DETAIL_PAGE_UI.heroGradientBottom})`,
   overflow: 'hidden',
   contain: 'layout paint',
-  isolation: 'isolate'
+  isolation: 'isolate',
+  boxSizing: 'border-box'
 }
 
 export const apkDetailHeroImageButtonStyle: React.CSSProperties = {

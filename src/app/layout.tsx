@@ -8,6 +8,81 @@ const inter = Inter({
   variable: '--font-inter'
 })
 
+const NDJC_GLOBAL_BROWSER_COMPAT_STYLE = `
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  height: 100%;
+  min-height: 100%;
+  margin: 0;
+  padding: 0;
+  overflow-x: hidden;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+  background: #ffffff;
+}
+
+body {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  height: 100%;
+  min-height: 100%;
+  margin: 0;
+  padding: 0;
+  overflow-x: hidden;
+  background: #ffffff;
+}
+
+#__next {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  height: 100%;
+  min-height: 100%;
+}
+
+img,
+svg,
+video,
+canvas {
+  display: block;
+  max-width: 100%;
+}
+
+button,
+input,
+textarea,
+select {
+  font: inherit;
+}
+
+input,
+textarea,
+select {
+  font-size: 16px;
+}
+
+button {
+  -webkit-tap-highlight-color: transparent;
+}
+
+a {
+  color: inherit;
+}
+
+[hidden] {
+  display: none !important;
+}
+`
+
 export const metadata: Metadata = {
   title: 'Customer Hub',
   description: 'A branded customer hub for services, appointments, messages, and updates.',
@@ -50,12 +125,14 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       className={inter.variable}
       style={{
         width: '100%',
+        maxWidth: '100%',
         minWidth: 0,
         height: '100%',
         minHeight: '100%',
         margin: 0,
         padding: 0,
         overflow: 'hidden',
+        overflowX: 'hidden',
         overscrollBehavior: 'none',
         overscrollBehaviorY: 'none',
         background: '#ffffff',
@@ -65,12 +142,14 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body
         style={{
           width: '100%',
+          maxWidth: '100%',
           minWidth: 0,
           height: '100%',
           minHeight: '100%',
           margin: 0,
           padding: 0,
           overflow: 'hidden',
+          overflowX: 'hidden',
           overscrollBehavior: 'none',
           overscrollBehaviorY: 'none',
           background: '#ffffff',
@@ -78,6 +157,12 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           fontFamily: 'inherit'
         }}
       >
+        <style
+          id="ndjc-global-browser-compat"
+          dangerouslySetInnerHTML={{
+            __html: NDJC_GLOBAL_BROWSER_COMPAT_STYLE
+          }}
+        />
         {children}
       </body>
     </html>

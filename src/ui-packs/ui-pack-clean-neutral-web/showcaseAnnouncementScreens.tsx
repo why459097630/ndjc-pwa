@@ -1127,6 +1127,7 @@ export function ShowcaseAdminAnnouncementEdit({
   const [showDeleteDraftConfirm, setShowDeleteDraftConfirm] = React.useState(false)
   const [showPublishConfirm, setShowPublishConfirm] = React.useState(false)
   const [announcementComposerCollapsedByUser, setAnnouncementComposerCollapsedByUser] = React.useState(false)
+  const [isAnnouncementEditorCompact, setIsAnnouncementEditorCompact] = React.useState(false)
   const announcementCoverInputRef = React.useRef<HTMLInputElement | null>(null)
   const headerRef = React.useRef<HTMLElement | null>(null)
   const [headerHeight, setHeaderHeight] = React.useState(0)
@@ -1136,7 +1137,33 @@ export function ShowcaseAdminAnnouncementEdit({
       setAnnouncementComposerCollapsedByUser(false)
     }
   }, [state.composerExpanded])
+  React.useEffect(() => {
+    if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') {
+      return
+    }
 
+    const mediaQuery = window.matchMedia('(max-width: 480px)')
+
+    const updateCompactState = () => {
+      setIsAnnouncementEditorCompact(mediaQuery.matches)
+    }
+
+    updateCompactState()
+
+    if (typeof mediaQuery.addEventListener === 'function') {
+      mediaQuery.addEventListener('change', updateCompactState)
+
+      return () => {
+        mediaQuery.removeEventListener('change', updateCompactState)
+      }
+    }
+
+    mediaQuery.addListener(updateCompactState)
+
+    return () => {
+      mediaQuery.removeListener(updateCompactState)
+    }
+  }, [])
   React.useEffect(() => {
     const target = headerRef.current
     if (!target) return
@@ -1184,7 +1211,7 @@ export function ShowcaseAdminAnnouncementEdit({
     actions.onPickCover(file)
   }
 
-  const maxChars = 200
+  const maxChars = 100
   const body = state.bodyDraft
   const cover = state.coverDraftUrl
   const selectedDraftCount = state.selectedIds.length
@@ -1197,6 +1224,7 @@ export function ShowcaseAdminAnnouncementEdit({
   const publishText = canPublishSelectedDraft ? 'Publish 1' : 'Publish'
   const announcementEditHeaderBottomPadding = APK_EDIT_ITEM_UI.sectionCardGap
   const announcementEditListPaddingX = '25px'
+  const announcementContentFieldHeight = isAnnouncementEditorCompact ? 100 : 120
   const listTopPadding = headerHeight + APK_SHOWCASE_ITEM_UI.adminItemsListGap
   const deleteText = `Delete ${state.selectedIds.length}`
 
@@ -1492,6 +1520,21 @@ export function ShowcaseAdminAnnouncementEdit({
                         })
                       } : undefined}
                     />
+
+                    {state.coverUploadErrorMessage ? (
+                      <p
+                        style={{
+                          margin: 0,
+                          color: APK_EDIT_ITEM_UI.error80,
+                          fontSize: APK_EDIT_ITEM_UI.bodySmallFontSize,
+                          lineHeight: APK_EDIT_ITEM_UI.bodySmallLineHeight,
+                          fontWeight: APK_EDIT_ITEM_UI.bodySmallFontWeight,
+                          whiteSpace: 'nowrap'
+                        }}
+                      >
+                        {state.coverUploadErrorMessage}
+                      </p>
+                    ) : null}
                   </section>
 
                   <section
@@ -1506,10 +1549,11 @@ export function ShowcaseAdminAnnouncementEdit({
                       value={body}
                       onChange={value => actions.onBodyChange(value.slice(0, maxChars))}
                       label="Content"
-                      placeholder="Write the announcement…"
+                      placeholder="Write details"
                       singleLine={false}
                       minLines={3}
-                      fieldMinHeightOverride={120}
+                      fieldMinHeightOverride={announcementContentFieldHeight}
+                      fieldHeightOverride={announcementContentFieldHeight}
                     />
 
                     <section

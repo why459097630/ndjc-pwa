@@ -1587,6 +1587,7 @@ export function NdjcTextField({
   minLines = 1,
   fillContentWidth = true,
   fieldMinHeightOverride,
+  fieldHeightOverride,
   inputMode,
   autoComplete
 }: {
@@ -1605,6 +1606,7 @@ export function NdjcTextField({
   minLines?: number
   fillContentWidth?: boolean
   fieldMinHeightOverride?: number
+  fieldHeightOverride?: number
   inputMode?: React.HTMLAttributes<HTMLInputElement>['inputMode']
   autoComplete?: string
 }) {
@@ -1618,6 +1620,9 @@ export function NdjcTextField({
     : APK_EDIT_ITEM_UI.fieldMinHeight
 
   const fieldMinHeight = fieldMinHeightOverride ?? calculatedFieldMinHeight
+  const fieldFixedHeight = typeof fieldHeightOverride === 'number' && Number.isFinite(fieldHeightOverride)
+    ? Math.max(APK_EDIT_ITEM_UI.fieldMinHeight, fieldHeightOverride)
+    : null
 
   const borderColor = isError
     ? APK_EDIT_ITEM_UI.fieldErrorBorderColor
@@ -1649,7 +1654,9 @@ export function NdjcTextField({
     width: fillContentWidth ? '100%' : 'auto',
     maxWidth: '100%',
     minWidth: 0,
-    minHeight: fieldMinHeight,
+    minHeight: fieldFixedHeight ?? fieldMinHeight,
+    height: fieldFixedHeight ?? undefined,
+    maxHeight: fieldFixedHeight ?? undefined,
     boxSizing: 'border-box',
     borderRadius: APK_EDIT_ITEM_UI.fieldRadius,
     border: `${APK_EDIT_ITEM_UI.fieldBorderWidth}px solid ${borderColor}`,
@@ -1670,12 +1677,17 @@ export function NdjcTextField({
     overflow: 'hidden'
   }
 
+  const nativeFieldFixedHeight = fieldFixedHeight && isMultiline
+    ? Math.max(24, fieldFixedHeight - APK_EDIT_ITEM_UI.fieldPaddingY * 2)
+    : null
+
   const nativeFieldStyle: React.CSSProperties = {
     width: '100%',
     maxWidth: '100%',
     minWidth: 0,
     minHeight: isMultiline ? Math.max(72, fieldMinHeight - APK_EDIT_ITEM_UI.fieldPaddingY * 2) : 24,
-    height: isMultiline ? 'auto' : 24,
+    height: nativeFieldFixedHeight ?? (isMultiline ? 'auto' : 24),
+    maxHeight: nativeFieldFixedHeight ?? undefined,
     boxSizing: 'border-box',
     border: 0,
     outline: 0,
@@ -1690,6 +1702,8 @@ export function NdjcTextField({
     fontWeight: 500,
     letterSpacing: 0,
     resize: 'none',
+    overflowY: isMultiline ? 'auto' : undefined,
+    WebkitOverflowScrolling: isMultiline ? 'touch' : undefined,
     appearance: 'none',
     WebkitAppearance: 'none'
   }
@@ -3163,7 +3177,9 @@ export function NdjcStoreUnavailableOverlay({
       >
         <section
           style={{
-            width: 'min(360px, calc(100vw - 48px))',
+            width: '100%',
+            maxWidth: 360,
+            minWidth: 0,
             borderRadius: 28,
             padding: '24px 22px 22px',
             background: 'rgba(255, 255, 255, 0.96)',
@@ -3233,16 +3249,19 @@ export function NdjcOfflineStatusBanner({
       aria-live="polite"
       style={{
         position: 'fixed',
-        left: 'calc(50vw - min(50vw, 240px) + 12px)',
+        left: '50%',
         top: 'calc(2px + env(safe-area-inset-top))',
         zIndex: 1000001,
-        width: 'calc(min(100vw, 480px) - 24px)',
+        width: 'calc(100% - 24px)',
+        maxWidth: 456,
+        minWidth: 0,
         height: 50,
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
         pointerEvents: 'none',
-        boxSizing: 'border-box'
+        boxSizing: 'border-box',
+        transform: 'translateX(-50%)'
       }}
     >
       <div
@@ -3416,9 +3435,12 @@ export function NdjcPwaUpdateBanner({
         right: 14,
         top: 'calc(8px + env(safe-area-inset-top))',
         zIndex: 1000002,
+        minWidth: 0,
+        maxWidth: 'calc(100% - 28px)',
         display: 'flex',
         justifyContent: 'center',
         pointerEvents: 'none',
+        overflow: 'hidden',
         boxSizing: 'border-box'
       }}
     >
@@ -3483,20 +3505,27 @@ export function NdjcPwaUpdateBanner({
         style={{
           width: '100%',
           maxWidth: 425,
+          minWidth: 0,
           borderRadius: 18,
           padding: '9px 10px',
           pointerEvents: 'auto',
           boxShadow: '0 8px 24px rgba(15, 23, 42, 0.10)',
           backdropFilter: 'blur(14px)',
-          WebkitBackdropFilter: 'blur(14px)'
+          WebkitBackdropFilter: 'blur(14px)',
+          boxSizing: 'border-box'
         }}
       >
         <div
           style={{
+            width: '100%',
+            minWidth: 0,
+            maxWidth: '100%',
             display: 'grid',
             gridTemplateColumns: '28px minmax(0, 1fr) auto',
             gap: 9,
-            alignItems: 'center'
+            alignItems: 'center',
+            overflow: 'hidden',
+            boxSizing: 'border-box'
           }}
         >
           <div
@@ -3558,7 +3587,7 @@ export function NdjcPwaUpdateBanner({
             </svg>
           </div>
 
-          <div style={{ minWidth: 0 }}>
+          <div style={{ minWidth: 0, maxWidth: '100%', overflow: 'hidden' }}>
             <h2
               style={{
                 margin: 0,
@@ -3594,12 +3623,15 @@ export function NdjcPwaUpdateBanner({
           <div
             style={{
               width: 151,
-              minWidth: 151,
+              minWidth: 0,
+              maxWidth: 151,
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'flex-end',
               gap: 7,
-              flexShrink: 0
+              flexShrink: 0,
+              overflow: 'hidden',
+              boxSizing: 'border-box'
             }}
           >
             <NdjcControlPillButton
@@ -3714,14 +3746,17 @@ export function NdjcNotificationOptInPanel({
         }}
         style={{
           position: 'absolute',
-          left: 'calc(50vw + min(50vw, 240px) - min(280px, calc(100vw - 32px)) - 16px)',
+          right: 'max(16px, calc((100% - 480px) / 2 + 16px))',
           bottom: open ? 'calc(121px + env(safe-area-inset-bottom))' : -1000,
           zIndex: 999999,
-          width: 'min(280px, calc(100vw - 32px))',
+          width: 'calc(100% - 32px)',
+          maxWidth: 280,
+          minWidth: 0,
           pointerEvents: open ? 'auto' : 'none',
           transition: 'bottom 180ms ease, opacity 160ms ease, transform 160ms ease',
           opacity: open ? 1 : 0,
-          transform: open ? 'translateY(0)' : 'translateY(8px)'
+          transform: open ? 'translateY(0)' : 'translateY(8px)',
+          boxSizing: 'border-box'
         }}
       >
         <NdjcWhiteCard
@@ -6972,12 +7007,14 @@ export function StoreServicesEditor({
 export function StoreProfileLogoPicker({
   src,
   enabled = true,
+  errorMessage,
   onPick,
   onRemove,
   onPreview
 }: {
   src?: string | null
   enabled?: boolean
+  errorMessage?: string | null
   onPick?: () => void
   onRemove?: () => void
   onPreview?: (images: string[], startIndex: number) => void
@@ -6994,6 +7031,18 @@ export function StoreProfileLogoPicker({
       }}
     >
       <h3 style={apkStoreEditPickerTitleStyle}>Logo</h3>
+
+      <p
+        style={{
+          margin: 0,
+          color: NDJC_GLOBAL_UI_TOKENS.colors.textSecondary,
+          fontSize: APK_EDIT_ITEM_UI.bodySmallFontSize,
+          lineHeight: APK_EDIT_ITEM_UI.bodySmallLineHeight,
+          fontWeight: APK_EDIT_ITEM_UI.bodySmallFontWeight
+        }}
+      >
+        JPG, PNG, or WebP. Up to 8MB.
+      </p>
 
       <section
         style={{
@@ -7017,12 +7066,28 @@ export function StoreProfileLogoPicker({
           />
         </div>
       </section>
+
+      {errorMessage ? (
+        <p
+          className="ndjc-error-text"
+          style={{
+            margin: 0,
+            color: APK_EDIT_ITEM_UI.error80,
+            fontSize: APK_EDIT_ITEM_UI.bodySmallFontSize,
+            lineHeight: APK_EDIT_ITEM_UI.bodySmallLineHeight,
+            fontWeight: APK_EDIT_ITEM_UI.bodySmallFontWeight
+          }}
+        >
+          {errorMessage}
+        </p>
+      ) : null}
     </section>
   )
 }
 export function StoreProfileCoverPicker({
   src,
   enabled = true,
+  errorMessage,
   onPick,
   onRemove,
   onMove,
@@ -7031,6 +7096,7 @@ export function StoreProfileCoverPicker({
 }: {
   src?: string | null
   enabled?: boolean
+  errorMessage?: string | null
   onPick?: () => void
   onRemove?: (url: string) => void
   onMove?: (fromIndex: number, toIndex: number) => void
@@ -7058,6 +7124,18 @@ export function StoreProfileCoverPicker({
     >
       <h3 style={apkStoreEditPickerTitleStyle}>Cover (up to 9 images)</h3>
 
+      <p
+        style={{
+          margin: 0,
+          color: NDJC_GLOBAL_UI_TOKENS.colors.textSecondary,
+          fontSize: APK_EDIT_ITEM_UI.bodySmallFontSize,
+          lineHeight: APK_EDIT_ITEM_UI.bodySmallLineHeight,
+          fontWeight: APK_EDIT_ITEM_UI.bodySmallFontWeight
+        }}
+      >
+        JPG, PNG, or WebP. Up to 12MB per image.
+      </p>
+
       <section
         style={{
           width: '100%',
@@ -7075,6 +7153,21 @@ export function StoreProfileCoverPicker({
           onPreviewImages={onPreview}
         />
       </section>
+
+      {errorMessage ? (
+        <p
+          className="ndjc-error-text"
+          style={{
+            margin: 0,
+            color: APK_EDIT_ITEM_UI.error80,
+            fontSize: APK_EDIT_ITEM_UI.bodySmallFontSize,
+            lineHeight: APK_EDIT_ITEM_UI.bodySmallLineHeight,
+            fontWeight: APK_EDIT_ITEM_UI.bodySmallFontWeight
+          }}
+        >
+          {errorMessage}
+        </p>
+      ) : null}
     </section>
   )
 }

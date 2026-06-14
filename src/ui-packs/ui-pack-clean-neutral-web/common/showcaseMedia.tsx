@@ -30,6 +30,7 @@ export const APK_MEDIA_UI = {
   imageShimmerStart: -300,
   imageShimmerEnd: 900,
   imageShimmerBrushSize: 300,
+  imageShimmerBackgroundSize: '220% 220%',
   removeBg: '#e53935',
   dangerBg: '#e53935',
   white: '#ffffff',
@@ -90,21 +91,30 @@ export const APK_MEDIA_UI = {
 export const apkImageRootStyle: React.CSSProperties = {
   position: 'relative',
   width: '100%',
+  maxWidth: '100%',
+  minWidth: 0,
   height: '100%',
+  minHeight: 0,
   display: 'block',
   overflow: 'hidden',
-  background: APK_MEDIA_UI.imagePlaceholderBg
+  background: APK_MEDIA_UI.imagePlaceholderBg,
+  boxSizing: 'border-box',
+  flexShrink: 0
 }
 
 export const apkImageFillStyle: React.CSSProperties = {
   position: 'absolute',
   inset: 0,
   width: '100%',
+  maxWidth: '100%',
+  minWidth: 0,
   height: '100%',
+  minHeight: 0,
   display: 'block',
   objectFit: 'cover',
   background: APK_MEDIA_UI.imagePlaceholderBg,
-  transition: `opacity ${APK_MEDIA_UI.imageFadeMs}ms ease`
+  transition: `opacity ${APK_MEDIA_UI.imageFadeMs}ms ease`,
+  boxSizing: 'border-box'
 }
 
 export const apkImagePlaceholderStyle: React.CSSProperties = {
@@ -158,22 +168,26 @@ export const apkImageShimmerLayerStyle: React.CSSProperties = {
   position: 'absolute',
   inset: 0,
   width: '100%',
+  maxWidth: '100%',
+  minWidth: 0,
   height: '100%',
+  minHeight: 0,
   display: 'block',
-  backgroundImage: `linear-gradient(135deg, ${APK_MEDIA_UI.imageShimmerDark}, ${APK_MEDIA_UI.imageShimmerLight}, ${APK_MEDIA_UI.imageShimmerDark})`,
-  backgroundSize: `${APK_MEDIA_UI.imageShimmerBrushSize}px ${APK_MEDIA_UI.imageShimmerBrushSize}px`,
+  backgroundImage: `linear-gradient(135deg, ${APK_MEDIA_UI.imageShimmerDark} 0%, ${APK_MEDIA_UI.imageShimmerLight} 50%, ${APK_MEDIA_UI.imageShimmerDark} 100%)`,
+  backgroundSize: APK_MEDIA_UI.imageShimmerBackgroundSize,
   backgroundRepeat: 'no-repeat',
-  animation: `ndjc-image-shimmer-translate ${APK_MEDIA_UI.shimmerDurationMs}ms cubic-bezier(0, 0, 0.2, 1) infinite`
+  animation: `ndjc-image-shimmer-translate ${APK_MEDIA_UI.shimmerDurationMs}ms cubic-bezier(0, 0, 0.2, 1) infinite`,
+  boxSizing: 'border-box'
 }
 
 export const apkImageShimmerKeyframes = `
 @keyframes ndjc-image-shimmer-translate {
   0% {
-    background-position: ${APK_MEDIA_UI.imageShimmerStart}px 0px;
+    background-position: 120% 120%;
   }
 
   100% {
-    background-position: ${APK_MEDIA_UI.imageShimmerEnd}px 0px;
+    background-position: -120% -120%;
   }
 }
 `

@@ -2279,7 +2279,7 @@ export function ShowcaseEditDish({
                 </h2>
 
                 <EditItemBodySmallText>
-                  Add images displayed on the item detail page. At least 1 image is required. The first image is used as the cover. Up to 9 images.
+                  Add images displayed on the item detail page. At least 1 image is required. The first image is used as the cover. Up to 9 images. JPG, PNG, or WebP. Up to 12MB per image.
                 </EditItemBodySmallText>
 
                 <EditItemSpacer height={APK_EDIT_ITEM_UI.mediaGridTop} />
@@ -2292,6 +2292,12 @@ export function ShowcaseEditDish({
                   onMoveImage={actions.onMoveImage}
                   onDraggingChange={setIsDraggingImages}
                 />
+
+                {state.imageUploadErrorMessage ? (
+                  <EditItemErrorText>
+                    {state.imageUploadErrorMessage}
+                  </EditItemErrorText>
+                ) : null}
 
                 {state.imagesRequiredError ? (
                   <EditItemErrorText>
@@ -2972,6 +2978,7 @@ export function ShowcaseStoreProfileEdit({
             <StoreProfileCoverPicker
               src={state.draftCoverUrl}
               enabled={!state.isSaving}
+              errorMessage={state.coverUploadErrorMessage}
               onPick={openCoverPicker}
               onRemove={actions.onRemoveCover}
               onMove={actions.onMoveCover}
@@ -2992,6 +2999,7 @@ export function ShowcaseStoreProfileEdit({
             <StoreProfileLogoPicker
               src={state.draftLogoUrl}
               enabled={!state.isSaving}
+              errorMessage={state.logoUploadErrorMessage}
               onPick={openLogoPicker}
               onRemove={actions.onRemoveLogo}
               onPreview={(images, startIndex) => {
