@@ -3601,7 +3601,7 @@ export function NdjcPwaUpdateBanner({
                 textOverflow: 'ellipsis'
               }}
             >
-              Update available
+              Update ready
             </h2>
 
             <p
@@ -3616,7 +3616,7 @@ export function NdjcPwaUpdateBanner({
                 textOverflow: 'ellipsis'
               }}
             >
-              Refresh to use the latest version.
+              Refresh to complete the update.
             </p>
           </div>
 
