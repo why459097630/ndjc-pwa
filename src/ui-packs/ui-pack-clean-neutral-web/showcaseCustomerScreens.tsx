@@ -952,13 +952,6 @@ export function DetailScreen({
     ? Math.min(Math.max(state.safeImageIndex, 0), cleanImages.length - 1)
     : 0
   const imageStripRef = React.useRef<HTMLDivElement | null>(null)
-  const detailImageDragRef = React.useRef({
-    active: false,
-    startX: 0,
-    startScrollLeft: 0,
-    moved: false,
-    suppressClick: false
-  })
   const [currentIndex, setCurrentIndex] = React.useState(safeStartIndex)
   const [descExpanded, setDescExpanded] = React.useState(false)
   const [imagePreview, setImagePreview] = React.useState<{
@@ -995,93 +988,6 @@ export function DetailScreen({
 
   const hasDiscount = Boolean(state.discountPrice?.trim())
   const cleanDescription = state.description.trim()
-
-  function snapDetailImageRowToNearestPage(node: HTMLDivElement): void {
-    if (!cleanImages.length) return
-
-    const pageWidth = Math.max(1, node.clientWidth)
-    const nextIndex = Math.min(
-      cleanImages.length - 1,
-      Math.max(0, Math.round(node.scrollLeft / pageWidth))
-    )
-
-    setCurrentIndex(nextIndex)
-    node.scrollTo({
-      left: pageWidth * nextIndex,
-      behavior: 'smooth'
-    })
-  }
-
-  function handleDetailImagePointerDown(event: React.PointerEvent<HTMLDivElement>): void {
-    if (event.pointerType === 'mouse' && event.button !== 0) return
-
-    const node = imageStripRef.current
-    if (!node) return
-
-    detailImageDragRef.current = {
-      active: true,
-      startX: event.clientX,
-      startScrollLeft: node.scrollLeft,
-      moved: false,
-      suppressClick: false
-    }
-  }
-
-  function handleDetailImagePointerMove(event: React.PointerEvent<HTMLDivElement>): void {
-    const node = imageStripRef.current
-    const dragState = detailImageDragRef.current
-
-    if (!node || !dragState.active) return
-
-    const deltaX = event.clientX - dragState.startX
-
-    if (Math.abs(deltaX) > 5) {
-      dragState.moved = true
-      dragState.suppressClick = true
-      node.scrollLeft = dragState.startScrollLeft - deltaX
-      event.preventDefault()
-    }
-  }
-
-  function handleDetailImagePointerUp(): void {
-    const node = imageStripRef.current
-    const dragState = detailImageDragRef.current
-
-    dragState.active = false
-
-    if (node) {
-      snapDetailImageRowToNearestPage(node)
-    }
-
-    if (dragState.moved) {
-      window.setTimeout(() => {
-        detailImageDragRef.current = {
-          active: false,
-          startX: 0,
-          startScrollLeft: 0,
-          moved: false,
-          suppressClick: false
-        }
-      }, 120)
-
-      return
-    }
-
-    detailImageDragRef.current = {
-      active: false,
-      startX: 0,
-      startScrollLeft: 0,
-      moved: false,
-      suppressClick: false
-    }
-  }
-
-  function handleDetailImageClickCapture(event: React.MouseEvent<HTMLDivElement>): void {
-    if (!detailImageDragRef.current.suppressClick) return
-
-    event.preventDefault()
-    event.stopPropagation()
-  }
 
   return (
 <NdjcUnifiedBackground
@@ -1132,16 +1038,9 @@ export function DetailScreen({
                   overscrollBehaviorX: 'contain',
                   touchAction: 'pan-x',
                   boxSizing: 'border-box',
-                  cursor: cleanImages.length > 1 ? 'grab' : 'default',
                   userSelect: 'none',
                   WebkitUserSelect: 'none'
                 }}
-                onPointerDown={handleDetailImagePointerDown}
-                onPointerMove={handleDetailImagePointerMove}
-                onPointerUp={handleDetailImagePointerUp}
-                onPointerCancel={handleDetailImagePointerUp}
-                onPointerLeave={handleDetailImagePointerUp}
-                onClickCapture={handleDetailImageClickCapture}
                 onScroll={event => {
                   const node = event.currentTarget
                   const width = Math.max(1, node.clientWidth)

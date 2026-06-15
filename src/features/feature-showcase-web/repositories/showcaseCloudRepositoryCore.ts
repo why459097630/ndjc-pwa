@@ -3209,14 +3209,25 @@ const legacyQuery = [
 
     const url = this.functionUrl(this.edgeFunctions.sendPush)
     const scopeClientId = clientId || null
+    const shouldUseMerchantAuth =
+      audience === 'chat_merchant' ||
+      audience === 'appointment_merchant'
 
-    const [code, body] = await this.httpPost(
-      url,
-      payload,
-      null,
-      storeId,
-      scopeClientId
-    )
+    const [code, body] = shouldUseMerchantAuth
+      ? await this.httpAuthPost(
+          url,
+          payload,
+          null,
+          storeId,
+          scopeClientId
+        )
+      : await this.httpPost(
+          url,
+          payload,
+          null,
+          storeId,
+          scopeClientId
+        )
 
     this.lastUpsertCode = code
     this.lastUpsertBody = body
