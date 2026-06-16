@@ -491,13 +491,14 @@ export function StoreProfileMapPreview({
 
         <span
           style={{
+            minWidth: 0,
             color: NDJC_GLOBAL_UI_TOKENS.colors.textBody,
             fontSize: NDJC_GLOBAL_UI_TOKENS.typography.bodyMedium.fontSize,
             lineHeight: NDJC_GLOBAL_UI_TOKENS.typography.bodyMedium.lineHeight,
             fontWeight: NDJC_GLOBAL_UI_TOKENS.typography.bodyMedium.fontWeight,
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
-            whiteSpace: 'nowrap'
+            overflowWrap: 'anywhere',
+            wordBreak: 'break-word',
+            whiteSpace: 'normal'
           }}
         >
           {displayValue}
@@ -1096,37 +1097,28 @@ export function UniversalStoreLocationSection({
 
           {cleanHours ? (
             <section
-              className="ndjc-store-profile-hours-row"
+              className="ndjc-store-profile-hours-text"
               style={{
                 width: '100%',
-                minHeight: 34,
-                padding: '0',
+                padding: '4px 2px 0',
                 display: 'grid',
-                gridTemplateColumns: 'minmax(0, 0.92fr) 14px minmax(0, 1.08fr)',
-                alignItems: 'center',
+                gap: 7,
                 color: NDJC_GLOBAL_UI_TOKENS.colors.textBody,
                 background: 'transparent',
-                borderBottom: 0,
                 boxSizing: 'border-box'
               }}
             >
               <span
                 style={{
-                  paddingLeft: 4,
-                  color: NDJC_GLOBAL_UI_TOKENS.colors.textMuted,
-                  fontSize: NDJC_GLOBAL_UI_TOKENS.typography.bodySmall.fontSize,
-                  lineHeight: NDJC_GLOBAL_UI_TOKENS.typography.bodySmall.lineHeight,
-                  fontWeight: 500,
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
-                  whiteSpace: 'nowrap',
-                  boxSizing: 'border-box'
+                  color: NDJC_GLOBAL_UI_TOKENS.colors.controlEmphasis,
+                  fontSize: NDJC_GLOBAL_UI_TOKENS.typography.bodyMedium.fontSize,
+                  lineHeight: NDJC_GLOBAL_UI_TOKENS.typography.bodyMedium.lineHeight,
+                  fontWeight: 700,
+                  letterSpacing: '-0.15px'
                 }}
               >
                 Hours
               </span>
-
-              <span aria-hidden="true" />
 
               <span
                 style={{
@@ -1134,10 +1126,9 @@ export function UniversalStoreLocationSection({
                   fontSize: NDJC_GLOBAL_UI_TOKENS.typography.bodySmall.fontSize,
                   lineHeight: NDJC_GLOBAL_UI_TOKENS.typography.bodySmall.lineHeight,
                   fontWeight: 500,
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
-                  whiteSpace: 'nowrap',
-                  textAlign: 'right'
+                  overflowWrap: 'anywhere',
+                  wordBreak: 'break-word',
+                  whiteSpace: 'pre-line'
                 }}
               >
                 {cleanHours}
@@ -1207,16 +1198,15 @@ export function UniversalContactRow({
       className="ndjc-universal-contact-row"
       style={{
         width: '100%',
-        minHeight: 40,
-        border: `1px solid ${NDJC_GLOBAL_UI_TOKENS.colors.divider}`,
-        borderRadius: 14,
-        padding: '8px 10px',
+        minHeight: 50,
+        border: 0,
+        borderRadius: 0,
+        padding: '2px 2px',
         display: 'grid',
-        gridTemplateColumns: 'minmax(0, 0.78fr) minmax(0, 1fr) auto',
-        gap: 10,
-        alignItems: 'center',
+        gap: 5,
+        alignItems: 'stretch',
         color: NDJC_GLOBAL_UI_TOKENS.colors.textBody,
-        background: NDJC_GLOBAL_UI_TOKENS.colors.surface,
+        background: 'transparent',
         boxShadow: 'none',
         textAlign: 'left',
         WebkitTapHighlightColor: 'transparent',
@@ -1244,41 +1234,50 @@ export function UniversalContactRow({
       <span
         style={{
           minWidth: 0,
-          color: onClick
-            ? NDJC_GLOBAL_UI_TOKENS.colors.controlEmphasis
-            : NDJC_GLOBAL_UI_TOKENS.colors.textBody,
-          fontSize: NDJC_GLOBAL_UI_TOKENS.typography.bodyMedium.fontSize,
-          lineHeight: NDJC_GLOBAL_UI_TOKENS.typography.bodyMedium.lineHeight,
-          fontWeight: 500,
-          overflow: 'hidden',
-          textOverflow: 'ellipsis',
-          whiteSpace: 'nowrap',
-          textAlign: 'right'
+          display: 'grid',
+          gridTemplateColumns: canCopy ? 'minmax(0, 1fr) auto' : 'minmax(0, 1fr)',
+          gap: 10,
+          alignItems: 'center'
         }}
       >
-        {cleanValue}
-      </span>
-
-      {canCopy ? (
         <span
           style={{
-            minWidth: 48,
-            borderRadius: 999,
-            padding: '5px 9px',
-            display: 'inline-flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            color: NDJC_GLOBAL_UI_TOKENS.colors.controlEmphasis,
-            background: NDJC_GLOBAL_UI_TOKENS.colors.surfaceSoft,
-            fontSize: NDJC_GLOBAL_UI_TOKENS.typography.bodySmall.fontSize,
-            lineHeight: 1,
-            fontWeight: 700,
-            whiteSpace: 'nowrap'
+            minWidth: 0,
+            color: onClick
+              ? NDJC_GLOBAL_UI_TOKENS.colors.controlEmphasis
+              : NDJC_GLOBAL_UI_TOKENS.colors.textBody,
+            fontSize: NDJC_GLOBAL_UI_TOKENS.typography.bodyMedium.fontSize,
+            lineHeight: NDJC_GLOBAL_UI_TOKENS.typography.bodyMedium.lineHeight,
+            fontWeight: 500,
+            overflowWrap: 'anywhere',
+            wordBreak: 'break-word',
+            whiteSpace: 'normal'
           }}
         >
-          {copied ? 'Copied' : 'Copy'}
+          {cleanValue}
         </span>
-      ) : null}
+
+        {canCopy ? (
+          <span
+            style={{
+              minWidth: 48,
+              borderRadius: 999,
+              padding: '5px 9px',
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              color: NDJC_GLOBAL_UI_TOKENS.colors.controlEmphasis,
+              background: NDJC_GLOBAL_UI_TOKENS.colors.surface,
+              fontSize: NDJC_GLOBAL_UI_TOKENS.typography.bodySmall.fontSize,
+              lineHeight: 1,
+              fontWeight: 700,
+              whiteSpace: 'nowrap'
+            }}
+          >
+            {copied ? 'Copied' : 'Copy'}
+          </span>
+        ) : null}
+      </span>
     </button>
   )
 }
@@ -1305,7 +1304,7 @@ export function UniversalStoreExtraContactsSection({
         marginTop: 4
       }}
     >
-      <StoreProfileSectionHeader title="More" />
+      <StoreProfileSectionHeader title="Contact" />
 
       {cleanContacts.length > 0 ? (
         <div
@@ -1313,7 +1312,7 @@ export function UniversalStoreExtraContactsSection({
           style={{
             width: '100%',
             display: 'grid',
-            gap: 8,
+            gap: 13,
             color: NDJC_GLOBAL_UI_TOKENS.colors.textBody,
             background: 'transparent',
             boxSizing: 'border-box'

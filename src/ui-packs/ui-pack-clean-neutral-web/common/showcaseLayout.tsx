@@ -491,7 +491,6 @@ export const apkHomeGridRowStyle: React.CSSProperties = {
   gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
   gap: APK_HOME_PAGE_UI.listItemSpacing,
   alignItems: 'stretch',
-  overflow: 'hidden',
   boxSizing: 'border-box'
 }
 

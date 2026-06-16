@@ -674,8 +674,7 @@ export function ShowcaseHome({
     rows.push(state.dishes.slice(index, index + 2))
   }
 
-  const filterActive = state.showFilterMenu
-    || state.filterRecommendedOnly
+  const filterActive = state.filterRecommendedOnly
     || state.filterOnSaleOnly
     || state.appliedMinPrice != null
     || state.appliedMaxPrice != null
@@ -1354,7 +1353,7 @@ export function LoginScreen({
               placeholder="Enter password"
               type={passwordVisible ? 'text' : 'password'}
               singleLine
-              autoComplete="current-password"
+              autoComplete="new-password"
               trailingIcon={
                 <NdjcPasswordVisibilityToggle
                   visible={passwordVisible}
@@ -1928,7 +1927,7 @@ export function ShowcaseFavoritesScreen({
   const hasSelection = state.selectedIds.length > 0
   const savedListPaddingX = '25px'
   const savedExpandedHeaderContentHeight = 340
-  const savedCollapsedHeaderContentHeight = 220
+  const savedCollapsedHeaderContentHeight = 238
   const {
     collapsed: savedHeaderCollapsed,
     headerRef,
@@ -1970,7 +1969,6 @@ export function ShowcaseFavoritesScreen({
   }, [state.showFilterMenu, state.filterRecommendedOnly, state.filterOnSaleOnly, state.priceMinDraft, state.priceMaxDraft])
 
   const filterActive =
-    state.showFilterMenu ||
     state.filterRecommendedOnly ||
     state.filterOnSaleOnly ||
     state.appliedMinPrice != null ||
@@ -2237,22 +2235,15 @@ export function ShowcaseFavoritesScreen({
               onCategorySelected={actions.onCategorySelected}
               showAllChip
               useOuterHorizontalPadding={false}
-              chipVariant="textOnly"
             />
 
             <p
               style={{
                 margin: 0,
-                height: savedHeaderCollapsed ? 0 : 17,
                 color: APK_EDIT_ITEM_UI.body55,
                 fontSize: APK_EDIT_ITEM_UI.bodySmallFontSize,
                 lineHeight: APK_EDIT_ITEM_UI.bodySmallLineHeight,
-                fontWeight: APK_EDIT_ITEM_UI.bodySmallFontWeight,
-                opacity: savedHeaderCollapsed ? 0 : 1,
-                overflow: 'hidden',
-                transform: savedHeaderCollapsed ? 'translateY(-4px)' : 'translateY(0)',
-                willChange: 'opacity, transform',
-                transition: 'height 180ms cubic-bezier(0.2, 0, 0, 1), opacity 160ms cubic-bezier(0.2, 0, 0, 1), transform 180ms cubic-bezier(0.2, 0, 0, 1)'
+                fontWeight: APK_EDIT_ITEM_UI.bodySmallFontWeight
               }}
             >
               Select items to delete or clear selection.

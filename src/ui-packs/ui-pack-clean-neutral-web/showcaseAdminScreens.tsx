@@ -2544,6 +2544,54 @@ function StoreEditDescriptionCounterRow({
     </section>
   )
 }
+
+const STORE_PROFILE_HOURS_MAX_BYTES = 100
+
+function storeProfileUtf8ByteLength(value: string): number {
+  let bytes = 0
+
+  for (const char of value) {
+    const codePoint = char.codePointAt(0) ?? 0
+
+    if (codePoint <= 0x7f) {
+      bytes += 1
+    } else if (codePoint <= 0x7ff) {
+      bytes += 2
+    } else if (codePoint <= 0xffff) {
+      bytes += 3
+    } else {
+      bytes += 4
+    }
+  }
+
+  return bytes
+}
+
+function trimStoreProfileTextToUtf8Bytes(value: string, maxBytes: number): string {
+  let bytes = 0
+  let endIndex = 0
+
+  for (const char of value) {
+    const codePoint = char.codePointAt(0) ?? 0
+    const charBytes = codePoint <= 0x7f
+      ? 1
+      : codePoint <= 0x7ff
+        ? 2
+        : codePoint <= 0xffff
+          ? 3
+          : 4
+
+    if (bytes + charBytes > maxBytes) {
+      break
+    }
+
+    bytes += charBytes
+    endIndex += char.length
+  }
+
+  return value.slice(0, endIndex)
+}
+
 export function ShowcaseStoreProfileEdit({
   state,
   actions
@@ -2844,8 +2892,16 @@ export function ShowcaseStoreProfileEdit({
             <ProfileField
               label="Hours"
               value={state.draftHours}
-              onChange={actions.onHoursChange}
-              placeholder="Enter opening hours"
+              onChange={value => actions.onHoursChange(trimStoreProfileTextToUtf8Bytes(value, STORE_PROFILE_HOURS_MAX_BYTES))}
+              placeholder={`Mon - Fri: 10:00 AM - 7:00 PM
+Sat: 10:00 AM - 6:00 PM
+Sun: Closed`}
+              multiline
+            />
+
+            <StoreEditDescriptionCounterRow
+              current={Math.min(storeProfileUtf8ByteLength(state.draftHours), STORE_PROFILE_HOURS_MAX_BYTES)}
+              max={STORE_PROFILE_HOURS_MAX_BYTES}
             />
 
             <div style={{ height: APK_EDIT_ITEM_UI.fieldGap, flexShrink: 0 }} />

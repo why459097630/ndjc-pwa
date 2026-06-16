@@ -2463,14 +2463,15 @@ export function NdjcFilterIconButton({
   onClick: () => void
 }) {
   const [pressed, setPressed] = React.useState(false)
+  const isActive = Boolean(active)
 
   return (
     <button
       type="button"
       aria-label={label}
-      aria-pressed={Boolean(active)}
+      aria-pressed={isActive}
       disabled={disabled}
-      className={cx('ndjc-filter-icon-button', active && 'is-active')}
+      className={cx('ndjc-filter-icon-button', isActive && 'is-active')}
       onClick={() => {
         if (disabled) return
         onClick()
@@ -2495,8 +2496,14 @@ export function NdjcFilterIconButton({
         placeItems: 'center',
         color: disabled
           ? NDJC_GLOBAL_UI_TOKENS.colors.controlWeakText
-          : NDJC_ADMIN_TOOL_UI.emphasis,
-        background: APK_EDIT_ITEM_UI.fieldBackground,
+          : isActive
+            ? NDJC_GLOBAL_UI_TOKENS.colors.surface
+            : NDJC_ADMIN_TOOL_UI.emphasis,
+        background: disabled
+          ? APK_EDIT_ITEM_UI.fieldBackground
+          : isActive
+            ? NDJC_GLOBAL_UI_TOKENS.colors.controlEmphasis
+            : APK_EDIT_ITEM_UI.fieldBackground,
         boxShadow: 'none',
         cursor: disabled ? 'default' : 'pointer',
         opacity: disabled ? 0.72 : 1,
@@ -3723,10 +3730,9 @@ export function NdjcNotificationOptInPanel({
   const installDescription = installInstallable
     ? 'Add this customer hub to your device for faster access and better notification support. Already added? You can ignore this.'
     : installManual
-      ? 'Tap Share, then Add to Home Screen for faster access and better notification support. Already added? You can ignore this.'
+      ? 'On iPhone, tap Share, add this hub to your Home Screen, then open it from there to enable notifications. Already added? You can ignore this.'
       : installGuideDescription
   const installActionLabel = installBusy ? 'Opening...' : 'Add'
-  const normalizedDebugMessage = String(debugMessage || '').trim()
 
   return (
     <div
@@ -3991,32 +3997,6 @@ export function NdjcNotificationOptInPanel({
                 >
                   {description}
                 </p>
-
-                {normalizedDebugMessage
-                  ? (
-                      <pre
-                        style={{
-                          margin: 0,
-                          maxHeight: 112,
-                          overflow: 'auto',
-                          whiteSpace: 'pre-wrap',
-                          wordBreak: 'break-word',
-                          borderRadius: 12,
-                          padding: '8px 9px',
-                          background: 'rgba(15, 23, 42, 0.05)',
-                          border: '1px solid rgba(15, 23, 42, 0.08)',
-                          color: 'rgba(17, 24, 39, 0.72)',
-                          fontSize: 10,
-                          lineHeight: 1.42,
-                          fontWeight: 700,
-                          fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace',
-                          boxSizing: 'border-box'
-                        }}
-                      >
-                        {normalizedDebugMessage}
-                      </pre>
-                    )
-                  : null}
 
                 <div
                   style={{
@@ -4939,6 +4919,14 @@ export function NdjcCatalogItemCard({
     onOpen(dish.id)
   }
 
+  function handleOpenKeyDown(event: React.KeyboardEvent<HTMLElement>): void {
+    if (!onOpen) return
+    if (event.key !== 'Enter' && event.key !== ' ') return
+
+    event.preventDefault()
+    onOpen(dish.id)
+  }
+
   function clearPressed(): void {
     setPressed(false)
   }
@@ -4946,48 +4934,101 @@ export function NdjcCatalogItemCard({
   return (
     <article
       className={cx('ndjc-catalog-item-card', selected && 'is-selected', dish.isSoldOut && 'is-disabled')}
+      role={onOpen ? 'button' : undefined}
+      tabIndex={onOpen ? 0 : undefined}
       style={{
         ...apkCatalogCardStyle(pressed),
+        gridTemplateColumns: `${APK_SHOWCASE_ITEM_UI.catalogImageSize}px minmax(0, 1fr)`,
+        alignItems: 'stretch',
+        cursor: onOpen ? 'pointer' : 'default',
         opacity: dish.isSoldOut ? APK_SHOWCASE_ITEM_UI.disabledAlpha : 1,
         outline: '0 solid transparent'
       }}
+      onPointerDown={() => {
+        if (!onOpen) return
+        setPressed(true)
+      }}
+      onPointerUp={clearPressed}
+      onPointerCancel={clearPressed}
+      onPointerLeave={clearPressed}
+      onClick={handleOpenClick}
+      onKeyDown={handleOpenKeyDown}
     >
-      <button
-        type="button"
-        className="ndjc-catalog-item-main"
-        style={apkCatalogMainButtonStyle}
-        disabled={!onOpen}
-        onPointerDown={() => setPressed(true)}
-        onPointerUp={clearPressed}
-        onPointerCancel={clearPressed}
-        onPointerLeave={clearPressed}
-        onClick={handleOpenClick}
-      >
-<span className="ndjc-catalog-item-media" style={apkCatalogMediaStyle}>
-  <NdjcShimmerImage
-    src={dishImage(dish)}
-    alt={title}
-    placeholderCornerRadius={APK_SHOWCASE_ITEM_UI.catalogImageRadius}
-    contentScale="cover"
-  />
-</span>
+      <span className="ndjc-catalog-item-media" style={apkCatalogMediaStyle}>
+        <NdjcShimmerImage
+          src={dishImage(dish)}
+          alt={title}
+          placeholderCornerRadius={APK_SHOWCASE_ITEM_UI.catalogImageRadius}
+          contentScale="cover"
+        />
+      </span>
 
-        <span className="ndjc-catalog-item-body" style={apkCatalogBodyStyle}>
-          <strong className="ndjc-catalog-item-title" style={apkCatalogTitleStyle}>
-            {title}
-          </strong>
+      <span className="ndjc-catalog-item-body" style={apkCatalogBodyStyle}>
+        <strong className="ndjc-catalog-item-title" style={apkCatalogTitleStyle}>
+          {title}
+        </strong>
 
-          <span className="ndjc-catalog-item-spacer" style={apkCatalogSpacerStyle} aria-hidden="true" />
+        <span className="ndjc-catalog-item-spacer" style={apkCatalogSpacerStyle} aria-hidden="true" />
 
-          <NdjcItemStatusBadgeRow
-            recommended={dish.isRecommended}
-            hidden={dish.isHidden}
-          />
+        <span
+          className="ndjc-catalog-status-action-row"
+          style={{
+            width: '100%',
+            maxWidth: '100%',
+            minWidth: 0,
+            minHeight: 24,
+            display: 'grid',
+            gridTemplateColumns: 'minmax(0, 1fr) auto',
+            alignItems: 'center',
+            gap: 8,
+            overflow: 'hidden',
+            boxSizing: 'border-box'
+          }}
+        >
+          <span
+            className="ndjc-catalog-status-row-main"
+            style={{
+              minWidth: 0,
+              maxWidth: '100%',
+              display: 'flex',
+              alignItems: 'center',
+              overflow: 'hidden'
+            }}
+          >
+            <NdjcItemStatusBadgeRow
+              recommended={dish.isRecommended}
+              hidden={dish.isHidden}
+            />
+          </span>
 
-          <span className="ndjc-catalog-item-spacer" style={apkCatalogSpacerStyle} aria-hidden="true" />
+          {trailing ? (
+            <span
+              className="ndjc-catalog-status-row-action"
+              style={{
+                display: 'grid',
+                placeItems: 'center',
+                flex: '0 0 auto'
+              }}
+              onPointerDown={event => event.stopPropagation()}
+              onClick={event => event.stopPropagation()}
+            >
+              {trailing}
+            </span>
+          ) : null}
+        </span>
 
-          <span className="ndjc-catalog-price-stack" style={apkCatalogPriceStackStyle}>
-            {resolvedBottomContent ? (
+        <span className="ndjc-catalog-item-spacer" style={apkCatalogSpacerStyle} aria-hidden="true" />
+
+        <span className="ndjc-catalog-price-stack" style={apkCatalogPriceStackStyle}>
+          {resolvedBottomContent ? (
+            <span
+              className="ndjc-catalog-price-meta-row"
+              style={{
+                ...apkCatalogPriceRowStyle,
+                width: '100%',
+                alignItems: 'center'
+              }}
+            >
               <span
                 className="ndjc-catalog-item-bottom-content"
                 style={{
@@ -4999,83 +5040,80 @@ export function NdjcCatalogItemCard({
               >
                 {resolvedBottomContent}
               </span>
-            ) : (
-              <span
-                className="ndjc-catalog-price-meta-row"
-                style={{
-                  ...apkCatalogPriceRowStyle,
-                  width: '100%',
-                  alignItems: 'center'
-                }}
-              >
-                <span
-                  className="ndjc-catalog-price-row-main"
-                  style={apkCatalogPriceRowStyle}
-                >
-                  <b style={apkCatalogPriceStyle}>{priceText(salePrice)}</b>
-                  {hasDiscount ? (
-                    <em style={apkCatalogOriginalPriceStyle}>
-                      {priceText(dish.originalPrice)}
-                    </em>
-                  ) : null}
-                </span>
 
-                {!trailing && resolvedMetaText ? (
-                  <span style={apkCatalogMetaTextStyle}>
-                    {resolvedMetaText}
-                  </span>
+              {resolvedMetaText ? (
+                <span
+                  style={{
+                    ...apkCatalogMetaTextStyle,
+                    minWidth: 'max-content',
+                    maxWidth: 'none',
+                    flexShrink: 0,
+                    overflow: 'visible',
+                    textOverflow: 'clip',
+                    whiteSpace: 'nowrap'
+                  }}
+                >
+                  {resolvedMetaText}
+                </span>
+              ) : null}
+            </span>
+          ) : (
+            <span
+              className="ndjc-catalog-price-meta-row"
+              style={{
+                ...apkCatalogPriceRowStyle,
+                width: '100%',
+                alignItems: 'center'
+              }}
+            >
+              <span
+                className="ndjc-catalog-price-row-main"
+                style={apkCatalogPriceRowStyle}
+              >
+                <b style={apkCatalogPriceStyle}>{priceText(salePrice)}</b>
+                {hasDiscount ? (
+                  <em style={apkCatalogOriginalPriceStyle}>
+                    {priceText(dish.originalPrice)}
+                  </em>
                 ) : null}
               </span>
-            )}
 
-            {showCategory && categoryLabel ? (
-              <span className="ndjc-catalog-category-chip" style={apkCatalogCategoryChipStyle}>
-                {categoryLabel}
-              </span>
-            ) : null}
-          </span>
+              {resolvedMetaText ? (
+                <span
+                  style={{
+                    ...apkCatalogMetaTextStyle,
+                    minWidth: 'max-content',
+                    maxWidth: 'none',
+                    flexShrink: 0,
+                    overflow: 'visible',
+                    textOverflow: 'clip',
+                    whiteSpace: 'nowrap'
+                  }}
+                >
+                  {resolvedMetaText}
+                </span>
+              ) : null}
+            </span>
+          )}
+
+          {showCategory && categoryLabel ? (
+            <span className="ndjc-catalog-category-chip" style={apkCatalogCategoryChipStyle}>
+              {categoryLabel}
+            </span>
+          ) : null}
         </span>
-      </button>
+      </span>
 
-      {trailing ? (
-        <div
-          className="ndjc-catalog-item-trailing"
-          style={{
-            width: 72,
-            minWidth: 72,
-            minHeight: APK_SHOWCASE_ITEM_UI.catalogImageSize,
-            display: 'grid',
-            gridTemplateRows: 'auto minmax(0, 1fr) auto',
-            alignItems: 'start',
-            justifyItems: 'end'
-          }}
+      {onToggleSelect ? (
+        <span
           onPointerDown={event => event.stopPropagation()}
           onClick={event => event.stopPropagation()}
         >
-          <span
-            style={{
-              display: 'grid',
-              placeItems: 'center'
-            }}
-          >
-            {trailing}
-          </span>
-
-          <span aria-hidden="true" />
-
-          {resolvedMetaText ? (
-            <span style={apkCatalogMetaTextStyle}>
-              {resolvedMetaText}
-            </span>
-          ) : null}
-        </div>
-      ) : null}
-
-      {onToggleSelect ? (
-        <NdjcSelectionCheckbox
-          selected={Boolean(selected)}
-          onClick={() => onToggleSelect(dish.id)}
-        />
+          <NdjcSelectionCheckbox
+            selected={Boolean(selected)}
+            onClick={() => onToggleSelect(dish.id)}
+          />
+        </span>
       ) : null}
     </article>
   )
@@ -5134,48 +5172,56 @@ export function NdjcLinkedCatalogItemCard({
     ? APK_SHOWCASE_ITEM_UI.selectedOutline
     : '0 solid transparent'
   const hasTrailingColumn = Boolean(trailing)
-  const hasSelectionColumn = Boolean(onToggleSelect)
-  const catalogGridTemplateColumns = hasTrailingColumn && hasSelectionColumn
-    ? 'minmax(0, 1fr) auto auto'
-    : hasTrailingColumn || hasSelectionColumn
-      ? 'minmax(0, 1fr) auto'
-      : 'minmax(0, 1fr)'
+  const catalogGridTemplateColumns = hasTrailingColumn
+    ? 'minmax(0, 1fr) auto'
+    : 'minmax(0, 1fr)'
   const [pressed, setPressed] = React.useState(false)
 
   function clearPressed(): void {
     setPressed(false)
   }
 
+  function handleOpenClick(): void {
+    if (!cardPressEnabled) return
+    onOpen?.()
+  }
+
+  function handleOpenKeyDown(event: React.KeyboardEvent<HTMLElement>): void {
+    if (!cardPressEnabled) return
+    if (event.key !== 'Enter' && event.key !== ' ') return
+
+    event.preventDefault()
+    onOpen?.()
+  }
+
   return (
     <article
       className={cx('ndjc-linked-catalog-item-card', selected && 'is-selected', !available && 'is-disabled')}
+      role={cardPressEnabled ? 'button' : undefined}
+      tabIndex={cardPressEnabled ? 0 : undefined}
       style={{
         ...apkCatalogCardStyle(pressed),
         gridTemplateColumns: catalogGridTemplateColumns,
+        cursor: cardPressEnabled ? 'pointer' : 'default',
         opacity: available ? 1 : APK_SHOWCASE_ITEM_UI.disabledAlpha,
         outline: selectedOutline
       }}
+      onPointerDown={() => {
+        if (cardPressEnabled) {
+          setPressed(true)
+        }
+      }}
+      onPointerUp={clearPressed}
+      onPointerCancel={clearPressed}
+      onPointerLeave={clearPressed}
+      onClick={handleOpenClick}
+      onKeyDown={handleOpenKeyDown}
     >
-      <button
-        type="button"
+      <span
         className="ndjc-linked-catalog-item-main"
         style={{
           ...apkCatalogMainButtonStyle,
           cursor: cardPressEnabled ? 'pointer' : 'default'
-        }}
-        disabled={!cardPressEnabled}
-        onPointerDown={() => {
-          if (cardPressEnabled) {
-            setPressed(true)
-          }
-        }}
-        onPointerUp={clearPressed}
-        onPointerCancel={clearPressed}
-        onPointerLeave={clearPressed}
-        onClick={() => {
-          if (cardPressEnabled) {
-            onOpen?.()
-          }
         }}
       >
         <span
@@ -5229,9 +5275,49 @@ export function NdjcLinkedCatalogItemCard({
 
           <span className="ndjc-catalog-item-spacer" style={apkCatalogSpacerStyle} aria-hidden="true" />
 
-          {middle ? (
-            <span className="ndjc-linked-catalog-item-middle" style={{ minWidth: 0, display: 'block' }}>
-              {middle}
+          {middle || onToggleSelect ? (
+            <span
+              className="ndjc-linked-catalog-status-action-row"
+              style={{
+                width: '100%',
+                maxWidth: '100%',
+                minWidth: 0,
+                minHeight: 24,
+                display: 'grid',
+                gridTemplateColumns: 'minmax(0, 1fr) auto',
+                alignItems: 'center',
+                gap: 8,
+                overflow: 'hidden',
+                boxSizing: 'border-box'
+              }}
+            >
+              <span
+                className="ndjc-linked-catalog-status-row-main"
+                style={{
+                  minWidth: 0,
+                  maxWidth: '100%',
+                  display: 'flex',
+                  alignItems: 'center',
+                  overflow: 'hidden'
+                }}
+              >
+                {middle}
+              </span>
+
+              {onToggleSelect ? (
+                <span
+                  className="ndjc-linked-catalog-status-row-action"
+                  style={{
+                    display: 'grid',
+                    placeItems: 'center',
+                    flex: '0 0 auto'
+                  }}
+                  onPointerDown={event => event.stopPropagation()}
+                  onClick={event => event.stopPropagation()}
+                >
+                  <NdjcSelectionCheckbox selected={Boolean(selected)} onClick={onToggleSelect} />
+                </span>
+              ) : null}
             </span>
           ) : null}
 
@@ -5260,7 +5346,7 @@ export function NdjcLinkedCatalogItemCard({
             ) : null}
           </span>
         </span>
-      </button>
+      </span>
 
       {trailing ? (
         <div
@@ -5270,13 +5356,11 @@ export function NdjcLinkedCatalogItemCard({
             display: 'grid',
             placeItems: 'center'
           }}
+          onPointerDown={event => event.stopPropagation()}
+          onClick={event => event.stopPropagation()}
         >
           {trailing}
         </div>
-      ) : null}
-
-      {onToggleSelect ? (
-        <NdjcSelectionCheckbox selected={Boolean(selected)} onClick={onToggleSelect} />
       ) : null}
     </article>
   )

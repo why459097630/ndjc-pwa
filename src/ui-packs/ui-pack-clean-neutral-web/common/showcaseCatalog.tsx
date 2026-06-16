@@ -404,6 +404,18 @@ export const apkHomeBadgeStyle: React.CSSProperties = {
   alignSelf: 'start'
 }
 
+export const apkHomeBadgeSlotStyle: React.CSSProperties = {
+  width: '100%',
+  maxWidth: '100%',
+  minWidth: 0,
+  minHeight: 22,
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'flex-start',
+  overflow: 'hidden',
+  boxSizing: 'border-box'
+}
+
 export const apkHomeBadgeTextStyle: React.CSSProperties = apkPickBadgeTextStyle
 export const apkHomeFavoriteOverlayStyle: React.CSSProperties = {
   position: 'absolute',
@@ -741,9 +753,13 @@ export function NdjcHomeStyleMediaCard({
                 <span style={{ height: 0 }} aria-hidden="true" />
               )}
 
-              {cleanBadgeText ? (
-                <NdjcItemStatusBadge text={cleanBadgeText} />
-              ) : null}
+              <div style={apkHomeBadgeSlotStyle}>
+                {cleanBadgeText ? (
+                  <NdjcItemStatusBadge text={cleanBadgeText} />
+                ) : (
+                  <span style={{ height: 22 }} aria-hidden="true" />
+                )}
+              </div>
 
               <div
                 style={{
