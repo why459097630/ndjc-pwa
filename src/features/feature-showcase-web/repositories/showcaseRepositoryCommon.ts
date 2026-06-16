@@ -99,6 +99,7 @@ export type CloudDish = {
 }
 
 export type CloudDishFilterRow = {
+  categoryName: string | null
   tags: string[]
 }
 

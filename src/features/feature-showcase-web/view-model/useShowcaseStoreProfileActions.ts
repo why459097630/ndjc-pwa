@@ -315,7 +315,6 @@ export function createShowcaseStoreProfileActions(context: ShowcaseStoreProfileA
     const normalizedSubtitle = draft.tagline.trim()
     const normalizedHours = draft.businessHours.trim()
     const normalizedBusinessStatus = draftBusinessStatus.trim()
-    const normalizedWebsiteUrl = draft.websiteUrl.trim()
 
     if (guardOfflineWriteOperation()) {
       setStoreProfileSaveError('You are offline. Please reconnect and try again.')
@@ -975,10 +974,8 @@ export function createShowcaseStoreProfileActions(context: ShowcaseStoreProfileA
     return JSON.stringify({
       displayName: profile.displayName.trim(),
       tagline: profile.tagline.trim(),
-      phone: profile.phone.trim(),
       address: profile.address.trim(),
       businessHours: profile.businessHours.trim(),
-      websiteUrl: profile.websiteUrl.trim(),
       mapUrl: profile.mapUrl.trim(),
       description: description.trim(),
       services: services.map((item: string) => item.trim()).filter(Boolean),

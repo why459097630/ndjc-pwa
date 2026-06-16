@@ -1330,6 +1330,7 @@ const orQuery = [
     const pageSize = Math.max(1, Math.min(Number(input.limit || 500), 1000))
     const maxRows = 5000
     const shouldUseMerchantAuth = Boolean(input.includeHidden || input.hiddenOnly)
+    const categoriesById = await this.fetchCategoryMap(storeId)
 
     return this.executeOnce('fetchDishFilterRows', async () => {
       const result: CloudDishFilterRow[] = []
@@ -1337,7 +1338,7 @@ const orQuery = [
 
       while (offset < maxRows) {
         const query = [
-          'select=tags',
+          'select=category_id,tags',
           `store_id=${this.encodeEq(storeId)}`,
           input.includeHidden ? '' : `hidden=${this.encodeEq('false')}`,
           input.hiddenOnly ? `hidden=${this.encodeEq('true')}` : '',
@@ -1356,7 +1357,10 @@ const orQuery = [
         const rows = this.parseObjectArray(body)
 
         rows.forEach(row => {
+          const categoryId = jsonNullableString(row, 'category_id')
+
           result.push({
+            categoryName: categoryId ? categoriesById.get(categoryId)?.name || null : null,
             tags: parseStringArray(row.tags)
           })
         })

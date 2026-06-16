@@ -483,6 +483,7 @@ import {
   cloudStatusToUi,
   categoryOptionsFromDishes,
   allTagsFromDishes,
+  dishFilterRowsToCategoryNames,
   dishFilterRowsToTags,
   mapFavoriteCard,
   defaultAppointmentSettings,
@@ -861,6 +862,9 @@ export function useShowcaseViewModel(input: UseShowcaseViewModelInput = {}): Sho
   const pendingSyncOperationsRef = useRef<PendingSyncOperation[]>(pendingSyncOperations)
   const lifecycleRecoveryInFlightRef = useRef(false)
   const lastLifecycleRecoveryAtRef = useRef(0)
+  const lastAppStartLifecycleRecoveryKeyRef = useRef<string | null>(null)
+  const customerAppointmentsRefreshRef = useRef<(() => Promise<void>) | null>(null)
+  const adminAppointmentsRefreshRef = useRef<(() => Promise<void>) | null>(null)
   const [syncErrorMessage, setSyncErrorMessage] = useState<string | null>(defaultUiState.syncErrorMessage)
   const [lastRetryOp, setLastRetryOp] = useState<ShowcaseRetryOp | null>(defaultUiState.lastRetryOp)
 
@@ -1351,6 +1355,16 @@ export function useShowcaseViewModel(input: UseShowcaseViewModelInput = {}): Sho
     return mergeCloudAndDishCategoryNames(categories, dishes)
   }, [categories, dishes])
 
+  const homeVisibleCategories = useMemo(() => {
+    const cloudVisibleCategories = dishFilterRowsToCategoryNames(homeDishFilterRows)
+
+    if (cloudVisibleCategories.length) {
+      return cloudVisibleCategories
+    }
+
+    return categoryOptionsFromDishes(dishes.filter(item => !item.isHidden))
+  }, [dishes, homeDishFilterRows])
+
   const adminCategories = useMemo(() => {
     return cloudCategoriesToManualCategoryNames(categories)
   }, [categories])
@@ -1531,6 +1545,13 @@ export function useShowcaseViewModel(input: UseShowcaseViewModelInput = {}): Sho
       )
     ).sort()
   }, [favoriteRows])
+
+  useEffect(() => {
+    if (!favoritesSelectedCategory) return
+    if (favoriteCategories.includes(favoritesSelectedCategory)) return
+
+    setFavoritesSelectedCategory(null)
+  }, [favoriteCategories, favoritesSelectedCategory])
 
   const favoriteCards = useMemo<ShowcaseFavoriteCard[]>(() => {
     const validCategory = favoritesSelectedCategory &&
@@ -5180,6 +5201,35 @@ function backFromAppointments(): void {
         setLastRetryOp(ShowcaseRetryOps.RetryPendingSync)
       }
 
+      if (currentScreenRef.current === ShowcaseScreens.Home) {
+        await refreshHomeDishesFilteredFirstPage(currentHomeDishCloudFilters())
+        void refreshHomeBadgeData()
+        return
+      }
+
+      if (currentScreenRef.current === ShowcaseScreens.AdminItems) {
+        await refreshAdminItemsFilteredFirstPage(currentAdminItemsCloudFilters())
+        return
+      }
+
+      if (currentScreenRef.current === ShowcaseScreens.CustomerBookings) {
+        const refreshCustomerAppointments = customerAppointmentsRefreshRef.current
+
+        if (refreshCustomerAppointments) {
+          await refreshCustomerAppointments()
+          return
+        }
+      }
+
+      if (currentScreenRef.current === ShowcaseScreens.AdminAppointmentManager) {
+        const refreshAdminAppointments = adminAppointmentsRefreshRef.current
+
+        if (refreshAdminAppointments) {
+          await refreshAdminAppointments()
+          return
+        }
+      }
+
       await tryLoadFromCloud(ShowcaseRetryOps.LoadFromCloud)
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error || 'Recovery failed.')
@@ -5197,6 +5247,23 @@ function backFromAppointments(): void {
       lifecycleRecoveryInFlightRef.current = false
     }
   }, [
+    adminItemsAppliedMaxPrice,
+    adminItemsAppliedMinPrice,
+    adminItemsFilterDiscountOnly,
+    adminItemsFilterHiddenOnly,
+    adminItemsFilterRecommended,
+    adminItemsSearchQuery,
+    adminItemsSelectedCategory,
+    adminItemsSortMode,
+    filterOnSaleOnly,
+    filterRecommendedOnly,
+    homeAppliedMaxPrice,
+    homeAppliedMinPrice,
+    refreshHomeBadgeData,
+    searchQuery,
+    selectedCategory,
+    selectedTags,
+    sortMode,
     storeId,
     tryLoadFromCloud
   ])
@@ -5621,7 +5688,12 @@ function backFromAppointments(): void {
     const snapshot = readShowcaseAppLifecycleSnapshot()
 
     if (snapshot.lastPhase === 'app-start' || snapshot.lastPhase === 'background') {
-      void recoverShowcaseAfterLifecycleResume('app-start')
+      const recoveryKey = `${storeId}:${snapshot.lastPhase}`
+
+      if (lastAppStartLifecycleRecoveryKeyRef.current !== recoveryKey) {
+        lastAppStartLifecycleRecoveryKeyRef.current = recoveryKey
+        void recoverShowcaseAfterLifecycleResume('app-start')
+      }
     }
 
     runPendingSyncIfPossible()
@@ -7546,6 +7618,27 @@ function backFromAppointments(): void {
       return
     }
 
+    if (screen === ShowcaseScreens.Home) {
+      await refreshHomeDishesFilteredFirstPage(currentHomeDishCloudFilters())
+      void refreshHomeBadgeData()
+      return
+    }
+
+    if (screen === ShowcaseScreens.AdminItems) {
+      await refreshAdminItemsFilteredFirstPage(currentAdminItemsCloudFilters())
+      return
+    }
+
+    if (screen === ShowcaseScreens.CustomerBookings) {
+      await refreshCustomerAppointmentsFromCloud(null, currentCustomerAppointmentCloudFilters())
+      return
+    }
+
+    if (screen === ShowcaseScreens.AdminAppointmentManager) {
+      await refreshAdminAppointmentsFromCloud(null, currentAdminAppointmentCloudFilters())
+      return
+    }
+
     await tryLoadFromCloud(ShowcaseRetryOps.LoadFromCloud)
 
     if (isAdminLoggedIn) {
@@ -8984,6 +9077,33 @@ function backFromAppointments(): void {
     sortedAppointmentsForStorage,
     storeId
   })
+
+  useEffect(() => {
+    customerAppointmentsRefreshRef.current = async () => {
+      await refreshCustomerAppointmentsFromCloud(null, currentCustomerAppointmentCloudFilters())
+    }
+
+    adminAppointmentsRefreshRef.current = async () => {
+      await refreshAdminAppointmentsFromCloud(null, currentAdminAppointmentCloudFilters())
+    }
+
+    return () => {
+      customerAppointmentsRefreshRef.current = null
+      adminAppointmentsRefreshRef.current = null
+    }
+  }, [
+    appointmentAdminDateFilter,
+    appointmentAdminHistoryDateFilter,
+    appointmentAdminServiceFilter,
+    appointmentAdminStatusFilter,
+    appointmentCustomerDateFilter,
+    appointmentCustomerServiceFilter,
+    appointmentCustomerStatusFilter,
+    currentAdminAppointmentCloudFilters,
+    currentCustomerAppointmentCloudFilters,
+    refreshAdminAppointmentsFromCloud,
+    refreshCustomerAppointmentsFromCloud
+  ])
 
   async function loadMoreHomeDishes(): Promise<void> {
   if (homePagination.isLoadingMore || !homePagination.hasMore) return
@@ -14590,10 +14710,8 @@ function onChatImageLimitReached(): void {
     ? {
         displayName: storeProfileDraft.displayName,
         tagline: storeProfileDraft.tagline,
-        phone: storeProfileDraft.phone,
         address: storeProfileDraft.address,
         businessHours: storeProfileDraft.businessHours,
-        websiteUrl: storeProfileDraft.websiteUrl,
         mapUrl: storeProfileDraft.mapUrl,
         isDirty: 'isDirty' in storeProfileDraft ? Boolean((storeProfileDraft as ShowcaseStoreProfileDraft).isDirty) : false
       }
@@ -14767,7 +14885,7 @@ function onChatImageLimitReached(): void {
   const homeState: ShowcaseHomeUiState = {
     dishes: effectiveHomeDishesForUi,
     selectedCategory,
-    manualCategories,
+    manualCategories: homeVisibleCategories,
     isLoading: isLoading || isCloudLoading,
     statusMessage,
     snackbarMessage,
@@ -14914,11 +15032,11 @@ function onChatImageLimitReached(): void {
     showFilterMenu: favoritesShowFilterMenu,
     showPriceMenu: favoritesShowPriceMenu,
 
-    selectedCategory: manualCategories.includes(favoritesSelectedCategory || '')
+    selectedCategory: favoriteCategories.includes(favoritesSelectedCategory || '')
       ? favoritesSelectedCategory
       : null,
     categories: favoriteCategories,
-    manualCategories,
+    manualCategories: favoriteCategories,
 
     statusMessage: statusMessage || snackbarMessage
   }
@@ -15655,9 +15773,9 @@ const editDishState: ShowcaseEditDishUiState = {
       onStoreProfileServiceRemove(index)
     },
 
-    onAddExtraContact: () => {
+    onAddExtraContact: (name, value) => {
       markStoreProfileDraftDirty()
-      onStoreProfileExtraContactAdd('', '')
+      onStoreProfileExtraContactAdd(name, value)
     },
 
     onRemoveExtraContact: id => {

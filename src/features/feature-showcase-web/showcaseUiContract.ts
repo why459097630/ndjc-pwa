@@ -73,10 +73,8 @@ export type ShowcaseRoute =
 export type ShowcaseStoreProfile = {
   displayName: string
   tagline: string
-  phone: string
   address: string
   businessHours: string
-  websiteUrl: string
   mapUrl: string
 }
 
@@ -85,10 +83,8 @@ export type StoreProfile = ShowcaseStoreProfile
 export type ShowcaseStoreProfileDraft = {
   displayName: string
   tagline: string
-  phone: string
   address: string
   businessHours: string
-  websiteUrl: string
   mapUrl: string
   isDirty: boolean
 }

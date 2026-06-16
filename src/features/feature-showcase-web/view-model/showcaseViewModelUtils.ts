@@ -2299,10 +2299,8 @@ export function storeProfileFromCloud(profile: CloudStoreProfile | null): Showca
   return {
     displayName: profile?.title || 'Showcase Store',
     tagline: profile?.subtitle || 'Browse items, book services, and contact the store.',
-    phone: '',
     address: profile?.address || '',
     businessHours: profile?.hours || '',
-    websiteUrl: '',
     mapUrl: profile?.mapUrl || ''
   }
 }
@@ -2313,10 +2311,8 @@ export function storeProfileFromCachedProfile(
   return {
     displayName: profile.title || 'Showcase Store',
     tagline: profile.subtitle || 'Browse items, book services, and contact the store.',
-    phone: '',
     address: profile.address || '',
     businessHours: profile.hours || '',
-    websiteUrl: '',
     mapUrl: profile.mapUrl || ''
   }
 }
@@ -2325,10 +2321,8 @@ export function storeProfileDraftFromProfile(profile: ShowcaseStoreProfile): Sho
   return {
     displayName: profile.displayName,
     tagline: profile.tagline,
-    phone: profile.phone,
     address: profile.address,
     businessHours: profile.businessHours,
-    websiteUrl: profile.websiteUrl,
     mapUrl: profile.mapUrl,
     isDirty: false
   }
@@ -2446,6 +2440,24 @@ export function categoryOptionsFromDishes(dishes: DemoDish[]): string[] {
 
 export function allTagsFromDishes(dishes: DemoDish[]): string[] {
   return deriveAllTags(dishes)
+}
+
+export function dishFilterRowsToCategoryNames(rows: CloudDishFilterRow[]): string[] {
+  const seen = new Set<string>()
+  const result: string[] = []
+
+  rows.forEach(row => {
+    const name = String(row.categoryName || '').trim()
+    if (!name) return
+
+    const key = name.toLowerCase()
+    if (seen.has(key)) return
+
+    seen.add(key)
+    result.push(name)
+  })
+
+  return result
 }
 
 export function dishFilterRowsToTags(rows: CloudDishFilterRow[]): string[] {

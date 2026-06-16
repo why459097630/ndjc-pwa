@@ -139,10 +139,8 @@ function buildAdminStoreProfileDraft(
   return {
     displayName: readProfileText(record, ['displayName', 'title']),
     tagline: readProfileText(record, ['tagline', 'subtitle']),
-    phone: readProfileText(record, ['phone']),
     address: readProfileText(record, ['address']),
     businessHours: readProfileText(record, ['businessHours', 'hours']),
-    websiteUrl: readProfileText(record, ['websiteUrl']),
     mapUrl: readProfileText(record, ['mapUrl']),
     isDirty: Boolean(record.isDirty)
   }
