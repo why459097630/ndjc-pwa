@@ -37,6 +37,45 @@ type NdjcBeforeInstallPromptEvent = Event & {
 
 const NDJC_PWA_LAST_STANDALONE_SEEN_AT_KEY = 'ndjc:pwa-last-standalone-seen-at'
 const NDJC_PWA_LAST_PROMPT_SEEN_AT_KEY = 'ndjc:pwa-last-prompt-seen-at'
+const NDJC_PWA_UPDATE_ACTIVATED_AT_KEY = 'ndjc:pwa-update-activated-at'
+const NDJC_PWA_UPDATE_ACTIVATION_COOLDOWN_MS = 30 * 1000
+
+function markPwaUpdateActivationRequested(): void {
+  if (typeof window === 'undefined') return
+
+  try {
+    window.sessionStorage.setItem(NDJC_PWA_UPDATE_ACTIVATED_AT_KEY, String(Date.now()))
+  } catch {
+  }
+}
+
+function isPwaUpdateActivationCooldownActive(): boolean {
+  if (typeof window === 'undefined') return false
+
+  try {
+    const activatedAt = Number(window.sessionStorage.getItem(NDJC_PWA_UPDATE_ACTIVATED_AT_KEY) || '0')
+
+    if (!Number.isFinite(activatedAt) || activatedAt <= 0) {
+      return false
+    }
+
+    const elapsedMs = Date.now() - activatedAt
+
+    if (elapsedMs < 0) {
+      window.sessionStorage.removeItem(NDJC_PWA_UPDATE_ACTIVATED_AT_KEY)
+      return false
+    }
+
+    if (elapsedMs <= NDJC_PWA_UPDATE_ACTIVATION_COOLDOWN_MS) {
+      return true
+    }
+
+    window.sessionStorage.removeItem(NDJC_PWA_UPDATE_ACTIVATED_AT_KEY)
+    return false
+  } catch {
+    return false
+  }
+}
 
 function canUseDevelopmentDefaultStoreId(): boolean {
   return process.env.NODE_ENV !== 'production'
@@ -379,6 +418,7 @@ async function promptInstallCurrentPwa(): Promise<void> {
 }
 
   function activatePwaUpdate(registration: ServiceWorkerRegistration): void {
+    markPwaUpdateActivationRequested()
     setPwaUpdateRegistration(registration)
     setPwaUpdateRefreshing(true)
     setPwaUpdateDismissed(true)
@@ -412,6 +452,12 @@ async function promptInstallCurrentPwa(): Promise<void> {
   function handlePwaUpdateAvailable(registration: ServiceWorkerRegistration): void {
     setPwaUpdateRegistration(registration)
     setPwaUpdateRefreshing(false)
+
+    if (isPwaUpdateActivationCooldownActive()) {
+      setPwaUpdateDismissed(true)
+      return
+    }
+
     setPwaUpdateDismissed(false)
   }
 
