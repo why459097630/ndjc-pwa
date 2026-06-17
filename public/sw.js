@@ -1,4 +1,4 @@
-﻿const NDJC_DEV_KILL_SERVICE_WORKER = false
+const NDJC_DEV_KILL_SERVICE_WORKER = false
 const NDJC_SW_VERSION = 'ndjc-pwa-1.0.0-20260614082722'
 const NDJC_STATIC_CACHE = `${NDJC_SW_VERSION}-static`
 const NDJC_NAVIGATION_CACHE = `${NDJC_SW_VERSION}-navigation`
@@ -619,7 +619,7 @@ self.addEventListener('push', event => {
     ''
   ).trim()
 
-  const notificationTag = notificationConversationId
+  const notificationBaseTag = notificationConversationId
     ? `${notificationPushType}:conversation:${notificationConversationId}`
     : notificationAppointmentId
       ? `${notificationPushType}:appointment:${notificationAppointmentId}`
@@ -627,11 +627,24 @@ self.addEventListener('push', event => {
         ? `${notificationPushType}:announcement:${notificationAnnouncementId}`
         : `${notificationPushType || 'generic'}:ndjc-notification`
 
-  const shouldRenotify = notificationPushType === 'appointment_created' ||
-    notificationPushType === 'appointment_cancelled' ||
-    notificationPushType === 'appointment_status' ||
-    notificationPushType === 'appointment' ||
-    notificationPushType === 'booking'
+  const notificationEventKey = String(
+    notificationPayload.message_id ||
+    notificationPayload.messageId ||
+    notificationPayload.notification_id ||
+    notificationPayload.notificationId ||
+    notificationPayload.appointment_status ||
+    notificationPayload.appointmentStatus ||
+    notificationPayload.status ||
+    notificationPayload.created_at ||
+    notificationPayload.createdAt ||
+    notificationPayload.updated_at ||
+    notificationPayload.updatedAt ||
+    `${Date.now()}-${Math.random().toString(36).slice(2)}`
+  ).trim()
+
+  const notificationTag = `${notificationBaseTag}:event:${notificationEventKey}`
+
+  const shouldRenotify = true
 
   const options = {
     body,
@@ -639,6 +652,9 @@ self.addEventListener('push', event => {
     badge: notificationBadge,
     tag: notificationTag,
     renotify: shouldRenotify,
+    silent: false,
+    vibrate: [200, 100, 200],
+    timestamp: Date.now(),
     requireInteraction: false,
     data: notificationPayload,
     actions: [
