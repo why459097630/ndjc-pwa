@@ -1871,6 +1871,7 @@ export function ShowcaseEditDish({
   const editScrollRef = React.useRef<HTMLElement | null>(null)
   const nameFieldRef = React.useRef<HTMLElement | null>(null)
   const priceFieldRef = React.useRef<HTMLElement | null>(null)
+  const discountFieldRef = React.useRef<HTMLElement | null>(null)
   const descriptionFieldRef = React.useRef<HTMLElement | null>(null)
   const categoryFieldRef = React.useRef<HTMLElement | null>(null)
   const imagesFieldRef = React.useRef<HTMLElement | null>(null)
@@ -1945,7 +1946,9 @@ export function ShowcaseEditDish({
 
     const validationSignature = [
       state.nameRequiredError ? 'name' : '',
-      state.priceRequiredError ? 'price' : '',
+      state.priceRequiredError ? 'price-required' : '',
+      state.priceErrorText ? 'price-invalid' : '',
+      state.discountValidationError ? 'discount-invalid' : '',
       state.descriptionRequiredError ? 'description' : '',
       state.categoryRequiredError ? 'category' : '',
       state.imagesRequiredError ? 'images' : ''
@@ -1964,7 +1967,8 @@ export function ShowcaseEditDish({
 
     const targetRef =
       state.nameRequiredError ? nameFieldRef :
-      state.priceRequiredError ? priceFieldRef :
+      state.priceRequiredError || state.priceErrorText ? priceFieldRef :
+      state.discountValidationError ? discountFieldRef :
       state.descriptionRequiredError ? descriptionFieldRef :
       state.categoryRequiredError ? categoryFieldRef :
       state.imagesRequiredError ? imagesFieldRef :
@@ -1976,6 +1980,8 @@ export function ShowcaseEditDish({
   }, [
     state.nameRequiredError,
     state.priceRequiredError,
+    state.priceErrorText,
+    state.discountValidationError,
     state.descriptionRequiredError,
     state.categoryRequiredError,
     state.imagesRequiredError,
@@ -2092,44 +2098,47 @@ export function ShowcaseEditDish({
                     type="text"
                     inputMode="decimal"
                     singleLine
-                    isError={state.priceRequiredError}
+                    isError={state.priceRequiredError || Boolean(state.priceErrorText)}
                   />
 
-                  {state.priceRequiredError ? (
+                  {state.priceRequiredError || state.priceErrorText ? (
                     <EditItemErrorText>
-                      Price is required.
+                      {state.priceErrorText || 'Price is required.'}
                     </EditItemErrorText>
                   ) : null}
                 </EditItemFieldBlock>
 
-                <NdjcTextField
-                  value={state.discountPrice}
-                  onChange={actions.onDiscountPriceChange}
-                  label="Sale price"
-                  placeholder="Optional"
-                  type="text"
-                  inputMode="decimal"
-                  singleLine
-                />
+                <EditItemFieldBlock ref={discountFieldRef}>
+                  <NdjcTextField
+                    value={state.discountPrice}
+                    onChange={actions.onDiscountPriceChange}
+                    label="Sale price"
+                    placeholder="Optional"
+                    type="text"
+                    inputMode="decimal"
+                    singleLine
+                    isError={Boolean(state.discountErrorText)}
+                  />
 
-                <section
-                  className="ndjc-apk-edit-helper-block"
-                  style={{
-                    width: '100%',
-                    display: 'grid',
-                    gap: APK_EDIT_ITEM_UI.labelGap
-                  }}
-                >
-                  <EditItemBodySmallText>
-                    Leave empty if no discount. If set, it should be lower than Price.
-                  </EditItemBodySmallText>
+                  <section
+                    className="ndjc-apk-edit-helper-block"
+                    style={{
+                      width: '100%',
+                      display: 'grid',
+                      gap: APK_EDIT_ITEM_UI.labelGap
+                    }}
+                  >
+                    <EditItemBodySmallText>
+                      Leave empty if no discount. If set, it should be lower than Price.
+                    </EditItemBodySmallText>
 
-                  {state.discountErrorText ? (
-                    <EditItemErrorText>
-                      {state.discountErrorText}
-                    </EditItemErrorText>
-                  ) : null}
-                </section>
+                    {state.discountErrorText ? (
+                      <EditItemErrorText>
+                        {state.discountErrorText}
+                      </EditItemErrorText>
+                    ) : null}
+                  </section>
+                </EditItemFieldBlock>
 
                 <EditItemSpacer height={Math.max(0, APK_EDIT_ITEM_UI.midGap - APK_EDIT_ITEM_UI.fieldGap)} />
 
@@ -2603,7 +2612,6 @@ export function ShowcaseStoreProfileEdit({
   const [extraNewName, setExtraNewName] = React.useState('')
   const [extraNewValue, setExtraNewValue] = React.useState('')
   const [extraLocalError, setExtraLocalError] = React.useState<string | null>(null)
-  const [showMapUrlDialog, setShowMapUrlDialog] = React.useState(false)
   const [isDraggingCoverImages, setIsDraggingCoverImages] = React.useState(false)
   const [imagePreview, setImagePreview] = React.useState<{
     images: string[]
@@ -2614,32 +2622,25 @@ export function ShowcaseStoreProfileEdit({
   const coverInputRef = React.useRef<HTMLInputElement | null>(null)
   const titleFieldRef = React.useRef<HTMLElement | null>(null)
   const addressFieldRef = React.useRef<HTMLElement | null>(null)
+  const mapUrlFieldRef = React.useRef<HTMLElement | null>(null)
   const contactsFieldRef = React.useRef<HTMLElement | null>(null)
 
   const storeProfileErrorMessage = state.errorMessage || state.validationError || null
   const titleRequiredError = storeProfileErrorMessage === 'Store title is required.'
-  const addressRequiredError = storeProfileErrorMessage === '已填写 Map URL，但文本地址（Address）为空：请先填写地址，否则无法保存。'
-  const contactRequiredError = storeProfileErrorMessage === '有联系方式只填了一半（Name/Value），请补全或清空后再保存。'
-  const mapUrlDialogMessage = storeProfileErrorMessage &&
-    storeProfileErrorMessage.includes('Map URL') &&
-    (storeProfileErrorMessage.includes('http://') || storeProfileErrorMessage.includes('https://'))
-      ? storeProfileErrorMessage
-      : null
-
-  React.useEffect(() => {
-    if (mapUrlDialogMessage) {
-      setShowMapUrlDialog(true)
-    }
-  }, [mapUrlDialogMessage])
+  const addressRequiredError = storeProfileErrorMessage === 'Address is required when Map URL is set.'
+  const contactRequiredError = storeProfileErrorMessage === 'Contact name and value must both be filled, or both be empty.'
+  const mapUrlInvalidError = storeProfileErrorMessage === 'Map URL must start with http:// or https://.'
 
   React.useEffect(() => {
     const target = titleRequiredError
       ? titleFieldRef.current
       : addressRequiredError
         ? addressFieldRef.current
-        : contactRequiredError
-          ? contactsFieldRef.current
-          : null
+        : mapUrlInvalidError
+          ? mapUrlFieldRef.current
+          : contactRequiredError
+            ? contactsFieldRef.current
+            : null
 
     if (!target) return
 
@@ -2647,7 +2648,7 @@ export function ShowcaseStoreProfileEdit({
       behavior: 'smooth',
       block: 'center'
     })
-  }, [titleRequiredError, addressRequiredError, contactRequiredError])
+  }, [titleRequiredError, addressRequiredError, mapUrlInvalidError, contactRequiredError])
 
   function openLogoPicker(): void {
     logoInputRef.current?.click()
@@ -2906,12 +2907,16 @@ Sun: Closed`}
 
             <div style={{ height: APK_EDIT_ITEM_UI.fieldGap, flexShrink: 0 }} />
 
-            <ProfileField
-              label="Map URL (optional)"
-              value={state.draftMapUrl}
-              onChange={actions.onMapUrlChange}
-              placeholder="Paste map URL"
-            />
+            <section ref={mapUrlFieldRef}>
+              <ProfileField
+                label="Map URL (optional)"
+                value={state.draftMapUrl}
+                onChange={actions.onMapUrlChange}
+                placeholder="Paste map URL"
+                isError={mapUrlInvalidError}
+                errorText={mapUrlInvalidError ? 'Map URL must start with http:// or https://.' : null}
+              />
+            </section>
 
             <div style={{ height: APK_EDIT_ITEM_UI.sectionTop, flexShrink: 0 }} />
 
@@ -3071,8 +3076,8 @@ Sun: Closed`}
             {storeProfileErrorMessage &&
             !titleRequiredError &&
             !addressRequiredError &&
-            !contactRequiredError &&
-            !mapUrlDialogMessage ? (
+            !mapUrlInvalidError &&
+            !contactRequiredError ? (
               <>
                 <div style={{ height: 8, flexShrink: 0 }} />
 
@@ -3156,17 +3161,7 @@ Sun: Closed`}
         />
       ) : null}
 
-      {showMapUrlDialog && mapUrlDialogMessage ? (
-        <NdjcBaseDialog
-          title="Invalid Map URL"
-          message={mapUrlDialogMessage}
-          confirmText="OK"
-          dismissText={null}
-          onConfirmClick={() => setShowMapUrlDialog(false)}
-          onDismissClick={() => setShowMapUrlDialog(false)}
-          onDismissRequest={() => setShowMapUrlDialog(false)}
-        />
-      ) : null}
+
     </NdjcUnifiedBackground>
   )
 }
