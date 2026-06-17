@@ -1926,7 +1926,7 @@ function buildProductQuotePreview(product: NdjcParsedProduct): string {
   const title = product.title || product.dishId
   const price = product.price
 
-  return `商品：${title}${price ? `  ${price}` : ''}`.slice(0, 60)
+  return `Product: ${title}${price ? `  ${price}` : ''}`.slice(0, 60)
 }
 
 function createUuidLikeId(): string {

@@ -283,7 +283,7 @@ export function createShowcaseStoreProfileActions(context: ShowcaseStoreProfileA
     })
 
     if (hasHalfFilledContact) {
-      setStoreProfileSaveError('有联系方式只填了一半（Name/Value），请补全或清空后再保存。')
+      setStoreProfileSaveError('Contact name and value must both be filled, or both be empty.')
       return
     }
 
@@ -292,7 +292,7 @@ export function createShowcaseStoreProfileActions(context: ShowcaseStoreProfileA
 
     if (mapUrl) {
       if (!address) {
-        setStoreProfileSaveError('已填写 Map URL，但文本地址（Address）为空：请先填写地址，否则无法保存。')
+        setStoreProfileSaveError('Address is required when Map URL is set.')
         return
       }
 

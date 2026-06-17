@@ -9441,7 +9441,7 @@ function backFromAppointments(): void {
     if (!effectiveConversationId || !effectiveClientId) {
       setChatStatusMessage(role === 'merchant'
         ? 'Conversation unavailable. Please reopen this customer chat.'
-        : 'Conversation unavailable.'
+        : 'Chat is currently unavailable.'
       )
       return null
     }
@@ -15314,9 +15314,28 @@ function onChatImageLimitReached(): void {
   const editDishImagesRequiredError = editDishShowsRequiredFieldErrors &&
     editDishImageUrls.length === 0
 
+  const editDishInlinePriceErrorText = editValidationError === 'Please enter Price.'
+    ? 'Price is required.'
+    : editValidationError === 'Please enter a valid Price.'
+      ? 'Enter a valid price.'
+      : null
+
+  const editDishDiscountValidationErrorMessages = new Set([
+    'Invalid discount price.',
+    'Discount price must be > 0.',
+    'Discount price must be lower than price.'
+  ])
+
+  const editDishDiscountValidationError = Boolean(
+    editValidationError &&
+    editDishDiscountValidationErrorMessages.has(editValidationError)
+  )
+
   const editDishShowErrorDialog = Boolean(
     editValidationError &&
-    !editDishShowsRequiredFieldErrors
+    !editDishShowsRequiredFieldErrors &&
+    !editDishInlinePriceErrorText &&
+    !editDishDiscountValidationError
   )
 
 const editDishState: ShowcaseEditDishUiState = {
@@ -15338,11 +15357,19 @@ const editDishState: ShowcaseEditDishUiState = {
     errorMessage: editValidationError,
     isDiscountInvalidNumber: selectedDishDiscountInvalid,
     isDiscountGEPrice: selectedDishDiscountGEPrice,
-    discountErrorText: selectedDishDiscountInvalid
+    priceErrorText: editDishInlinePriceErrorText,
+    discountErrorText: editValidationError === 'Invalid discount price.'
       ? 'Discount price must be a valid number.'
-      : selectedDishDiscountGEPrice
-        ? 'Discount price must be lower than original price.'
-        : null,
+      : editValidationError === 'Discount price must be > 0.'
+        ? 'Discount price must be greater than 0.'
+        : editValidationError === 'Discount price must be lower than price.'
+          ? 'Discount price must be lower than price.'
+          : selectedDishDiscountInvalid
+            ? 'Discount price must be a valid number.'
+            : selectedDishDiscountGEPrice
+              ? 'Discount price must be lower than original price.'
+              : null,
+    discountValidationError: editDishDiscountValidationError,
     nameRequiredError: editDishNameRequiredError,
     priceRequiredError: editDishPriceRequiredError,
     descriptionRequiredError: editDishDescriptionRequiredError,

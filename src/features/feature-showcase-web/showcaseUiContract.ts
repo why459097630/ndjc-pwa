@@ -545,7 +545,9 @@ export type ShowcaseEditDishUiState = {
   errorMessage: string | null
   isDiscountInvalidNumber: boolean
   isDiscountGEPrice: boolean
+  priceErrorText: string | null
   discountErrorText: string | null
+  discountValidationError: boolean
   nameRequiredError: boolean
   priceRequiredError: boolean
   descriptionRequiredError: boolean
