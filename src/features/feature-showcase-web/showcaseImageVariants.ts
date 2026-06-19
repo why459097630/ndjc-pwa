@@ -159,17 +159,51 @@ export function selectStoreLogoPreviewUrl(store: ShowcaseStoreImageSource | null
     normalizeShowcaseImageUrl(store.logoUrl)
 }
 
+function selectChatFallbackImageUrl(
+  urlInput: string | null | undefined,
+  usage: Extract<ShowcaseImageUsage, 'chatThumb' | 'chatPreview'>
+): string | null {
+  const url = normalizeShowcaseImageUrl(urlInput)
+
+  if (!url) return null
+
+  const variantMatch = url.match(/_(original|large|medium|thumb|blur)_(\d+)(\.[a-zA-Z0-9]+)(?=$|[?#])/)
+
+  if (!variantMatch) {
+    return url
+  }
+
+  const currentIndex = Number(variantMatch[2])
+
+  if (!Number.isFinite(currentIndex)) {
+    return url
+  }
+
+  const imageGroupOffset = Math.floor(currentIndex / 10) * 10
+  const targetVariantName = usage === 'chatThumb' ? 'thumb' : 'large'
+  const targetVariantIndex = usage === 'chatThumb'
+    ? imageGroupOffset + 3
+    : imageGroupOffset + 1
+
+  return url.replace(
+    /_(original|large|medium|thumb|blur)_(\d+)(\.[a-zA-Z0-9]+)(?=$|[?#])/,
+    `_${targetVariantName}_${targetVariantIndex}$3`
+  )
+}
+
 export function selectChatImageUrls(
   urls: ReadonlyArray<string | null | undefined> | null | undefined,
   usage: Extract<ShowcaseImageUsage, 'chatThumb' | 'chatPreview'> = 'chatThumb'
 ): string[] {
   const cleanUrls = normalizeShowcaseImageUrls(urls)
 
-  if (usage === 'chatPreview') {
-    return cleanUrls
-  }
-
-  return cleanUrls
+  return Array.from(
+    new Set(
+      cleanUrls
+        .map(url => selectChatFallbackImageUrl(url, usage))
+        .filter((url): url is string => Boolean(url))
+    )
+  )
 }
 
 export function selectShowcaseImageBlurDataUrl(variants: ShowcaseImageVariants | null | undefined): string | null {

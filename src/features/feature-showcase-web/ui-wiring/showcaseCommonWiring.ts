@@ -185,6 +185,10 @@ export function noopString(_value: string): void {
   // Intentionally empty.
 }
 
+export function noopStringReturnFalse(_value: string): boolean {
+  return false
+}
+
 export function noopImagePicked(_value: string | File | Blob): void {
 }
 
@@ -220,6 +224,10 @@ export function noopSortMode(_value: ShowcaseHomeSortMode): void {
 
 export function noopStringString(_left: string, _right: string): void {
   // Intentionally empty.
+}
+
+export function noopStringStringReturnFalse(_left: string, _right: string): boolean {
+  return false
 }
 
 export function noopStringBoolean(_id: string, _value: boolean): void {

@@ -817,7 +817,7 @@ export function useShowcaseViewModel(input: UseShowcaseViewModelInput = {}): Sho
       : loadDishesFromStorage(storeId)
     const sourceItems = localDishes.length ? localDishes : initialDishes
 
-    return sourceItems
+    return sortedDishesForStorage(sourceItems)
       .map(item => String(item.id || '').trim())
       .filter(Boolean)
   })
@@ -1214,6 +1214,79 @@ export function useShowcaseViewModel(input: UseShowcaseViewModelInput = {}): Sho
   const homeSearchRequestSeqRef = useRef(0)
   const adminItemsSearchDebounceTimerRef = useRef<number | null>(null)
   const adminItemsSearchRequestSeqRef = useRef(0)
+  const homeDishCloudFiltersRef = useRef<DishCloudQueryFilters>({
+    categoryName: selectedCategory,
+    searchQuery,
+    selectedTags,
+    recommendedOnly: filterRecommendedOnly,
+    onSaleOnly: filterOnSaleOnly,
+    minPrice: homeAppliedMinPrice,
+    maxPrice: homeAppliedMaxPrice,
+    includeHidden: false,
+    hiddenOnly: false,
+    sortMode
+  })
+  const adminItemsCloudFiltersRef = useRef<DishCloudQueryFilters>({
+    categoryName: adminItemsSelectedCategory,
+    searchQuery: adminItemsSearchQuery,
+    selectedTags: [],
+    recommendedOnly: adminItemsFilterRecommended,
+    onSaleOnly: adminItemsFilterDiscountOnly,
+    minPrice: adminItemsAppliedMinPrice,
+    maxPrice: adminItemsAppliedMaxPrice,
+    includeHidden: true,
+    hiddenOnly: adminItemsFilterHiddenOnly,
+    sortMode: adminItemsSortMode
+  })
+
+  useEffect(() => {
+    homeDishCloudFiltersRef.current = {
+      categoryName: selectedCategory,
+      searchQuery,
+      selectedTags,
+      recommendedOnly: filterRecommendedOnly,
+      onSaleOnly: filterOnSaleOnly,
+      minPrice: homeAppliedMinPrice,
+      maxPrice: homeAppliedMaxPrice,
+      includeHidden: false,
+      hiddenOnly: false,
+      sortMode
+    }
+  }, [
+    filterOnSaleOnly,
+    filterRecommendedOnly,
+    homeAppliedMaxPrice,
+    homeAppliedMinPrice,
+    searchQuery,
+    selectedCategory,
+    selectedTags,
+    sortMode
+  ])
+
+  useEffect(() => {
+    adminItemsCloudFiltersRef.current = {
+      categoryName: adminItemsSelectedCategory,
+      searchQuery: adminItemsSearchQuery,
+      selectedTags: [],
+      recommendedOnly: adminItemsFilterRecommended,
+      onSaleOnly: adminItemsFilterDiscountOnly,
+      minPrice: adminItemsAppliedMinPrice,
+      maxPrice: adminItemsAppliedMaxPrice,
+      includeHidden: true,
+      hiddenOnly: adminItemsFilterHiddenOnly,
+      sortMode: adminItemsSortMode
+    }
+  }, [
+    adminItemsAppliedMaxPrice,
+    adminItemsAppliedMinPrice,
+    adminItemsFilterDiscountOnly,
+    adminItemsFilterHiddenOnly,
+    adminItemsFilterRecommended,
+    adminItemsSearchQuery,
+    adminItemsSelectedCategory,
+    adminItemsSortMode
+  ])
+
   const homeBadgeRefreshInFlightRef = useRef(false)
   const adminHomeRefreshInFlightRef = useRef(false)
   const adminItemsRefreshInFlightRef = useRef(false)
@@ -1355,16 +1428,6 @@ export function useShowcaseViewModel(input: UseShowcaseViewModelInput = {}): Sho
     return mergeCloudAndDishCategoryNames(categories, dishes)
   }, [categories, dishes])
 
-  const homeVisibleCategories = useMemo(() => {
-    const cloudVisibleCategories = dishFilterRowsToCategoryNames(homeDishFilterRows)
-
-    if (cloudVisibleCategories.length) {
-      return cloudVisibleCategories
-    }
-
-    return categoryOptionsFromDishes(dishes.filter(item => !item.isHidden))
-  }, [dishes, homeDishFilterRows])
-
   const adminCategories = useMemo(() => {
     return cloudCategoriesToManualCategoryNames(categories)
   }, [categories])
@@ -1415,8 +1478,30 @@ export function useShowcaseViewModel(input: UseShowcaseViewModelInput = {}): Sho
     [visibleDishesForUi]
   )
 
+  const hasActiveHomeFilters = useMemo(() => {
+    return Boolean(
+      selectedCategory ||
+      searchQuery.trim() ||
+      selectedTags.length ||
+      filterRecommendedOnly ||
+      filterOnSaleOnly ||
+      homeAppliedMinPrice != null ||
+      homeAppliedMaxPrice != null ||
+      sortMode !== 'Default'
+    )
+  }, [
+    filterOnSaleOnly,
+    filterRecommendedOnly,
+    homeAppliedMaxPrice,
+    homeAppliedMinPrice,
+    searchQuery,
+    selectedCategory,
+    selectedTags.length,
+    sortMode
+  ])
+
   const cachedFallbackHomeDishesForUi = useMemo(() => {
-    if (homeDishesForUi.length) {
+    if (homeDishesForUi.length || hasActiveHomeFilters) {
       return []
     }
 
@@ -1435,6 +1520,7 @@ export function useShowcaseViewModel(input: UseShowcaseViewModelInput = {}): Sho
     }).map(toShowcaseHomeDish)
   }, [
     favoriteIds,
+    hasActiveHomeFilters,
     homeDishesForUi.length,
     sortMode,
     storeId
@@ -1443,6 +1529,10 @@ export function useShowcaseViewModel(input: UseShowcaseViewModelInput = {}): Sho
   const effectiveHomeDishesForUi = homeDishesForUi.length
     ? homeDishesForUi
     : cachedFallbackHomeDishesForUi
+
+  const homeVisibleCategories = useMemo(() => {
+    return categoryOptionsFromDishes(dishes.filter(item => !item.isHidden))
+  }, [dishes])
 
 
 
@@ -1478,7 +1568,15 @@ export function useShowcaseViewModel(input: UseShowcaseViewModelInput = {}): Sho
 
         if (dish) {
           const snapshot = favoriteSnapshotFromDish(dish)
+          const storedSnapshot = favoriteSnapshots[id] || null
           const priceValue = getDishPrice(dish)
+          const stableCreatedAt = Number(
+            storedSnapshot?.createdAt ??
+            favoriteAddedAt[id] ??
+            dish.createdAt ??
+            dish.updatedAt ??
+            0
+          )
 
           return {
             dishId: id,
@@ -1490,6 +1588,7 @@ export function useShowcaseViewModel(input: UseShowcaseViewModelInput = {}): Sho
             imageUrl: selectDishImageUrl(dish, 'list'),
             imageVariants: dish.imageVariants ?? snapshot.imageVariants ?? null,
             priceValue,
+            createdAt: stableCreatedAt,
             isRecommended: Boolean(dish.isRecommended),
             isOnSale: hasDiscount(dish),
             itemAvailable: Boolean(!dish.isSoldOut && !dish.isHidden)
@@ -1515,6 +1614,7 @@ export function useShowcaseViewModel(input: UseShowcaseViewModelInput = {}): Sho
           imageUrl: snapshot.imageUrl,
           imageVariants: snapshot.imageVariants ?? createRemoteOnlyShowcaseImageVariants(snapshot.imageUrl),
           priceValue,
+          createdAt: Number(snapshot.createdAt ?? favoriteAddedAt[id] ?? 0),
           isRecommended: false,
           isOnSale: Boolean(snapshot.discountPriceText),
           itemAvailable: true
@@ -1530,11 +1630,12 @@ export function useShowcaseViewModel(input: UseShowcaseViewModelInput = {}): Sho
         imageUrl: string | null
         imageVariants: ShowcaseImageVariants | null
         priceValue: number
+        createdAt: number
         isRecommended: boolean
         isOnSale: boolean
         itemAvailable: boolean
       } => Boolean(item))
-  }, [dishEntitiesById, favoriteIds, favoriteSnapshots])
+  }, [dishEntitiesById, favoriteAddedAt, favoriteIds, favoriteSnapshots])
 
   const favoriteCategories = useMemo(() => {
     return Array.from(
@@ -1595,7 +1696,11 @@ export function useShowcaseViewModel(input: UseShowcaseViewModelInput = {}): Sho
       }
 
       return [...next].sort((left, right) => {
-        return (favoriteAddedAt[right.dishId] || 0) - (favoriteAddedAt[left.dishId] || 0)
+        const createdDiff = left.createdAt - right.createdAt
+
+        if (createdDiff !== 0) return createdDiff
+
+        return left.dishId.localeCompare(right.dishId)
       })
     })()
 
@@ -2102,13 +2207,7 @@ export function useShowcaseViewModel(input: UseShowcaseViewModelInput = {}): Sho
     return true
   }
 
-  function sortedDishesForStorage(items: DemoDish[]): DemoDish[] {
-    return items.slice().sort((left, right) => {
-      return (right.updatedAt || 0) - (left.updatedAt || 0) || getDishTitle(left).localeCompare(getDishTitle(right))
-    })
-  }
-
-  function sortedHomeDishesForDisplay(items: DemoDish[]): DemoDish[] {
+  function sortedDishesByDefaultDisplayOrder(items: DemoDish[]): DemoDish[] {
     return items.slice().sort((left, right) => {
       const leftCreatedAt = Number(left.createdAt ?? left.updatedAt ?? 0)
       const rightCreatedAt = Number(right.createdAt ?? right.updatedAt ?? 0)
@@ -2118,6 +2217,14 @@ export function useShowcaseViewModel(input: UseShowcaseViewModelInput = {}): Sho
 
       return String(left.id || '').localeCompare(String(right.id || ''))
     })
+  }
+
+  function sortedDishesForStorage(items: DemoDish[]): DemoDish[] {
+    return sortedDishesByDefaultDisplayOrder(items)
+  }
+
+  function sortedHomeDishesForDisplay(items: DemoDish[]): DemoDish[] {
+    return sortedDishesByDefaultDisplayOrder(items)
   }
 
   function sortedAppointmentsForStorage(items: CloudAppointmentRequest[]): CloudAppointmentRequest[] {
@@ -2260,11 +2367,14 @@ export function useShowcaseViewModel(input: UseShowcaseViewModelInput = {}): Sho
         const manualCategories = loadManualCategoriesFromStorage(storeId)
         const categoryNames = deriveCategoriesFromModels(effectiveDishes, manualCategories)
 
-        mergeDishEntities(effectiveDishes)
-        setDishes(effectiveDishes)
-        refreshFavoritesList(effectiveDishes)
-        setHomeDishIds(dishIdsFromItems(effectiveDishes.filter(item => !item.isHidden)))
-        setAdminItemIds(dishIdsFromItems(cachedDishes))
+        const sortedEffectiveDishes = sortedDishesForStorage(effectiveDishes)
+        const sortedCachedDishes = sortedDishesForStorage(cachedDishes)
+
+        mergeDishEntities(sortedEffectiveDishes)
+        setDishes(sortedEffectiveDishes)
+        refreshFavoritesList(sortedEffectiveDishes)
+        setHomeDishIds(dishIdsFromItems(sortedHomeDishesForDisplay(sortedEffectiveDishes.filter(item => !item.isHidden))))
+        setAdminItemIds(dishIdsFromItems(sortedCachedDishes))
         setCategories(manualCategoryNamesToCloudCategories(categoryNames))
       }
 
@@ -2403,32 +2513,36 @@ export function useShowcaseViewModel(input: UseShowcaseViewModelInput = {}): Sho
   }
 
   function currentHomeDishCloudFilters(input: Partial<DishCloudQueryFilters> = {}): DishCloudQueryFilters {
+    const currentFilters = homeDishCloudFiltersRef.current
+
     return {
-      categoryName: input.categoryName === undefined ? selectedCategory : input.categoryName,
-      searchQuery: input.searchQuery === undefined ? searchQuery : input.searchQuery,
-      selectedTags: input.selectedTags === undefined ? selectedTags : input.selectedTags,
-      recommendedOnly: input.recommendedOnly === undefined ? filterRecommendedOnly : input.recommendedOnly,
-      onSaleOnly: input.onSaleOnly === undefined ? filterOnSaleOnly : input.onSaleOnly,
-      minPrice: input.minPrice === undefined ? homeAppliedMinPrice : input.minPrice,
-      maxPrice: input.maxPrice === undefined ? homeAppliedMaxPrice : input.maxPrice,
+      categoryName: input.categoryName === undefined ? currentFilters.categoryName : input.categoryName,
+      searchQuery: input.searchQuery === undefined ? currentFilters.searchQuery : input.searchQuery,
+      selectedTags: input.selectedTags === undefined ? currentFilters.selectedTags : input.selectedTags,
+      recommendedOnly: input.recommendedOnly === undefined ? currentFilters.recommendedOnly : input.recommendedOnly,
+      onSaleOnly: input.onSaleOnly === undefined ? currentFilters.onSaleOnly : input.onSaleOnly,
+      minPrice: input.minPrice === undefined ? currentFilters.minPrice : input.minPrice,
+      maxPrice: input.maxPrice === undefined ? currentFilters.maxPrice : input.maxPrice,
       includeHidden: false,
       hiddenOnly: false,
-      sortMode: input.sortMode === undefined ? sortMode : input.sortMode
+      sortMode: input.sortMode === undefined ? currentFilters.sortMode : input.sortMode
     }
   }
 
   function currentAdminItemsCloudFilters(input: Partial<DishCloudQueryFilters> = {}): DishCloudQueryFilters {
+    const currentFilters = adminItemsCloudFiltersRef.current
+
     return {
-      categoryName: input.categoryName === undefined ? adminItemsSelectedCategory : input.categoryName,
-      searchQuery: input.searchQuery === undefined ? adminItemsSearchQuery : input.searchQuery,
+      categoryName: input.categoryName === undefined ? currentFilters.categoryName : input.categoryName,
+      searchQuery: input.searchQuery === undefined ? currentFilters.searchQuery : input.searchQuery,
       selectedTags: [],
-      recommendedOnly: input.recommendedOnly === undefined ? adminItemsFilterRecommended : input.recommendedOnly,
-      onSaleOnly: input.onSaleOnly === undefined ? adminItemsFilterDiscountOnly : input.onSaleOnly,
-      minPrice: input.minPrice === undefined ? adminItemsAppliedMinPrice : input.minPrice,
-      maxPrice: input.maxPrice === undefined ? adminItemsAppliedMaxPrice : input.maxPrice,
+      recommendedOnly: input.recommendedOnly === undefined ? currentFilters.recommendedOnly : input.recommendedOnly,
+      onSaleOnly: input.onSaleOnly === undefined ? currentFilters.onSaleOnly : input.onSaleOnly,
+      minPrice: input.minPrice === undefined ? currentFilters.minPrice : input.minPrice,
+      maxPrice: input.maxPrice === undefined ? currentFilters.maxPrice : input.maxPrice,
       includeHidden: true,
-      hiddenOnly: input.hiddenOnly === undefined ? adminItemsFilterHiddenOnly : input.hiddenOnly,
-      sortMode: input.sortMode === undefined ? adminItemsSortMode : input.sortMode
+      hiddenOnly: input.hiddenOnly === undefined ? currentFilters.hiddenOnly : input.hiddenOnly,
+      sortMode: input.sortMode === undefined ? currentFilters.sortMode : input.sortMode
     }
   }
 
@@ -2498,6 +2612,103 @@ export function useShowcaseViewModel(input: UseShowcaseViewModelInput = {}): Sho
     return items
   }
 
+  function normalizeLocalDishFilterText(value: unknown): string {
+    return String(value || '').trim().toLowerCase()
+  }
+
+  function applyLocalDishCloudFilters(
+    items: DemoDish[],
+    filters: DishCloudQueryFilters,
+    defaultSort: (items: DemoDish[]) => DemoDish[]
+  ): DemoDish[] {
+    const categoryName = normalizeLocalDishFilterText(filters.categoryName)
+    const searchQueryText = normalizeLocalDishFilterText(filters.searchQuery)
+    const selectedTagKeys = (filters.selectedTags || [])
+      .map(tag => normalizeLocalDishFilterText(tag))
+      .filter(Boolean)
+    const minPrice = filters.minPrice
+    const maxPrice = filters.maxPrice
+
+    const filteredItems = items.filter(item => {
+      if (filters.hiddenOnly) {
+        if (!item.isHidden) return false
+      } else if (!filters.includeHidden && item.isHidden) {
+        return false
+      }
+
+      if (categoryName && normalizeLocalDishFilterText(item.category) !== categoryName) {
+        return false
+      }
+
+      if (filters.recommendedOnly && !item.isRecommended) {
+        return false
+      }
+
+      if (filters.onSaleOnly && !hasDiscount(item)) {
+        return false
+      }
+
+      const price = getDishPrice(item)
+
+      if (minPrice != null && price < minPrice) {
+        return false
+      }
+
+      if (maxPrice != null && price > maxPrice) {
+        return false
+      }
+
+      if (selectedTagKeys.length) {
+        const itemTagKeys = (item.tags || []).map(tag => normalizeLocalDishFilterText(tag))
+
+        if (!selectedTagKeys.every(tag => itemTagKeys.includes(tag))) {
+          return false
+        }
+      }
+
+      if (searchQueryText) {
+        const searchableText = [
+          getDishTitle(item),
+          item.name,
+          item.title,
+          item.description,
+          item.category,
+          ...(item.tags || [])
+        ]
+          .map(part => normalizeLocalDishFilterText(part))
+          .filter(Boolean)
+          .join(' ')
+
+        if (!searchableText.includes(searchQueryText)) {
+          return false
+        }
+      }
+
+      return true
+    })
+
+    if (filters.sortMode && filters.sortMode !== 'Default') {
+      return sortDishes(filteredItems, filters.sortMode)
+    }
+
+    return defaultSort(filteredItems)
+  }
+
+  function filterLocalHomeDishes(items: DemoDish[], filters: DishCloudQueryFilters): DemoDish[] {
+    return applyLocalDishCloudFilters(items, {
+      ...filters,
+      includeHidden: false,
+      hiddenOnly: false
+    }, sortedHomeDishesForDisplay)
+  }
+
+  function filterLocalAdminItems(items: DemoDish[], filters: DishCloudQueryFilters): DemoDish[] {
+    return applyLocalDishCloudFilters(items, {
+      ...filters,
+      includeHidden: true
+    }, sortedDishesForStorage)
+  }
+
   async function refreshHomeDishesFilteredFirstPage(
     filtersInput: DishCloudQueryFilters = currentHomeDishCloudFilters(),
     requestSeq?: number
@@ -2505,7 +2716,7 @@ export function useShowcaseViewModel(input: UseShowcaseViewModelInput = {}): Sho
     try {
       const cloudLoadStartedAt = Date.now()
       const localDishes = loadDishesFromStorage(storeId)
-      const localVisibleDishes = localDishes.filter(item => !item.isHidden)
+      const localFallbackDishes = filterLocalHomeDishes(localDishes, filtersInput)
 
       const filterRows = await repository.fetchDishFilterRows({
         storeId,
@@ -2526,8 +2737,8 @@ export function useShowcaseViewModel(input: UseShowcaseViewModelInput = {}): Sho
       const browserOffline = isBrowserOfflineNow()
       const cloudReadFailed = repository.lastReadFailureAt >= cloudLoadStartedAt
       const cloudUnavailable = browserOffline || cloudReadFailed
-      const shouldUseLocalDishCache = cloudUnavailable && !items.length && localVisibleDishes.length > 0
-      const sourceItems = shouldUseLocalDishCache ? localVisibleDishes : items
+      const shouldUseLocalDishCache = cloudUnavailable && !items.length && localFallbackDishes.length > 0
+      const sourceItems = shouldUseLocalDishCache ? localFallbackDishes : items
       const orderedHomeItems = filtersInput.sortMode === 'Default'
         ? sortedHomeDishesForDisplay(sourceItems)
         : sourceItems
@@ -2535,7 +2746,27 @@ export function useShowcaseViewModel(input: UseShowcaseViewModelInput = {}): Sho
 
       mergeDishEntities(merged)
       setHomeDishIds(dishIdsFromItems(orderedHomeItems))
-      setDishes(merged)
+      setDishes(current => {
+        const nextById = new Map<string, DemoDish>()
+
+        current.forEach(item => {
+          const id = String(item.id || '').trim()
+
+          if (!id) return
+
+          nextById.set(id, item)
+        })
+
+        merged.forEach(item => {
+          const id = String(item.id || '').trim()
+
+          if (!id) return
+
+          nextById.set(id, item)
+        })
+
+        return sortedDishesForStorage(Array.from(nextById.values()))
+      })
       refreshFavoritesList(merged)
       replaceDishPendingSyncOperations(merged)
       resetHomePaginationForFirstPage(sourceItems.length)
@@ -2550,20 +2781,40 @@ export function useShowcaseViewModel(input: UseShowcaseViewModelInput = {}): Sho
       if (requestSeq != null && requestSeq !== homeSearchRequestSeqRef.current) return
 
       const localDishes = loadDishesFromStorage(storeId)
-      const localVisibleDishes = localDishes.filter(item => !item.isHidden)
+      const localFallbackDishes = filterLocalHomeDishes(localDishes, filtersInput)
 
-      if (localVisibleDishes.length) {
-        const orderedHomeItems = sortMode === 'Default'
-          ? sortedHomeDishesForDisplay(localVisibleDishes)
-          : localVisibleDishes
-        const merged = sortedDishesForStorage(localVisibleDishes)
+      if (localFallbackDishes.length) {
+        const orderedHomeItems = filtersInput.sortMode === 'Default'
+          ? sortedHomeDishesForDisplay(localFallbackDishes)
+          : localFallbackDishes
+        const merged = sortedDishesForStorage(localFallbackDishes)
 
         mergeDishEntities(merged)
         setHomeDishIds(dishIdsFromItems(orderedHomeItems))
-        setDishes(merged)
+        setDishes(current => {
+          const nextById = new Map<string, DemoDish>()
+
+          current.forEach(item => {
+            const id = String(item.id || '').trim()
+
+            if (!id) return
+
+            nextById.set(id, item)
+          })
+
+          merged.forEach(item => {
+            const id = String(item.id || '').trim()
+
+            if (!id) return
+
+            nextById.set(id, item)
+          })
+
+          return sortedDishesForStorage(Array.from(nextById.values()))
+        })
         refreshFavoritesList(merged)
         replaceDishPendingSyncOperations(merged)
-        resetHomePaginationForFirstPage(localVisibleDishes.length)
+        resetHomePaginationForFirstPage(localFallbackDishes.length)
         setStatusMessage('Cloud unavailable, loaded from local cache.')
         return
       }
@@ -2584,18 +2835,39 @@ export function useShowcaseViewModel(input: UseShowcaseViewModelInput = {}): Sho
     try {
       const cloudLoadStartedAt = Date.now()
       const localDishes = loadDishesFromStorage(storeId)
+      const localFallbackDishes = filterLocalAdminItems(localDishes, filtersInput)
 
       const validSession = await ensureValidMerchantSessionLoadedForCloud()
 
       if (!validSession) {
-        if (localDishes.length) {
-          const merged = sortedDishesForStorage(localDishes)
+        if (localFallbackDishes.length) {
+          const merged = sortedDishesForStorage(localFallbackDishes)
 
           setAdminItemIds(dishIdsFromItems(merged))
-          setDishes(merged)
+          setDishes(current => {
+            const nextById = new Map<string, DemoDish>()
+
+            current.forEach(item => {
+              const id = String(item.id || '').trim()
+
+              if (!id) return
+
+              nextById.set(id, item)
+            })
+
+            merged.forEach(item => {
+              const id = String(item.id || '').trim()
+
+              if (!id) return
+
+              nextById.set(id, item)
+            })
+
+            return sortedDishesForStorage(Array.from(nextById.values()))
+          })
           refreshFavoritesList(merged)
           replaceDishPendingSyncOperations(merged)
-          resetAdminItemsPaginationForFirstPage(localDishes.length)
+          resetAdminItemsPaginationForFirstPage(localFallbackDishes.length)
           setStatusMessage('Cloud unavailable, loaded from local cache.')
           return
         }
@@ -2614,12 +2886,32 @@ export function useShowcaseViewModel(input: UseShowcaseViewModelInput = {}): Sho
       const browserOffline = isBrowserOfflineNow()
       const cloudReadFailed = repository.lastReadFailureAt >= cloudLoadStartedAt
       const cloudUnavailable = browserOffline || cloudReadFailed
-      const shouldUseLocalDishCache = cloudUnavailable && !items.length && localDishes.length > 0
-      const sourceItems = shouldUseLocalDishCache ? localDishes : items
+      const shouldUseLocalDishCache = cloudUnavailable && !items.length && localFallbackDishes.length > 0
+      const sourceItems = shouldUseLocalDishCache ? localFallbackDishes : items
       const merged = sortedDishesForStorage(sourceItems)
 
       setAdminItemIds(dishIdsFromItems(merged))
-      setDishes(merged)
+      setDishes(current => {
+        const nextById = new Map<string, DemoDish>()
+
+        current.forEach(item => {
+          const id = String(item.id || '').trim()
+
+          if (!id) return
+
+          nextById.set(id, item)
+        })
+
+        merged.forEach(item => {
+          const id = String(item.id || '').trim()
+
+          if (!id) return
+
+          nextById.set(id, item)
+        })
+
+        return sortedDishesForStorage(Array.from(nextById.values()))
+      })
       refreshFavoritesList(merged)
       replaceDishPendingSyncOperations(merged)
       resetAdminItemsPaginationForFirstPage(sourceItems.length)
@@ -2634,15 +2926,36 @@ export function useShowcaseViewModel(input: UseShowcaseViewModelInput = {}): Sho
       if (requestSeq != null && requestSeq !== adminItemsSearchRequestSeqRef.current) return
 
       const localDishes = loadDishesFromStorage(storeId)
+      const localFallbackDishes = filterLocalAdminItems(localDishes, filtersInput)
 
-      if (localDishes.length) {
-        const merged = sortedDishesForStorage(localDishes)
+      if (localFallbackDishes.length) {
+        const merged = sortedDishesForStorage(localFallbackDishes)
 
         setAdminItemIds(dishIdsFromItems(merged))
-        setDishes(merged)
+        setDishes(current => {
+          const nextById = new Map<string, DemoDish>()
+
+          current.forEach(item => {
+            const id = String(item.id || '').trim()
+
+            if (!id) return
+
+            nextById.set(id, item)
+          })
+
+          merged.forEach(item => {
+            const id = String(item.id || '').trim()
+
+            if (!id) return
+
+            nextById.set(id, item)
+          })
+
+          return sortedDishesForStorage(Array.from(nextById.values()))
+        })
         refreshFavoritesList(merged)
         replaceDishPendingSyncOperations(merged)
-        resetAdminItemsPaginationForFirstPage(localDishes.length)
+        resetAdminItemsPaginationForFirstPage(localFallbackDishes.length)
         setStatusMessage('Cloud unavailable, loaded from local cache.')
         return
       }
@@ -3980,6 +4293,12 @@ function backFromAppointments(): void {
 
     const name = (editDishName.trim() || existing?.name || existing?.title || 'Untitled item').trim()
     const id = editDishId || existing?.id || createUuidLikeId()
+    const savedAt = nowMillis()
+    const createdAt = Number.isFinite(Number(existing?.createdAt))
+      ? Number(existing?.createdAt)
+      : Number.isFinite(Number(existing?.updatedAt))
+        ? Number(existing?.updatedAt)
+        : savedAt
     const imageUrls = editDishImageUrls
       .map(item => item.trim())
       .filter(Boolean)
@@ -4002,7 +4321,8 @@ function backFromAppointments(): void {
       imageVariants: existing?.imageVariants ?? null,
       tags: existing?.tags || [],
       clickCount: existing?.clickCount || 0,
-      updatedAt: nowMillis(),
+      createdAt,
+      updatedAt: savedAt,
       syncState: 'Pending',
       dirty: true,
       isFavorite: favoriteIds.includes(id)
@@ -4097,12 +4417,16 @@ function backFromAppointments(): void {
     )
 
     if (input.localDishes.length) {
-      mergeDishEntities(input.localDishes)
-      setHomeDishIds(dishIdsFromItems(localHomeDishes))
-      setAdminItemIds(dishIdsFromItems(input.localDishes))
-      setDishes(effectiveLocalDishes)
-      refreshFavoritesList(effectiveLocalDishes)
-      replaceDishPendingSyncOperations(input.localDishes)
+      const sortedLocalDishes = sortedDishesForStorage(input.localDishes)
+      const sortedLocalHomeDishes = sortedHomeDishesForDisplay(localHomeDishes)
+      const sortedEffectiveLocalDishes = sortedDishesForStorage(effectiveLocalDishes)
+
+      mergeDishEntities(sortedLocalDishes)
+      setHomeDishIds(dishIdsFromItems(sortedLocalHomeDishes))
+      setAdminItemIds(dishIdsFromItems(sortedLocalDishes))
+      setDishes(sortedEffectiveLocalDishes)
+      refreshFavoritesList(sortedEffectiveLocalDishes)
+      replaceDishPendingSyncOperations(sortedLocalDishes)
     }
 
     if (effectiveCategoryNames.length) {
@@ -4306,16 +4630,18 @@ function backFromAppointments(): void {
         })
         .map(toPublishedAnnouncementEntity)
 
+      const sortedEffectiveDishes = sortedDishesForStorage(effectiveDishes)
+
       setCloudStatus(serviceStatus)
       setStorePwaProfileCloud(cloudStorePwaProfile)
       setIsWriteAllowed(serviceStatus ? serviceStatus.isWriteAllowed : await repository.isStoreWriteAllowed(storeId))
       setCategories(cloudCategories.length ? cloudCategories : manualCategoryNamesToCloudCategories(effectiveManualCategories))
-      mergeDishEntities(effectiveDishes)
-      setHomeDishIds(dishIdsFromItems(effectiveDishes))
-      setAdminItemIds(dishIdsFromItems(effectiveDishes))
-      setDishes(effectiveDishes)
-      refreshFavoritesList(effectiveDishes)
-      replaceDishPendingSyncOperations(effectiveDishes)
+      mergeDishEntities(sortedEffectiveDishes)
+      setHomeDishIds(dishIdsFromItems(sortedHomeDishesForDisplay(sortedEffectiveDishes.filter(item => !item.isHidden))))
+      setAdminItemIds(dishIdsFromItems(sortedEffectiveDishes))
+      setDishes(sortedEffectiveDishes)
+      refreshFavoritesList(sortedEffectiveDishes)
+      replaceDishPendingSyncOperations(sortedEffectiveDishes)
 
       if (selectedDishId && screen === 'Detail') {
         const reboundSelectedDish = getDishEntityById(selectedDishId)
@@ -4673,18 +4999,20 @@ function backFromAppointments(): void {
         })
         .map(toPublishedAnnouncementEntity)
 
+      const sortedEffectiveDishes = sortedDishesForStorage(effectiveDishes)
+
       setCloudStatus(serviceStatus)
       setStorePwaProfileCloud(cloudStorePwaProfile)
       setIsWriteAllowed(serviceStatus ? serviceStatus.isWriteAllowed : await repository.isStoreWriteAllowed(storeId))
       setCategories(cloudCategories.length ? cloudCategories : manualCategoryNamesToCloudCategories(effectiveManualCategories))
-      mergeDishEntities(effectiveDishes)
-      setHomeDishIds(dishIdsFromItems(effectiveDishes))
+      mergeDishEntities(sortedEffectiveDishes)
+      setHomeDishIds(dishIdsFromItems(sortedHomeDishesForDisplay(sortedEffectiveDishes.filter(item => !item.isHidden))))
       if (isAdminLoggedIn) {
-        setAdminItemIds(dishIdsFromItems(effectiveDishes))
+        setAdminItemIds(dishIdsFromItems(sortedEffectiveDishes))
       }
-      setDishes(effectiveDishes)
-      refreshFavoritesList(effectiveDishes)
-      replaceDishPendingSyncOperations(effectiveDishes)
+      setDishes(sortedEffectiveDishes)
+      refreshFavoritesList(sortedEffectiveDishes)
+      replaceDishPendingSyncOperations(sortedEffectiveDishes)
 
       if (selectedDishId && screen === 'Detail') {
         const reboundSelectedDish = getDishEntityById(selectedDishId)
@@ -4784,17 +5112,19 @@ function backFromAppointments(): void {
       const message = error instanceof Error ? error.message : String(error || 'Cloud load failed.')
       const effectiveLocalDishes = localDishes.filter(item => isAdminLoggedIn || !item.isHidden)
 
-      mergeDishEntities(effectiveLocalDishes)
-      setHomeDishIds(dishIdsFromItems(effectiveLocalDishes))
+      const sortedEffectiveLocalDishes = sortedDishesForStorage(effectiveLocalDishes)
+
+      mergeDishEntities(sortedEffectiveLocalDishes)
+      setHomeDishIds(dishIdsFromItems(sortedHomeDishesForDisplay(sortedEffectiveLocalDishes.filter(item => !item.isHidden))))
 
       if (isAdminLoggedIn) {
-        setAdminItemIds(dishIdsFromItems(effectiveLocalDishes))
+        setAdminItemIds(dishIdsFromItems(sortedEffectiveLocalDishes))
       }
 
-      setDishes(effectiveLocalDishes)
-      refreshFavoritesList(effectiveLocalDishes)
+      setDishes(sortedEffectiveLocalDishes)
+      refreshFavoritesList(sortedEffectiveLocalDishes)
       setCategories(manualCategoryNamesToCloudCategories(localManualCategories))
-      replaceDishPendingSyncOperations(effectiveLocalDishes)
+      replaceDishPendingSyncOperations(sortedEffectiveLocalDishes)
 
       const effectiveLocalCategoryNames = Array.from(
         new Set([
@@ -4925,15 +5255,18 @@ function backFromAppointments(): void {
         ? cloudManualCategories
         : localManualCategories
 
+      const sortedFilteredItems = sortedDishesForStorage(filteredItems)
+      const sortedEffectiveDishes = sortedDishesForStorage(effectiveDishes)
+
       setCloudStatus(serviceStatus)
       setIsWriteAllowed(serviceStatus ? serviceStatus.isWriteAllowed : await repository.isStoreWriteAllowed(storeId))
       setCategories(cloudCategories.length ? cloudCategories : manualCategoryNamesToCloudCategories(effectiveManualCategories))
-      mergeDishEntities(effectiveDishes)
-      setAdminItemIds(dishIdsFromItems(filteredItems))
-      setDishes(effectiveDishes)
-      refreshFavoritesList(effectiveDishes)
-      replaceDishPendingSyncOperations(effectiveDishes)
-      resetAdminItemsPaginationForFirstPage(filteredItems.length)
+      mergeDishEntities(sortedEffectiveDishes)
+      setAdminItemIds(dishIdsFromItems(sortedFilteredItems))
+      setDishes(sortedEffectiveDishes)
+      refreshFavoritesList(sortedEffectiveDishes)
+      replaceDishPendingSyncOperations(sortedEffectiveDishes)
+      resetAdminItemsPaginationForFirstPage(sortedFilteredItems.length)
 
       const effectiveCategoryNames = cloudCategories.length
         ? cloudCategoriesToManualCategoryNames(cloudCategories)
@@ -4943,14 +5276,14 @@ function backFromAppointments(): void {
         setAdminItemsSelectedCategory(null)
       }
 
-      persistDishesLocally(storeId, effectiveDishes)
+      persistDishesLocally(storeId, sortedEffectiveDishes)
 
       if (effectiveManualCategories.length) {
         saveManualCategoriesToStorage(storeId, effectiveManualCategories)
       }
 
-      const pendingCount = effectiveDishes.filter(item => item.dirty === true || item.syncState === 'Pending').length
-      const failedCount = effectiveDishes.filter(item => item.syncState === 'Failed').length
+      const pendingCount = sortedEffectiveDishes.filter(item => item.dirty === true || item.syncState === 'Pending').length
+      const failedCount = sortedEffectiveDishes.filter(item => item.syncState === 'Failed').length
 
       setLastSyncAt(nowMillis())
       setSyncOverviewState(
@@ -4973,10 +5306,12 @@ function backFromAppointments(): void {
       const localManualCategories = loadManualCategoriesFromStorage(storeId)
 
       if (localDishes.length) {
-        mergeDishEntities(localDishes)
-        setDishes(localDishes)
-        refreshFavoritesList(localDishes)
-        replaceDishPendingSyncOperations(localDishes)
+        const sortedLocalDishes = sortedDishesForStorage(localDishes)
+
+        mergeDishEntities(sortedLocalDishes)
+        setDishes(sortedLocalDishes)
+        refreshFavoritesList(sortedLocalDishes)
+        replaceDishPendingSyncOperations(sortedLocalDishes)
       }
 
       if (localManualCategories.length) {
@@ -5143,6 +5478,7 @@ function backFromAppointments(): void {
     repository,
     retryPendingSync: () => retryPendingSync(),
     screen,
+    sortedDishesForStorage,
     selectedCategory,
     setAdminItemIds,
     setAnnouncements,
@@ -5389,18 +5725,16 @@ function backFromAppointments(): void {
                 return removeDishIdFromList(current, syncedDish.id)
               }
 
-              if (current.includes(syncedDish.id)) {
-                return current
-              }
+              const currentItems = dishesFromIds(current)
+              const nextItems = sortedHomeDishesForDisplay(mergeUniqueById(currentItems, [syncedDish]).filter(item => !item.isHidden))
 
-              return [syncedDish.id, ...current]
+              return dishIdsFromItems(nextItems)
             })
             setAdminItemIds(current => {
-              if (current.includes(syncedDish.id)) {
-                return current
-              }
+              const currentItems = dishesFromIds(current)
+              const nextItems = sortedDishesForStorage(mergeUniqueById(currentItems, [syncedDish]))
 
-              return [syncedDish.id, ...current]
+              return dishIdsFromItems(nextItems)
             })
             removePendingSync(op.id)
           }
@@ -7080,7 +7414,8 @@ function backFromAppointments(): void {
       discountPriceText,
       priceText: discountPriceText || originalPriceText,
       imageUrl: selectDishImageUrl(dish, 'list'),
-      imageVariants: dish.imageVariants ?? null
+      imageVariants: dish.imageVariants ?? null,
+      createdAt: Number(dish.createdAt ?? dish.updatedAt ?? 0)
     }
   }
 
@@ -7362,6 +7697,7 @@ function backFromAppointments(): void {
     adminItemsSearchDebounceTimerRef,
     adminItemsSearchQuery,
     adminItemsSearchRequestSeqRef,
+    adminItemsCloudFiltersRef,
     adminItemsSelectedCategory,
     adminItemsSortAscending,
     adminItemsSortMode,
@@ -7417,6 +7753,7 @@ function backFromAppointments(): void {
     guardOfflineWriteOperation,
     homeAppliedMaxPrice,
     homeAppliedMinPrice,
+    homeDishCloudFiltersRef,
     homeDishIds,
     homePriceMaxDraft,
     homePriceMinDraft,
@@ -9115,15 +9452,38 @@ function backFromAppointments(): void {
   }))
 
   try {
+    const filters = currentHomeDishCloudFilters()
     const nextItems = await fetchHomeDishesFilteredPage(
-      currentHomeDishCloudFilters(),
+      filters,
       homePagination.nextOffset
     )
     const currentItems = dishesFromIds(homeDishIds)
-    const merged = sortedDishesForStorage(mergeUniqueById(currentItems, nextItems))
+    const merged = filters.sortMode === 'Default'
+      ? sortedHomeDishesForDisplay(mergeUniqueById(currentItems, nextItems))
+      : mergeUniqueById(currentItems, nextItems)
 
-    setHomeDishIds(mergeDishIds(homeDishIds, nextItems))
-    setDishes(merged)
+    setHomeDishIds(dishIdsFromItems(merged))
+    setDishes(current => {
+      const nextById = new Map<string, DemoDish>()
+
+      current.forEach(item => {
+        const id = String(item.id || '').trim()
+
+        if (!id) return
+
+        nextById.set(id, item)
+      })
+
+      merged.forEach(item => {
+        const id = String(item.id || '').trim()
+
+        if (!id) return
+
+        nextById.set(id, item)
+      })
+
+      return sortedDishesForStorage(Array.from(nextById.values()))
+    })
     refreshFavoritesList(merged)
     replaceDishPendingSyncOperations(merged)
 
@@ -9167,15 +9527,38 @@ function backFromAppointments(): void {
     setStoreMerchantSessionFromAuthSession(validSession)
     bindMerchantSessionToRepository(repository)
 
+    const filters = currentAdminItemsCloudFilters()
     const nextItems = await fetchAdminItemsFilteredPage(
-      currentAdminItemsCloudFilters(),
+      filters,
       adminItemsPagination.nextOffset
     )
     const currentItems = dishesFromIds(adminItemIds)
-    const merged = sortedDishesForStorage(mergeUniqueById(currentItems, nextItems))
+    const merged = filters.sortMode === 'Default'
+      ? sortedDishesForStorage(mergeUniqueById(currentItems, nextItems))
+      : mergeUniqueById(currentItems, nextItems)
 
-    setAdminItemIds(mergeDishIds(adminItemIds, nextItems))
-    setDishes(merged)
+    setAdminItemIds(dishIdsFromItems(merged))
+    setDishes(current => {
+      const nextById = new Map<string, DemoDish>()
+
+      current.forEach(item => {
+        const id = String(item.id || '').trim()
+
+        if (!id) return
+
+        nextById.set(id, item)
+      })
+
+      merged.forEach(item => {
+        const id = String(item.id || '').trim()
+
+        if (!id) return
+
+        nextById.set(id, item)
+      })
+
+      return sortedDishesForStorage(Array.from(nextById.values()))
+    })
     refreshFavoritesList(merged)
     replaceDishPendingSyncOperations(merged)
 
@@ -15791,8 +16174,13 @@ const editDishState: ShowcaseEditDishUiState = {
     },
 
     onAddService: value => {
-      markStoreProfileDraftDirty()
-      onStoreProfileServiceAdd(value)
+      const added = onStoreProfileServiceAdd(value)
+
+      if (added) {
+        markStoreProfileDraftDirty()
+      }
+
+      return added
     },
 
     onRemoveService: index => {
@@ -15801,8 +16189,13 @@ const editDishState: ShowcaseEditDishUiState = {
     },
 
     onAddExtraContact: (name, value) => {
-      markStoreProfileDraftDirty()
-      onStoreProfileExtraContactAdd(name, value)
+      const added = onStoreProfileExtraContactAdd(name, value)
+
+      if (added) {
+        markStoreProfileDraftDirty()
+      }
+
+      return added
     },
 
     onRemoveExtraContact: id => {

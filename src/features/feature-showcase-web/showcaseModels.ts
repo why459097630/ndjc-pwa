@@ -100,6 +100,7 @@ export type ShowcaseFavoriteSnapshot = {
   priceText: string
   imageUrl: string | null
   imageVariants?: ShowcaseImageVariants | null
+  createdAt?: number
 }
 
 export type CachedPublishedAnnouncement = {
@@ -233,6 +234,7 @@ export function createDefaultDemoDish(input: Partial<DemoDish> & Pick<DemoDish, 
     imageVariants: normalizeShowcaseImageVariants(input.imageVariants),
     tags: normalizeStringList(input.tags),
     externalLink: input.externalLink ?? null,
+    createdAt: Number.isFinite(Number(input.createdAt)) ? Number(input.createdAt) : Number.isFinite(Number(input.updatedAt)) ? Number(input.updatedAt) : 0,
     updatedAt: Number.isFinite(Number(input.updatedAt)) ? Number(input.updatedAt) : 0,
     syncState: input.syncState || 'Synced',
     dirty: Boolean(input.dirty),
@@ -535,6 +537,7 @@ export function loadDishesFromStorage(storeId: string): DemoDish[] {
         imageVariants,
         tags: normalizeStringList(record.tags),
         externalLink: normalizeStorageNullableString(record.externalLink),
+        createdAt: normalizeStorageNumber(record.createdAt, normalizeStorageNumber(record.updatedAt, 0)),
         updatedAt: normalizeStorageNumber(record.updatedAt, 0),
         syncState: record.syncState === 'Pending' || record.syncState === 'Failed' ? record.syncState : 'Synced',
         dirty: normalizeStorageBoolean(record.dirty, false)
@@ -565,6 +568,7 @@ export function saveDishesToStorage(storeId: string, dishes: DemoDish[]): void {
       imageVariants: normalizeShowcaseImageVariants(dish.imageVariants),
       tags: normalizeStringList(dish.tags),
       externalLink: dish.externalLink ?? null,
+      createdAt: normalizeStorageNumber(dish.createdAt, normalizeStorageNumber(dish.updatedAt, 0)),
       updatedAt: normalizeStorageNumber(dish.updatedAt, 0),
       syncState: dish.syncState || 'Synced',
       dirty: Boolean(dish.dirty)
@@ -747,7 +751,8 @@ export function loadFavoriteSnapshotsFromStorage(storeId: string): Record<string
       discountPriceText: normalizeStorageNullableString(record.discountPriceText),
       priceText: String(record.priceText || '').trim(),
       imageUrl: normalizeStorageNullableString(record.imageUrl),
-      imageVariants: normalizeShowcaseImageVariants(record.imageVariants)
+      imageVariants: normalizeShowcaseImageVariants(record.imageVariants),
+      createdAt: normalizeStorageNumber(record.createdAt, 0)
     }
   })
 
@@ -774,7 +779,8 @@ export function saveFavoriteSnapshotsToStorage(
         discountPriceText: snapshot.discountPriceText ?? null,
         priceText: snapshot.priceText,
         imageUrl: snapshot.imageUrl ?? null,
-        imageVariants: normalizeShowcaseImageVariants(snapshot.imageVariants)
+        imageVariants: normalizeShowcaseImageVariants(snapshot.imageVariants),
+        createdAt: normalizeStorageNumber(snapshot.createdAt, 0)
       }
     })
 

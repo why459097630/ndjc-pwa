@@ -13,8 +13,10 @@ type ShowcaseCatalogActionsContext = {
   [key: string]: any
   adminItemsSearchDebounceTimerRef: MutableRefLike<number | null>
   adminItemsSearchRequestSeqRef: MutableRefLike<number>
+  adminItemsCloudFiltersRef: MutableRefLike<any>
   homeSearchDebounceTimerRef: MutableRefLike<number | null>
   homeSearchRequestSeqRef: MutableRefLike<number>
+  homeDishCloudFiltersRef: MutableRefLike<any>
   adminSelectedDishIds: string[]
   adminVisibleDishes: DemoDish[]
   dishes: DemoDish[]
@@ -117,6 +119,7 @@ export function createShowcaseCatalogActions(ctx: ShowcaseCatalogActionsContext)
     adminItemsSearchDebounceTimerRef,
     adminItemsSearchQuery,
     adminItemsSearchRequestSeqRef,
+    adminItemsCloudFiltersRef,
     adminItemsSelectedCategory,
     adminItemsSortAscending,
     adminItemsSortMode,
@@ -172,6 +175,7 @@ export function createShowcaseCatalogActions(ctx: ShowcaseCatalogActionsContext)
     guardOfflineWriteOperation,
     homeAppliedMaxPrice,
     homeAppliedMinPrice,
+    homeDishCloudFiltersRef,
     homeDishIds,
     homePriceMaxDraft,
     homePriceMinDraft,
@@ -305,7 +309,7 @@ export function createShowcaseCatalogActions(ctx: ShowcaseCatalogActionsContext)
     setAdminItemsAppliedMinPrice(nextMin)
     setAdminItemsAppliedMaxPrice(nextMax)
 
-    void refreshAdminItemsFilteredFirstPage(currentAdminItemsCloudFilters({
+    void refreshAdminItemsFilteredFirstPage(updateAdminItemsCloudFilters({
       minPrice: nextMin,
       maxPrice: nextMax
     }))
@@ -317,7 +321,7 @@ export function createShowcaseCatalogActions(ctx: ShowcaseCatalogActionsContext)
     setAdminItemsAppliedMinPrice(null)
     setAdminItemsAppliedMaxPrice(null)
 
-    void refreshAdminItemsFilteredFirstPage(currentAdminItemsCloudFilters({
+    void refreshAdminItemsFilteredFirstPage(updateAdminItemsCloudFilters({
       minPrice: null,
       maxPrice: null
     }))
@@ -355,7 +359,7 @@ export function createShowcaseCatalogActions(ctx: ShowcaseCatalogActionsContext)
     setAdminItemsAppliedMinPrice(nextMin)
     setAdminItemsAppliedMaxPrice(nextMax)
 
-    void refreshAdminItemsFilteredFirstPage(currentAdminItemsCloudFilters({
+    void refreshAdminItemsFilteredFirstPage(updateAdminItemsCloudFilters({
       recommendedOnly: value.recommendedOnly,
       hiddenOnly: value.hiddenOnly,
       onSaleOnly: value.discountOnly,
@@ -383,7 +387,7 @@ export function createShowcaseCatalogActions(ctx: ShowcaseCatalogActionsContext)
       adminItemsSearchDebounceTimerRef.current = null
     }
 
-    const nextFilters = currentAdminItemsCloudFilters({
+    const nextFilters = updateAdminItemsCloudFilters({
       searchQuery: value
     })
 
@@ -404,7 +408,7 @@ export function createShowcaseCatalogActions(ctx: ShowcaseCatalogActionsContext)
     setAdminItemsSortMode(nextMode)
     setAdminItemsSortAscending(nextAscending)
 
-    void refreshAdminItemsFilteredFirstPage(currentAdminItemsCloudFilters({
+    void refreshAdminItemsFilteredFirstPage(updateAdminItemsCloudFilters({
       sortMode: nextMode
     }))
   }
@@ -480,12 +484,14 @@ export function createShowcaseCatalogActions(ctx: ShowcaseCatalogActionsContext)
 
       const allCategoryNames = cloudCategoriesToManualCategoryNames(cloudCategories)
 
-      mergeDishEntities(finalDishes)
-      setAdminItemIds(dishIdsFromItems(finalDishes))
-      setHomeDishIds(dishIdsFromItems(finalDishes.filter((item: any) => !item.isHidden)))
-      setDishes(finalDishes)
+      const sortedFinalDishes = sortedDishesForStorage(finalDishes)
+
+      mergeDishEntities(sortedFinalDishes)
+      setAdminItemIds(dishIdsFromItems(sortedFinalDishes))
+      setHomeDishIds(dishIdsFromItems(sortedDishesForStorage(sortedFinalDishes.filter((item: any) => !item.isHidden))))
+      setDishes(sortedFinalDishes)
       setCategories(cloudCategories)
-      replaceDishPendingSyncOperations(finalDishes)
+      replaceDishPendingSyncOperations(sortedFinalDishes)
       setSelectedCategory((current: any) => String(current || '').trim() === name ? null : current)
       setEditDishCategory((current: any) => String(current || '').trim() === name ? null : current)
       setAdminPendingDeleteCategory(null)
@@ -566,12 +572,14 @@ export function createShowcaseCatalogActions(ctx: ShowcaseCatalogActionsContext)
 
       const allCategoryNames = cloudCategoriesToManualCategoryNames(cloudCategories)
 
-      mergeDishEntities(finalDishes)
-      setAdminItemIds(dishIdsFromItems(finalDishes))
-      setHomeDishIds(dishIdsFromItems(finalDishes.filter((item: any) => !item.isHidden)))
-      setDishes(finalDishes)
+      const sortedFinalDishes = sortedDishesForStorage(finalDishes)
+
+      mergeDishEntities(sortedFinalDishes)
+      setAdminItemIds(dishIdsFromItems(sortedFinalDishes))
+      setHomeDishIds(dishIdsFromItems(sortedDishesForStorage(sortedFinalDishes.filter((item: any) => !item.isHidden))))
+      setDishes(sortedFinalDishes)
       setCategories(cloudCategories)
-      replaceDishPendingSyncOperations(finalDishes)
+      replaceDishPendingSyncOperations(sortedFinalDishes)
       setStatusMessage(null)
 
       persistDishesLocally(storeId, finalDishes)
@@ -697,12 +705,14 @@ export function createShowcaseCatalogActions(ctx: ShowcaseCatalogActionsContext)
 
       const allCategoryNames = cloudCategoriesToManualCategoryNames(cloudCategories)
 
-      mergeDishEntities(finalDishes)
-      setAdminItemIds(dishIdsFromItems(finalDishes))
-      setHomeDishIds(dishIdsFromItems(finalDishes.filter((item: any) => !item.isHidden)))
-      setDishes(finalDishes)
+      const sortedFinalDishes = sortedDishesForStorage(finalDishes)
+
+      mergeDishEntities(sortedFinalDishes)
+      setAdminItemIds(dishIdsFromItems(sortedFinalDishes))
+      setHomeDishIds(dishIdsFromItems(sortedDishesForStorage(sortedFinalDishes.filter((item: any) => !item.isHidden))))
+      setDishes(sortedFinalDishes)
       setCategories(cloudCategories)
-      replaceDishPendingSyncOperations(finalDishes)
+      replaceDishPendingSyncOperations(sortedFinalDishes)
       setSelectedCategory((current: any) => String(current || '').trim() === from ? to : current)
       setEditDishCategory((current: any) => String(current || '').trim() === from ? to : current)
       setStatusMessage(null)
@@ -883,14 +893,16 @@ export function createShowcaseCatalogActions(ctx: ShowcaseCatalogActionsContext)
           return removeDishIdFromList(current, selected.id)
         }
 
-        if (current.includes(selected.id)) {
-          return current
-        }
+        const currentItems = dishesFromIds(current)
+        const nextItems = sortedDishesForStorage([
+          ...currentItems.filter((item: any) => item.id !== selected.id),
+          selected
+        ]).filter((item: any) => !item.isHidden)
 
-        return wasNew ? [selected.id, ...current] : current
+        return dishIdsFromItems(nextItems)
       })
 
-      await refreshAdminItemsFilteredFirstPage(currentAdminItemsCloudFilters())
+      await refreshAdminItemsFilteredFirstPage(updateAdminItemsCloudFilters())
 
       setSelectedDishId(selected.id)
       setEditDishId(selected.id)
@@ -983,19 +995,23 @@ export function createShowcaseCatalogActions(ctx: ShowcaseCatalogActionsContext)
           return removeDishIdFromList(current, queuedDish.id)
         }
 
-        if (current.includes(queuedDish.id)) {
-          return current
-        }
+        const currentItems = dishesFromIds(current)
+        const nextItems = sortedDishesForStorage([
+          ...currentItems.filter((item: any) => item.id !== queuedDish.id),
+          queuedDish
+        ]).filter((item: any) => !item.isHidden)
 
-        return wasNew ? [queuedDish.id, ...current] : current
+        return dishIdsFromItems(nextItems)
       })
 
       setAdminItemIds((current: any) => {
-        if (current.includes(queuedDish.id)) {
-          return current
-        }
+        const currentItems = dishesFromIds(current)
+        const nextItems = sortedDishesForStorage([
+          ...currentItems.filter((item: any) => item.id !== queuedDish.id),
+          queuedDish
+        ])
 
-        return [queuedDish.id, ...current]
+        return dishIdsFromItems(nextItems)
       })
 
       pushPendingSync({
@@ -1829,6 +1845,33 @@ export function createShowcaseCatalogActions(ctx: ShowcaseCatalogActionsContext)
     setFavoritesShowPriceMenu(false)
   }
 
+  function updateHomeDishCloudFilters(input: Record<string, any> = {}): any {
+    const nextFilters = currentHomeDishCloudFilters(input)
+
+    homeDishCloudFiltersRef.current = nextFilters
+
+    return nextFilters
+  }
+
+  function invalidateHomeFilterRequests(): number {
+    homeSearchRequestSeqRef.current += 1
+
+    if (homeSearchDebounceTimerRef.current != null && isBrowser()) {
+      window.clearTimeout(homeSearchDebounceTimerRef.current)
+      homeSearchDebounceTimerRef.current = null
+    }
+
+    return homeSearchRequestSeqRef.current
+  }
+
+  function updateAdminItemsCloudFilters(input: Record<string, any> = {}): any {
+    const nextFilters = currentAdminItemsCloudFilters(input)
+
+    adminItemsCloudFiltersRef.current = nextFilters
+
+    return nextFilters
+  }
+
   function toggleTag(tagInput: string): void {
     const tag = tagInput.trim()
     if (!tag) return
@@ -1855,31 +1898,29 @@ export function createShowcaseCatalogActions(ctx: ShowcaseCatalogActionsContext)
       )
     )
 
+    const requestSeq = invalidateHomeFilterRequests()
+
     setSelectedTags(nextTags)
-    void refreshHomeDishesFilteredFirstPage(currentHomeDishCloudFilters({
+    void refreshHomeDishesFilteredFirstPage(updateHomeDishCloudFilters({
       selectedTags: nextTags
-    }))
+    }), requestSeq)
   }
 
   function onClearTags(): void {
+    const requestSeq = invalidateHomeFilterRequests()
+
     setSelectedTags([])
-    void refreshHomeDishesFilteredFirstPage(currentHomeDishCloudFilters({
+    void refreshHomeDishesFilteredFirstPage(updateHomeDishCloudFilters({
       selectedTags: []
-    }))
+    }), requestSeq)
   }
 
   function onSearchQueryChange(value: string): void {
     setSearchQuery(value)
 
-    homeSearchRequestSeqRef.current += 1
-    const requestSeq = homeSearchRequestSeqRef.current
+    const requestSeq = invalidateHomeFilterRequests()
 
-    if (homeSearchDebounceTimerRef.current != null && isBrowser()) {
-      window.clearTimeout(homeSearchDebounceTimerRef.current)
-      homeSearchDebounceTimerRef.current = null
-    }
-
-    const nextFilters = currentHomeDishCloudFilters({
+    const nextFilters = updateHomeDishCloudFilters({
       searchQuery: value
     })
 
@@ -1896,12 +1937,13 @@ export function createShowcaseCatalogActions(ctx: ShowcaseCatalogActionsContext)
   function onCategorySelected(value: string | null): void {
     const category = String(value || '').trim()
     const nextCategory = category || null
+    const requestSeq = invalidateHomeFilterRequests()
 
     setSelectedCategory(nextCategory)
 
-    void refreshHomeDishesFilteredFirstPage(currentHomeDishCloudFilters({
+    void refreshHomeDishesFilteredFirstPage(updateHomeDishCloudFilters({
       categoryName: nextCategory
-    }))
+    }), requestSeq)
   }
 
   function onAdminItemsCategorySelected(value: string | null): void {
@@ -1910,34 +1952,39 @@ export function createShowcaseCatalogActions(ctx: ShowcaseCatalogActionsContext)
 
     setAdminItemsSelectedCategory(nextCategory)
 
-    void refreshAdminItemsFilteredFirstPage(currentAdminItemsCloudFilters({
+    void refreshAdminItemsFilteredFirstPage(updateAdminItemsCloudFilters({
       categoryName: nextCategory
     }))
   }
 
   function onSortModeChange(value: ShowcaseHomeSortMode): void {
     const nextSortMode = normalizeSortMode(value)
+    const requestSeq = invalidateHomeFilterRequests()
 
     setSortMode(nextSortMode)
     setHomeShowSortMenu(false)
 
-    void refreshHomeDishesFilteredFirstPage(currentHomeDishCloudFilters({
+    void refreshHomeDishesFilteredFirstPage(updateHomeDishCloudFilters({
       sortMode: nextSortMode
-    }))
+    }), requestSeq)
   }
 
   function onFilterRecommendedOnlyChange(value: boolean): void {
+    const requestSeq = invalidateHomeFilterRequests()
+
     setFilterRecommendedOnly(value)
-    void refreshHomeDishesFilteredFirstPage(currentHomeDishCloudFilters({
+    void refreshHomeDishesFilteredFirstPage(updateHomeDishCloudFilters({
       recommendedOnly: value
-    }))
+    }), requestSeq)
   }
 
   function onFilterOnSaleOnlyChange(value: boolean): void {
+    const requestSeq = invalidateHomeFilterRequests()
+
     setFilterOnSaleOnly(value)
-    void refreshHomeDishesFilteredFirstPage(currentHomeDishCloudFilters({
+    void refreshHomeDishesFilteredFirstPage(updateHomeDishCloudFilters({
       onSaleOnly: value
-    }))
+    }), requestSeq)
   }
 
   function onApplyHomeFilters(value: {
@@ -1950,6 +1997,7 @@ export function createShowcaseCatalogActions(ctx: ShowcaseCatalogActionsContext)
     const max = parseHomePriceDraft(value.maxPriceDraft)
     const nextMin = min != null && max != null && min > max ? max : min
     const nextMax = min != null && max != null && min > max ? min : max
+    const requestSeq = invalidateHomeFilterRequests()
 
     setFilterRecommendedOnly(value.recommendedOnly)
     setFilterOnSaleOnly(value.onSaleOnly)
@@ -1959,12 +2007,12 @@ export function createShowcaseCatalogActions(ctx: ShowcaseCatalogActionsContext)
     setHomeAppliedMaxPrice(nextMax)
     setHomeShowFilterMenu(false)
 
-    void refreshHomeDishesFilteredFirstPage(currentHomeDishCloudFilters({
+    void refreshHomeDishesFilteredFirstPage(updateHomeDishCloudFilters({
       recommendedOnly: value.recommendedOnly,
       onSaleOnly: value.onSaleOnly,
       minPrice: nextMin,
       maxPrice: nextMax
-    }))
+    }), requestSeq)
   }
 
   function onHomeShowSortMenuChange(value: boolean): void {
@@ -1992,34 +2040,39 @@ export function createShowcaseCatalogActions(ctx: ShowcaseCatalogActionsContext)
     const max = parseHomePriceDraft(homePriceMaxDraft)
     const nextMin = min != null && max != null && min > max ? max : min
     const nextMax = min != null && max != null && min > max ? min : max
+    const requestSeq = invalidateHomeFilterRequests()
 
     setHomeAppliedMinPrice(nextMin)
     setHomeAppliedMaxPrice(nextMax)
     setHomeShowPriceMenu(false)
 
-    void refreshHomeDishesFilteredFirstPage(currentHomeDishCloudFilters({
+    void refreshHomeDishesFilteredFirstPage(updateHomeDishCloudFilters({
       minPrice: nextMin,
       maxPrice: nextMax
-    }))
+    }), requestSeq)
   }
 
   function onHomeClearPriceRange(): void {
+    const requestSeq = invalidateHomeFilterRequests()
+
     setHomePriceMinDraft('')
     setHomePriceMaxDraft('')
     setHomeAppliedMinPrice(null)
     setHomeAppliedMaxPrice(null)
     setHomeShowPriceMenu(false)
 
-    void refreshHomeDishesFilteredFirstPage(currentHomeDishCloudFilters({
+    void refreshHomeDishesFilteredFirstPage(updateHomeDishCloudFilters({
       minPrice: null,
       maxPrice: null
-    }))
+    }), requestSeq)
   }
 
   function onClearSortAndFilters(): void {
+    const requestSeq = invalidateHomeFilterRequests()
+
     clearHomeSortAndFilters()
 
-    void refreshHomeDishesFilteredFirstPage(currentHomeDishCloudFilters({
+    void refreshHomeDishesFilteredFirstPage(updateHomeDishCloudFilters({
       searchQuery: '',
       selectedTags: [],
       recommendedOnly: false,
@@ -2027,10 +2080,12 @@ export function createShowcaseCatalogActions(ctx: ShowcaseCatalogActionsContext)
       minPrice: null,
       maxPrice: null,
       sortMode: 'Default'
-    }))
+    }), requestSeq)
   }
 
   function onClearAll(): void {
+    const requestSeq = invalidateHomeFilterRequests()
+
     clearHomeSortAndFilters()
     setSelectedCategory(null)
     setSelectedTags([])
@@ -2040,7 +2095,7 @@ export function createShowcaseCatalogActions(ctx: ShowcaseCatalogActionsContext)
     setHomeAppliedMaxPrice(null)
     setHomeShowPriceMenu(false)
 
-    void refreshHomeDishesFilteredFirstPage({
+    void refreshHomeDishesFilteredFirstPage(updateHomeDishCloudFilters({
       categoryName: null,
       searchQuery: '',
       selectedTags: [],
@@ -2051,7 +2106,7 @@ export function createShowcaseCatalogActions(ctx: ShowcaseCatalogActionsContext)
       includeHidden: false,
       hiddenOnly: false,
       sortMode: 'Default'
-    })
+    }), requestSeq)
   }
 
   function onHomeDishSelected(dishId: string): void {

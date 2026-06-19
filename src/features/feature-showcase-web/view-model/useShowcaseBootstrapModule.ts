@@ -35,6 +35,7 @@ export function useShowcaseBootstrapModule(context: any) {
     retryPendingSync,
     screen,
     selectedCategory,
+    sortedDishesForStorage,
     setAdminItemIds,
     setAnnouncements,
     setAppointmentRequests,
@@ -205,18 +206,20 @@ export function useShowcaseBootstrapModule(context: any) {
     const localAnnouncements = loadPublishedAnnouncementsLocally(storeId)
 
     const effectiveLocalDishes = localDishes.filter((item: any) => isAdminLoggedIn || !item.isHidden)
+    const sortedEffectiveLocalDishes = sortedDishesForStorage(effectiveLocalDishes)
+    const sortedHomeLocalDishes = sortedDishesForStorage(effectiveLocalDishes.filter((item: any) => !item.isHidden))
 
-    if (effectiveLocalDishes.length) {
-      mergeDishEntities(effectiveLocalDishes)
-      setHomeDishIds(dishIdsFromItems(effectiveLocalDishes))
+    if (sortedEffectiveLocalDishes.length) {
+      mergeDishEntities(sortedEffectiveLocalDishes)
+      setHomeDishIds(dishIdsFromItems(sortedHomeLocalDishes))
 
       if (isAdminLoggedIn) {
-        setAdminItemIds(dishIdsFromItems(effectiveLocalDishes))
+        setAdminItemIds(dishIdsFromItems(sortedEffectiveLocalDishes))
       }
 
-      setDishes(effectiveLocalDishes)
-      refreshFavoritesList(effectiveLocalDishes)
-      replaceDishPendingSyncOperations(effectiveLocalDishes)
+      setDishes(sortedEffectiveLocalDishes)
+      refreshFavoritesList(sortedEffectiveLocalDishes)
+      replaceDishPendingSyncOperations(sortedEffectiveLocalDishes)
     }
 
     if (localManualCategories.length) {

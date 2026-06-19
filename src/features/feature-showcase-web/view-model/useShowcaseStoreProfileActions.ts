@@ -287,6 +287,11 @@ export function createShowcaseStoreProfileActions(context: ShowcaseStoreProfileA
       return
     }
 
+    if (hasDuplicateExtraContactItems(cleanedExtraContacts)) {
+      setStoreProfileSaveError('This contact is already added.')
+      return
+    }
+
     const address = draft.address.trim()
     const mapUrl = draft.mapUrl.trim()
 
@@ -303,13 +308,14 @@ export function createShowcaseStoreProfileActions(context: ShowcaseStoreProfileA
       }
     }
 
-    const normalizedServices = Array.from(
-      new Set(
-        draftStoreProfileServices
-          .map((item: string) => item.trim())
-          .filter(Boolean)
-      )
-    )
+    const normalizedServices = draftStoreProfileServices
+      .map((item: string) => item.trim())
+      .filter(Boolean)
+
+    if (hasDuplicateBusinessScopeItems(normalizedServices)) {
+      setStoreProfileSaveError('This business scope is already added.')
+      return
+    }
 
     const normalizedDescription = draftStoreProfileDescription.trim().slice(0, 200)
     const normalizedSubtitle = draft.tagline.trim()
@@ -585,14 +591,82 @@ export function createShowcaseStoreProfileActions(context: ShowcaseStoreProfileA
     })
   }
 
-  function addStoreService(valueInput: string): void {
+  function normalizeBusinessScopeDuplicateKey(value: string): string {
+    return String(value || '').trim().toLowerCase()
+  }
+
+  function normalizeContactNameDuplicateKey(value: string): string {
+    return String(value || '').trim().toLowerCase()
+  }
+
+  function normalizeContactValueDuplicateKey(value: string): string {
+    return String(value || '').trim()
+  }
+
+  function hasDuplicateBusinessScopeItems(items: string[]): boolean {
+    const seen = new Set<string>()
+
+    for (const item of items) {
+      const key = normalizeBusinessScopeDuplicateKey(item)
+
+      if (!key) continue
+
+      if (seen.has(key)) {
+        return true
+      }
+
+      seen.add(key)
+    }
+
+    return false
+  }
+
+  function hasDuplicateExtraContactItems(items: Array<{ name: string; value: string }>): boolean {
+    const seen = new Set<string>()
+
+    for (const item of items) {
+      const nameKey = normalizeContactNameDuplicateKey(item.name)
+      const valueKey = normalizeContactValueDuplicateKey(item.value)
+
+      if (!nameKey || !valueKey) continue
+
+      const key = `${nameKey}\u0000${valueKey}`
+
+      if (seen.has(key)) {
+        return true
+      }
+
+      seen.add(key)
+    }
+
+    return false
+  }
+
+  function addStoreService(valueInput: string): boolean {
     const value = valueInput.trim()
-    if (!value) return
+
+    if (!value) return false
+
+    let added = false
 
     setDraftStoreProfileServices(current => {
-      if (current.includes(value)) return current
+      const valueKey = normalizeBusinessScopeDuplicateKey(value)
+      const duplicated = current.some((item: string) => {
+        return normalizeBusinessScopeDuplicateKey(item) === valueKey
+      })
+
+      if (duplicated) {
+        setStoreProfileSaveError('This business scope is already added.')
+        return current
+      }
+
+      added = true
+      setStoreProfileSaveError(null)
+
       return [...current, value]
     })
+
+    return added
   }
 
   function removeStoreService(indexInput: number): void {
@@ -604,22 +678,41 @@ export function createShowcaseStoreProfileActions(context: ShowcaseStoreProfileA
     })
   }
 
-  function addExtraContact(nameInput: string, valueInput: string): void {
+  function addExtraContact(nameInput: string, valueInput: string): boolean {
     const name = nameInput.trim()
     const value = valueInput.trim()
 
-    if (!name || !value) return
+    if (!name || !value) return false
 
-    setDraftStoreProfileExtraContacts(current => [
-      ...current,
-      {
-        id: createId('extra_contact'),
-        name,
-        value
+    let added = false
+
+    setDraftStoreProfileExtraContacts(current => {
+      const nameKey = normalizeContactNameDuplicateKey(name)
+      const valueKey = normalizeContactValueDuplicateKey(value)
+      const duplicated = current.some((item: any) => {
+        return normalizeContactNameDuplicateKey(item.name) === nameKey &&
+          normalizeContactValueDuplicateKey(item.value) === valueKey
+      })
+
+      if (duplicated) {
+        setStoreProfileSaveError('This contact is already added.')
+        return current
       }
-    ])
 
-    setStoreProfileSaveError(null)
+      added = true
+      setStoreProfileSaveError(null)
+
+      return [
+        ...current,
+        {
+          id: createId('extra_contact'),
+          name,
+          value
+        }
+      ]
+    })
+
+    return added
   }
 
   function removeExtraContact(idInput: string): void {
@@ -924,8 +1017,8 @@ export function createShowcaseStoreProfileActions(context: ShowcaseStoreProfileA
     showSnackbar('Reached max 9 images.')
   }
 
-  function onStoreProfileServiceAdd(value: string): void {
-    addStoreService(value)
+  function onStoreProfileServiceAdd(value: string): boolean {
+    return addStoreService(value)
   }
 
   function onStoreProfileServiceChange(indexInput: number, valueInput: string): void {
@@ -947,8 +1040,8 @@ export function createShowcaseStoreProfileActions(context: ShowcaseStoreProfileA
     removeStoreService(index)
   }
 
-  function onStoreProfileExtraContactAdd(name: string, value: string): void {
-    addExtraContact(name, value)
+  function onStoreProfileExtraContactAdd(name: string, value: string): boolean {
+    return addExtraContact(name, value)
   }
 
   function onStoreProfileExtraContactNameChange(id: string, value: string): void {

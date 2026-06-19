@@ -744,10 +744,10 @@ export type ShowcaseStoreProfileActions = ShowcaseBottomNavigationActions & {
   onCoverDraggingChange: (isDragging: boolean) => void
 
   onServiceChange: (index: number, value: string) => void
-  onAddService: (value: string) => void
+  onAddService: (value: string) => boolean
   onRemoveService: (index: number) => void
 
-  onAddExtraContact: (name: string, value: string) => void
+  onAddExtraContact: (name: string, value: string) => boolean
   onRemoveExtraContact: (id: string) => void
   onExtraContactNameChange: (id: string, value: string) => void
   onExtraContactValueChange: (id: string, value: string) => void

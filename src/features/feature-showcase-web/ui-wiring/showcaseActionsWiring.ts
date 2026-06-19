@@ -68,7 +68,9 @@ import {
   noopSortMode,
   noopString,
   noopStringBoolean,
+  noopStringReturnFalse,
   noopStringString,
+  noopStringStringReturnFalse,
   returnFalse
 } from './showcaseCommonWiring'
 
@@ -355,9 +357,9 @@ export function createNoopStoreProfileActions(
     onMoveCover: noopNumberNumber,
     onCoverDraggingChange: noopBoolean,
     onServiceChange: noopNumberString,
-    onAddService: noopString,
+    onAddService: noopStringReturnFalse,
     onRemoveService: noopNumber,
-    onAddExtraContact: noopStringString,
+    onAddExtraContact: noopStringStringReturnFalse,
     onRemoveExtraContact: noopString,
     onExtraContactNameChange: noopStringString,
     onExtraContactValueChange: noopStringString,

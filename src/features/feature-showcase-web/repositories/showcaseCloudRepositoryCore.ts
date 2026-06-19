@@ -1030,7 +1030,7 @@ async fetchDishes(storeIdInput?: string | null): Promise<DemoDish[]> {
   const query = [
     'select=*',
     `store_id=${this.encodeEq(storeId)}`,
-    'order=updated_at.desc.nullslast,name.asc'
+    'order=created_at.asc.nullslast,id.asc'
   ].join('&')
 
   const url = this.buildSelectUrl(this.dishesTable(), query)
@@ -1055,7 +1055,7 @@ async fetchDishes(storeIdInput?: string | null): Promise<DemoDish[]> {
 const query = [
   'select=*',
   `store_id=${this.encodeEq(storeId)}`,
-  'order=updated_at.desc.nullslast,name.asc',
+  'order=created_at.asc.nullslast,id.asc',
   `limit=${limit}`,
   `offset=${offset}`
 ].join('&')
@@ -1090,7 +1090,7 @@ const query = [
       'select=*',
       `store_id=${this.encodeEq(storeId)}`,
       `id=${encodeURIComponent(inValue)}`,
-      'order=updated_at.desc.nullslast,name.asc'
+      'order=created_at.asc.nullslast,id.asc'
     ].join('&')
 
     const url = this.buildSelectUrl(this.dishesTable(), query)
@@ -1123,7 +1123,7 @@ const orQuery = [
       'select=*',
       `store_id=${this.encodeEq(storeId)}`,
       `or=(${encodeURIComponent(orQuery)})`,
-      'order=updated_at.desc.nullslast',
+      'order=created_at.asc.nullslast,id.asc',
       `limit=${limit}`
     ].join('&')
 
@@ -1172,9 +1172,7 @@ const orQuery = [
 
     const sortMode = String(input.sortMode || '').trim()
     const shouldUseMerchantAuth = Boolean(input.includeHidden || input.hiddenOnly)
-    const defaultOrder = shouldUseMerchantAuth
-      ? 'order=updated_at.desc.nullslast,name.asc'
-      : 'order=created_at.asc.nullslast,id.asc'
+    const defaultOrder = 'order=created_at.asc.nullslast,id.asc'
     const needsEffectivePricePass = Boolean(
       input.onSaleOnly ||
       minPrice != null ||
@@ -1294,16 +1292,6 @@ const orQuery = [
           if (priceDiff !== 0) return priceDiff
         }
 
-        if (shouldUseMerchantAuth) {
-          const leftUpdatedAtMillis = this.parseIsoMillis(String(leftRow['updated_at'] || '')) ?? 0
-          const rightUpdatedAtMillis = this.parseIsoMillis(String(rightRow['updated_at'] || '')) ?? 0
-          const updatedDiff = rightUpdatedAtMillis - leftUpdatedAtMillis
-
-          if (updatedDiff !== 0) return updatedDiff
-
-          return jsonString(leftRow, 'name').localeCompare(jsonString(rightRow, 'name'))
-        }
-
         const leftCreatedAtMillis = this.parseIsoMillis(String(leftRow['created_at'] || '')) ?? 0
         const rightCreatedAtMillis = this.parseIsoMillis(String(rightRow['created_at'] || '')) ?? 0
         const createdDiff = leftCreatedAtMillis - rightCreatedAtMillis
@@ -1342,7 +1330,7 @@ const orQuery = [
           `store_id=${this.encodeEq(storeId)}`,
           input.includeHidden ? '' : `hidden=${this.encodeEq('false')}`,
           input.hiddenOnly ? `hidden=${this.encodeEq('true')}` : '',
-          'order=updated_at.desc.nullslast,name.asc',
+          'order=created_at.asc.nullslast,id.asc',
           `limit=${pageSize}`,
           `offset=${offset}`
         ].filter(Boolean).join('&')

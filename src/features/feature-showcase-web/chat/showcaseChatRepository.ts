@@ -1374,6 +1374,85 @@ export class ShowcaseChatRepository {
   // Cloud -> local sync
   // --------------------
 
+  private async reviveArchivedThreadsWithNewClientMessages(
+    storeIdInput: string,
+    traceId?: string | null
+  ): Promise<number> {
+    const storeId = storeIdInput.trim()
+
+    if (!storeId || !this.isChatCloudEnabled() || !this.chatCloud) return 0
+
+    const rows: MerchantThreadMetaCloudRow[] = await this.chatCloud.fetchMerchantThreadMetaRows(
+      storeId,
+      this.effectiveTraceId(traceId)
+    )
+
+    const archivedRows = rows.filter(row => {
+      const conversationId = String(row.conversationId || '').trim()
+      const archivedAtMs = Number(row.merchantArchivedAtMs || 0)
+
+      return Boolean(conversationId && row.merchantArchived && archivedAtMs > 0)
+    })
+
+    if (!archivedRows.length) return 0
+
+    let revivedCount = 0
+
+    for (const row of archivedRows) {
+      const conversationId = String(row.conversationId || '').trim()
+      const archivedAtMs = Number(row.merchantArchivedAtMs || 0)
+
+      if (!conversationId || archivedAtMs <= 0) continue
+
+      const latestMessages = await this.chatCloud.fetchMessagesByConversation(
+        storeId,
+        conversationId,
+        null,
+        true,
+        1,
+        this.effectiveTraceId(traceId),
+        0
+      )
+
+      const latestMessage = latestMessages[0] || null
+      const latestMessageTimeMs = Number(latestMessage?.timeMs || 0)
+      const latestMessageRole = String(latestMessage?.role || '').trim().toLowerCase()
+
+      if (!latestMessage || latestMessageTimeMs <= archivedAtMs || latestMessageRole !== 'client') {
+        continue
+      }
+
+      const old = await this.getThreadMeta(storeId, conversationId)
+      const cloudAlias = this.normalizeNullableString(row.merchantAlias)
+      const localAlias = this.normalizeNullableString(old?.alias)
+      const mergedAlias = cloudAlias || localAlias
+
+      this.upsertMetaEntity({
+        storeId,
+        conversationId,
+        pinnedAtMs: old?.pinnedAtMs || 0,
+        isDeleted: false,
+        deletedAtMs: archivedAtMs,
+        alias: mergedAlias,
+        customerSeq: old?.customerSeq ?? (Number(row.customerSeq) > 0 ? Number(row.customerSeq) : null)
+      })
+
+      const ok = await this.upsertMerchantThreadMetaToCloud({
+        storeId,
+        conversationId,
+        merchantAlias: mergedAlias,
+        merchantArchived: false,
+        merchantArchivedAtMs: archivedAtMs
+      })
+
+      if (ok) {
+        revivedCount++
+      }
+    }
+
+    return revivedCount
+  }
+
   async fetchCloudThreadSummaries(
     storeIdInput: string,
     traceId?: string | null,
@@ -1385,6 +1464,11 @@ export class ShowcaseChatRepository {
     const offset = Math.max(0, Math.trunc(Number(offsetInput) || 0))
 
     if (!storeId || !this.isChatCloudEnabled() || !this.chatCloud) return []
+
+    await this.reviveArchivedThreadsWithNewClientMessages(
+      storeId,
+      traceId
+    )
 
     const rows: MerchantThreadSummaryCloudRow[] = await this.chatCloud.fetchThreadSummaries(
       storeId,
@@ -1417,6 +1501,11 @@ export class ShowcaseChatRepository {
     const offset = Math.max(0, Math.trunc(Number(offsetInput) || 0))
 
     if (!storeId || !keyword || !this.isChatCloudEnabled() || !this.chatCloud) return []
+
+    await this.reviveArchivedThreadsWithNewClientMessages(
+      storeId,
+      traceId
+    )
 
     const rows: MerchantThreadSummaryCloudRow[] = await this.chatCloud.searchThreadSummariesByCustomerName(
       storeId,
