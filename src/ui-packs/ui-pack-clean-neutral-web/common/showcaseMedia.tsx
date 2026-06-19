@@ -363,6 +363,13 @@ export const apkFullscreenPageIndicatorStyle: React.CSSProperties = {
 }
 
 
+function isInlineBlurDataUrl(value?: string | null): value is string {
+  const cleanValue = value?.trim() || ''
+
+  return cleanValue.startsWith('data:image/')
+}
+
+
 export function NdjcShimmerImage({
   src,
   alt,
@@ -395,6 +402,7 @@ export function NdjcShimmerImage({
   showShimmer?: boolean
 }) {
   const cleanSrc = src?.trim() || ''
+  const cleanBlurDataUrl = isInlineBlurDataUrl(blurDataUrl) ? blurDataUrl.trim() : ''
   const imageRef = React.useRef<HTMLImageElement | null>(null)
   const [loaded, setLoaded] = React.useState(false)
   const [failed, setFailed] = React.useState(false)
@@ -474,7 +482,7 @@ export function NdjcShimmerImage({
             ...apkImagePlaceholderStyle,
             borderRadius: placeholderCornerRadius,
             background: backgroundColor,
-            backgroundImage: blurDataUrl ? `url(${blurDataUrl})` : apkImagePlaceholderStyle.backgroundImage,
+            backgroundImage: cleanBlurDataUrl ? `url(${cleanBlurDataUrl})` : apkImagePlaceholderStyle.backgroundImage,
             backgroundSize: 'cover',
             backgroundPosition: 'center'
           }}
