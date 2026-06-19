@@ -65,6 +65,7 @@ import {
   SHOWCASE_APP_VERSION,
   SHOWCASE_OFFICIAL_WEBSITE_URL
 } from '../showcaseCloudConfig'
+import { buildCloudDaysRemainingLabel } from '../view-model/showcaseViewModelUtils'
 
 export type ShowcaseUiWiringState = ShowcaseUiState
 
@@ -279,33 +280,6 @@ export function formatCloudDateTimeLabel(raw: string): string {
   } catch {
     return new Date(millis).toLocaleString()
   }
-}
-
-export function startOfLocalDayMs(valueMs: number): number {
-  const date = new Date(valueMs)
-  date.setHours(0, 0, 0, 0)
-  return date.getTime()
-}
-
-export function buildCloudDaysRemainingLabel(serviceEndAt: string): string {
-  const endAtMs = parseCloudIsoMillis(serviceEndAt)
-  if (endAtMs == null) return ''
-
-  const nowMs = Date.now()
-  const diffMs = endAtMs - nowMs
-  const oneDayMs = 24 * 60 * 60 * 1000
-
-  if (diffMs <= 0) {
-    return 'Expired'
-  }
-
-  const todayStartMs = startOfLocalDayMs(nowMs)
-  const endDayStartMs = startOfLocalDayMs(endAtMs)
-  const days = Math.floor((endDayStartMs - todayStartMs) / oneDayMs)
-
-  if (days <= 0) return 'Expires today'
-  if (days === 1) return '1 day left'
-  return `${days} days left`
 }
 
 export function buildCloudStatusLabel(
