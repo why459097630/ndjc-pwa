@@ -2629,6 +2629,8 @@ export function ShowcaseStoreProfileEdit({
   const titleRequiredError = storeProfileErrorMessage === 'Store title is required.'
   const addressRequiredError = storeProfileErrorMessage === 'Address is required when Map URL is set.'
   const contactRequiredError = storeProfileErrorMessage === 'Contact name and value must both be filled, or both be empty.'
+  const contactDuplicateError = storeProfileErrorMessage === 'This contact is already added.'
+  const businessScopeDuplicateError = storeProfileErrorMessage === 'This business scope is already added.'
   const mapUrlInvalidError = storeProfileErrorMessage === 'Map URL must start with http:// or https://.'
 
   React.useEffect(() => {
@@ -2839,11 +2841,27 @@ export function ShowcaseStoreProfileEdit({
             >
               <NdjcTextField
                 value={serviceDraft}
-                onChange={setServiceDraft}
+                onChange={value => {
+                  setServiceDraft(value)
+                }}
                 label="Add new service"
                 placeholder="Enter service name"
                 singleLine
               />
+
+              {businessScopeDuplicateError ? (
+                <p
+                  style={{
+                    margin: '-10px 0 0 0',
+                    color: APK_EDIT_ITEM_UI.error80,
+                    fontSize: APK_EDIT_ITEM_UI.bodySmallFontSize,
+                    lineHeight: APK_EDIT_ITEM_UI.bodySmallLineHeight,
+                    fontWeight: APK_EDIT_ITEM_UI.bodySmallFontWeight
+                  }}
+                >
+                  This business scope is already added.
+                </p>
+              ) : null}
 
               <section
                 style={{
@@ -2862,8 +2880,11 @@ export function ShowcaseStoreProfileEdit({
                   fullWidth
                   disabled={!serviceDraft.trim()}
                   onClick={() => {
-                    actions.onAddService(serviceDraft)
-                    setServiceDraft('')
+                    const added = actions.onAddService(serviceDraft)
+
+                    if (added) {
+                      setServiceDraft('')
+                    }
                   }}
                 >
                   Add
@@ -2978,6 +2999,24 @@ Sun: Closed`}
                   />
                 </section>
 
+                {contactRequiredError || contactDuplicateError || extraLocalError ? (
+                  <p
+                    style={{
+                      margin: 0,
+                      color: APK_EDIT_ITEM_UI.error80,
+                      fontSize: APK_EDIT_ITEM_UI.bodySmallFontSize,
+                      lineHeight: APK_EDIT_ITEM_UI.bodySmallLineHeight,
+                      fontWeight: APK_EDIT_ITEM_UI.bodySmallFontWeight
+                    }}
+                  >
+                    {contactRequiredError
+                      ? 'A contact item is incomplete (Name/Value). Please complete it or remove it before saving.'
+                      : contactDuplicateError
+                        ? 'This contact is already added.'
+                        : extraLocalError}
+                  </p>
+                ) : null}
+
                 <section
                   style={{
                     width: '100%',
@@ -2997,10 +3036,12 @@ Sun: Closed`}
                     onClick={() => {
                       const name = extraNewName.trim()
                       const value = extraNewValue.trim()
+                      const added = actions.onAddExtraContact(name, value)
 
-                      actions.onAddExtraContact(name, value)
-                      setExtraNewName('')
-                      setExtraNewValue('')
+                      if (added) {
+                        setExtraNewName('')
+                        setExtraNewValue('')
+                      }
                     }}
                   >
                     Add
@@ -3008,26 +3049,6 @@ Sun: Closed`}
                 </section>
               </section>
               </StoreExtraContactsEditor>
-
-              {contactRequiredError || extraLocalError ? (
-                <>
-                  <div style={{ height: 6, flexShrink: 0 }} />
-
-                  <p
-                    style={{
-                      margin: 0,
-                      color: APK_EDIT_ITEM_UI.error80,
-                      fontSize: APK_EDIT_ITEM_UI.bodySmallFontSize,
-                      lineHeight: APK_EDIT_ITEM_UI.bodySmallLineHeight,
-                      fontWeight: APK_EDIT_ITEM_UI.bodySmallFontWeight
-                    }}
-                  >
-                    {contactRequiredError
-                      ? 'A contact item is incomplete (Name/Value). Please complete it or remove it before saving.'
-                      : extraLocalError}
-                  </p>
-                </>
-              ) : null}
             </section>
 
             <div style={{ height: APK_EDIT_ITEM_UI.sectionTop, flexShrink: 0 }} />
@@ -3077,7 +3098,9 @@ Sun: Closed`}
             !titleRequiredError &&
             !addressRequiredError &&
             !mapUrlInvalidError &&
-            !contactRequiredError ? (
+            !contactRequiredError &&
+            !contactDuplicateError &&
+            !businessScopeDuplicateError ? (
               <>
                 <div style={{ height: 8, flexShrink: 0 }} />
 

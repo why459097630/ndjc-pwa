@@ -655,7 +655,7 @@ function AnnouncementDraftCard({
             height: APK_SHOWCASE_ITEM_UI.catalogImageSize,
             minWidth: APK_CORE_UI.checkboxSize,
             display: 'grid',
-            gridTemplateRows: `${APK_CORE_UI.checkboxSize}px 1fr auto`,
+            gridTemplateRows: '28px auto 1fr auto',
             alignItems: 'start',
             justifyItems: 'end'
           }}
@@ -666,6 +666,8 @@ function AnnouncementDraftCard({
             event.stopPropagation()
           }}
         >
+          <span aria-hidden="true" />
+
           <NdjcSelectionCheckbox
             selected={selected}
             onClick={() => onToggleSelect(item.id)}
